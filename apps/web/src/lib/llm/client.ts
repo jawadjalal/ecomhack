@@ -2,10 +2,11 @@
  * Provider-agnostic LLM helper for server code.
  *
  * Provider is picked from env:
- *   LLM_PROVIDER=xai|anthropic|none   (optional, else auto-detect)
- *   XAI_API_KEY        → Grok via xAI's OpenAI-compatible API (hackathon sponsor)
- *   ANTHROPIC_API_KEY  → Claude via @anthropic-ai/sdk
- *   XAI_MODEL / ANTHROPIC_MODEL override the default model.
+ *   LLM_PROVIDER=xai|anthropic|openrouter|none   (optional, else auto-detect)
+ *   XAI_API_KEY         → Grok via xAI's OpenAI-compatible API (hackathon sponsor)
+ *   ANTHROPIC_API_KEY   → Claude via @anthropic-ai/sdk
+ *   OPENROUTER_API_KEY  → any OpenRouter model (cheap testing, e.g. DeepSeek)
+ *   XAI_MODEL / ANTHROPIC_MODEL / OPENROUTER_MODEL override the default model.
  *
  * With no key, `llmAvailable()` is false and callers MUST fall back to heuristics,
  * so the demo always runs offline.
@@ -14,15 +15,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { z } from "zod";
 
-export type LlmProvider = "xai" | "anthropic" | "none";
+export type LlmProvider = "xai" | "anthropic" | "openrouter" | "none";
 
 export function llmProvider(): LlmProvider {
   const forced = process.env.LLM_PROVIDER as LlmProvider | undefined;
   if (forced === "none") return "none";
   if (forced === "xai" && process.env.XAI_API_KEY) return "xai";
   if (forced === "anthropic" && process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (forced === "openrouter" && process.env.OPENROUTER_API_KEY) return "openrouter";
   if (process.env.XAI_API_KEY) return "xai";
   if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (process.env.OPENROUTER_API_KEY) return "openrouter";
   return "none";
 }
 
@@ -36,6 +39,8 @@ export function llmModel(): string {
       return process.env.XAI_MODEL ?? "grok-4";
     case "anthropic":
       return process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
+    case "openrouter":
+      return process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-chat";
     default:
       return "heuristic";
   }
@@ -55,8 +60,15 @@ export interface TextRequest {
 /** Plain text completion. Throws if no provider is configured. */
 export async function generateText({ system, prompt, maxTokens = 4000 }: TextRequest): Promise<string> {
   const provider = llmProvider();
-  if (provider === "xai") {
-    const client = new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1" });
+  if (provider === "xai" || provider === "openrouter") {
+    const client =
+      provider === "xai"
+        ? new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1" })
+        : new OpenAI({
+            apiKey: process.env.OPENROUTER_API_KEY,
+            baseURL: "https://openrouter.ai/api/v1",
+            defaultHeaders: { "X-Title": "Darwin" },
+          });
     const res = await client.chat.completions.create({
       model: llmModel(),
       max_tokens: maxTokens,
@@ -81,7 +93,7 @@ export async function generateText({ system, prompt, maxTokens = 4000 }: TextReq
     if (res.stop_reason === "refusal") throw new Error("LLM refused the request");
     return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   }
-  throw new Error("No LLM provider configured (set XAI_API_KEY or ANTHROPIC_API_KEY)");
+  throw new Error("No LLM provider configured (set XAI_API_KEY, ANTHROPIC_API_KEY or OPENROUTER_API_KEY)");
 }
 
 /** Pull the first JSON object/array out of a model response. */
