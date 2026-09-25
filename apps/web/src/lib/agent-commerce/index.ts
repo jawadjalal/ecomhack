@@ -37,3 +37,36 @@ export async function callAgentTool(
   // Placeholder until the agent-commerce PR lands.
   return { ok: false, error: "not implemented" };
 }
+
+import type { AgentSessionSummary, ShoppingGoal } from "@/lib/contracts";
+
+/** KV keys owned by this module (the optimizer's reset clears them). */
+export const AGENT_KV_KEYS = { sessions: "agent-sessions", carts: "agent-carts" } as const;
+
+/**
+ * Run one buyer agent end-to-end against the store via `callAgentTool` (in-process).
+ * Used by the simulator for agent traffic and by the console's "send a shopper" button.
+ * `useLlm` lets Grok/Claude pick actions; otherwise a scripted policy is used.
+ */
+export async function runBuyerAgent(
+  goal: ShoppingGoal,
+  ctx: AgentContext,
+  _opts: { useLlm?: boolean } = {},
+): Promise<AgentSessionSummary> {
+  // Placeholder until the agent-commerce PR lands.
+  return {
+    sessionId: ctx.sessionId,
+    agentName: ctx.agentName,
+    goal,
+    startedAt: new Date().toISOString(),
+    outcome: "abandoned",
+    reason: "not implemented",
+    toolCalls: [],
+    synthetic: ctx.synthetic ?? false,
+  };
+}
+
+/** Recent agent sessions, newest first. */
+export function listAgentSessions(_limit = 20): AgentSessionSummary[] {
+  return [];
+}
