@@ -50,6 +50,10 @@ export interface TrackingPlan {
   whop?: string;
   /** What Darwin heard in the prompt ("checkout", "mobile"), in order. */
   goals?: string[];
+  /** False when Darwin couldn't read the repo (no GitHub access): framework is assumed, analytics unknown. */
+  repoRead?: boolean;
+  /** Analytics the store already runs (from its repo): darwin.js runs alongside, nothing is replaced. */
+  existingAnalytics?: string[];
   events: TrackingEvent[];
   dashboards: DashboardSpec[];
   /** "heuristic" or "llm:<model>". */

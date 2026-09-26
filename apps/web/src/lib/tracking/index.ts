@@ -5,8 +5,9 @@
 import type { TrackingPlan } from "@/lib/contracts";
 import { kvGet, kvUpdate } from "@/lib/db/json-store";
 
-export { heuristicPlan, amendPlan, heuristicAmend, applyToggles, dashboardsFor, planIntro, trackingDoc, trackingSummary, AUTOMATIC, FUNNEL } from "./plan";
+export { buildPlan, heuristicPlan, amendPlan, heuristicAmend, applyToggles, dashboardsFor, planIntro, trackingDoc, trackingSummary, AUTOMATIC, FUNNEL } from "./plan";
 export { computeDashboards } from "./dashboards";
+export type { PlanInput } from "./plan";
 
 const KEY = "tracking-plans";
 

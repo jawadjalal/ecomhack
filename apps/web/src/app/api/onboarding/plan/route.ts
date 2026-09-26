@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { githubErrorStatus, inspectRepository } from "@/lib/github";
-import { amendPlan, applyToggles, getPlan, heuristicPlan, planIntro, savePlan } from "@/lib/tracking";
+import { amendPlan, applyToggles, buildPlan, getPlan, planIntro, savePlan } from "@/lib/tracking";
 
 const SiteSchema = z.string().regex(/^[\w.-]{1,64}$/);
 
@@ -25,8 +25,10 @@ export async function POST(req: Request) {
   }
   try {
     const repo = await inspectRepository(input.repoUrl);
-    const plan = savePlan(heuristicPlan({ site: repo.siteId, prompt: input.prompt?.trim() || undefined, repo: repo.repo, framework: repo.framework, whop: input.whop }));
-    return Response.json({ plan, reply: planIntro(plan), note: repo.note });
+    const plan = savePlan(
+      await buildPlan({ site: repo.siteId, prompt: input.prompt?.trim() || undefined, repo: repo.repo, framework: repo.framework, whop: input.whop, analytics: repo.analytics, repoRead: !repo.assumed }),
+    );
+    return Response.json({ plan, reply: planIntro(plan), note: repo.note, found: { framework: repo.framework, assumed: repo.assumed, analytics: repo.analytics } });
   } catch (err) {
     const { status, error } = githubErrorStatus(err);
     return Response.json({ error }, { status });

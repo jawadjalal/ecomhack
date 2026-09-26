@@ -135,7 +135,19 @@ export function dashboardsFor(plan: Pick<TrackingPlan, "events" | "whop" | "prom
 
 /* ------------------------------------------------------------------ build */
 
-export function heuristicPlan(input: { site: string; prompt?: string; repo?: string; framework?: string; whop?: string }): TrackingPlan {
+export interface PlanInput {
+  site: string;
+  prompt?: string;
+  repo?: string;
+  framework?: string;
+  whop?: string;
+  /** Analytics found in the repo. */
+  analytics?: string[];
+  /** Whether the repo could actually be read (else framework is assumed). Default true. */
+  repoRead?: boolean;
+}
+
+export function heuristicPlan(input: PlanInput): TrackingPlan {
   const words = ` ${(input.prompt ?? "").toLowerCase()} `;
   const events: TrackingEvent[] = [...AUTOMATIC.map((d) => enable(d)), ...FUNNEL.map((d) => enable(d))];
   const extra: DashboardSpec[] = [];
@@ -148,8 +160,49 @@ export function heuristicPlan(input: { site: string; prompt?: string; repo?: str
   }
   if (input.whop) events.push(...WHOP.map((d) => enable(d)));
   const now = new Date().toISOString();
-  const base = { site: input.site, repo: input.repo, framework: input.framework, prompt: input.prompt, whop: input.whop, goals, events };
+  const base = { site: input.site, repo: input.repo, framework: input.framework, prompt: input.prompt, whop: input.whop, goals, existingAnalytics: input.repoRead === false ? undefined : input.analytics, repoRead: input.repoRead ?? true, events };
   return { ...base, dashboards: dashboardsFor(base, extra), author: "heuristic", createdAt: now, updatedAt: now };
+}
+
+const IdeasSchema = z.object({
+  events: z
+    .array(
+      z.object({
+        name: z.string().regex(/^[a-z][a-z0-9_]{1,39}$/),
+        label: z.string().max(60),
+        why: z.string().max(200),
+        properties: z.array(z.string().regex(/^[a-z][a-z0-9_]{0,30}$/)).max(6).default([]),
+      }),
+    )
+    .max(4)
+    .default([]),
+});
+
+/**
+ * The plan for a store: the heuristic plan, plus (when an LLM is configured and the merchant said
+ * something) up to 4 events specific to their store that the keyword list can't know about.
+ */
+export async function buildPlan(input: PlanInput): Promise<TrackingPlan> {
+  const plan = heuristicPlan(input);
+  if (!llmAvailable() || !input.prompt?.trim()) return plan;
+  try {
+    const out = await generateJson({
+      system:
+        "You plan ecommerce analytics. Given a store description and the events already planned, suggest up to 4 MORE custom events that matter for this particular store and the merchant's stated worry. " +
+        'Return JSON {"events":[{"name":"snake_case","label":"Short label","why":"one sentence tied to what they said","properties":["prop"]}]}. Return an empty list if nothing important is missing.',
+      prompt: `Store: ${JSON.stringify(input.prompt)}\nFramework: ${input.framework ?? "unknown"}\nAlready planned: ${plan.events.map((e) => e.name).join(", ")}`,
+      schema: IdeasSchema,
+      maxTokens: 700,
+    });
+    const extra = out.events
+      .filter((e) => !plan.events.some((p) => p.name === e.name))
+      .map((e) => enable({ ...e, category: "goal", automatic: false }, true));
+    if (!extra.length) return plan;
+    const next = { ...plan, events: [...plan.events, ...extra], author: llmLabel() };
+    return { ...next, dashboards: dashboardsFor(next, plan.dashboards.filter((d) => d.kind === "devices")) };
+  } catch {
+    return plan;
+  }
 }
 
 /** The first thing Darwin says about the plan. */
@@ -162,9 +215,16 @@ export function planIntro(plan: TrackingPlan): string {
   ];
   const custom = plan.events.filter((e) => !e.automatic && e.enabled).length;
   const auto = plan.events.filter((e) => e.automatic && e.enabled).length;
-  const read = plan.repo ? `I read ${plan.repo}${plan.framework ? ` (${plan.framework})` : ""}. ` : "";
-  const heard = plan.goals?.length ? `You mentioned ${list(plan.goals)}, so I added ${list(added)}. ` : "";
-  return `${read}${heard}Here's the plan: ${auto} things darwin.js records on its own, ${custom} events your store sends with one line each, and ${plan.dashboards.length} dashboards built from them. Turn anything off, or tell me what else to track.`;
+  const read = !plan.repo
+    ? ""
+    : plan.repoRead === false
+      ? `I couldn't read ${plan.repo} yet, so I assumed ${plan.framework ?? "a typical store"}. `
+      : `I read ${plan.repo}${plan.framework ? ` (${plan.framework})` : ""}. `;
+  const heard = plan.goals?.length || added.length ? `${plan.goals?.length ? `You mentioned ${list(plan.goals)}, so` : "From what you said,"} I added ${list(added)}. ` : "";
+  const others = (plan.existingAnalytics ?? []).filter((a) => !a.startsWith("Darwin"));
+  const already = (plan.existingAnalytics ?? []).some((a) => a.startsWith("Darwin")) ? "darwin.js is already installed, so the pull request only adds the plan. " : "";
+  const alongside = others.length ? `You already use ${list(others)}: darwin.js runs alongside, nothing is replaced. ` : "";
+  return `${read}${alongside}${already}${heard}Here's the plan: ${auto} things darwin.js records on its own, ${custom} events your store sends with one line each, and ${plan.dashboards.length} dashboards built from them. Turn anything off, or tell me what else to track.`;
 }
 
 /* ------------------------------------------------------------------ amend (chat) */

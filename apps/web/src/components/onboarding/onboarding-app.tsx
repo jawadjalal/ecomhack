@@ -72,6 +72,8 @@ interface Message {
   from: "you" | "darwin";
   text: string;
   pending?: boolean;
+  /** Shown one by one while Darwin works. */
+  steps?: string[];
 }
 
 /* ------------------------------------------------------------------ app */
@@ -106,14 +108,26 @@ export function OnboardingApp() {
     setOpen(null);
     setStage("plan");
     setBusy(true);
-    setChat([...(prompt.trim() ? [{ from: "you" as const, text: prompt.trim() }] : []), { from: "darwin", text: "", pending: true }]);
+    setChat([
+      ...(prompt.trim() ? [{ from: "you" as const, text: prompt.trim() }] : []),
+      {
+        from: "darwin",
+        text: "",
+        pending: true,
+        steps: [`Reading ${repo}`, "Looking for analytics you already run", prompt.trim() ? "Planning from what you said" : "Planning a standard store setup", "Choosing your dashboards"],
+      },
+    ]);
     track("onboarding_connected", { whop: !!whop, described: !!prompt.trim() });
     try {
-      const res = await http<{ plan: TrackingPlan; reply: string; note?: string }>("POST", "/api/onboarding/plan", {
-        prompt: prompt.trim() || undefined,
-        repoUrl: `https://github.com/${repo}`,
-        whop: whop?.title,
-      });
+      // Keep the steps on screen long enough to read, even when the plan comes back instantly.
+      const [res] = await Promise.all([
+        http<{ plan: TrackingPlan; reply: string; note?: string }>("POST", "/api/onboarding/plan", {
+          prompt: prompt.trim() || undefined,
+          repoUrl: `https://github.com/${repo}`,
+          whop: whop?.title,
+        }),
+        new Promise((r) => setTimeout(r, 1800)),
+      ]);
       setPlan(res.plan);
       reply(res.note ? `${res.reply}\n\n${res.note}` : res.reply);
       track("plan_ready", { events: res.plan.events.filter((e) => e.enabled).length, goals: res.plan.goals?.length ?? 0 });
@@ -359,11 +373,29 @@ function Thread({ messages }: { messages: Message[] }) {
           </motion.div>
         ) : (
           <motion.div key={`darwin-${i}-${m.pending ? "pending" : m.text}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-            <AgentBubble>{m.pending ? <Typing /> : <span className="whitespace-pre-line">{m.text}</span>}</AgentBubble>
+            <AgentBubble>{m.pending ? m.steps ? <Working steps={m.steps} /> : <Typing /> : <span className="whitespace-pre-line">{m.text}</span>}</AgentBubble>
           </motion.div>
         ),
       )}
     </>
+  );
+}
+
+function Working({ steps }: { steps: string[] }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => Math.min(steps.length - 1, n + 1)), 650);
+    return () => clearInterval(t);
+  }, [steps.length]);
+  return (
+    <ol className="flex flex-col gap-1.5 py-0.5" aria-live="polite">
+      {steps.slice(0, i + 1).map((s, k) => (
+        <motion.li key={s} initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 text-[0.9rem]">
+          {k < i ? <Check className="size-4 text-brand" /> : <LoaderCircle className="size-4 animate-spin text-brand" />}
+          <span className={k < i ? "text-white/55" : "text-white/85"}>{s}…</span>
+        </motion.li>
+      ))}
+    </ol>
   );
 }
 
@@ -428,6 +460,16 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
   return (
     <Panel glow className="overflow-visible">
       <div className="flex flex-col gap-5 p-5">
+        <div className="flex flex-wrap gap-2 text-[0.78rem]" aria-label="What Darwin found">
+          {plan.framework && <Fact label="Stack" value={plan.repoRead === false ? `${plan.framework} (assumed)` : plan.framework} />}
+          <Fact
+            label="Analytics"
+            value={plan.repoRead === false ? "not checked yet" : plan.existingAnalytics?.length ? plan.existingAnalytics.join(" · ") : "none found"}
+            hint={plan.existingAnalytics?.some((a) => !a.startsWith("Darwin")) ? "darwin.js runs alongside" : undefined}
+          />
+          {!!plan.goals?.length && <Fact label="Heard" value={plan.goals.join(", ")} brand />}
+          {plan.author.startsWith("llm:") && <Fact label="Planned by" value={plan.author.slice(4)} />}
+        </div>
         <section>
           <SectionTitle icon={<Sparkles />} title="Recorded automatically" hint="no code: darwin.js does it" />
           <div className="flex flex-wrap gap-2">
@@ -494,6 +536,15 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
         </section>
       </div>
     </Panel>
+  );
+}
+
+function Fact({ label, value, hint, brand }: { label: string; value: string; hint?: string; brand?: boolean }) {
+  return (
+    <span className={cn("flex items-center gap-1.5 rounded-lg border px-2.5 py-1", brand ? "border-brand/30 bg-brand/[0.07]" : "border-white/[0.08] bg-white/[0.03]")} title={hint}>
+      <span className="text-white/40">{label}</span>
+      <span className={brand ? "text-brand" : "text-white/85"}>{value}</span>
+    </span>
   );
 }
 
