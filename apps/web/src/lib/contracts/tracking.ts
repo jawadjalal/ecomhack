@@ -44,6 +44,8 @@ export interface TrackingPlan {
   /** darwin.js data-darwin-site. */
   site: string;
   repo?: string;
+  /** The store's URL when darwin.js goes in with one script tag instead of a GitHub pull request. */
+  siteUrl?: string;
   /** Framework Darwin detected (or assumed), e.g. "Next.js (App Router)". */
   framework?: string;
   /** What the merchant told Darwin about the store. */

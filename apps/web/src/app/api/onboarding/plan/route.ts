@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { githubTokenFor } from "@/lib/auth/oauth";
-import { githubErrorStatus, inspectRepository } from "@/lib/github";
+import { githubErrorStatus, inspectRepository, publicOrigin, scriptTag } from "@/lib/github";
 import { amendPlan, applyToggles, buildPlan, getPlan, planIntro, savePlan } from "@/lib/tracking";
 
 const SiteSchema = z.string().regex(/^[\w.-]{1,64}$/);
@@ -13,19 +13,50 @@ async function body(req: Request): Promise<unknown> {
 
 const bad = (err: unknown) => Response.json({ error: err instanceof z.ZodError ? z.prettifyError(err) : String((err as Error)?.message ?? err) }, { status: 400 });
 
+const STORE_URL_HINT = "Use your store's address, like https://shop.example.com";
+const StoreUrl = z
+  .string()
+  .trim()
+  .max(300)
+  // "shop.example.com" is fine (https is assumed); "ftp://…" or "javascript:…" are not.
+  .refine((s) => /^https?:\/\//i.test(s) || !/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(s), STORE_URL_HINT)
+  .transform((s) => (/^https?:\/\//i.test(s) ? s : `https://${s}`))
+  .pipe(z.url({ protocol: /^https?$/, message: STORE_URL_HINT }))
+  .refine((u) => new URL(u).hostname.includes("."), STORE_URL_HINT);
+
+/** "https://Shop.Example.com/x" → "shop-example-com": the darwin.js site id for a store without GitHub. */
+const siteIdForUrl = (url: string) =>
+  new URL(url).hostname
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+
 /**
- * POST /api/onboarding/plan { prompt?, repoUrl, whop? } → { plan, reply, note? }
- * Reads the repo (framework, site id), turns what the merchant said into a tracking plan, saves it.
+ * POST /api/onboarding/plan { prompt?, repoUrl | siteUrl, whop? } → { plan, reply, note?, snippet? }
+ * With repoUrl: reads the repo (framework, site id) and the install is a pull request.
+ * With siteUrl (no GitHub): the install is one script tag, returned as `snippet`.
+ * Either way, what the merchant said becomes a tracking plan, saved.
  */
 export async function POST(req: Request) {
   let input;
   try {
-    input = z.object({ prompt: z.string().max(1000).optional(), repoUrl: z.string().min(1).max(300), whop: z.string().max(120).optional() }).parse(await body(req));
+    input = z
+      .object({ prompt: z.string().max(1000).optional(), repoUrl: z.string().min(1).max(300).optional(), siteUrl: StoreUrl.optional(), whop: z.string().max(120).optional() })
+      .refine((b) => !!b.repoUrl !== !!b.siteUrl, "Send either repoUrl (GitHub) or siteUrl (your store's address)")
+      .parse(await body(req));
   } catch (err) {
     return bad(err);
   }
+  if (input.siteUrl) {
+    const site = siteIdForUrl(input.siteUrl);
+    if (!site) return bad(new Error("That address has no host name"));
+    const plan = savePlan(await buildPlan({ site, siteUrl: input.siteUrl, prompt: input.prompt?.trim() || undefined, framework: "Any website (script tag)", whop: input.whop }));
+    return Response.json({ plan, reply: planIntro(plan), snippet: scriptTag({ src: `${publicOrigin(req)}/darwin.js`, siteId: site }) });
+  }
   try {
-    const repo = await inspectRepository(input.repoUrl, { token: githubTokenFor(req) });
+    const repo = await inspectRepository(input.repoUrl!, { token: githubTokenFor(req) });
     const plan = savePlan(
       await buildPlan({ site: repo.siteId, prompt: input.prompt?.trim() || undefined, repo: repo.repo, framework: repo.framework, whop: input.whop, analytics: repo.analytics, repoRead: !repo.assumed }),
     );

@@ -27,7 +27,7 @@ npm run build && npm start     # or: npm run dev
 | URL | What |
 |---|---|
 | http://localhost:3000 | Landing page |
-| http://localhost:3000/onboarding | **Set up a store**: tell Darwin about it, connect GitHub (+ Whop) → it plans what to record, opens the install PR, builds your dashboards |
+| http://localhost:3000/onboarding | **Set up a store**: tell Darwin about it, connect GitHub, or paste one script tag (+ Whop) → it plans what to record, installs it, builds your dashboards |
 | http://localhost:3000/console | **Mission control**: the loop, live traffic, experiments, PRs |
 | http://localhost:3000/console/dashboards | The dashboards Darwin built from a store's tracking plan, live |
 | http://localhost:3000/console/agents | **Store agent**: your Whop store's AI agent (A2A at `/a2a/whop`), a live buyer-agent chat, agent sales |
@@ -87,6 +87,16 @@ rejected and never retried.
    event needs.
 4. **Live**: the dashboards are built from the plan and fill as events arrive, with a checklist of what's been
    recorded. Simulated shoppers are available for a demo, and always labelled.
+
+**No GitHub?** Two other ways in:
+
+- **One script tag.** In the GitHub drawer, pick *Add one script tag instead* and give the store's address. The plan is
+  the same; the install step is one line to paste into the site's `<head>` (Shopify, Webflow, WordPress, any site you
+  can edit) instead of a pull request.
+- **Whop only, no code.** The store agent (`/console/agents`) sells your Whop plans to AI shoppers with nothing to
+  install. Payments come back through the Whop webhook.
+
+![No GitHub: one script tag](apps/web/docs/screenshots/onboarding/no-github-install.jpg)
 
 Darwin runs on its own onboarding (site `darwin-onboarding`): each step is an event, so its funnel shows up in
 `/console/dashboards?site=darwin-onboarding` and can be A/B tested like any store.

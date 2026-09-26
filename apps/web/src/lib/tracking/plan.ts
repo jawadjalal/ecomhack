@@ -145,6 +145,8 @@ export interface PlanInput {
   site: string;
   prompt?: string;
   repo?: string;
+  /** No GitHub: the store's URL (darwin.js goes in with a script tag). */
+  siteUrl?: string;
   framework?: string;
   whop?: string;
   /** Analytics found in the repo. */
@@ -166,7 +168,7 @@ export function heuristicPlan(input: PlanInput): TrackingPlan {
   }
   if (input.whop) events.push(...WHOP.map((d) => enable(d)));
   const now = new Date().toISOString();
-  const base = { site: input.site, repo: input.repo, framework: input.framework, prompt: input.prompt, whop: input.whop, goals, existingAnalytics: input.repoRead === false ? undefined : input.analytics, repoRead: input.repoRead ?? true, events };
+  const base = { site: input.site, repo: input.repo, siteUrl: input.siteUrl, framework: input.framework, prompt: input.prompt, whop: input.whop, goals, existingAnalytics: input.repoRead === false ? undefined : input.analytics, repoRead: input.repoRead ?? true, events };
   return { ...base, dashboards: dashboardsFor(base, extra), author: "heuristic", createdAt: now, updatedAt: now };
 }
 
@@ -214,6 +216,14 @@ export async function buildPlan(input: PlanInput): Promise<TrackingPlan> {
 /** The first thing Darwin says about the plan. */
 const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+
 export function planIntro(plan: TrackingPlan): string {
   const added = [
     ...plan.events.filter((e) => e.fromPrompt).map((e) => e.label.toLowerCase()),
@@ -222,7 +232,9 @@ export function planIntro(plan: TrackingPlan): string {
   const custom = plan.events.filter((e) => !e.automatic && e.enabled).length;
   const auto = plan.events.filter((e) => e.automatic && e.enabled).length;
   const read = !plan.repo
-    ? ""
+    ? plan.siteUrl
+      ? `No GitHub needed: darwin.js goes on ${hostOf(plan.siteUrl)} with one script tag. `
+      : ""
     : plan.repoRead === false
       ? `I couldn't read ${plan.repo} yet, so I assumed ${plan.framework ?? "a typical store"}. `
       : `I read ${plan.repo}${plan.framework ? ` (${plan.framework})` : ""}. `;
