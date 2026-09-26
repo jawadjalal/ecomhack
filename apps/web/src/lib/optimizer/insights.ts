@@ -99,7 +99,8 @@ export const AGENT_GROUPS: Record<AgentFieldGroup, GroupDef> = {
   eta: {
     kind: "agent_missing_eta",
     label: "delivery ETA",
-    match: /eta|deliver|arriv|dispatch|lead[ _-]?time/i,
+    // "eta" only at a word start ("ETA", "eta_days"), not inside "details"/"metadata".
+    match: /(^|[^a-z])eta|deliver|arriv|dispatch|lead[ _-]?time/i,
     exposed: (s) => s.agentSurface.exposeDeliveryEta,
   },
   returns: {
@@ -449,16 +450,16 @@ function agentInsights(ctx: Ctx): Insight[] {
     return s;
   };
   const unmapped = new Map<string, number>();
-  let anySignal = false;
+  /** True once the store reports which fields agents asked for (then we don't guess). */
+  let missingReported = false;
 
   for (const f of summary.friction ?? []) {
     if (f.audience !== "agent" || f.count <= 0) continue;
     if (f.kind === "agent_missing_field") {
-      anySignal = true;
+      missingReported = true;
       const g = agentGroupFor(f.detail) ?? agentGroupFor(f.location);
       if (g) sig(g).askedDistinct += f.count;
     } else if (f.kind === "agent_abandoned") {
-      anySignal = true;
       const reason = f.detail ?? f.location;
       const g = agentGroupFor(reason);
       if (g) {
@@ -467,15 +468,15 @@ function agentInsights(ctx: Ctx): Insight[] {
         s.reasons.set(reason, (s.reasons.get(reason) ?? 0) + f.count);
       } else unmapped.set(reason, (unmapped.get(reason) ?? 0) + f.count);
     } else if (f.kind === "agent_error") {
-      anySignal = true;
       if (/negotiat/i.test(`${f.location} ${f.detail ?? ""}`)) sig("negotiation").errors += f.count;
     }
   }
   for (const t of summary.agentTools ?? []) {
-    if (t.calls > 0) anySignal = true;
     for (const [field, n] of Object.entries(t.missing ?? {})) {
+      if (n <= 0) continue;
+      missingReported = true;
       const g = agentGroupFor(field) ?? agentGroupFor(t.tool);
-      if (g && n > 0) sig(g).askedRequests += n;
+      if (g) sig(g).askedRequests += n;
     }
     if (/negotiat/i.test(t.tool) && t.errors > 0 && !frictionOf(summary, "agent_error", "agent").length) {
       sig("negotiation").errors += t.errors;
@@ -550,8 +551,9 @@ function agentInsights(ctx: Ctx): Insight[] {
     );
   }
 
-  // Fallback: no agent telemetry at all, but the spec hides what agents need.
-  if (!anySignal) {
+  // Fallback: the store doesn't report which fields agents asked for, but the spec hides what they need.
+  const fieldInsights = out.some((i) => i.id.startsWith("ins_agent_missing_"));
+  if (!missingReported && !fieldInsights) {
     const hidden = (["eta", "returns", "stock", "landed_price", "negotiation"] as AgentFieldGroup[]).filter(
       (g) => !AGENT_GROUPS[g].exposed(spec),
     );

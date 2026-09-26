@@ -54,6 +54,7 @@ import {
   segment,
   type DecisionConfig,
 } from "./stats";
+import { withAgentTelemetry } from "./telemetry";
 import { diffPatch, num, pct, signedPct } from "./util";
 
 /* ------------------------------------------------------------------ config & deps */
@@ -117,10 +118,15 @@ export interface LoopDeps {
 
 export type LoopOverrides = Partial<Omit<LoopDeps, "config">> & { config?: Partial<LoopConfig> };
 
+/** Analytics summary, with agent telemetry derived from raw events if the summary has none yet. */
+function defaultSummary(filter: AnalyticsFilter): AnalyticsSummary {
+  return withAgentTelemetry(getAnalyticsSummary(filter), filter);
+}
+
 function resolveDeps(o: LoopOverrides = {}): LoopDeps {
   return {
     simulate: o.simulate ?? simulateTraffic,
-    summary: o.summary ?? getAnalyticsSummary,
+    summary: o.summary ?? defaultSummary,
     openSpecPR: o.openSpecPR ?? openSpecPR,
     useLlm: o.useLlm ?? llmAvailable(),
     config: { ...loopConfigFromEnv(), ...o.config },

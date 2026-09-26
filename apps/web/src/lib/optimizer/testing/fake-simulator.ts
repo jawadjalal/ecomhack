@@ -39,17 +39,20 @@ export function fakeHumanFunnel(spec: PageSpec): HumanFunnel {
   return { browse: Math.min(browse, 0.95), add: Math.max(0.02, add), checkout, order: Math.min(order, 0.95) };
 }
 
-export function fakeAgentConversion(spec: PageSpec): number {
-  const s = spec.agentSurface;
-  return Math.min(
-    0.9,
-    0.1 +
-      (s.exposeDeliveryEta ? 0.25 : 0) +
-      (s.exposeReturnPolicy ? 0.08 : 0) +
-      (s.exposeStock ? 0.08 : 0) +
-      (s.exposeLandedPrice ? 0.06 : 0) +
-      (s.negotiation.enabled ? 0.06 : 0),
-  );
+/**
+ * Each agent's brief needs some facts (probability per field). If the agent surface hides one, the agent
+ * reports it in `agent_request.properties.missing` (same names as agent-commerce) and usually abandons.
+ */
+export const AGENT_NEEDS = [
+  { field: "deliveryEtaDays", p: 0.7, exposed: (s: PageSpec) => s.agentSurface.exposeDeliveryEta, reason: "no delivery ETA exposed" },
+  { field: "returnPolicy", p: 0.35, exposed: (s: PageSpec) => s.agentSurface.exposeReturnPolicy, reason: "no return policy exposed" },
+  { field: "stock", p: 0.3, exposed: (s: PageSpec) => s.agentSurface.exposeStock, reason: "no stock levels exposed" },
+  { field: "landedPrice", p: 0.3, exposed: (s: PageSpec) => s.agentSurface.exposeLandedPrice, reason: "no landed price exposed" },
+] as const;
+
+/** Chance an agent whose brief is fully satisfiable completes the purchase. */
+export function fakeAgentBuyRate(spec: PageSpec): number {
+  return 0.6 + (spec.agentSurface.negotiation.enabled ? 0.1 : 0);
 }
 
 export function createFakeSimulator() {
@@ -93,14 +96,24 @@ export function createFakeSimulator() {
           }
         }
       } else {
+        const spec = resolved.spec;
+        const missing = AGENT_NEEDS.filter((n) => rng() < n.p && !n.exposed(spec));
         emit("agent_request", { tool: "search_products", ok: true });
-        if (rng() < fakeAgentConversion(resolved.spec)) {
+        emit("agent_request", {
+          tool: "get_product",
+          ok: true,
+          product_id: "p_aurora",
+          ...(missing.length ? { missing: missing.map((m) => m.field) } : {}),
+        });
+        if (missing.length && rng() < 0.9) {
+          emit("agent_abandoned", { reason: `${missing[0].reason}; can't verify the brief` });
+        } else if (rng() < fakeAgentBuyRate(spec)) {
           emit("product_viewed", { product_id: "p_aurora", price: 11500 });
           emit("product_added", { product_id: "p_aurora", price: 11500, quantity: 1 });
           emit("checkout_started");
           bought = true;
         } else {
-          emit("agent_abandoned", { reason: "brief not satisfiable" });
+          emit("agent_abandoned", { reason: "found a better match elsewhere" });
         }
       }
       if (bought) {

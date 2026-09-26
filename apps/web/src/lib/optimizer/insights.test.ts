@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FUNNEL_STEPS, type AnalyticsSummary, type SegmentKpis } from "@/lib/contracts";
 import { DEFAULT_SPEC } from "@/lib/spec/default-spec";
 import { applyPatch } from "@/lib/spec/patch";
-import { diagnose, insightKind } from "./insights";
+import { agentGroupFor, diagnose, insightKind } from "./insights";
 
 /** Build KPIs from visitor counts at each funnel step. */
 function kpis(counts: number[]): SegmentKpis {
@@ -96,6 +96,19 @@ describe("diagnose", () => {
     expect(eta.evidence).toContainEqual({ label: "Abandoned over it", value: "30" });
     expect(byKind.has("agent_missing_landed_price")).toBe(true);
     expect(byKind.has("agent_blind")).toBe(false); // real telemetry replaces the fallback
+  });
+
+  it("maps agent-commerce field names and abandon reasons to the right knobs", () => {
+    expect(agentGroupFor("deliveryEtaDays")).toBe("eta");
+    expect(agentGroupFor("returnPolicy")).toBe("returns");
+    expect(agentGroupFor("sizes")).toBe("stock");
+    expect(agentGroupFor("stock")).toBe("stock");
+    expect(agentGroupFor("landedPrice")).toBe("landed_price");
+    expect(agentGroupFor("negotiation")).toBe("negotiation");
+    expect(agentGroupFor("no delivery ETA exposed for p_aurora")).toBe("eta");
+    expect(agentGroupFor("no return policy exposed")).toBe("returns");
+    expect(agentGroupFor("price above budget, negotiation disabled")).toBe("negotiation");
+    expect(agentGroupFor("product details unclear")).toBeUndefined();
   });
 
   it("does not report agent gaps the spec already covers", () => {
