@@ -1,0 +1,84 @@
+.volt-page{--volt-ink:#171b25;--volt-blue:#315fca;--volt-surface:#f5f6f8;--volt-max:1200px;color:var(--volt-ink);background:var(--volt-surface);font-family:var(--font-volt-satoshi),Arial,sans-serif;overflow:hidden}
+.volt-page *{box-sizing:border-box}
+.volt-page a{text-decoration:none}
+.volt-page a:focus-visible,.volt-page summary:focus-visible{outline:3px solid #83aaff;outline-offset:4px}
+.volt-page section{scroll-margin-top:52px}
+.volt-skip{position:absolute;left:12px;top:-100px;z-index:100;background:#fff;padding:10px 16px;border-radius:8px;color:#111}
+.volt-skip:focus{top:12px}
+.volt-header{position:relative;z-index:50;background:#111318;color:#e9e9ee}
+.volt-nav{height:50px;max-width:var(--volt-max);margin:auto;display:flex;align-items:center;justify-content:space-between;padding:0 28px;gap:32px}
+.volt-logo{font-size:27px;line-height:1;font-weight:700;letter-spacing:-.085em;color:inherit;white-space:nowrap;padding-right:4px}
+.volt-logo span{color:#7597ff}
+.volt-nav-links{display:flex;align-items:center;gap:42px;margin-left:auto;margin-right:auto}
+.volt-nav-links a,.volt-nav-cta{font-size:12px;font-weight:500;color:#c9c9d0;transition:color .2s}
+.volt-nav-links a:hover,.volt-nav-cta:hover{color:#fff}
+.volt-nav-cta{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.volt-mobile-nav{display:none;position:relative}
+.volt-promo{min-height:43px;background:#fff;color:#464851;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:12px;padding:9px 20px}
+.volt-promo a{display:inline-flex;align-items:center;gap:4px;color:#1e5ed3;font-weight:600}
+.volt-promo a:hover{text-decoration:underline}
+.volt-hero{height:660px;position:relative;background:#04050b;color:#fff;isolation:isolate}
+.volt-hero-image,.volt-feature>img{object-fit:cover;object-position:center}
+.volt-hero-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(2,3,9,.72) 0%,rgba(2,3,9,.22) 48%,transparent 72%);z-index:1}
+.volt-hero-content{position:relative;z-index:2;height:100%;max-width:var(--volt-max);margin:auto;padding:0 42px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center}
+.volt-eyebrow{font-size:11px;line-height:1.4;letter-spacing:.17em;font-weight:700;color:#5c6472;margin:0 0 19px}
+.volt-eyebrow.volt-light{color:#aeb8d6}
+.volt-hero h1{font-size:clamp(58px,6vw,92px);line-height:1;font-weight:700;letter-spacing:-.055em;margin:0;max-width:660px}
+.volt-hero h1 em{font-style:normal;color:#b9c8f8}
+.volt-hero-subtitle{font-size:19px;line-height:1.55;max-width:420px;color:#d0d4e2;margin:27px 0 0}
+.volt-actions{display:flex;align-items:center;gap:26px;margin-top:32px}
+.volt-button{min-height:48px;padding:0 23px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:18px;font-size:14px;font-weight:700;transition:transform .2s,background .2s,border-color .2s}
+.volt-button:hover{transform:translateY(-2px)}
+.volt-button-light{color:#15171f;background:#fff}
+.volt-button-light:hover{background:#e5ebff}
+.volt-button-dark{color:#fff;background:#1b2333}
+.volt-button-dark:hover{background:#315fca}
+.volt-button-outline{border:1px solid rgba(255,255,255,.65);color:#fff}
+.volt-button-outline:hover{border-color:#fff;background:rgba(255,255,255,.12)}
+.volt-text-link{display:inline-flex;align-items:center;gap:7px;color:var(--volt-blue);font-weight:700;font-size:14px}
+.volt-text-link:hover{text-decoration:underline}
+.volt-text-link-light{color:#e5eaff}
+.volt-scroll{position:absolute;z-index:2;bottom:28px;left:50%;transform:translateX(-50%);width:44px;height:44px;display:grid;place-items:center;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:50%}
+.volt-intro{text-align:center;padding:96px 24px;background:var(--volt-surface)}
+.volt-intro h2,.volt-why h2{font-size:clamp(45px,5vw,69px);line-height:1.05;letter-spacing:-.055em;font-weight:700;margin:0}
+.volt-intro h2 span,.volt-why h2 span{color:#848891}
+.volt-intro>p:not(.volt-eyebrow){font-size:17px;line-height:1.55;color:#626671;max-width:620px;margin:22px auto 0}
+.volt-category-grid{max-width:var(--volt-max);margin:56px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;text-align:left}
+.volt-category{height:310px;position:relative;overflow:hidden;border-radius:20px;background:#151923;color:#fff;isolation:isolate}
+.volt-category img{object-fit:cover;object-position:65% center;transition:transform .45s}
+.volt-category:hover img{transform:scale(1.055)}
+.volt-category::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.72),transparent 55%)}
+.volt-category-laptops{color:#191b21;background:#eee}
+.volt-category-laptops::after{background:linear-gradient(0deg,rgba(255,255,255,.94),transparent 55%)}
+.volt-category span{position:absolute;z-index:2;bottom:23px;left:26px;right:25px;display:flex;justify-content:space-between;align-items:center;font-size:22px;font-weight:700;letter-spacing:-.03em}
+.volt-feature{height:620px;position:relative;isolation:isolate;overflow:hidden;margin:10px 0;background:#10131b;color:#fff}
+.volt-feature>img{z-index:-2}
+.volt-feature-shade{position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(4,5,12,.68),rgba(4,5,12,.18) 53%,transparent 73%)}
+.volt-feature-copy{height:100%;max-width:var(--volt-max);margin:auto;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:0 42px}
+.volt-feature h2{font-size:clamp(46px,4.8vw,72px);line-height:1.07;letter-spacing:-.055em;font-weight:700;margin:0;max-width:680px}
+.volt-feature-copy>p:not(.volt-eyebrow){font-size:18px;line-height:1.5;max-width:390px;color:rgba(255,255,255,.76);margin:23px 0 28px}
+.volt-feature-laptop{background:#ebe7e3;color:#1b1c22}
+.volt-feature-laptop .volt-feature-copy>p:not(.volt-eyebrow){color:#5b5d66}
+.volt-feature-laptop .volt-button{margin-top:2px}
+.volt-feature-audio{background:#080e1e}
+.volt-feature-audio .volt-feature-shade{background:linear-gradient(90deg,rgba(3,8,23,.5),rgba(3,8,23,.15) 55%,transparent 75%)}
+.volt-why{text-align:center;padding:105px 24px 112px;background:#fff}
+.volt-why-lead{color:#696d75;font-size:18px;line-height:1.5;margin:24px auto 0;max-width:650px}
+.volt-benefits{max-width:var(--volt-max);margin:70px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:28px;text-align:left}
+.volt-benefits article{border-top:1px solid #d8dbe1;padding-top:30px}
+.volt-benefit-icon{display:grid;place-items:center;width:52px;height:52px;background:#eff2fa;color:#315ec7;border-radius:16px}
+.volt-benefits h3{font-size:22px;letter-spacing:-.04em;margin:25px 0 9px}
+.volt-benefits p{font-size:15px;line-height:1.55;color:#686d77;max-width:285px;margin:0}
+.volt-ending{position:relative;min-height:420px;background:#070c1d;color:#fff;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:70px 24px;overflow:hidden;isolation:isolate}
+.volt-ending-glow{position:absolute;z-index:-1;inset:-35%;background:radial-gradient(ellipse at 50% 60%,rgba(49,83,192,.65),rgba(26,33,85,.35) 32%,transparent 65%)}
+.volt-ending h2{font-size:clamp(47px,5vw,72px);line-height:1.07;letter-spacing:-.055em;margin:0 0 30px}
+.volt-footer{background:var(--volt-surface);padding:64px max(28px,calc((100vw - 1200px)/2)) 24px;color:#191b22}
+.volt-footer>.volt-logo,.volt-footer .volt-logo{display:inline-block;font-size:30px}
+.volt-footer p{font-size:14px;color:#727780;margin:12px 0 0}
+.volt-footer nav{display:flex;gap:27px;flex-wrap:wrap;margin-top:40px}
+.volt-footer nav a{color:#474c56;font-size:13px}
+.volt-footer nav a:hover{text-decoration:underline}
+.volt-footer-bottom{border-top:1px solid #d9dce2;display:flex;justify-content:space-between;color:#8b909a;font-size:12px;margin-top:58px;padding-top:21px}
+@media(max-width:900px){.volt-nav-links{gap:20px}.volt-nav{padding:0 20px}.volt-hero{height:590px}.volt-hero-content,.volt-feature-copy{padding:0 36px}.volt-feature{height:540px}.volt-category{height:250px}}
+@media(max-width:700px){.volt-nav{height:54px}.volt-nav-links,.volt-nav-cta{display:none}.volt-mobile-nav{display:block}.volt-mobile-nav summary{list-style:none;cursor:pointer;width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px}.volt-mobile-nav summary::-webkit-details-marker{display:none}.volt-mobile-nav summary span{width:18px;height:1.5px;background:#fff}.volt-mobile-menu{position:absolute;top:44px;right:-20px;min-width:210px;display:flex;flex-direction:column;background:#111318;box-shadow:0 20px 25px #0005;padding:12px 22px 20px;border-radius:0 0 12px 12px}.volt-mobile-menu a{color:#fff;padding:12px 0;border-bottom:1px solid #ffffff24;font-size:14px}.volt-promo{font-size:11px;flex-wrap:wrap;gap:2px 5px}.volt-hero{height:690px}.volt-hero-image{object-position:67% center}.volt-hero-shade{background:linear-gradient(0deg,rgba(2,3,9,.95) 0%,rgba(2,3,9,.82) 35%,rgba(2,3,9,.05) 80%)}.volt-hero-content{justify-content:flex-end;padding:0 24px 93px}.volt-hero h1{font-size:clamp(55px,11.3vw,76px)}.volt-hero-subtitle{font-size:16px;max-width:360px;margin-top:18px}.volt-actions{margin-top:25px;gap:18px;flex-wrap:wrap}.volt-text-link{font-size:13px}.volt-scroll{bottom:24px;left:auto;right:25px;transform:none}.volt-intro{padding:72px 18px 76px}.volt-intro>p:not(.volt-eyebrow){font-size:15px}.volt-category-grid{grid-template-columns:1fr;gap:10px;margin-top:40px}.volt-category{height:215px;border-radius:14px}.volt-category img{object-position:center 48%}.volt-category-phones img{object-position:70% 48%}.volt-feature{height:620px}.volt-feature>img{object-position:65% center}.volt-feature-shade,.volt-feature-audio .volt-feature-shade{background:linear-gradient(0deg,rgba(2,3,9,.92),rgba(2,3,9,.5) 40%,transparent 80%)}.volt-feature-copy{justify-content:flex-end;padding:0 24px 58px}.volt-feature h2{font-size:clamp(43px,9vw,61px)}.volt-feature-copy>p:not(.volt-eyebrow){font-size:16px;margin:18px 0 23px}.volt-feature-laptop>img{object-position:65% center}.volt-feature-laptop .volt-feature-copy{justify-content:flex-start;padding-top:53px}.volt-feature-laptop::after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,rgba(245,241,237,.98),rgba(245,241,237,.88) 30%,transparent 62%)}.volt-feature-laptop .volt-feature-copy>p:not(.volt-eyebrow){margin:17px 0 18px}.volt-feature-audio>img{object-position:66% center}.volt-why{padding:80px 24px}.volt-why-lead{font-size:16px}.volt-benefits{grid-template-columns:1fr;gap:28px;margin-top:50px}.volt-benefits article{padding-top:23px}.volt-benefits h3{margin-top:16px}.volt-benefits p{max-width:480px}.volt-ending{min-height:370px}.volt-footer{padding:55px 24px 24px}.volt-footer-bottom{gap:12px;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.volt-page *{scroll-behavior:auto!important;transition:none!important}}

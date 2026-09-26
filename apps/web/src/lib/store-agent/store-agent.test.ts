@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eventStore, track } from "@/lib/analytics/store";
-import { agentFunnel, budgetOf, DEMO_CATALOG, handleA2a, offerFromPlan, pickOffer, rankOffers, recordDemoPayment, resetCatalog, resetStoreAgent, runSimulatedBuyer, storeAgentCard } from ".";
+import { connectWhop } from "@/lib/whop";
+import { agentFunnel, budgetOf, DEMO_CATALOG, getCatalog, handleA2a, offerFromPlan, pickOffer, rankOffers, recordDemoPayment, resetCatalog, resetStoreAgent, runSimulatedBuyer, storeAgentCard } from ".";
 
 const ORIGIN = "https://darwin.example";
 const offers = DEMO_CATALOG.offers;
@@ -14,6 +15,32 @@ beforeEach(() => {
 });
 
 describe("Whop catalog", () => {
+  it("replaces a cached demo catalog as soon as Whop connects", async () => {
+    expect((await getCatalog()).source).toBe("demo");
+    process.env.WHOP_API_KEY = "whop_test";
+    process.env.WHOP_COMPANY_ID = "biz_test";
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("/companies/")) return Response.json({ id: "biz_test", title: "Connected store" });
+      if (String(url).includes("/products?")) {
+        expect(new URL(url).searchParams.get("account_id")).toBe("biz_test");
+        return Response.json({ data: [{ id: "prod_real", title: "Coaching", account: { id: "biz_test" } }] });
+      }
+      if (String(url).includes("/plans?")) {
+        expect(new URL(url).searchParams.get("account_id")).toBe("biz_test");
+        return Response.json({ data: [{ id: "plan_real", title: "Coaching", plan_type: "one_time", initial_price: 29, currency: "gbp", visibility: "visible" }] });
+      }
+      throw new Error(`Unexpected Whop request: ${url}`);
+    });
+    try {
+      expect((await connectWhop()).products).toEqual([{ id: "prod_real", title: "Coaching" }]);
+      const catalog = await getCatalog();
+      expect(catalog.source).toBe("whop");
+      expect(catalog.offers[0].id).toBe("plan_real");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("turns Whop plans into offers: price in minor units, billing, checkout link", () => {
     expect(
       offerFromPlan({

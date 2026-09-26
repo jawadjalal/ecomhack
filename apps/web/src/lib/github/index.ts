@@ -60,7 +60,7 @@ import {
 } from "./store";
 
 export { GitHubClient, GitHubError, parseRepoUrl } from "./client";
-export { detectAnalytics, detectFramework, planInstall, type Framework, type FrameworkDetection } from "./install";
+export { detectAnalytics, detectFramework, planInstall, scriptTag, type Framework, type FrameworkDetection } from "./install";
 export type { TrafficMix } from "./spec-pr";
 export type { GithubConnection, GithubMode, PullRequestRecord } from "./store";
 
@@ -126,8 +126,8 @@ export class GithubIntegrationError extends Error {
  * Run a PR flow in the configured mode; if GitHub is unreachable or rejects the token, redo it
  * offline so callers (the loop, the console) still get the PR Darwin would have opened.
  */
-async function withOfflineFallback(run: (mode: GithubMode) => Promise<PullRequestResult>): Promise<PullRequestResult> {
-  const mode = githubMode();
+async function withOfflineFallback(run: (mode: GithubMode) => Promise<PullRequestResult>, token?: string): Promise<PullRequestResult> {
+  const mode = githubMode(token);
   try {
     return await run(mode);
   } catch (err) {
@@ -139,8 +139,9 @@ async function withOfflineFallback(run: (mode: GithubMode) => Promise<PullReques
   }
 }
 
-export function githubMode(): GithubMode {
-  if (!process.env.GITHUB_TOKEN?.trim()) return "offline";
+/** "live" with a token (the signed-in merchant's, else GITHUB_TOKEN); "offline" without one. */
+export function githubMode(token?: string): GithubMode {
+  if (!token && !process.env.GITHUB_TOKEN?.trim()) return "offline";
   return /^(1|true|yes|on)$/i.test(process.env.DARWIN_GITHUB_DRY_RUN?.trim() ?? "") ? "dry-run" : "live";
 }
 
@@ -178,8 +179,8 @@ export function getTargetRepo(): RepoRef | undefined {
   return parsed ?? undefined;
 }
 
-function githubClient(mode: GithubMode): GitHubClient {
-  return new GitHubClient({ token: process.env.GITHUB_TOKEN?.trim(), readOnly: mode !== "live" });
+function githubClient(mode: GithubMode, token?: string): GitHubClient {
+  return new GitHubClient({ token: token ?? process.env.GITHUB_TOKEN?.trim(), readOnly: mode !== "live" });
 }
 
 /* ------------------------------------------------------------------ shared PR plumbing */
@@ -249,10 +250,12 @@ export interface InstallOptions {
    * and summarised in the PR body.
    */
   tracking?: { doc: string; summary: string };
+  /** The signed-in merchant's GitHub token (OAuth). Default: GITHUB_TOKEN. */
+  token?: string;
 }
 
 export async function openAnalyticsInstallPR(repo: RepoRef, opts: InstallOptions): Promise<PullRequestResult> {
-  return withOfflineFallback((mode) => installPR(repo, opts, mode));
+  return withOfflineFallback((mode) => installPR(repo, opts, mode), opts.token);
 }
 
 const TRACKING_DOC = "DARWIN_TRACKING.md";
@@ -305,7 +308,7 @@ async function installPR(repo: RepoRef, opts: InstallOptions, mode: GithubMode):
     );
   }
 
-  const gh = githubClient(mode);
+  const gh = githubClient(mode, opts.token);
   const { base, baseSha, fullName: canonical } = await resolveBase(gh, repo);
   const tree = await gh.getTree(repo.owner, repo.repo, baseSha);
   const detection = detectFramework(tree.entries.filter((e) => e.type === "blob").map((e) => e.path));
@@ -499,17 +502,18 @@ async function specPR(repo: RepoRef, spec: PageSpec, ctx: SpecPRContext, mode: G
 /** What Darwin can tell about a repo before opening anything: its site id and framework. Never throws for GitHub errors. */
 export async function inspectRepository(
   repoUrl: string,
+  opts: { token?: string } = {},
 ): Promise<{ repo: string; siteId: string; framework: string; assumed: boolean; mode: GithubMode; analytics: string[]; note?: string }> {
   const coords = parseRepoUrl(repoUrl);
   if (!coords) {
     throw new GithubIntegrationError(`"${repoUrl}" is not a GitHub repository. Use https://github.com/owner/repo or owner/repo.`, 400);
   }
   const base = { repo: `${coords.owner}/${coords.repo}`, siteId: siteIdFor(coords) };
-  const mode = githubMode();
+  const mode = githubMode(opts.token);
   const assumed = () => ({ ...base, framework: assumedDetection().label, assumed: true, mode, analytics: [] as string[] });
   if (mode === "offline") return { ...assumed(), note: "Darwin isn't connected to GitHub yet (no GITHUB_TOKEN), so the pull request will be a preview." };
   try {
-    const gh = githubClient(mode);
+    const gh = githubClient(mode, opts.token);
     const { baseSha, fullName } = await resolveBase(gh, { ...coords });
     const tree = await gh.getTree(coords.owner, coords.repo, baseSha);
     const detection = detectFramework(tree.entries.filter((e) => e.type === "blob").map((e) => e.path));
@@ -527,7 +531,10 @@ export async function inspectRepository(
 }
 
 /** Parse a repo URL, open the install PR, and remember the repo as connected. */
-export async function connectRepository(repoUrl: string, opts: { host: string; base?: string; tracking?: InstallOptions["tracking"] }): Promise<PullRequestResult> {
+export async function connectRepository(
+  repoUrl: string,
+  opts: { host: string; base?: string; tracking?: InstallOptions["tracking"]; token?: string },
+): Promise<PullRequestResult> {
   const coords = parseRepoUrl(repoUrl);
   if (!coords) {
     throw new GithubIntegrationError(`"${repoUrl}" is not a GitHub repository. Use https://github.com/owner/repo or owner/repo.`, 400);
@@ -535,7 +542,7 @@ export async function connectRepository(repoUrl: string, opts: { host: string; b
   const repo: RepoRef = { ...coords, base: opts.base };
   const siteId = siteIdFor(coords);
   const host = normalizeHost(opts.host);
-  const result = await openAnalyticsInstallPR(repo, { host, siteId, tracking: opts.tracking });
+  const result = await openAnalyticsInstallPR(repo, { host, siteId, tracking: opts.tracking, token: opts.token });
   const detection = result.detection ?? assumedDetection();
   const [owner, name] = (result.repo ?? `${coords.owner}/${coords.repo}`).split("/");
   saveConnection({
@@ -550,7 +557,7 @@ export async function connectRepository(repoUrl: string, opts: { host: string; b
     root: detection.root,
     targets: detection.targets,
     assumed: detection.assumed,
-    mode: githubMode(),
+    mode: githubMode(opts.token),
     connectedAt: new Date().toISOString(),
     installPr: listPullRequests().find((p) => p.kind === "install" && p.repo === result.repo),
   });

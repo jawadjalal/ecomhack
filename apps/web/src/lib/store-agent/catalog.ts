@@ -3,7 +3,7 @@
  * product), read with the connected Whop API key. Without a key it's a clearly labelled demo catalog so
  * the agent can still be tried; nothing pretends to be a real store.
  *
- * Whop API v1 (https://docs.whop.com/api-reference): GET /plans?company_id=… lists plans with their
+ * Whop API v1 (https://docs.whop.com/api-reference): GET /plans?account_id=… lists plans with their
  * product; POST /checkout_configurations { plan_id, metadata } returns a purchase_url whose payment
  * carries the metadata back in the payment webhook (lib/whop/map.ts reads visitor_kind / agent_name).
  */
@@ -36,6 +36,8 @@ export interface Catalog {
   business: string;
   offers: Offer[];
   fetchedAt: string;
+  /** Non-secret connection identity used to invalidate a catalog cached before Whop connected. */
+  cacheContext?: string;
   /** Why it's the demo catalog, or what went wrong reading Whop. */
   note?: string;
 }
@@ -101,22 +103,23 @@ export function companyId(): string | undefined {
 /** The store's offers: cached 5 minutes; demo when there's no key or business. */
 export async function getCatalog(opts: { fresh?: boolean; now?: number } = {}): Promise<Catalog> {
   const now = opts.now ?? Date.now();
-  const cached = kvGet<Catalog | null>(KEY, () => null);
-  if (!opts.fresh && cached && now - Date.parse(cached.fetchedAt) < CACHE_MS) return cached;
   const key = whopKey();
   const company = companyId();
+  const cacheContext = `${key ? "key" : "no-key"}:${company ?? ""}:${getWhopStatus().connection?.connectedAt ?? ""}`;
+  const cached = kvGet<Catalog | null>(KEY, () => null);
+  if (!opts.fresh && cached?.cacheContext === cacheContext && now - Date.parse(cached.fetchedAt) < CACHE_MS) return cached;
   const fetchedAt = new Date(now).toISOString();
   if (!key || !company) {
-    return kvSet(KEY, { ...DEMO_CATALOG, fetchedAt, note: !key ? DEMO_CATALOG.note : "Whop key found but no business id: set WHOP_COMPANY_ID (biz_…) or connect Whop in onboarding." });
+    return kvSet(KEY, { ...DEMO_CATALOG, fetchedAt, cacheContext, note: !key ? DEMO_CATALOG.note : "Whop key found but no business id: set WHOP_COMPANY_ID (biz_…) or connect Whop in onboarding." });
   }
   try {
-    const plans = rec(await whopGet(`/plans?company_id=${encodeURIComponent(company)}&first=50`, key))?.data;
+    const plans = rec(await whopGet(`/plans?account_id=${encodeURIComponent(company)}&first=50`, key))?.data;
     const offers = (Array.isArray(plans) ? plans : []).map(offerFromPlan).filter((o): o is Offer => !!o && o.available);
     const business = getWhopStatus().connection?.title ?? company;
-    if (!offers.length) return kvSet(KEY, { ...DEMO_CATALOG, fetchedAt, note: `${business} has no public plans yet: showing demo offers until it does.` });
-    return kvSet(KEY, { source: "whop", business, offers, fetchedAt });
+    if (!offers.length) return kvSet(KEY, { ...DEMO_CATALOG, fetchedAt, cacheContext, note: `${business} has no public plans yet: showing demo offers until it does.` });
+    return kvSet(KEY, { source: "whop", business, offers, fetchedAt, cacheContext });
   } catch (err) {
-    return kvSet(KEY, { ...DEMO_CATALOG, fetchedAt, note: `Couldn't read Whop (${(err as Error).message}): showing demo offers.` });
+    return kvSet(KEY, { ...DEMO_CATALOG, fetchedAt, cacheContext, note: `Couldn't read Whop (${(err as Error).message}): showing demo offers.` });
   }
 }
 
@@ -124,8 +127,10 @@ export async function getCatalog(opts: { fresh?: boolean; now?: number } = {}): 
  * A checkout link for one offer, tagged so the payment comes back as this agent's sale: Whop checkout
  * configuration with metadata, else the plan's plain link; demo offers use Darwin's demo checkout page.
  */
-export async function createCheckout(offer: Offer, catalog: Catalog, meta: { ref: string; agentName: string }, origin: string): Promise<{ url: string; tagged: boolean }> {
+export async function createCheckout(offer: Offer, catalog: Catalog, meta: { ref: string; agentName: string; synthetic?: boolean }, origin: string): Promise<{ url: string; tagged: boolean }> {
   if (catalog.source === "demo") return { url: `${origin}/checkout/demo?offer=${encodeURIComponent(offer.id)}&ref=${encodeURIComponent(meta.ref)}`, tagged: true };
+  // Simulated buyers never touch the merchant's Whop account (no checkout configurations created for them).
+  if (meta.synthetic) return { url: offer.checkoutUrl, tagged: false };
   const key = whopKey();
   if (key) {
     try {

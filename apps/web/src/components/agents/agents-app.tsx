@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowUp, Bot, Check, Copy, ExternalLink, LoaderCircle, MessagesSquare, Play, RefreshCw, ShoppingBag, Store } from "lucide-react";
-import type { AgentFunnel, Catalog } from "@/lib/store-agent";
+import { Activity, ArrowLeft, ArrowUp, Bot, Check, CircleStop, Copy, Cpu, ExternalLink, FlaskConical, LoaderCircle, MessagesSquare, Play, RefreshCw, Rocket, ShoppingBag, Store } from "lucide-react";
+import type { AgentFunnel, AgentTestResult, AgentTestState, Catalog, Lever } from "@/lib/store-agent";
+import { Toggle } from "@/components/ui/switch";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,11 +30,15 @@ export function AgentsApp({ origin }: { origin: string }) {
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
   const contextId = useRef<string | undefined>(undefined);
+  const [tests, setTests] = useState<{ state: AgentTestState; results: AgentTestResult[] }>();
+  const [simOn, setSimOn] = useState(false);
+  const ticking = useRef(false);
   const endpoint = `${origin}/a2a/whop`;
 
   const load = useCallback(async (fresh = false) => {
-    const res = await fetch(`/api/store-agent/stats${fresh ? "?fresh=1" : ""}`, { cache: "no-store" });
+    const [res, t] = await Promise.all([fetch(`/api/store-agent/stats${fresh ? "?fresh=1" : ""}`, { cache: "no-store" }), fetch("/api/store-agent/tests", { cache: "no-store" })]);
     if (res.ok) setStats(await res.json());
+    if (t.ok) setTests(await t.json());
   }, []);
   useEffect(() => {
     const first = setTimeout(() => load(), 0);
@@ -74,6 +79,30 @@ export function AgentsApp({ origin }: { origin: string }) {
       setBusy(false);
     }
   };
+
+  const testsPost = useCallback(
+    async (body: Record<string, unknown>) => {
+      const res = await fetch("/api/store-agent/tests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      if (res.ok) setTests(await res.json());
+      await load();
+    },
+    [load],
+  );
+
+  // Simulated buyer agents every 3 s while on (labelled); each batch also lets autopilot decide.
+  useEffect(() => {
+    if (!simOn) return;
+    const t = setInterval(async () => {
+      if (ticking.current) return;
+      ticking.current = true;
+      try {
+        await testsPost({ buyers: 80, step: true });
+      } finally {
+        ticking.current = false;
+      }
+    }, 3000);
+    return () => clearInterval(t);
+  }, [simOn, testsPost]);
 
   const runBuyer = async () => {
     setRunning(true);
@@ -208,6 +237,16 @@ export function AgentsApp({ origin }: { origin: string }) {
 
           {/* funnel */}
           <div className="flex min-w-0 flex-col gap-4">
+            <AgentTests
+              tests={tests}
+              simOn={simOn}
+              onSim={setSimOn}
+              onAutopilot={(on) => {
+                testsPost({ autopilot: on });
+                if (on && !f?.conversations) setSimOn(true);
+              }}
+              onStart={(lever) => testsPost({ start: lever })}
+            />
             <Panel>
               <PanelHeader
                 icon={<ShoppingBag />}
@@ -266,5 +305,107 @@ export function AgentsApp({ origin }: { origin: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+const LEVER_LABEL: Record<Lever, string> = {
+  facts: "Facts up front",
+  "one-pick": "One best pick",
+  structured: "Structured buy instructions",
+  upsell: "Upsell the yearly plan",
+};
+const LEVERS_IN_ORDER: Lever[] = ["facts", "one-pick", "structured", "upsell"];
+const pctOf = (x?: number) => (x === undefined ? "–" : `${Math.round(x * 100)}%`);
+const signedPct = (x?: number) => (x === undefined ? "" : `${x >= 0 ? "+" : ""}${Math.round(x * 100)}%`);
+
+function AgentTests({
+  tests,
+  simOn,
+  onSim,
+  onAutopilot,
+  onStart,
+}: {
+  tests?: { state: AgentTestState; results: AgentTestResult[] };
+  simOn: boolean;
+  onSim: (on: boolean) => void;
+  onAutopilot: (on: boolean) => void;
+  onStart: (lever: Lever) => void;
+}) {
+  const s = tests?.state;
+  const running = s?.tests.find((t) => t.status === "running");
+  const result = running ? tests?.results.find((r) => r.testId === running.id) : undefined;
+  return (
+    <Panel glow={!!s?.autopilot}>
+      <PanelHeader icon={<FlaskConical />} title="A/B tests on your agent" />
+      <div className="flex flex-col gap-3 px-5 pb-5">
+        <div className="flex flex-wrap gap-2">
+          <Toggle on={!!s?.autopilot} onChange={onAutopilot} icon={<Cpu />} label="Autopilot" title="Test one pitch lever at a time; keep winners, stop losers" />
+          <Toggle on={simOn} onChange={onSim} tone="human" icon={<Activity />} label="Simulated buyers" title="80 simulated buyer agents every 3 s (labelled)" />
+        </div>
+        <p className="text-[0.76rem] text-white/45">Judged on paid conversations. The pitch today: {s?.levers.length ? s.levers.map((l) => LEVER_LABEL[l]).join(" + ") : "plain list of offers"}.</p>
+        <ul className="flex flex-col gap-1.5">
+          {LEVERS_IN_ORDER.map((l) => {
+            const t = [...(s?.tests ?? [])].reverse().find((x) => x.lever === l);
+            const inPitch = s?.levers.includes(l);
+            return (
+              <li key={l} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[0.8rem]" title={t?.reason}>
+                {inPitch ? <Rocket className="size-4 text-[#7ee2a0]" /> : t?.status === "running" ? <LoaderCircle className="size-4 animate-spin text-[#9cc5ff]" /> : t?.status === "stopped" ? <CircleStop className="size-4 text-[#ff9b9b]" /> : <FlaskConical className="size-4 text-white/30" />}
+                <span className="min-w-0 flex-1 truncate text-white/80">{LEVER_LABEL[l]}</span>
+                {inPitch ? (
+                  <Badge tone="good">in the pitch</Badge>
+                ) : t?.status === "running" ? (
+                  <Badge tone="info">testing</Badge>
+                ) : t?.status === "stopped" ? (
+                  <Badge tone="bad">stopped</Badge>
+                ) : (
+                  <button onClick={() => onStart(l)} disabled={!!running} className="text-[0.74rem] text-white/45 hover:text-white disabled:opacity-30">
+                    Test it
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {running && result && (
+          <div className="rounded-lg bg-black/25 p-3 text-[0.78rem]">
+            <div className="mb-1 font-medium text-white/80">Testing “{LEVER_LABEL[running.lever]}”</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-white/40">Current pitch</div>
+                <div className="font-mono tabular">
+                  {pctOf(result.control.rate)} <span className="text-white/35">of {result.control.conversations}</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-white/40">With the lever</div>
+                <div className="font-mono tabular">
+                  {pctOf(result.treatment.rate)} <span className="text-white/35">of {result.treatment.conversations}</span>
+                </div>
+              </div>
+            </div>
+            {result.probabilityToBeat !== undefined && (
+              <div className="mt-2 text-white/55">
+                {pctOf(result.probabilityToBeat)} chance better · {signedPct(result.lift)} paid conversations
+                {result.liftInterval && (
+                  <span className="text-white/35">
+                    {" "}
+                    (95%: {signedPct(result.liftInterval[0])} to {signedPct(result.liftInterval[1])})
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {!!s?.log.length && (
+          <ol className="flex max-h-40 flex-col gap-1 overflow-y-auto text-[0.74rem] text-white/55">
+            {s.log.slice(0, 8).map((e, i) => (
+              <li key={`${e.at}-${i}`}>
+                <span className="font-mono text-white/30">{new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span> {e.text}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </Panel>
   );
 }

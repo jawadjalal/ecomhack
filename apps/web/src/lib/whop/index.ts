@@ -100,7 +100,7 @@ function toProducts(data: RawProduct[]): WhopProduct[] {
 /** Products are a nice-to-have for the onboarding summary: never fail the connection over them. */
 async function listProducts(key: string, accountId?: string): Promise<RawProduct[]> {
   try {
-    const q = accountId ? `company_id=${encodeURIComponent(accountId)}&first=6` : "first=6";
+    const q = accountId ? `account_id=${encodeURIComponent(accountId)}&first=6` : "first=6";
     return ((await whopGet<{ data?: unknown[] }>(`/products?${q}`, key)).data ?? []) as RawProduct[];
   } catch {
     return [];
@@ -161,6 +161,147 @@ export async function connectWhop(opts: { apiKey?: string } = {}): Promise<WhopC
 export function getWhopStatus(): WhopStatus {
   const connection = kvGet<WhopConnection | null>(KEY, () => null) ?? undefined;
   return { configured: !!serverKey(), connection };
+}
+
+export interface WhopShowcaseProduct {
+  id: string;
+  title: string;
+  headline: string | null;
+  image: string | null;
+  href: string;
+  priceLabel: string | null;
+}
+
+export interface WhopShowcase {
+  title: string;
+  storeUrl: string | null;
+  products: WhopShowcaseProduct[];
+}
+
+const showcaseMem = globalThis as unknown as {
+  __darwinWhopShowcase?: { at: number; key: string; value: WhopShowcase | null };
+};
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v !== null && typeof v === "object" ? (v as Record<string, unknown>) : null;
+}
+
+function httpsUrl(v: unknown): string | null {
+  const raw = str(v);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function firstImage(product: Record<string, unknown>): string | null {
+  if (!Array.isArray(product.gallery_images)) return null;
+  for (const item of product.gallery_images) {
+    const image = asRecord(item);
+    if (!image) continue;
+    const type = str(image.content_type);
+    if (type && !type.startsWith("image/")) continue;
+    const url = httpsUrl(image.url);
+    if (url) return url;
+  }
+  return null;
+}
+
+async function whopGetOptional<T>(path: string, key: string): Promise<T | null> {
+  try {
+    return await whopGet<T>(path, key);
+  } catch {
+    return null;
+  }
+}
+
+/** Storefront catalog filter. Override with WHOP_COMPANY_ID; not a secret. */
+const DEFAULT_WHOP_COMPANY_ID = "biz_2LT2agoxggS3Hr";
+
+function showcaseCompanyId(): string {
+  return process.env.WHOP_COMPANY_ID?.trim() || DEFAULT_WHOP_COMPANY_ID;
+}
+
+async function loadWhopShowcase(key: string): Promise<WhopShowcase | null> {
+  const pinnedId = showcaseCompanyId();
+  const me = await whopGetOptional<Record<string, unknown>>("/accounts/me", key);
+
+  const productsJson =
+    (await whopGetOptional<{ data?: unknown[] }>(`/products?company_id=${encodeURIComponent(pinnedId)}&first=8`, key)) ??
+    (await whopGetOptional<{ data?: unknown[] }>(`/products?account_id=${encodeURIComponent(pinnedId)}&first=8`, key));
+  if (!productsJson) return null;
+
+  const plansJson =
+    (await whopGetOptional<{ data?: unknown[] }>(`/plans?company_id=${encodeURIComponent(pinnedId)}&first=30`, key)) ??
+    (await whopGetOptional<{ data?: unknown[] }>(`/plans?account_id=${encodeURIComponent(pinnedId)}&first=30`, key));
+
+  const prices = new Map<string, string>();
+  for (const item of plansJson?.data ?? []) {
+    const plan = asRecord(item);
+    if (!plan || str(plan.visibility) === "hidden" || str(plan.visibility) === "archived") continue;
+    const productId = str(asRecord(plan.product)?.id);
+    const label = str(plan.formatted_price);
+    if (productId && label && !prices.has(productId)) prices.set(productId, label);
+  }
+
+  let companyTitle: string | undefined;
+  let companyRoute: string | undefined;
+  if (me && str(me.id) === pinnedId) {
+    companyTitle = str(me.title) ?? str(me.name) ?? str(me.username);
+    companyRoute = str(me.route);
+  }
+
+  const products: WhopShowcaseProduct[] = [];
+  for (const item of productsJson.data ?? []) {
+    const product = asRecord(item);
+    if (!product) continue;
+    const id = str(product.id);
+    const title = str(product.title) ?? str(product.name);
+    const visibility = str(product.visibility);
+    if (!id || !title || visibility === "hidden" || visibility === "archived") continue;
+    const company = asRecord(product.company);
+    companyTitle = companyTitle ?? str(company?.title);
+    companyRoute = companyRoute ?? str(company?.route);
+    const route = str(product.route);
+    const href = httpsUrl(
+      companyRoute && route
+        ? `https://whop.com/${companyRoute}/${route}`
+        : route
+          ? `https://whop.com/${route}`
+          : undefined,
+    );
+    if (!href) continue;
+    products.push({
+      id,
+      title,
+      headline: str(product.headline) ?? null,
+      image: firstImage(product),
+      href,
+      priceLabel: prices.get(id) ?? null,
+    });
+  }
+
+  return {
+    title: companyTitle ?? "Store",
+    storeUrl: companyRoute ? httpsUrl(`https://whop.com/${companyRoute}`) : null,
+    products,
+  };
+}
+
+/** Live Whop catalog for the storefront. Null when no key, or Whop doesn't answer. */
+export async function getWhopShowcase(): Promise<WhopShowcase | null> {
+  const key = whopKey();
+  if (!key) return null;
+  const pinnedId = showcaseCompanyId();
+  const cacheKey = `${key}:${pinnedId}`;
+  const hit = showcaseMem.__darwinWhopShowcase;
+  if (hit && hit.key === cacheKey && Date.now() - hit.at < 60_000) return hit.value;
+  const value = await loadWhopShowcase(key);
+  showcaseMem.__darwinWhopShowcase = { at: Date.now(), key: cacheKey, value };
+  return value;
 }
 
 export function whopErrorStatus(err: unknown): { status: number; error: string } {

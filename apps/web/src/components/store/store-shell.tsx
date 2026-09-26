@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { PageSpec } from "@/lib/contracts";
 import type { StoreContext } from "@/lib/storefront/context";
 import { luminance, readableOn, tint } from "@/lib/storefront/art/color";
+import { getWhopShowcase } from "@/lib/whop";
 import { StoreProvider } from "./store-provider";
 import { StoreHeader } from "./header";
 import { StoreFooter } from "./footer";
@@ -34,7 +35,7 @@ export function themeVars(spec: PageSpec): CSSProperties {
   } as CSSProperties;
 }
 
-export function StoreShell({
+export async function StoreShell({
   ctx,
   children,
   chrome = "full",
@@ -48,7 +49,8 @@ export function StoreShell({
   bottomInset?: boolean;
 }) {
   const { spec } = ctx;
-  const showAnnouncement = chrome === "full" && spec.announcement.enabled && spec.announcement.text.trim().length > 0;
+  const showcase = await getWhopShowcase();
+  const brand = showcase?.title?.trim() || "PACE";
   return (
     <StoreProvider
       value={{ spec, persist: ctx.persist, preview: ctx.preview, variantLabel: ctx.variantLabel, analytics: ctx.analytics }}
@@ -59,19 +61,9 @@ export function StoreShell({
         data-spec-version={spec.version}
         data-variant={ctx.variantLabel}
       >
-        {showAnnouncement && (
-          <div
-            className="bg-(--accent) px-4 py-2.5 text-center text-[13px] font-medium tracking-[0.01em] text-(--accent-fg)"
-            role="region"
-            aria-label="Announcement"
-            data-darwin="announcement"
-          >
-            {spec.announcement.text}
-          </div>
-        )}
-        <StoreHeader chrome={chrome} />
+        <StoreHeader chrome={chrome} brand={brand} />
         <main className="flex flex-1 flex-col">{children}</main>
-        <StoreFooter slim={chrome === "checkout"} />
+        <StoreFooter slim={chrome === "checkout"} brand={brand} />
         {chrome === "full" && <AddedToast />}
         {ctx.debug && (
           <div className="pointer-events-none fixed bottom-3 left-3 z-[60] rounded-full bg-black/85 px-3 py-1.5 font-mono text-[11px] text-white shadow-lg backdrop-blur">

@@ -25,7 +25,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/whop/                Whop connector (same API key as the Whop CLI) for onboarding.
   src/lib/github/              Connect repo, open analytics-install PR, open "ship winner" PR.
   src/lib/web/                 Web personalization for ANY store with darwin.js: rules, runtime.js, results, drafts.
-  src/lib/store-agent/         The Whop store's own AI agent (A2A): catalog from Whop plans, tagged checkout links, agent funnel.
+  src/lib/store-agent/         The Whop store's own AI agent (A2A): catalog from Whop plans, tagged checkout links, agent funnel, A/B tests on the pitch.
   src/lib/tracking/            Tracking plans (what to record, from the merchant's words) and the dashboards built from them.
   src/lib/research/            Market & competitor research (Tavily + LLM, sourced claims, A/B test ideas).
   src/lib/assistant/           "Ask Darwin": the merchant's managing assistant (tool registry over public APIs + LLM loop).
@@ -54,7 +54,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | readiness | `lib/readiness/**`, `/api/readiness/**`, `/api/leads`, `app/readiness/**`, `components/readiness/**` | `auditStore`, `evaluate`, `certifyStore`, `getCertificate` |
 | console | `app/page.tsx`, `app/console/**`, `components/console/**` | — |
 | onboarding | `app/onboarding/**`, `components/onboarding/**`, `lib/whop/**`, `/api/whop/**`, `public/onboarding/**` | `connectWhop`, `getWhopStatus` |
-| store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel` |
+| store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel`, `stepAgentTests`, `agentTestsView` |
 | tracking | `lib/tracking/**`, `/api/onboarding/**`, `/api/dashboards`, `app/console/dashboards`, `components/dashboards/**` | `heuristicPlan`, `amendPlan`, `getPlan`, `savePlan`, `computeDashboards`, `trackingDoc` |
 | research | `lib/research/**`, `/api/research/**`, `app/console/research`, `components/research/**`, `contracts/research.ts` | `researchCompetitors`, `askResearch`, `listReports`, `getReport` |
 | assistant | `lib/assistant/**`, `/api/assistant`, `components/console/assistant-panel.tsx`, `components/console/mascot.tsx`, `app/console/layout.tsx` | `runAssistant`, `TOOLS`, `runTool` (add a tool: one entry in `lib/assistant/tools.ts`, wrapping another area's public API) |
