@@ -86,7 +86,7 @@ export function TopNav() {
           className="flex h-10 items-center gap-2 rounded-full px-3 text-[14px] font-medium whitespace-nowrap text-dw-ink transition-colors hover:bg-dw-sand"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
-          <span className="max-sm:hidden">{autopilot ? "Running" : "Paused"}</span>
+          <span>{autopilot ? "Running" : "Paused"}</span>
         </button>
         <AccountMenu mock={mock} path={path || "/console"} />
       </div>
