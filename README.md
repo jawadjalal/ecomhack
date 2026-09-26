@@ -1,4 +1,4 @@
-# Darwin — the storefront that improves itself
+# Darwin: the storefront that improves itself
 
 Cursor Commerce London Hackathon, 26 Sep 2026.
 
@@ -183,9 +183,9 @@ Text Darwin from Telegram.
 1. In Telegram, open [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the bot token.
 2. Pick a webhook secret: 1–256 characters, only `A–Z`, `a–z`, `0–9`, `_` and `-` (for example `openssl rand -hex 32`).
 3. On the Vercel project for [usedarwin.app](https://usedarwin.app), set:
-   - `TELEGRAM_BOT_TOKEN` — the token from BotFather
-   - `TELEGRAM_WEBHOOK_SECRET` — the secret from step 2
-   - `TELEGRAM_ALLOWED_CHAT_IDS` — your chat id (comma-separated if several). Required for stepping the loop, shipping, and other tools. Leave it empty and the bot only answers questions. Set `0` first if you don't know the id yet: the bot replies once with it.
+   - `TELEGRAM_BOT_TOKEN`: the token from BotFather
+   - `TELEGRAM_WEBHOOK_SECRET`: the secret from step 2
+   - `TELEGRAM_ALLOWED_CHAT_IDS`: your chat id (comma-separated if several). Required for stepping the loop, shipping, and other tools. Leave it empty and the bot only answers questions. Set `0` first if you don't know the id yet: the bot replies once with it.
 4. Redeploy so the new env vars are live.
 5. Register the webhook (this calls Telegram `setWebhook` for `https://usedarwin.app/api/telegram` and sends the secret):
 
