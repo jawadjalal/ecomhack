@@ -211,12 +211,6 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
 
   return (
     <>
-      {!inSheet && (
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[110px] bg-[linear-gradient(to_top,#F7F1E5_50%,rgba(247,241,229,0))] max-sm:hidden"
-        />
-      )}
       {/* Phones: a full-width ink dock pinned above the bottom tab bar (or the keyboard). */}
       <div
         className="pointer-events-none fixed inset-x-0 z-40 mx-auto w-full max-w-[1600px] px-3 max-sm:px-0 sm:px-7"
