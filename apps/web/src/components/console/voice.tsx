@@ -5,9 +5,10 @@
  * browser's SpeechRecognition when no key is set) and have replies read aloud (/api/voice/speak, or the
  * browser's speechSynthesis). Hold the mic to talk, or tap to start and tap again to stop.
  */
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Mic, Square, Volume2, VolumeX } from "lucide-react";
+import { cn } from "@/components/ui/cn";
 
 export type VoicePhase = "idle" | "starting" | "recording" | "transcribing";
 export type VoiceEngine = "elevenlabs" | "browser" | "none";
@@ -401,6 +402,21 @@ export function MicButton({ rec, size = 44, disabled }: { rec: Recorder; size?: 
     if (wasActive.current || Date.now() - at > HOLD_MS) rec.stop();
   };
 
+  // Keyboard: hold Space / Enter to talk (release sends); a short press toggles, like a tap.
+  const keyDown = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if ((e.key !== " " && e.key !== "Enter") || e.repeat) return;
+    e.preventDefault();
+    if (disabled || busy) return;
+    wasActive.current = active;
+    downAt.current = Date.now();
+    if (!active) rec.start();
+  };
+  const keyUp = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== " " && e.key !== "Enter") return;
+    e.preventDefault();
+    up();
+  };
+
   const scale = 1 + (reduce ? 0 : rec.level * 0.55);
   return (
     <span className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
@@ -424,12 +440,8 @@ export function MicButton({ rec, size = 44, disabled }: { rec: Recorder; size?: 
         onPointerUp={up}
         onPointerCancel={() => active && rec.cancel()}
         onContextMenu={(e) => e.preventDefault()}
-        onClick={(e) => {
-          // Keyboard (Enter / Space): toggle. Pointer clicks are handled on down/up.
-          if (e.detail !== 0) return;
-          if (active) rec.stop();
-          else rec.start();
-        }}
+        onKeyDown={keyDown}
+        onKeyUp={keyUp}
         className="relative grid size-full touch-none place-items-center rounded-full transition-colors select-none disabled:opacity-60"
         style={{ background: active ? "#F7F1E5" : "rgba(247,241,229,0.12)", color: active ? "#141413" : "#F7F1E5" }}
         data-voice-mic={rec.phase}
@@ -472,22 +484,43 @@ export function LevelMeter({ level, engine }: { level: number; engine: VoiceEngi
   );
 }
 
-/** "Read replies aloud" toggle for the sheet header. */
-export function SpeakerToggle({ speaker }: { speaker: Speaker }) {
-  const label = speaker.on ? "Stop reading replies aloud" : "Read replies aloud";
+/**
+ * "Read replies aloud": toggles the remembered setting. While a reply is playing it turns green with moving
+ * bars, and a tap stops the playback (the setting stays on). `compact` is the round version for the ink bar.
+ */
+export function SpeakerToggle({ speaker, compact }: { speaker: Speaker; compact?: boolean }) {
+  const reduce = useReducedMotion();
+  const speaking = speaker.speaking;
+  const label = speaking ? "Stop reading this reply" : speaker.on ? "Stop reading replies aloud" : "Read replies aloud";
+  const bg = speaking ? "#1FB57A" : speaker.on ? "#141413" : compact ? "rgba(247,241,229,0.12)" : "#F3EDE0";
+  const fg = speaking || speaker.on || compact ? "#F7F1E5" : "#141413";
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       aria-pressed={speaker.on}
-      onClick={speaker.toggle}
-      className="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors"
-      style={{ background: speaker.on ? "#141413" : "#F3EDE0", color: speaker.on ? "#F7F1E5" : "#141413" }}
-      data-voice-speaker={speaker.on ? "on" : "off"}
+      onClick={speaking ? speaker.hush : speaker.toggle}
+      className={cn("flex shrink-0 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition-colors duration-200", compact ? "size-11" : "h-9 min-w-9 px-2.5")}
+      style={{ background: bg, color: fg }}
+      data-voice-speaker={speaking ? "speaking" : speaker.on ? "on" : "off"}
     >
-      {speaker.on ? <Volume2 className="size-[15px]" /> : <VolumeX className="size-[15px]" />}
-      <span className="hidden sm:inline">{speaker.on ? (speaker.speaking ? "Reading…" : "Reading aloud") : "Read aloud"}</span>
+      {speaking ? (
+        <span className="flex h-4 items-center gap-[2px]" aria-hidden>
+          {[0.6, 1, 0.75, 0.9].map((w, i) =>
+            reduce ? (
+              <span key={i} className="w-[3px] rounded-full bg-current" style={{ height: 6 + w * 8 }} />
+            ) : (
+              <motion.span key={i} className="w-[3px] rounded-full bg-current" animate={{ height: [4, 6 + w * 10, 4] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }} />
+            ),
+          )}
+        </span>
+      ) : speaker.on ? (
+        <Volume2 className="size-[15px]" />
+      ) : (
+        <VolumeX className="size-[15px]" />
+      )}
+      {!compact && <span className="hidden lg:inline">{speaking ? "Speaking" : speaker.on ? "Reading aloud" : "Read aloud"}</span>}
     </button>
   );
 }

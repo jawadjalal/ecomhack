@@ -11,12 +11,14 @@
  *   threads, and navigation when Darwin opens a page. Refreshes the console's live data (SWR) after actions.
  * - Voice (./voice): hold or tap the mic to talk; "Read aloud" speaks replies.
  */
-import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useSWRConfig } from "swr";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowUp, ChevronDown, Maximize2, Minimize2, RotateCcw, X } from "lucide-react";
-import type { AssistantAction, AssistantMessage, AssistantPendingConfirm, AssistantResponse } from "@/lib/contracts";
+import { ArrowUp, ChevronDown, Maximize2, Minimize2, RotateCcw, Store, X } from "lucide-react";
+import type { AgentThread, AssistantAction, AssistantMessage, AssistantPendingConfirm, AssistantResponse, CrewId } from "@/lib/contracts";
+import { CREW, crewMember, SIMULATED_SHOPPER, type CrewMember } from "@/lib/crew";
+import { BrandGlyph } from "@/components/dw/brand-logos";
 import { cn } from "@/components/ui/cn";
 import { Mascot, MASCOT_CSS, type MascotKind } from "./mascot";
 import { LevelMeter, MicButton, SpeakerToggle, useRecorder, useSpeaker, useVoiceStatus } from "./voice";
@@ -38,18 +40,61 @@ const ASK_CSS = `[data-ask-root]{--ask-gap:16px}
 
 type Mode = "bar" | "half" | "full";
 
-interface ThreadMessage {
-  from: string;
-  to?: string;
-  text: string;
-  at?: string;
-}
 /** An agent-to-agent exchange Darwin ran this turn (AssistantResponse.threads). */
-interface ThreadView {
-  id: string;
-  agents: string[];
-  messages: ThreadMessage[];
-  synthetic?: boolean;
+type ThreadView = AgentThread;
+
+/* ------------------------------------------------------------------ the crew (tabs, avatars, colours) */
+
+/** Each crew member's pastel (the active tab, its thinking row). Grok is ink. */
+const CREW_TONE: Record<CrewId, { bg: string; fg: string }> = {
+  darwin: { bg: "#EDE6D6", fg: INK },
+  iris: { bg: "#B8CAEE", fg: INK },
+  theo: { bg: "#F3B5D5", fg: INK },
+  ada: { bg: "#F6D76B", fg: INK },
+  max: { bg: "#A9B46E", fg: INK },
+  mika: { bg: "#D5CCF5", fg: INK },
+  grok: { bg: INK, fg: CREAM },
+};
+/** What to ask each of them about (the bar's placeholder). */
+const ASK_ABOUT: Record<CrewId, string> = {
+  darwin: "about your store, or tell it what to do",
+  iris: "where shoppers get stuck",
+  theo: "about page changes",
+  ada: "about your tests",
+  max: "about shipping winners",
+  mika: "about selling to AI shoppers",
+  grok: "about your briefing",
+};
+const AGENT_KEY = "darwin.assistant.agent";
+const crewById = (id: CrewId): CrewMember => CREW.find((c) => c.id === id) ?? CREW[0];
+
+/** A crew member's face: their mascot, or a round badge for Mika (the store) and Grok. */
+function CrewAvatar({ member, size = 26, active, thinking }: { member?: CrewMember; size?: number; active?: boolean; thinking?: boolean }) {
+  const m = member ?? CREW[0];
+  if (m.mascot) return <Mascot kind={m.mascot as MascotKind} size={size} active={active} thinking={thinking} label={m.name} />;
+  const tone = m.brand === "grok" ? { bg: INK, fg: CREAM } : { bg: "#D5CCF5", fg: INK };
+  return (
+    <span role="img" aria-label={m.name} className="inline-block shrink-0" style={{ width: size, height: size }}>
+      <span className={cn("grid size-full place-items-center rounded-full", thinking ? "dm-think" : active && "dm-bob")} style={{ background: tone.bg, color: tone.fg, boxShadow: m.brand === "grok" ? "none" : "inset 0 0 0 1px rgba(20,20,19,0.08)" }}>
+        {m.brand === "grok" ? <BrandGlyph brand="grok" size={Math.round(size * 0.56)} /> : <Store style={{ width: size * 0.52, height: size * 0.52 }} strokeWidth={2} />}
+      </span>
+    </span>
+  );
+}
+
+/** Who a thread name is: a crew member, the simulated shopper, or unknown (shown as-is). */
+function whoIs(name: string): { name: string; member?: CrewMember; shopper?: boolean } {
+  const n = name.trim();
+  if (/^(shopper|buyer|simulated shopper|buyer agent)$/i.test(n)) return { name: SIMULATED_SHOPPER.label, shopper: true };
+  const legacy: Record<string, CrewId> = { analyst: "iris", watcher: "iris", designer: "theo", tester: "ada", experimenter: "ada", shipper: "max", "store agent": "mika", store: "mika" };
+  const member = crewMember(n) ?? (legacy[n.toLowerCase()] ? crewById(legacy[n.toLowerCase()]) : undefined);
+  return member ? { name: member.name, member } : { name: n.replace(/^./, (c) => c.toUpperCase()) };
+}
+
+function ThreadFace({ name, size = 22, thinking }: { name: string; size?: number; thinking?: boolean }) {
+  const w = whoIs(name);
+  if (w.shopper) return <Mascot kind={SIMULATED_SHOPPER.mascot as MascotKind} size={size} thinking={thinking} label="Simulated shopper" />;
+  return <CrewAvatar member={w.member ?? CREW[0]} size={size} thinking={thinking} />;
 }
 
 interface ChatItem {
@@ -63,6 +108,8 @@ interface ChatItem {
   error?: boolean;
   /** Came from the mic. */
   voice?: boolean;
+  /** Arrived this session: play its agent threads message by message. */
+  fresh?: boolean;
 }
 
 /** How each tool's result card looks. Unknown tools (new ones added to the registry) get the sand default. */
@@ -122,6 +169,16 @@ const PAGE_STARTERS: [RegExp, Starter[]][] = [
   ]],
 ];
 
+/** First questions for each specialist's own tab. */
+const CREW_STARTERS: Record<Exclude<CrewId, "darwin">, string[]> = {
+  iris: ["Where do shoppers get stuck?", "Why do AI agents drop off?", "Which agents buy most?"],
+  theo: ["Draft a fix for the biggest leak", "What would you change on the product page?", "Show your latest draft"],
+  ada: ["Is the test safe to ship?", "What should we test next?", "How sure are you about B?"],
+  max: ["What's ready to ship?", "What did we ship last?", "Can you undo the last change?"],
+  mika: ["What do AI shoppers ask you?", "What are you selling?", "How many agents bought today?"],
+  grok: ["What's in my briefing?", "Anything I should act on?", "Summarise yesterday"],
+};
+
 /** Suggestions a page hands the bar (the Overview's live questions); null = use the per-page defaults. */
 let pageStarters: Starter[] | null = null;
 const starterListeners = new Set<() => void>();
@@ -151,10 +208,12 @@ const asMascot = (k?: string): MascotKind => (MASCOTS.includes(k as MascotKind) 
 /* ------------------------------------------------------------------ thread persistence */
 
 const STORAGE_KEY = "darwin.assistant.thread";
+/** Darwin keeps the original key; each crew member has its own conversation. */
+const threadKey = (agent: CrewId) => (agent === "darwin" ? STORAGE_KEY : `${STORAGE_KEY}.${agent}`);
 
-function loadThread(): ChatItem[] {
+function loadThread(agent: CrewId): ChatItem[] {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(threadKey(agent));
     const parsed = raw ? (JSON.parse(raw) as ChatItem[]) : [];
     return Array.isArray(parsed) ? parsed.slice(-40) : [];
   } catch {
@@ -162,9 +221,9 @@ function loadThread(): ChatItem[] {
   }
 }
 
-function saveThread(items: ChatItem[]) {
+function saveThread(agent: CrewId, items: ChatItem[]) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(-40)));
+    sessionStorage.setItem(threadKey(agent), JSON.stringify(items.slice(-40).map((m) => ({ ...m, fresh: undefined }))));
   } catch {
     /* storage blocked: the thread lives for this page only */
   }
@@ -216,8 +275,14 @@ export function AssistantPanel() {
   const reduce = useReducedMotion();
   const [mode, setMode] = useState<Mode>("bar");
   const [dragH, setDragH] = useState<number | null>(null);
-  const [items, setItems] = useState<ChatItem[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [agent, setAgent] = useState<CrewId>("darwin");
+  const [byAgent, setByAgent] = useState<Partial<Record<CrewId, ChatItem[]>>>({});
+  /** Which crew member is working on a reply (one at a time). */
+  const [working, setWorking] = useState<CrewId | null>(null);
+  const busy = working !== null;
+  const items = useMemo(() => byAgent[agent] ?? [], [byAgent, agent]);
+  const setItemsFor = useCallback((who: CrewId, fn: (all: ChatItem[]) => ChatItem[]) => setByAgent((m) => ({ ...m, [who]: fn(m[who] ?? []) })), []);
+  const member = crewById(agent);
   const [followUps, setFollowUps] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const { mutate } = useSWRConfig();
@@ -243,20 +308,43 @@ export function AssistantPanel() {
   const bodyH = Math.max(0, Math.min(avail, dragH ?? snaps[mode]));
   const recording = rec.phase === "recording" || rec.phase === "starting";
 
-  const starters: Starter[] = (pathname === "/console" && given) || PAGE_STARTERS.find(([re]) => re.test(pathname ?? ""))?.[1] || given || DEFAULT_STARTERS;
+  const starters: Starter[] =
+    agent !== "darwin"
+      ? CREW_STARTERS[agent].map((text) => ({ text, tone: CREW_TONE[agent].bg }))
+      : (pathname === "/console" && given) || PAGE_STARTERS.find(([re]) => re.test(pathname ?? ""))?.[1] || given || DEFAULT_STARTERS;
 
-  /* thread survives page navigation within the console (per tab) */
+  /* conversations (one per crew member) survive page navigation within the console (per browser tab) */
   useEffect(() => {
     const t = setTimeout(() => {
-      const saved = loadThread();
-      if (saved.length) setItems(saved);
+      const all: Partial<Record<CrewId, ChatItem[]>> = {};
+      for (const c of CREW) {
+        const saved = loadThread(c.id);
+        if (saved.length) all[c.id] = saved;
+      }
+      setByAgent(all);
+      try {
+        const a = sessionStorage.getItem(AGENT_KEY);
+        if (a && CREW.some((c) => c.id === a)) setAgent(a as CrewId);
+      } catch {
+        /* storage blocked */
+      }
       hydrated.current = true;
     }, 0);
     return () => clearTimeout(t);
   }, []);
   useEffect(() => {
-    if (hydrated.current) saveThread(items);
-  }, [items]);
+    if (!hydrated.current) return;
+    for (const [who, list] of Object.entries(byAgent)) saveThread(who as CrewId, list ?? []);
+  }, [byAgent]);
+  const pickAgent = useCallback((id: CrewId) => {
+    setAgent(id);
+    setFollowUps([]);
+    try {
+      sessionStorage.setItem(AGENT_KEY, id);
+    } catch {
+      /* storage blocked */
+    }
+  }, []);
 
   useEffect(() => {
     const el = scroller.current;
@@ -322,14 +410,15 @@ export function AssistantPanel() {
   );
 
   const call = useCallback(
-    async (history: ChatItem[], confirm?: { tool: string; args: Record<string, unknown>; approved: boolean }) => {
-      setBusy(true);
+    async (who: CrewId, history: ChatItem[], confirm?: { tool: string; args: Record<string, unknown>; approved: boolean }) => {
+      setWorking(who);
       speaker.hush();
+      const setItems = (fn: (all: ChatItem[]) => ChatItem[]) => setItemsFor(who, fn);
       try {
         const res = await fetch("/api/assistant", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages: toHistory(history), confirm, context: pageContext() }),
+          body: JSON.stringify({ messages: toHistory(history), confirm, context: pageContext(), ...(who === "darwin" ? {} : { agent: who }) }),
           cache: "no-store",
         });
         const body = (await res.json().catch(() => ({}))) as Partial<AssistantResponse> & { error?: string; threads?: ThreadView[] };
@@ -345,7 +434,7 @@ export function AssistantPanel() {
         }
         const actions = body.actions ?? [];
         const threads = Array.isArray(body.threads) ? body.threads.filter((t) => t && Array.isArray(t.messages) && t.messages.length) : undefined;
-        setItems((all) => [...all, { role: "assistant", content: body.reply!, actions, pendingConfirm: body.pendingConfirm, threads }]);
+        setItems((all) => [...all, { role: "assistant", content: body.reply!, actions, pendingConfirm: body.pendingConfirm, threads, fresh: true }]);
         setFollowUps(body.suggestions ?? []);
         refresh(actions);
         if (speaker.on) speaker.say(replyText({ role: "assistant", content: body.reply!, pendingConfirm: body.pendingConfirm }) || body.reply!);
@@ -355,34 +444,31 @@ export function AssistantPanel() {
       } catch {
         setItems((all) => [...all, { role: "assistant", content: "Couldn't reach Darwin. Check your connection and try again.", error: true }]);
       } finally {
-        setBusy(false);
+        setWorking(null);
       }
     },
-    [refresh, router, speaker],
+    [refresh, router, speaker, setItemsFor],
   );
 
-  const send = useCallback(
-    (text: string, fromVoice?: boolean) => {
-      const t = text.trim();
-      if (!t || busy) return;
-      // A new message supersedes an unanswered confirmation.
-      const next: ChatItem[] = [
-        ...items.map((m) => (m.pendingConfirm && !m.resolved ? { ...m, resolved: "cancelled" as const } : m)),
-        { role: "user", content: t.slice(0, 2000), voice: fromVoice || undefined },
-      ];
-      setItems(next);
-      setDraft("");
-      if (mode === "bar") openTo("half");
-      void call(next);
-    },
-    [busy, items, call, mode, openTo],
-  );
+  const send = (text: string, fromVoice?: boolean) => {
+    const t = text.trim();
+    if (!t || working !== null) return;
+    // A new message supersedes an unanswered confirmation.
+    const next: ChatItem[] = [
+      ...items.map((m) => (m.pendingConfirm && !m.resolved ? { ...m, resolved: "cancelled" as const } : m)),
+      { role: "user", content: t.slice(0, 2000), voice: fromVoice || undefined },
+    ];
+    setItemsFor(agent, () => next);
+    setDraft("");
+    if (mode === "bar") openTo("half");
+    void call(agent, next);
+  };
   useEffect(() => {
     sendRef.current = (t, v) => {
       setDraft(t);
       send(t, v);
     };
-  }, [send]);
+  });
 
   const answer = useCallback(
     (index: number, approved: boolean) => {
@@ -392,14 +478,14 @@ export function AssistantPanel() {
         ...items.map((m, i) => (i === index ? { ...m, resolved: approved ? ("confirmed" as const) : ("cancelled" as const) } : m)),
         { role: "user", content: approved ? "Yes, go ahead." : "No, cancel that." },
       ];
-      setItems(next);
-      void call(next, { tool: item.pendingConfirm.tool, args: item.pendingConfirm.args, approved });
+      setItemsFor(agent, () => next);
+      void call(agent, next, { tool: item.pendingConfirm.tool, args: item.pendingConfirm.args, approved });
     },
-    [items, busy, call],
+    [items, busy, call, agent, setItemsFor],
   );
 
   const clear = () => {
-    setItems([]);
+    setItemsFor(agent, () => []);
     setFollowUps([]);
     speaker.hush();
   };
@@ -461,20 +547,38 @@ export function AssistantPanel() {
                 exit={{ height: 0, opacity: 0 }}
                 transition={dragging || reduce ? { duration: 0 } : SPRING}
               >
-                <header className="flex h-[48px] shrink-0 cursor-grab touch-none items-center justify-between gap-2 px-3 sm:px-4" {...dragProps}>
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <Mascot kind="analyst" size={30} active={busy || speaker.speaking} />
-                    <span className="text-[18px] font-semibold">Darwin</span>
-                    <span className="hidden truncate text-[13px] text-[#6B665C] sm:inline">your store&apos;s lead agent</span>
+                <header className="flex h-[52px] shrink-0 items-center justify-between gap-2 px-1.5 sm:px-3" {...dragProps}>
+                  <div role="tablist" aria-label="Talk to the crew" className="flex min-w-0 flex-1 touch-pan-x items-center gap-1 overflow-x-auto py-1 [scrollbar-width:none]" data-crew-tabs>
+                    {CREW.map((c) => {
+                      const on = c.id === agent;
+                      const tone = CREW_TONE[c.id];
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={on}
+                          title={`${c.name} · ${c.role}: ${c.oneLiner}`}
+                          onClick={() => pickAgent(c.id)}
+                          className={cn("flex h-9 shrink-0 items-center gap-1.5 rounded-full pr-3 pl-1 text-[14px] font-medium transition-colors", !on && "hover:bg-[#F3EDE0]")}
+                          style={on ? { background: tone.bg, color: tone.fg } : { color: INK }}
+                          data-crew-tab={c.id}
+                        >
+                          <CrewAvatar member={c} size={26} active={on && !busy} thinking={working === c.id} />
+                          <span className={cn(!on && "hidden sm:inline")}>{c.name}</span>
+                          {on && <span className="hidden text-[12px] opacity-70 lg:inline">{c.role}</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
                     <SpeakerToggle speaker={speaker} />
                     {items.length > 0 && (
-                      <RoundButton label="New conversation" onClick={clear} disabled={busy}>
+                      <RoundButton label="New conversation" onClick={clear} disabled={busy} className="hidden sm:grid">
                         <RotateCcw className="size-[15px]" />
                       </RoundButton>
                     )}
-                    <RoundButton label={mode === "full" ? "Half height" : "Full height"} onClick={() => openTo(mode === "full" ? "half" : "full")}>
+                    <RoundButton label={mode === "full" ? "Half height" : "Full height"} onClick={() => openTo(mode === "full" ? "half" : "full")} className="hidden sm:grid">
                       {mode === "full" ? <Minimize2 className="size-[15px]" /> : <Maximize2 className="size-[15px]" />}
                     </RoundButton>
                     <RoundButton label="Close the chat" onClick={() => openTo("bar")}>
@@ -488,7 +592,9 @@ export function AssistantPanel() {
                     {items.length === 0 && (
                       <div className="flex flex-col gap-3">
                         <p className="m-0 text-[15px] leading-[1.5] text-[#4A463D]">
-                          Ask about your shoppers and agents, or tell Darwin what to do. It runs the loop, sends test shoppers, builds charts and ships winners (it asks first).
+                          {agent === "darwin"
+                            ? "Ask about your shoppers and agents, or tell Darwin what to do. It runs the loop, sends test shoppers, builds charts and ships winners (it asks first), and asks the crew when it needs them."
+                            : `${member.name}, ${member.role.toLowerCase()}: ${member.oneLiner}. Ask directly; Darwin still asks you before anything changes.`}
                         </p>
                         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                           {starters.slice(0, 3).map((s, i) => (
@@ -504,7 +610,7 @@ export function AssistantPanel() {
                               style={{ background: s.tone ?? "#EDE6D6", color: INK }}
                             >
                               <span className="transition-transform duration-300 group-hover:-rotate-6">
-                                <Mascot kind={asMascot(s.kind)} size={26} />
+                                {agent === "darwin" ? <Mascot kind={asMascot(s.kind)} size={26} /> : <CrewAvatar member={member} size={26} />}
                               </span>
                               {s.text}
                             </motion.button>
@@ -534,19 +640,19 @@ export function AssistantPanel() {
                         <motion.div key={i} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className="flex flex-col gap-3">
                           {/* the confirm card carries the question itself */}
                           {replyText(m) && <Reply text={replyText(m)} error={m.error} />}
-                          {m.threads?.map((t) => <Thread key={t.id} thread={t} />)}
+                          {m.threads?.map((t) => <Thread key={t.id} thread={t} play={m.fresh} />)}
                           {!!m.actions?.length && <ResultCards actions={m.actions} reply={m.content} />}
                           {m.pendingConfirm && <ConfirmCard pending={m.pendingConfirm} resolved={m.resolved} busy={busy} onAnswer={(ok) => answer(i, ok)} />}
                         </motion.div>
                       ),
                     )}
 
-                    {busy && (
-                      <span className="flex h-6 items-center gap-1.5" aria-label="Darwin is working">
-                        {[0, 1, 2].map((k) => (
-                          <motion.span key={k} className="size-2 rounded-full" style={{ background: INK }} animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: k * 0.15 }} />
-                        ))}
-                      </span>
+                    {working === agent && (
+                      <div className="flex items-center gap-2.5" aria-label={`${member.name} is thinking`} data-thinking={agent}>
+                        <CrewAvatar member={member} size={28} thinking />
+                        <span className="text-[14px] text-[#6B665C]">{member.name} is thinking</span>
+                        <TypingDots />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -606,7 +712,7 @@ export function AssistantPanel() {
             data-ask-bar
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-full" style={{ background: "rgba(247,241,229,0.10)" }}>
-              <Mascot kind="analyst" size={30} active={!busy} />
+              <CrewAvatar member={member} size={30} active={!busy} thinking={busy} />
             </span>
             <label htmlFor="dw-ask" className="sr-only">
               Ask Darwin
@@ -636,7 +742,7 @@ export function AssistantPanel() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onFocus={() => mode === "bar" && items.length > 0 && openTo("half")}
-                placeholder={items.length ? "Ask a follow-up" : phone ? "Ask Darwin" : "Ask Darwin about your store, or tell it what to do"}
+                placeholder={items.length ? `Ask ${member.name} a follow-up` : phone ? `Ask ${member.name}…` : `Ask ${member.name} ${ASK_ABOUT[agent]}…`}
                 maxLength={2000}
                 className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[#F7F1E5]/55"
                 style={{ color: CREAM }}
@@ -652,6 +758,7 @@ export function AssistantPanel() {
                 Show chat
               </button>
             )}
+            {speaker.speaking && !listening && <SpeakerToggle speaker={speaker} compact />}
             <MicButton rec={rec} disabled={busy} />
             {!listening && (
               <button
@@ -681,7 +788,7 @@ function replyText(m: Pick<ChatItem, "content" | "pendingConfirm"> & { role?: st
 
 const flat = (s: string) => s.replace(/^- /gm, "").replace(/\s+/g, " ").trim();
 
-function RoundButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
+function RoundButton({ label, onClick, disabled, className, children }: { label: string; onClick: () => void; disabled?: boolean; className?: string; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -689,7 +796,7 @@ function RoundButton({ label, onClick, disabled, children }: { label: string; on
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-[#EAE2D0] disabled:opacity-40"
+      className={cn("grid size-9 shrink-0 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-[#EAE2D0] disabled:opacity-40", className)}
       style={{ color: INK }}
     >
       {children}
@@ -776,28 +883,37 @@ function Pill({ children, tone }: { children: ReactNode; tone: "warn" | "win" | 
 
 /* ------------------------------------------------------------------ agent-to-agent threads */
 
-/** Which crew mascot speaks for an agent name ("Darwin", "Store agent", "Shopper", "Grok", "Designer"…). */
-function agentMascot(name: string): MascotKind {
-  const n = name.toLowerCase();
-  if (/store|merchant|seller|a2a/.test(n)) return "shipper";
-  if (/shopper|buyer|customer|visitor/.test(n)) return "experimenter";
-  if (/grok|certif|audit|observer/.test(n)) return "observer";
-  if (/design/.test(n)) return "designer";
-  return "analyst";
+function TypingDots() {
+  return (
+    <span className="flex items-center gap-1" aria-hidden>
+      {[0, 1, 2].map((k) => (
+        <motion.span key={k} className="size-1.5 rounded-full" style={{ background: INK }} animate={{ opacity: [0.2, 1, 0.2], y: [0, -2, 0] }} transition={{ duration: 0.9, repeat: Infinity, delay: k * 0.15 }} />
+      ))}
+    </span>
+  );
 }
-const agentName = (name: string) => (/^(analyst|darwin)$/i.test(name.trim()) ? "Darwin" : name.trim().replace(/^./, (c) => c.toUpperCase()));
 
-/** A compact exchange between agents, visually distinct from Darwin's own reply. */
-function Thread({ thread }: { thread: ThreadView }) {
+/** A compact exchange between crew members ("Darwin → Mika"), distinct from the reply. Fresh ones play message by message. */
+function Thread({ thread, play }: { thread: ThreadView; play?: boolean }) {
+  const reduce = useReducedMotion();
+  const total = thread.messages.length;
+  const [shown, setShown] = useState(play && !reduce ? 0 : total);
   const [all, setAll] = useState(false);
-  const msgs = all ? thread.messages : thread.messages.slice(0, 6);
-  const names = thread.agents.length ? thread.agents.map(agentName) : [...new Set(thread.messages.map((m) => agentName(m.from)))];
+  useEffect(() => {
+    if (shown >= total) return;
+    const t = setTimeout(() => setShown((n) => n + 1), shown === 0 ? 350 : 750);
+    return () => clearTimeout(t);
+  }, [shown, total]);
+  const visible = thread.messages.slice(0, shown);
+  const msgs = all ? visible : visible.slice(0, 8);
+  const next = shown < total ? thread.messages[shown] : undefined;
+  const names = (thread.agents.length ? thread.agents : [...new Set(thread.messages.map((m) => m.from))]).map((n) => whoIs(n).name);
   return (
     <div className="flex flex-col gap-2 rounded-[20px] border border-[#E8DFCC] bg-[#F7F1E5] px-4 py-3" data-agent-thread>
       <div className="flex min-w-0 items-center gap-2">
         <span className="flex -space-x-1.5">
-          {names.slice(0, 3).map((n) => (
-            <Mascot key={n} kind={agentMascot(n)} size={20} />
+          {(thread.agents.length ? thread.agents : names).slice(0, 3).map((n) => (
+            <ThreadFace key={n} name={n} size={20} />
           ))}
         </span>
         <span className="min-w-0 flex-1 truncate text-[12px] tracking-[0.04em] text-[#6B665C] uppercase" style={MONO}>
@@ -807,24 +923,31 @@ function Thread({ thread }: { thread: ThreadView }) {
       </div>
       <ol className="m-0 flex list-none flex-col gap-2 p-0">
         {msgs.map((m, i) => (
-          <li key={i} className="flex gap-2.5">
+          <motion.li key={i} className="flex gap-2.5" initial={play && !reduce ? { opacity: 0, y: 6 } : false} animate={{ opacity: 1, y: 0 }} transition={SPRING}>
             <span className="mt-0.5 shrink-0">
-              <Mascot kind={agentMascot(m.from)} size={22} />
+              <ThreadFace name={m.from} />
             </span>
             <p className="m-0 min-w-0 text-[14px] leading-[1.45] break-words">
               <span className="font-semibold">
-                {agentName(m.from)}
-                {m.to && <span className="font-normal text-[#6B665C]"> → {agentName(m.to)}</span>}
+                {whoIs(m.from).name}
+                {m.to && <span className="font-normal text-[#6B665C]"> → {whoIs(m.to).name}</span>}
               </span>
               <span className="text-[#6B665C]">: </span>
               <span className="text-[#2B2925]">{m.text}</span>
             </p>
-          </li>
+          </motion.li>
         ))}
+        {next && (
+          <li className="flex items-center gap-2.5" aria-hidden>
+            <ThreadFace name={next.from} thinking />
+            <span className="text-[13px] text-[#6B665C]">{whoIs(next.from).name} is typing</span>
+            <TypingDots />
+          </li>
+        )}
       </ol>
-      {thread.messages.length > msgs.length && (
+      {!next && total > msgs.length && (
         <button type="button" onClick={() => setAll(true)} className="self-start text-[13px] font-medium underline underline-offset-2">
-          Show all {thread.messages.length} messages
+          Show all {total} messages
         </button>
       )}
     </div>
