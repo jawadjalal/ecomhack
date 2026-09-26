@@ -4,69 +4,119 @@
  * One tool dispatcher shared by REST routes, the MCP endpoint, and in-process simulated shoppers,
  * so every path is tracked identically.
  */
-export type AgentToolName =
-  | "search_products"
-  | "get_product"
-  | "check_availability"
-  | "add_to_cart"
-  | "negotiate"
-  | "checkout";
-
-export interface AgentContext {
-  /** Stable id for the agent (distinct_id). */
-  agentId: string;
-  agentName: string;
-  sessionId: string;
-  synthetic?: boolean;
-  persona?: string;
-}
-
-export interface AgentToolResult<T = unknown> {
-  ok: boolean;
-  data?: T;
-  error?: string;
-  /** Fields the agent asked for that the current agentSurface does not expose. */
-  missing?: string[];
-}
-
-export async function callAgentTool(
-  _tool: AgentToolName,
-  _args: Record<string, unknown>,
-  _ctx: AgentContext,
-): Promise<AgentToolResult> {
-  // Placeholder until the agent-commerce PR lands.
-  return { ok: false, error: "not implemented" };
-}
-
 import type { AgentSessionSummary, ShoppingGoal } from "@/lib/contracts";
+import { llmAvailable } from "@/lib/llm/client";
+import { resolveSpecForVisitor } from "@/lib/spec/resolve";
+import { runScriptedBuyer, type BuyerHooks, type BuyerRunResult } from "./buyer";
+import { runLlmBuyer } from "./buyer-llm";
+import { dispatchAgentTool, newSessionSummary } from "./dispatcher";
+import { resetMcpSessions } from "./mcp";
+import {
+  AGENT_KV_KEYS,
+  getAgentSession,
+  getCommerceState,
+  listAgentSessions,
+  resetAgentState,
+  saveCommerceState,
+  upsertAgentSession,
+} from "./state";
+import type { AgentContext, AgentToolName, AgentToolResult, ToolCaller } from "./types";
 
-/** KV keys owned by this module (the optimizer's reset clears them). */
-export const AGENT_KV_KEYS = { sessions: "agent-sessions", carts: "agent-carts" } as const;
+export type {
+  AgentChannel,
+  AgentContext,
+  AgentOrder,
+  AgentProductDetail,
+  AgentToolErrorCode,
+  AgentToolName,
+  AgentToolResult,
+  AvailabilityView,
+  CartLine,
+  CartView,
+  MissingField,
+  NegotiationOutcome,
+  ToolCaller,
+  WantableField,
+} from "./types";
+export { AGENT_TOOL_NAMES, MISSING_FIELD_SURFACE, WANTABLE_FIELDS } from "./types";
+export { AGENT_KV_KEYS, getAgentSession, listAgentSessions };
+export {
+  parseGoalBrief,
+  sampleShoppingGoal,
+  wantFromGoal,
+  deadlineLabel,
+  BUYER_PERSONAS,
+  PROCEED_ANYWAY,
+  BUNDLE_TAKE_RATE,
+} from "./buyer";
+export type { BuyerPersona, BuyerRunResult, BuyerStep } from "./buyer";
+export { merchantFloor } from "./negotiation";
+export { TOOL_META, toolInputSchema } from "./tools";
+
+/**
+ * Call one agent tool. Resolves the (experiment-aware) spec for `ctx.agentId`, shapes the response
+ * by `spec.agentSurface`, tracks `agent_request` + funnel events and updates the session summary.
+ */
+export async function callAgentTool(
+  tool: AgentToolName,
+  args: Record<string, unknown>,
+  ctx: AgentContext,
+): Promise<AgentToolResult> {
+  return dispatchAgentTool(tool, args, ctx);
+}
 
 /**
  * Run one buyer agent end-to-end against the store via `callAgentTool` (in-process).
  * Used by the simulator for agent traffic and by the console's "send a shopper" button.
- * `useLlm` lets Grok/Claude pick actions; otherwise a scripted policy is used.
+ * `useLlm` lets Grok/Claude pick actions (≤ 8 steps); otherwise, or on any LLM error,
+ * the fast scripted policy is used.
  */
 export async function runBuyerAgent(
   goal: ShoppingGoal,
   ctx: AgentContext,
-  _opts: { useLlm?: boolean } = {},
+  opts: { useLlm?: boolean } & BuyerHooks = {},
 ): Promise<AgentSessionSummary> {
-  // Placeholder until the agent-commerce PR lands.
+  const now = ctx.now?.() ?? new Date().toISOString();
+  upsertAgentSession(
+    ctx.sessionId,
+    () => newSessionSummary(ctx, resolveSpecForVisitor(ctx.agentId), now),
+    (s) => {
+      s.goal = goal;
+    },
+  );
+  const call: ToolCaller = (tool, args) => dispatchAgentTool(tool, args, ctx);
+  const hooks: BuyerHooks = { onStep: opts.onStep, onThought: opts.onThought };
+
+  let result: BuyerRunResult | undefined;
+  if (opts.useLlm && llmAvailable()) {
+    try {
+      result = await runLlmBuyer(goal, call, hooks);
+    } catch (err) {
+      console.warn("[agent-commerce] LLM buyer failed, falling back to scripted policy:", String(err).slice(0, 200));
+      // Start the scripted run from a clean cart (deals/orders are kept).
+      saveCommerceState(ctx.sessionId, { ...getCommerceState(ctx.sessionId), cart: [] });
+    }
+  }
+  result ??= await runScriptedBuyer(goal, call, { seed: ctx.sessionId, ...hooks });
+
+  const summary = getAgentSession(ctx.sessionId);
+  if (summary) return structuredClone(summary);
+  // Session list was trimmed concurrently; synthesise from the run.
   return {
     sessionId: ctx.sessionId,
     agentName: ctx.agentName,
     goal,
-    startedAt: new Date().toISOString(),
-    outcome: "abandoned",
-    reason: "not implemented",
-    toolCalls: [],
+    startedAt: now,
+    outcome: result.outcome,
+    reason: result.reason,
+    orderTotal: result.order?.total,
+    toolCalls: result.steps.map((s) => ({ tool: s.tool, ok: s.result.ok, missing: s.result.missing, at: now })),
     synthetic: ctx.synthetic ?? false,
   };
 }
 
-/** Recent agent sessions, newest first. */
-export function listAgentSessions(_limit = 20): AgentSessionSummary[] {
-  return [];
+/** Forget all agent sessions, carts and MCP sessions (demo reset). */
+export function resetAgentCommerce() {
+  resetAgentState();
+  resetMcpSessions();
 }

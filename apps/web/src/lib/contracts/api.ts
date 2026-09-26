@@ -29,8 +29,15 @@ export interface AgentSessionsResponse {
 }
 // REST tools: GET /api/agent/products, GET /api/agent/products/:id, POST /api/agent/cart,
 //             POST /api/agent/negotiate, POST /api/agent/checkout
+//             (+ POST /api/agent/availability, GET /api/agent/cart, POST /api/agent/abandon)
+//             Every REST tool returns AgentToolResult { ok, data?, error?, missing?, code? }.
 // MCP:        POST /api/mcp (JSON-RPC 2.0: initialize, tools/list, tools/call)
 // Discovery:  GET /llms.txt, GET /.well-known/agent-card.json
+// POST /api/agent/shop  { brief? | goal?: ShoppingGoal, useLlm?, agentName? } → AgentShopResponse
+//      (runs one in-process buyer agent; console "send a shopper" button; synthetic = true)
+export interface AgentShopResponse {
+  session: AgentSessionSummary;
+}
 
 /* simulator PR */
 // POST /api/simulate  body SimulationOptions → SimulationResult
