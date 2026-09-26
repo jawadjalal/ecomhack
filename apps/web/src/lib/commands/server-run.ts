@@ -597,13 +597,20 @@ interface KpisLite {
   byKind: Record<"human" | "agent", { visitors: number; orders: number; conversionRate: number }>;
 }
 
-/** darwin_state / `darwin state`: the loop, KPIs (all traffic and real-only) and running tests, from the live API. */
+/** The same snapshot the chat and Overview cite. One dataset: real, or labelled simulated, never both. */
+interface SnapshotLite {
+  kind: "real" | "simulated" | "empty";
+  emptyLine: string;
+  simulated: boolean;
+  summary: KpisLite;
+}
+
+/** darwin_state / `darwin state`: the loop, the shared store snapshot and running tests, from the live API. */
 export async function darwinState(opts: HeadlessOptions): Promise<CommandResult> {
   const ctx = ctxOf(opts);
-  const [loop, all, real, brief] = await Promise.allSettled([
+  const [loop, snapRes, brief] = await Promise.allSettled([
     http<LoopState>(ctx, "GET", "/api/loop"),
-    http<KpisLite>(ctx, "GET", "/api/analytics/summary"),
-    http<KpisLite>(ctx, "GET", "/api/analytics/summary?includeSynthetic=0"),
+    http<SnapshotLite>(ctx, "GET", "/api/analytics/snapshot"),
     http<BriefingLite>(ctx, "GET", "/api/briefing"),
   ]);
   if (loop.status === "rejected") return { ok: false, text: `Couldn't read Darwin's state: ${(loop.reason as Error).message}` };
@@ -614,14 +621,14 @@ export async function darwinState(opts: HeadlessOptions): Promise<CommandResult>
     `Loop: Gen ${l.generation} live, phase ${PHASE_META[l.phase].label}, autopilot ${l.autopilot ? "on" : "off"}${l.experimentId ? `, test ${l.experimentId} running` : ""}.`,
   );
   if (top) lines.push(`Top issue: ${top.title} (about ${impact(top.impactScore)} buyers lost per 1,000 visits).`);
-  const kpis = all.status === "fulfilled" ? all.value : undefined;
-  const realKpis = real.status === "fulfilled" ? real.value : undefined;
-  if (kpis) {
+  const snap = snapRes.status === "fulfilled" ? snapRes.value : undefined;
+  if (snap?.kind === "empty") lines.push(snap.emptyLine);
+  else if (snap) {
+    const kpis = snap.summary;
     const o = kpis.overall;
-    const simulated = realKpis ? Math.max(0, o.visitors - realKpis.overall.visitors) : undefined;
+    const note = snap.simulated ? " All of this is simulated traffic (synthetic)." : " All real traffic.";
     lines.push(
-      `KPIs: ${plural(o.visitors, "visitor")}, ${plural(o.orders, "order")}, ${money(o.revenue)}, conversion ${pct(o.conversionRate)} (humans ${pct(kpis.byKind.human?.conversionRate)}, AI agents ${pct(kpis.byKind.agent?.conversionRate)})` +
-        (simulated !== undefined ? `; ${simulated ? `${plural(simulated, "visitor")} of it simulated` : "no simulated traffic"}.` : "."),
+      `KPIs: ${plural(o.visitors, "visitor")}, ${plural(o.orders, "order")}, ${money(o.revenue)}, conversion ${pct(o.conversionRate)} (humans ${pct(kpis.byKind.human?.conversionRate)}, AI agents ${pct(kpis.byKind.agent?.conversionRate)}).${note}`,
     );
   }
   const items = brief.status === "fulfilled" ? brief.value.items : [];
@@ -633,10 +640,10 @@ export async function darwinState(opts: HeadlessOptions): Promise<CommandResult>
     text: lines.join("\n"),
     href: abs(ctx, "/console"),
     linkLabel: "Open Overview",
-    synthetic: realKpis && kpis ? kpis.overall.visitors > realKpis.overall.visitors : undefined,
+    synthetic: snap?.simulated || undefined,
     data: {
       loop: { phase: l.phase, generation: l.generation, autopilot: l.autopilot, experimentId: l.experimentId, designer: l.designer, insights: rankInsights(l).map((i) => ({ id: i.id, title: i.title, impactScore: i.impactScore })) },
-      kpis: kpis ? { all: { overall: kpis.overall, byKind: kpis.byKind }, real: realKpis ? { overall: realKpis.overall, byKind: realKpis.byKind } : undefined } : undefined,
+      kpis: snap && snap.kind !== "empty" ? { kind: snap.kind, simulated: snap.simulated, overall: snap.summary.overall, byKind: snap.summary.byKind } : undefined,
       tests: live,
       ask: brief.status === "fulfilled" ? brief.value.ask : undefined,
     },

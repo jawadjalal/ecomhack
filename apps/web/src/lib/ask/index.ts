@@ -10,12 +10,13 @@
  * the heuristic so the numbers shown are never invented by a model.
  */
 import type { AgentSessionSummary, AnalyticsSummary, Experiment, LoopState } from "@/lib/contracts";
-import { getAnalyticsSummary } from "@/lib/analytics/summary";
-import { eventStore } from "@/lib/analytics/store";
 import { getLoopState, loopConfigFromEnv } from "@/lib/optimizer";
 import { getExperiment } from "@/lib/experiments/store";
 import { listAgentSessions } from "@/lib/agent-commerce";
+import { brandOf, storeSnapshot } from "@/lib/analytics/snapshot";
 import { generateText, llmAvailable } from "@/lib/llm/client";
+
+export { brandOf };
 
 /* ------------------------------------------------------------------ contract */
 
@@ -95,23 +96,14 @@ export interface AskContext {
   generation: number;
   lastShipped?: string;
   autopilot: boolean;
-  /** True when some or all of the numbers come from Darwin's simulated shoppers. */
+  /** True when the numbers come from Darwin's simulated shoppers (demo mode). Never mixed with real rates. */
   simulated: boolean;
+  /** Set when there is nothing to cite. */
+  emptyLine?: string;
 }
 
 const STEP_LABELS = ["Visit → view", "View → cart", "Cart → checkout", "Checkout → buy"];
 
-/** Group agent names into the brands the console shows (Perplexity, ChatGPT, Claude, Gemini, Grok…). */
-export function brandOf(agentName: string): string {
-  const n = agentName.toLowerCase();
-  if (/perplex/.test(n)) return "Perplexity";
-  if (/chatgpt|openai|gpt|oai-/.test(n)) return "ChatGPT";
-  if (/claude|anthropic/.test(n)) return "Claude";
-  if (/gemini|google|bard/.test(n)) return "Gemini";
-  if (/grok|xai/.test(n)) return "Grok";
-  if (/copilot|bing|microsoft/.test(n)) return "Copilot";
-  return agentName || "Other agent";
-}
 
 const seg = (k: { visitors: number; orders: number; conversionRate: number } | undefined): AskSegment => ({
   shoppers: k?.visitors ?? 0,
@@ -128,6 +120,9 @@ export function buildContext(input: {
   shipThreshold: number;
   /** Did any of the counted shoppers come from Darwin's simulator? Default true (say so when unsure). */
   simulated?: boolean;
+  emptyLine?: string;
+  /** Brand rates from the same events as `summary`. When set, they replace the session sample. */
+  brands?: AskBrand[];
 }): AskContext {
   const { summary, loop, experiment, sessions, shipThreshold } = input;
   const byBrand = new Map<string, AskBrand>();
@@ -140,7 +135,7 @@ export function buildContext(input: {
     b.rate = b.bought / b.shoppers;
     byBrand.set(name, b);
   }
-  const brands = [...byBrand.values()].sort((x, y) => y.rate - x.rate || y.shoppers - x.shoppers);
+  const brands = input.brands ?? [...byBrand.values()].sort((x, y) => y.rate - x.rate || y.shoppers - x.shoppers);
 
   const funnel = STEP_LABELS.map((step, i) => ({
     step,
@@ -201,6 +196,7 @@ export function buildContext(input: {
     lastShipped: shipped?.label,
     autopilot: loop.autopilot,
     simulated: input.simulated ?? true,
+    ...(input.emptyLine ? { emptyLine: input.emptyLine } : {}),
   };
 }
 
@@ -295,7 +291,7 @@ function answerTest(ctx: AskContext): AskResponse {
 function answerConversion(ctx: AskContext): AskResponse {
   const { store, people, agents } = ctx;
   if (!store.shoppers) {
-    return { source: "heuristic", answer: "No shoppers yet. Turn on traffic or let Darwin run, and I’ll have numbers within a few seconds." };
+    return { source: "heuristic", answer: ctx.emptyLine ?? "No shoppers yet. Turn on traffic or let Darwin run, and I’ll have numbers within a few seconds." };
   }
   let answer = `Your store converts ${pctText(store.rate)} of shoppers: ${countText(store.bought)} of ${countText(store.shoppers)} bought.`;
   if (people.shoppers && agents.shoppers) answer += ` People buy at ${pctText(people.rate)} and AI agents at ${pctText(agents.rate)}.`;
@@ -540,19 +536,17 @@ export async function answerWithLlm(req: AskRequest, ctx: AskContext): Promise<s
 
 export function currentContext(): AskContext {
   const loop = getLoopState();
-  const summary = getAnalyticsSummary();
-  // One cheap scan (stops at the first simulated event) instead of a second full summary.
-  const simulated = eventStore()
-    .all()
-    .some((e) => e.properties.synthetic);
+  const snap = storeSnapshot();
   const experiment = loop.experimentId ? getExperiment(loop.experimentId) : undefined;
   return buildContext({
-    summary,
+    summary: snap.summary,
     loop,
     experiment,
     sessions: listAgentSessions(120),
     shipThreshold: loopConfigFromEnv().shipThreshold,
-    simulated,
+    simulated: snap.simulated,
+    emptyLine: snap.kind === "empty" ? snap.emptyLine : undefined,
+    brands: snap.brands,
   });
 }
 

@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 15:00 UTC (Telegram tools via runAssistant)
+Last updated: 2026-09-26 16:10 UTC (chat uses one store snapshot; group tabs)
 
 ---
 
@@ -44,12 +44,12 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Limitations (team intro):** the intro script is fixed copy, not an LLM call (so it is instant and never wrong); the model chip shows the loop's model, which is "Built-in rules" until an OpenRouter key is set.
 
 ### Overview `/console`  ✅ (🟡 above-the-fold pass)
-- **Done:** impact strip (before Darwin vs now, extra buyers per 1,000), Conversion / A vs B / Which agents buy / How they convert, live shoppers joined to the journey, Ask Darwin bottom-sheet chat (mobile sheet too).
+- **Done:** impact strip (before Darwin vs now, extra buyers per 1,000), Conversion / A vs B / Which agents buy / How they convert, live shoppers joined to the journey, Ask Darwin bottom-sheet chat (mobile sheet too). The headline rate, the Converts tab, the impact strip's "now", the agent board and the chat all read `GET /api/analytics/snapshot` (one dataset). Demo mode (or an explicit simulation) is labelled simulated; a connected store with no real shoppers says "No real shoppers yet" instead of quoting synthetic rates. Group chats open as their own tabs.
 - **Left to do:** both card rows above the fold at 1440×900 (in progress); make the bottom chat the **lead agent on every screen** that can navigate and run any action (in progress, see Agent mode).
-- **Limitations:** People rows need store traffic on (events route has no store-only filter); `?mock=1` chat answers from the server.
-- **Done (demo mode):** never empty with nothing connected: boot runs the loop to Gen 1 with a test live (fresh server) or sends one round of simulated shoppers (restart: the loop state is on disk, simulated events never were, which is why the live deploy showed "8.7% converts" next to "3 shoppers · 0 bought" and an all-0% funnel). "Demo store · Connect your site" note on every console page while no repo / darwin.js site is connected.
-- **Left for the console-screens agent (files I must not touch):** lede says "Right now Darwin is <phase blurb>" while paused (`screens/overview.tsx`, check `autopilot`); Conversion card's SHOPPERS/BOUGHT come from `useSummary` while CONVERTS comes from the loop history, so they can disagree (label them or use one source); CardEmpty should offer "Explore with the demo store" (POST /api/demo) instead of only "Let Darwin run".
-- **Next-run ideas:** a daily "what changed" digest card; pin a shopper journey to an issue; persist a compact per-generation summary so a restart doesn't need a refill round.
+- **Limitations:** People rows need store traffic on (events route has no store-only filter); `?mock=1` skips the server snapshot on the cards (the in-browser mock engine is that page's dataset) while the chat still answers from the server. Generation history is still the "before" series, so the chart can differ from the live rate. Mika's pitch replies ("what would you say") are a labelled synthetic conversation, not a Whop sale. Group threads live in sessionStorage on this browser, not on the server.
+- **Done (demo mode):** never empty with nothing connected: boot runs the loop to Gen 1 with a test live (fresh server) or sends one round of simulated shoppers (restart: the loop state is on disk, simulated events never were, which is why the live deploy showed "8.7% converts" next to "3 shoppers · 0 bought" and an all-0% funnel). "Demo store · Connect your site" note on every console page while no repo / darwin.js site is connected. Simulated rates are labelled and are not mixed into a real rate.
+- **Left for the console-screens agent (files I must not touch):** lede says "Right now Darwin is <phase blurb>" while paused (`screens/overview.tsx`, check `autopilot`); CardEmpty should offer "Explore with the demo store" (POST /api/demo) instead of only "Let Darwin run".
+- **Next-run ideas:** persist group threads on the server so a reload on another device keeps them; point `?mock=1` chat at the same in-browser engine as the cards.
 
 ### Issues `/console/issues`  ✅ (🟡 above the fold)
 - **Done:** issues ranked by buyers lost per 1,000 visits, who/where cards, real sessions that hit each one, the fix, deep links.
@@ -149,6 +149,8 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 ---
 
 ## Run log (newest first)
+
+- **2026-09-26 16:10 UTC — chat tabs + one dataset.** Darwin and the crew cite `storeSnapshot()` (real analytics, or labelled simulated traffic in demo mode / an explicit simulation; one line when there is nothing to cite). Overview headline, Converts, impact "now", agent brands and `darwin state` use that same snapshot. Crew display names (Darwin, Iris, Pixel, Fizz, Dash, Mika, Grok) are the names in the model prompt. "Get Pixel and Fizz on this" opens a group tab with its own history, unread dot and close button; a stalled reply aborts and retries. Still open: `?mock=1` chat is still the server; group history is sessionStorage only.
 
 - **2026-09-26 16:45 UTC — apple-site agent.** `demo-websites/apple-site/`: Orchard demo store (Next.js, :3001) with five PageSpec-driven conversion mistakes, darwin.js + funnel events, synthetic seed (humans + AI agents) verified on a local Darwin, local-only exact mirror mode, and `POST /api/simulate/events` so seeds are always labelled synthetic. Still open: lead-agent commands for seeding; real darwin.js events don't feed the loop (no spec_version on external events).
 - **2026-09-26 15:25 UTC — merge #42 into #46.** Crew registry (`lib/crew`), assistant personas and crew tabs use Pixel / Fizz / Dash (ids theo / ada / max stay; `pixel`, `fizz`, `dash` are aliases). Each loop page's start button names its own agent ("Let Iris watch", "Let Pixel draft a fix", "Let Fizz run the test", "Let Dash ship winners"); Darwin's own actions (Overview start, top-nav autopilot) are in his yellow. #46's team loop moved to `lib/llm/team.ts` on top of main's client (OpenRouter first, timeouts, cooldowns). Left: the team loop and the assistant loop are still two loops; merge them next run.

@@ -17,7 +17,7 @@ export const TEAM: TeamAgent[] = [
   {
     id: "darwin",
     name: "Darwin",
-    role: "Team lead",
+    role: "Lead",
     blurb: "Your single point of contact. Plans the work, hands it to the right specialist, and reports back.",
     mascot: "leader",
     color: "#E23B3B",
@@ -36,7 +36,7 @@ export const TEAM: TeamAgent[] = [
   {
     id: "iris",
     name: "Iris",
-    role: "Observer",
+    role: "Watcher",
     blurb: "Watches humans and AI shoppers, builds dashboards, and researches your market and competitors.",
     mascot: "observer",
     color: "#2F86FF",
@@ -55,7 +55,7 @@ export const TEAM: TeamAgent[] = [
   {
     id: "pixel",
     name: "Pixel",
-    role: "Website editor",
+    role: "Designer",
     blurb: "Changes your live site and your code: personalisation rules, file edits and pull requests.",
     mascot: "designer",
     color: "#FF7A1C",
@@ -75,7 +75,7 @@ export const TEAM: TeamAgent[] = [
   {
     id: "fizz",
     name: "Fizz",
-    role: "Experimenter",
+    role: "Tester",
     blurb: "Designs and runs A/B tests, drives the optimisation loop, and stress-tests pages with simulated shoppers.",
     mascot: "experimenter",
     color: "#F0579E",

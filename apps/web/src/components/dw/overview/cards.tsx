@@ -89,7 +89,7 @@ export function ConversionCard({ points, summary, simulated, onRun }: { points: 
     label: string;
   }[] = last
     ? [
-        { key: "converts", value: last.rate, format: "pct", label: "Converts" },
+        { key: "converts", value: summary?.overall.visitors ? summary.overall.conversionRate : last.rate, format: "pct", label: "Converts" },
         {
           key: "shoppers",
           value: summary?.overall.visitors ?? last.shoppers,
