@@ -114,3 +114,4 @@ export interface DashboardsResponse {
 // POST  /api/dashboards { site, message }                  → { plan, reply, id } ask for a chart (admin)
 // POST  /api/dashboards { site, remove: id }               → { plan } remove an asked-for chart  (admin)
 // POST  /api/onboarding/restore { plan }                   → { restored, plan } browser copy → this instance, only if it has none (admin)
+// GET   /api/onboarding/verify?site=…&url=…              → { verified, via?: "events"|"tag", host, checkedAt, detail } ownership proof, cached ~10 s (admin)
