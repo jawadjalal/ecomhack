@@ -38,7 +38,7 @@ export function AutopilotCard({ className }: { className?: string }) {
   return (
     <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Autopilot">
       <div className="flex items-start gap-4">
-        <Mascot kind="shipper" size={60} frame active={autopilot} title="Darwin's shipper" />
+        <Mascot kind="shipper" size={60} frame active={autopilot} title="Dash, Darwin's shipper" />
         <div className="min-w-0 flex-1">
           <h2 className="text-[26px] leading-tight font-semibold tracking-[-0.02em]">Autopilot</h2>
           <p className="mt-1 flex items-center gap-2 text-[14px] text-[#4F4417]" aria-live="polite">

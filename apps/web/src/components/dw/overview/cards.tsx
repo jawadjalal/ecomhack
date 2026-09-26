@@ -44,7 +44,7 @@ function CardEmpty({
   children,
   action,
 }: {
-  kind: "designer" | "experimenter" | "observer" | "analyst";
+  kind: "designer" | "experimenter" | "observer" | "leader";
   children: React.ReactNode;
   action?: React.ReactNode;
 }) {
@@ -423,7 +423,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
         }
       />
       {!any ? (
-        <CardEmpty kind="analyst">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
+        <CardEmpty kind="leader">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
       ) : (
         <div className="mt-3.5 grid min-h-[150px] flex-1 grid-cols-4 gap-1.5 sm:gap-3">
           {steps.map((s, i) => (

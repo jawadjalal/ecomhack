@@ -39,10 +39,10 @@ interface ChatItem {
 /** How each tool's result card looks. Unknown tools (new ones added to the registry) get the sand default. */
 const TOOL_STYLE: Record<string, { label: string; bg: string; mascot: MascotKind }> = {
   get_kpis: { label: "Store numbers", bg: "#F6D76B", mascot: "observer" },
-  loop_status: { label: "Loop status", bg: "#B8CAEE", mascot: "analyst" },
-  step_loop: { label: "Loop stepped", bg: "#B8CAEE", mascot: "analyst" },
-  set_autopilot: { label: "Autopilot", bg: "#B8CAEE", mascot: "analyst" },
-  reset_loop: { label: "Reset to Gen 0", bg: "#EDE6D6", mascot: "analyst" },
+  loop_status: { label: "Loop status", bg: "#B8CAEE", mascot: "leader" },
+  step_loop: { label: "Loop stepped", bg: "#B8CAEE", mascot: "leader" },
+  set_autopilot: { label: "Autopilot", bg: "#B8CAEE", mascot: "experimenter" },
+  reset_loop: { label: "Reset to Gen 0", bg: "#EDE6D6", mascot: "experimenter" },
   list_experiments: { label: "Experiments", bg: "#F3B5D5", mascot: "experimenter" },
   ship_winner: { label: "Ship pull request", bg: "#DDF3E8", mascot: "shipper" },
   list_dashboards: { label: "Dashboards", bg: "#F6D76B", mascot: "observer" },
@@ -54,7 +54,7 @@ const TOOL_STYLE: Record<string, { label: string; bg: string; mascot: MascotKind
   send_test_shopper: { label: "Test shopper", bg: "#D5CCF5", mascot: "experimenter" },
   agent_funnel: { label: "Agent funnel", bg: "#F3B5D5", mascot: "observer" },
 };
-const styleFor = (tool: string) => TOOL_STYLE[tool] ?? { label: tool.replace(/_/g, " "), bg: "#F3EDE0", mascot: "analyst" as MascotKind };
+const styleFor = (tool: string) => TOOL_STYLE[tool] ?? { label: tool.replace(/_/g, " "), bg: "#F3EDE0", mascot: "leader" as MascotKind };
 
 const STARTERS: { text: string; bg: string; mascot: MascotKind }[] = [
   { text: "How are we doing?", bg: "#F3B5D5", mascot: "experimenter" },
@@ -289,7 +289,7 @@ export function AssistantPanel() {
             }}
             className="flex h-[60px] w-full items-center gap-3 rounded-full bg-white pr-2 pl-3.5 shadow-[0_0_0_1px_#E8DFCC,0_16px_40px_rgba(20,20,19,0.10)]"
           >
-            <Mascot kind="analyst" size={30} active />
+            <Mascot kind="leader" size={30} state={busy ? "thinking" : undefined} title="Darwin" />
             <label htmlFor="dw-ask-bar" className="sr-only">
               Ask Darwin
             </label>
@@ -342,7 +342,7 @@ export function AssistantPanel() {
 
             <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 pr-4 pl-5 sm:pr-5 sm:pl-7">
               <div className="flex min-w-0 items-center gap-3">
-                <Mascot kind="analyst" size={32} active />
+                <Mascot kind="leader" size={32} state={busy ? "thinking" : undefined} title="Darwin" />
                 <span className="text-[18px] font-semibold">Darwin</span>
                 {model && (
                   <span
@@ -405,7 +405,8 @@ export function AssistantPanel() {
                 )}
 
                 {busy && (
-                  <span className="flex h-6 items-center gap-1.5" aria-label="Darwin is working">
+                  <span className="flex h-7 items-center gap-1.5" aria-label="Darwin is working">
+                    <Mascot kind="leader" size={26} state="working" className="mr-1" />
                     {[0, 1, 2].map((k) => (
                       <motion.span key={k} className="size-2 rounded-full" style={{ background: INK }} animate={{ opacity: [0.2, 1, 0.2] }} transition={{ duration: 1, repeat: Infinity, delay: k * 0.15 }} />
                     ))}

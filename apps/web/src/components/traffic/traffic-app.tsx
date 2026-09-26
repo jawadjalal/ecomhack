@@ -319,7 +319,7 @@ function DimensionPanel({
 
 const CATEGORY: Record<InsightCategory, { label: string; mascot: MascotKind }> = {
   seo: { label: "SEO", mascot: "observer" },
-  conversion: { label: "Conversion", mascot: "analyst" },
+  conversion: { label: "Conversion", mascot: "leader" },
   agents: { label: "AI agents", mascot: "experimenter" },
   tracking: { label: "Tracking", mascot: "designer" },
 };
@@ -370,7 +370,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="analyst" size={34} active={!!busy} />
+          <Mascot kind="leader" size={34} state={busy ? "thinking" : undefined} />
           What to improve
         </span>
       </CardHead>
@@ -388,7 +388,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
             <LoaderCircle className="size-4 animate-spin" aria-hidden /> Reading the numbers…
           </p>
         )}
-        {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="analyst" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
+        {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="leader" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
         <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-2">
           {shown.map((i) => (
             <InsightCard key={i.id} insight={i} site={site} />

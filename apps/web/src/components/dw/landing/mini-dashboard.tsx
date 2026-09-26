@@ -132,7 +132,7 @@ function MiniNav({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
   return (
     <div className="flex h-11 items-center justify-between gap-3">
       <span className="flex items-center gap-2">
-        <Mascot kind="analyst" size={26} active={false} />
+        <Mascot kind="leader" size={26} active={false} />
         <span className="text-[18px] font-semibold tracking-[-0.02em]">darwin</span>
       </span>
       {!compact && (
@@ -295,7 +295,7 @@ function AvsBCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
       </div>
       {!r ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
-          <Mascot kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "analyst" : "observer"} size={52} frame active />
+          <Mascot kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "leader" : "observer"} size={52} frame active />
           <span className="flex items-center gap-2 text-[14px] font-medium">
             {PHASE_LINE[demo.phase]} <Typing />
           </span>

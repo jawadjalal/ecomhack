@@ -4,19 +4,21 @@ import { motion } from "motion/react";
 import { Play } from "lucide-react";
 import { PHASE_META } from "@/lib/console/format";
 import { useDarwin } from "../provider";
+import { getAgent } from "@/lib/team/roster";
 import { Mascot, type MascotKind } from "../mascot";
 import { PageHead, PillButton, Typing } from "../ui";
 import { Panel } from "./panel";
 
-const CREW: { kind: MascotKind; label: string; phases: string[] }[] = [
-  { kind: "observer", label: "Watch", phases: ["idle", "observe"] },
-  { kind: "analyst", label: "Find leaks", phases: ["diagnose"] },
-  { kind: "designer", label: "Draft a fix", phases: ["propose"] },
-  { kind: "experimenter", label: "Test it", phases: ["experiment", "decide"] },
-  { kind: "shipper", label: "Ship it", phases: ["ship"] },
+/** The loop's five steps, each done by a member of Darwin's team (names from lib/team/roster). */
+const CREW: { kind: MascotKind; who: string; label: string; phases: string[] }[] = [
+  { kind: "observer", who: getAgent("iris").name, label: "Watch", phases: ["idle", "observe"] },
+  { kind: "leader", who: getAgent("darwin").name, label: "Find leaks", phases: ["diagnose"] },
+  { kind: "designer", who: getAgent("pixel").name, label: "Draft a fix", phases: ["propose"] },
+  { kind: "experimenter", who: getAgent("fizz").name, label: "Test it", phases: ["experiment", "decide"] },
+  { kind: "shipper", who: getAgent("dash").name, label: "Ship it", phases: ["ship"] },
 ];
 
-/** The five-step loop as the crew, the current step lifted and bobbing. */
+/** The five-step loop as the team, the current step lifted and breathing, the rest holding still. */
 function Crew({ phase }: { phase?: string }) {
   return (
     <ol className="flex flex-wrap items-start justify-center gap-x-1 gap-y-3" aria-label="How Darwin works">
@@ -33,9 +35,12 @@ function Crew({ phase }: { phase?: string }) {
           >
             <span className="flex w-[74px] flex-col items-center gap-1.5">
               <span className={on ? "" : "opacity-55 saturate-50"}>
-                <Mascot kind={c.kind} size={40} frame active={on} />
+                <Mascot kind={c.kind} size={40} frame active={on} title={c.who} />
               </span>
-              <span className={on ? "text-[12px] font-semibold" : "text-[12px] text-dw-ink/60"}>{c.label}</span>
+              <span className="flex flex-col items-center leading-tight">
+                <span className={on ? "text-[12px] font-semibold" : "text-[12px] font-medium text-dw-ink/70"}>{c.who}</span>
+                <span className={on ? "text-[11.5px] text-dw-ink/75" : "text-[11.5px] text-dw-ink/50"}>{c.label}</span>
+              </span>
             </span>
             {i < CREW.length - 1 && <span className="mb-5 h-px w-4 bg-dw-ink/20" aria-hidden />}
           </motion.li>

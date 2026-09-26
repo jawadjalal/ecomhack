@@ -509,7 +509,7 @@ function Journey({
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex flex-col gap-2.5 rounded-[22px] bg-white px-[18px] py-4">
             <div className="flex items-center gap-2.5">
-              <Mascot kind="analyst" size={34} frame active />
+              <Mascot kind="leader" size={34} frame active />
               <span className="text-[14px] font-semibold">Darwin</span>
             </div>
             <p className="text-[14px] leading-normal">{note}</p>

@@ -46,7 +46,7 @@ export function TopNav() {
   return (
     <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3">
       <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
-        <Mascot kind="analyst" size={34} active />
+        <Mascot kind="leader" size={34} active title="Darwin" />
         <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>
       </Link>
 

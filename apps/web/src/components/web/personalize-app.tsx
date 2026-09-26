@@ -1019,12 +1019,12 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
 
 /** Which crew member speaks for each autopilot decision. */
 const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: string }> = {
-  on: { mascot: "analyst", who: "Darwin" },
-  off: { mascot: "analyst", who: "Darwin" },
-  started: { mascot: "experimenter", who: "Experimenter" },
-  shipped: { mascot: "shipper", who: "Shipper" },
-  stopped: { mascot: "experimenter", who: "Experimenter" },
-  waiting: { mascot: "observer", who: "Observer" },
+  on: { mascot: "leader", who: "Darwin" },
+  off: { mascot: "leader", who: "Darwin" },
+  started: { mascot: "experimenter", who: "Fizz" },
+  shipped: { mascot: "shipper", who: "Dash" },
+  stopped: { mascot: "experimenter", who: "Fizz" },
+  waiting: { mascot: "observer", who: "Iris" },
 };
 
 function DecisionLog({ state }: { state: WebAutopilotState }) {

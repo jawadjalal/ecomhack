@@ -55,7 +55,7 @@ function Issues() {
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="analyst" size={52} frame active />}
+        mascot={<Mascot kind="leader" size={52} frame active />}
         title={`${n} thing${n === 1 ? "" : "s"} stop${n === 1 ? "s" : ""} shoppers buying`}
         lede={
           <>

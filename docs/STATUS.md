@@ -39,7 +39,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Done:** composer-only screen 1 (Connect your GitHub / Connect your Whop), Darwin asks what to track and where, repo dropdown, script-tag path (no GitHub), plan → install → live dashboards, progress survives reload. **Team intro** (new stage after Connect): Darwin, the only one you talk to, introduces Iris / Pixel / Fizz / Dash one by one; each wakes up from asleep and lists its real tools from `lib/team/roster.ts`, with the ask-first ones marked; skip button; reduced motion shows all at once. **New animated mascots** (`components/mascots/animated-mascot.tsx`, `public/mascots/`): Darwin is the red crowned leader; resting is calm (slow breathing, blinks, glances), and the big moves only play on events: tap → reaction, typing → Darwin thinks, steps → working, done → success. Specialists appear beside Darwin as the ones doing each step ("Iris is doing the reading").
 - **Left to do:** set `GITHUB_OAUTH_CLIENT_ID/SECRET` on Vercel (the dropdown needs sign-in); detect the first real event after install and celebrate it; branch picker for the install PR; Shopify connect.
 - **Limitations:** plans live in server memory; the install PR is a preview while the server's `GITHUB_TOKEN` is rejected (it is, today).
-- **Next-run ideas:** "Whop OAuth" sign-in; auto-detect the store's platform from the URL; let the merchant ask Darwin a first question right in the team intro (stream `POST /api/team/chat` with `context.path=/onboarding`); swap the old `dw/mascot` crew on console screens for the animated set.
+- **Next-run ideas:** "Whop OAuth" sign-in; auto-detect the store's platform from the URL; let the merchant ask Darwin a first question right in the team intro (stream `POST /api/team/chat` with `context.path=/onboarding`).
 - **Limitations (team intro):** the intro script is fixed copy, not an LLM call (so it is instant and never wrong); the model chip shows the loop's model, which is "Built-in rules" until an OpenRouter key is set.
 
 ### Overview `/console`  ✅ (🟡 above-the-fold pass)
@@ -128,6 +128,8 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 ---
 
 ## Run log (newest first)
+
+- **2026-09-26 UTC — mascots (main session).** Every screen now uses the animated team mascots: `components/dw/mascot.tsx` keeps its API but renders the animated SVGs (same body size, so no layout moved). Darwin is the crowned leader everywhere the purple disc stood for him (logo, chats, empty states, "Built-in rules"); the loop crew on Issues reads Iris · Darwin · Pixel · Fizz · Dash; Darwin thinks while the bottom chat, the Overview chat, dashboards and traffic wait on an answer; clicking any mascot plays its tap reaction; `active={false}` holds a still pose. Favicon, `icon.svg` and `apple-icon.png` are Darwin's crowned logo. Open: shopper/buyer avatars still borrow crew shapes (e.g. a ChatGPT buyer shows the shipper diamond); the analyst disc is only a persona avatar now.
 
 - **2026-09-26 UTC — team (agent team backend).** Shipped `lib/team` (roster, per-agent tools, orchestrator with concurrent delegation, group chats, ask, confirm gate), `/api/team/**` NDJSON API, `runToolLoop` + OpenRouter/APINex routing in `lib/llm/client.ts` (default model now `deepseek/deepseek-v4.1-flash`), repo editing in `lib/github/edit.ts`. Open: panel UI, command-layer registration, live LLM check outside the sandbox.
 

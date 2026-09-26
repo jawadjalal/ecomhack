@@ -174,7 +174,7 @@ export function StoreCard({ className }: { className?: string }) {
         <Row
           i={4}
           dot={brain.llm ? "on" : "demo"}
-          icon={brain.glyph ? <BrandGlyph brand={brain.glyph} size={20} title={brain.name} /> : <Mascot kind="analyst" size={26} active={false} title="Built-in rules" />}
+          icon={brain.glyph ? <BrandGlyph brand={brain.glyph} size={20} title={brain.name} /> : <Mascot kind="leader" size={26} active={false} title="Built-in rules" />}
           badge={brain.via && brain.via !== brain.glyph ? <BrandGlyph brand={brain.via} size={11} /> : undefined}
           name={
             <span className="flex flex-wrap items-center gap-x-2">
