@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { MotionConfig, motion } from "motion/react";
 import { ArrowRight, Gauge, Store } from "lucide-react";
-import { Mascot } from "@/components/dw/mascot";
+import { DarwinLogo } from "@/components/dw/mascot";
 import { BrandGlyph, type BrandKey } from "@/components/dw/brand-logos";
 import { PillButton } from "@/components/dw/ui";
 import { LandingLoop } from "@/components/console/landing-loop";
@@ -41,7 +41,7 @@ export function Landing() {
       <div data-dw className="flex min-h-[100svh] w-full flex-col bg-dw-bg font-dw text-dw-ink">
         <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-5 sm:px-8 lg:px-12">
           <Link href="/" className="flex items-center gap-2.5 rounded-full focus-visible:outline-2 focus-visible:outline-dw-ink" aria-label="Darwin home">
-            <Mascot kind="analyst" size={32} active />
+            <DarwinLogo size={32} />
             <span className="text-[22px] font-semibold tracking-[-0.02em]">darwin</span>
           </Link>
           <nav aria-label="Main" className="flex items-center gap-0.5">

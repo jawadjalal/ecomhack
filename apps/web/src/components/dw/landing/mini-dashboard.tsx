@@ -11,7 +11,8 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { AgentSessionSummary, Experiment, LoopPhase } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
-import { Mascot } from "@/components/dw/mascot";
+import { moodForPhase } from "@/lib/mascot/state";
+import { DarwinLogo, Mascot } from "@/components/dw/mascot";
 import { AgentTile, agentBrand, type AgentBrand } from "@/components/dw/agent-tile";
 import { ArmChip, Card, HBar, LegendKey, LiveDot, PillBar, PlainSurface, Typing } from "@/components/dw/ui";
 import { useLiveDemo, type LiveDemo } from "./use-live-demo";
@@ -140,7 +141,7 @@ function MiniNav({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
   return (
     <div className="flex h-11 items-center justify-between gap-3">
       <span className="flex items-center gap-2">
-        <Mascot kind="analyst" size={26} active={false} />
+        <DarwinLogo size={26} />
         <span className="text-[18px] font-semibold tracking-[-0.02em]">darwin</span>
       </span>
       {!compact && (
@@ -303,7 +304,12 @@ function AvsBCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
       </div>
       {!r ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
-          <Mascot kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "analyst" : "observer"} size={52} frame active />
+          <Mascot
+            kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "analyst" : demo.phase === "experiment" || demo.phase === "decide" ? "experimenter" : demo.phase === "ship" ? "shipper" : "observer"}
+            size={52}
+            frame
+            state={moodForPhase(demo.phase)}
+          />
           <span className="flex items-center gap-2 text-[14px] font-medium">
             {PHASE_LINE[demo.phase]} <Typing />
           </span>

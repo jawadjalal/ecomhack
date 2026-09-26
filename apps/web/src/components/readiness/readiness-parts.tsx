@@ -185,7 +185,7 @@ export function LoadingCrew({ step, host }: { step: number; host: string }) {
       <div className="flex items-end justify-center gap-2 sm:gap-4">
         {LOADING_STEPS.map((s, i) => (
           <div key={s.mascot} className={cn("transition-[opacity,transform] duration-500", i === step ? "scale-110 opacity-100" : i < step ? "opacity-70" : "opacity-30")}>
-            <Mascot kind={s.mascot} size={i === step ? 60 : 44} frame={i === step} active={i === step} />
+            <Mascot kind={s.mascot} size={i === step ? 60 : 44} frame={i === step} state={i === step ? "working" : i < step ? "idle" : "sleeping"} />
           </div>
         ))}
       </div>

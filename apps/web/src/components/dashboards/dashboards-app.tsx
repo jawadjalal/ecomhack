@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, ArrowUp, Globe, LoaderCircle, Users, WandSparkles } from "lucide-react";
 import type { DashboardsResponse, TrackingPlan, WebSimulateResponse } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
+import { CrewFace } from "@/components/dw/crew-face";
 import { Mascot } from "@/components/dw/mascot";
 import { Card, Empty, PageHead, PillButton, Tag } from "@/components/dw/ui";
 import { SwitchPill } from "@/components/dw/agents/switch";
@@ -149,7 +150,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="analyst" size={52} frame active />}
+        mascot={<CrewFace kind="analyst" />}
         title="Your dashboards"
         lede={lede}
         right={
@@ -190,7 +191,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
 
       {!site ? (
         <Card tone="white" shape="analyst" hover={false}>
-          <Empty mascot={<Mascot kind="analyst" size={72} frame active />} action={<PillButton href="/onboarding">Set up a store</PillButton>}>
+          <Empty mascot={<Mascot kind="leader" size={72} frame state="idle" title="Darwin" />} action={<PillButton href="/onboarding">Set up a store</PillButton>}>
             No site picked. Type a site id above, or set up a store and Darwin will plan what to record.
           </Empty>
         </Card>
@@ -205,7 +206,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
                 }}
                 className="flex h-14 items-center gap-2.5 rounded-full bg-dw-sand pr-2 pl-2.5 transition-shadow focus-within:shadow-[0_0_0_2px_#141413]"
               >
-                <Mascot kind="analyst" size={36} active={asking} />
+                <Mascot kind="leader" size={36} state={asking ? "thinking" : "idle"} title="Darwin" />
                 <input
                   value={ask}
                   onChange={(e) => setAsk(e.target.value)}
@@ -237,14 +238,14 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
               </div>
               {reply && (
                 <p className="flex items-start gap-2 text-[13.5px] leading-snug text-dw-ink/80" aria-live="polite">
-                  <Mascot kind="analyst" size={20} active={false} className="mt-[-1px]" />
+                  <Mascot kind="leader" size={22} state="idle" title="Darwin" className="mt-[-1px]" />
                   {reply}
                 </p>
               )}
             </div>
           ) : (
             <div className="flex min-w-0 items-center gap-4 rounded-[26px] bg-dw-surface p-5 shadow-[0_0_0_1px_#EDE4D2]">
-              <Mascot kind="analyst" size={48} frame active={false} />
+              <Mascot kind="leader" size={48} frame state="idle" title="Darwin" />
               <p className="min-w-0 flex-1 text-[14px] text-dw-ink/75">Once there&apos;s a tracking plan you can ask Darwin for any chart in plain words.</p>
               <PillButton tone="ink" size="sm" href="/onboarding">
                 Plan it

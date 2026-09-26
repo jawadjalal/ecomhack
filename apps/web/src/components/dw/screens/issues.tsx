@@ -5,7 +5,7 @@ import { MotionConfig } from "motion/react";
 import { useExperiments, useSessions, useSummary } from "@/lib/console/hooks";
 import { count } from "@/lib/console/format";
 import { useDarwin } from "../provider";
-import { Mascot } from "../mascot";
+import { CrewFace } from "../crew-face";
 import { PageHead, PlainSurface } from "../ui";
 import { BuyersLostCard, WhereCard, WhoCard, type Focus } from "../issues/issue-cards";
 import { IssueDetail } from "../issues/issue-detail";
@@ -55,7 +55,7 @@ function Issues() {
   return (
     <PlainSurface>
       <PageHead
-        mascot={<Mascot kind="analyst" size={52} frame active />}
+        mascot={<CrewFace kind="analyst" />}
         title={`${n} thing${n === 1 ? "" : "s"} stop${n === 1 ? "s" : ""} shoppers buying`}
         lede={
           <>

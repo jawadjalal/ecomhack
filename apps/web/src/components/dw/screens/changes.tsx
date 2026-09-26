@@ -6,6 +6,7 @@ import { useSWRConfig } from "swr";
 import { pct, signedPct } from "@/lib/console/format";
 import { useExperiments, useGithubStatus, useLoop, useNow } from "@/lib/console/hooks";
 import { BrandGlyph } from "../brand-logos";
+import { CrewFace } from "../crew-face";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, PlainSurface, Typing } from "../ui";
@@ -69,7 +70,7 @@ export function ChangesScreen() {
   if (!loop) {
     return (
       <PlainSurface>
-        <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Loading <Typing /></span>} />
+        <PageHead mascot={<Mascot kind="shipper" size={52} frame state="thinking" />} title="Changes" lede={<span className="inline-flex items-center gap-2">Loading <Typing /></span>} />
         <div className="mt-8 h-[280px] animate-pulse bg-dw-ink/[0.04]" aria-hidden />
       </PlainSurface>
     );
@@ -82,13 +83,13 @@ export function ChangesScreen() {
     return (
       <PlainSurface>
         <PageHead
-          mascot={<Mascot kind="shipper" size={52} frame active />}
+          mascot={<CrewFace kind="shipper" />}
           title="No changes yet"
           lede="When a test wins, Darwin puts the change live on your store and shows you what it did to sales. You can roll any change back."
         />
         <Card tone="olive" shape="shipper" corner="br" hover={false} className="mt-6">
           <Empty
-            mascot={<Mascot kind="shipper" size={88} frame active />}
+            mascot={<CrewFace kind="shipper" size={88} />}
             action={
               autopilot ? (
                 <span className="inline-flex items-center gap-2 text-[14px] text-dw-ink/80">
@@ -147,7 +148,7 @@ export function ChangesScreen() {
 
   return (
     <PlainSurface>
-      <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title={title} lede={lede} right={actions} />
+      <PageHead mascot={<CrewFace kind="shipper" />} title={title} lede={lede} right={actions} />
 
       {up && (
         <motion.div {...stagger(0)}>

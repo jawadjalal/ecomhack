@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { LoaderCircle } from "lucide-react";
 import { count, pct, sourceBadge } from "@/lib/console/format";
 import { useExperiments, useNow, useSamples } from "@/lib/console/hooks";
+import { CrewFace } from "../crew-face";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, PlainSurface, Typing, pct0 } from "../ui";
@@ -94,7 +95,7 @@ export function ExperimentsScreen() {
   if (!experiments || !loop) {
     return (
       <PlainSurface>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Loading the tests <Typing /></span>} />
+        <PageHead mascot={<Mascot kind="experimenter" size={52} frame state="thinking" />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Loading the tests <Typing /></span>} />
         <div className="mt-8 grid gap-8 lg:grid-cols-2" aria-hidden>
           <div className="h-[320px] animate-pulse bg-dw-ink/[0.04]" />
           <div className="h-[320px] animate-pulse bg-dw-ink/[0.04]" />
@@ -106,10 +107,10 @@ export function ExperimentsScreen() {
   if (!exp || !view) {
     return (
       <PlainSurface>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="No tests yet" lede="When Darwin has a fix worth trying, it shows half your shoppers the new version and measures who buys." />
+        <PageHead mascot={<CrewFace kind="experimenter" />} title="No tests yet" lede="When Darwin has a fix worth trying, it shows half your shoppers the new version and measures who buys." />
         <Card tone="pink" shape="experimenter" hover={false} className="mt-8">
           <Empty
-            mascot={<Mascot kind="experimenter" size={88} frame active />}
+            mascot={<CrewFace kind="experimenter" size={88} />}
             action={
               autopilot ? (
                 <span className="inline-flex items-center gap-2 text-[14px] text-dw-ink/75">
@@ -247,7 +248,19 @@ export function ExperimentsScreen() {
 
   return (
     <PlainSurface>
-      <PageHead mascot={<Mascot kind="experimenter" size={52} frame active={running} />} title={exp.name} lede={lede} right={actions} />
+      <PageHead
+        mascot={
+          <Mascot
+            kind="experimenter"
+            size={52}
+            frame
+            state={running ? (isLoopTest && loop.phase === "decide" ? "thinking" : "working") : autopilot ? "idle" : "sleeping"}
+          />
+        }
+        title={exp.name}
+        lede={lede}
+        right={actions}
+      />
 
       <div key={exp.id} className={`mt-8 grid items-start gap-10 ${past.length > 1 ? "lg:grid-cols-[minmax(200px,280px)_minmax(0,1fr)]" : ""}`}>
         {past.length > 1 && (

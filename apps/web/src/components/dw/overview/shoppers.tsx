@@ -258,7 +258,7 @@ function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; fi
         />
       )}
       <span className="dw-tilt relative flex shrink-0">
-        <Mascot kind={s.mascot} size={48} frame active={s.status === "live"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
+        <Mascot kind={s.mascot} size={48} frame state={s.status === "live" ? "working" : "idle"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
         {s.kind === "agent" && <AgentTile brand={s.brand} size={20} invert={on} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -344,7 +344,7 @@ function Journey({
       ) : (
         <div className="relative flex flex-wrap items-center gap-3.5 sm:flex-nowrap">
           <span className="relative flex shrink-0">
-            <Mascot kind={s.mascot} size={58} frame active title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
+            <Mascot kind={s.mascot} size={58} frame state={s.status === "live" ? "working" : s.outcome === "purchased" ? "success" : s.outcome === "abandoned" ? "error" : "idle"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
             {s.kind === "agent" && <AgentTile brand={s.brand} size={24} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -509,7 +509,7 @@ function Journey({
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex flex-col gap-2.5 rounded-[22px] bg-white px-[18px] py-4">
             <div className="flex items-center gap-2.5">
-              <Mascot kind="analyst" size={34} frame active />
+              <Mascot kind="leader" size={34} frame state="idle" title="Darwin" />
               <span className="text-[14px] font-semibold">Darwin</span>
             </div>
             <p className="text-[14px] leading-normal">{note}</p>

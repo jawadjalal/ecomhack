@@ -4,7 +4,7 @@
  * Onboarding pieces in the cream Darwin design: stepper, chat bubbles, the crew working through steps,
  * check animations, the "which brain" chip and the stage backdrop. Used by components/onboarding.
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, ChevronRight, ListChecks, TriangleAlert } from "lucide-react";
 import { cn } from "@/components/ui/cn";
@@ -136,7 +136,7 @@ export function StepList({ steps, current, finished, className, reveal }: { step
               {done ? (
                 <CheckPop size={20} />
               ) : now ? (
-                <Mascot kind={crewFor(s)} size={26} active />
+                <Mascot kind={crewFor(s)} size={26} state="working" />
               ) : (
                 <span className="size-[18px] rounded-full border-[1.5px] border-dashed border-dw-ink/25" />
               )}
@@ -158,7 +158,7 @@ export function StepList({ steps, current, finished, className, reveal }: { step
 export function AgentBubble({ children, working, className }: { children: ReactNode; working?: boolean; className?: string }) {
   return (
     <div className={cn("flex items-start gap-3", className)}>
-      <Mascot kind="analyst" frame size={40} active={working ?? true} title="Darwin" />
+      <Mascot kind="leader" frame size={40} state={working ? "thinking" : "idle"} title="Darwin" />
       <div className="min-w-0 flex-1 rounded-[22px] rounded-tl-[8px] border border-dw-hairline bg-dw-surface px-4 py-3 text-[15px] leading-relaxed text-dw-ink/85 shadow-[0_1px_0_rgba(20,20,19,0.03),0_12px_30px_-22px_rgba(20,20,19,0.35)]">
         {children}
       </div>
@@ -234,6 +234,17 @@ export function BrainChip({ brain, className }: { brain: Brain | null; className
 /** A framed crew member that pops when it changes, and hops when `celebrate` flips on. */
 export function StageMascot({ kind, size = 64, active = true, celebrate = false }: { kind: MascotKind; size?: number; active?: boolean; celebrate?: boolean }) {
   const reduce = useReducedMotion();
+  const [flash, setFlash] = useState(false);
+  const prev = useRef(false);
+  useEffect(() => {
+    if (celebrate && !prev.current) {
+      setFlash(true);
+      const t = setTimeout(() => setFlash(false), 1600);
+      prev.current = true;
+      return () => clearTimeout(t);
+    }
+    prev.current = celebrate;
+  }, [celebrate]);
   return (
     <span className="relative inline-grid shrink-0" style={{ width: size, height: size }}>
       <AnimatePresence initial={false} mode="popLayout">
@@ -251,7 +262,7 @@ export function StageMascot({ kind, size = 64, active = true, celebrate = false 
             animate={celebrate && !reduce ? { y: [0, -16, 0, -7, 0], rotate: [0, -10, 8, -3, 0] } : undefined}
             transition={{ duration: 0.9, ease: "easeOut" }}
           >
-            <Mascot kind={kind} frame size={size} active={active} />
+            <Mascot kind={kind} frame size={size} state={flash ? "success" : active ? "working" : "idle"} />
           </motion.span>
         </motion.span>
       </AnimatePresence>

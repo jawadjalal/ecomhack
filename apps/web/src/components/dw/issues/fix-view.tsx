@@ -153,7 +153,20 @@ function Body({
 
       {fix.hypothesis && (
         <div className="flex items-start gap-3 rounded-[18px] bg-white/60 px-4 py-3.5">
-          <Mascot kind="designer" size={32} frame active={fix.status === "test" || fix.status === "drafted"} />
+          <Mascot
+            kind="designer"
+            size={32}
+            frame
+            state={
+              fix.status === "test" || fix.status === "drafted"
+                ? "working"
+                : fix.status === "rejected" || fix.status === "stopped"
+                  ? "error"
+                  : fix.status === "shelved"
+                    ? "sleeping"
+                    : "idle"
+            }
+          />
           <div className="flex min-w-0 flex-col gap-2">
             <p className="text-[15px] leading-[1.5]">{fix.hypothesis}</p>
             <SourceChip source={fix.source} />

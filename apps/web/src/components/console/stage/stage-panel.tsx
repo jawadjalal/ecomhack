@@ -1,14 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, Check, CornerDownLeft, Radar } from "lucide-react";
+import { Activity, Check, CornerDownLeft } from "lucide-react";
 import type { AnalyticsSummary, Experiment, GenerationRecord, LoopPhase, LoopState } from "@/lib/contracts";
 import type { PrInfo } from "@/lib/console/format";
 import { PHASES, PHASE_META, phaseIndex } from "@/lib/console/format";
 import { Panel } from "@/components/ui/panel";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/components/ui/cn";
-import { PHASE_ICONS } from "../loop-ring";
+import { moodForPhase, phaseRole } from "@/lib/mascot/state";
+import { Mascot } from "../mascot";
 import { GithubMark } from "../brand";
 import { ObserveStage } from "./observe";
 import { DiagnoseStage } from "./diagnose";
@@ -131,7 +132,8 @@ export function StagePanel({
   const live = loop?.phase ?? "idle";
   const peeking = phase !== live;
   const idx = phaseIndex(phase);
-  const Icon = phase === "idle" ? Radar : PHASE_ICONS[phase];
+  const role = phase === "idle" ? "leader" : (phaseRole(phase) ?? "leader");
+  const pose = phase === "idle" ? "sleeping" : peeking ? "idle" : moodForPhase(phase);
   const history = loop?.history ?? [];
   const current: GenerationRecord | undefined = history.find((h) => h.generation === loop?.generation);
   const previous = current ? history.filter((h) => h.generation < current.generation).at(-1) : undefined;
@@ -169,7 +171,7 @@ export function StagePanel({
               peeking ? "border-white/15 bg-white/[0.05] text-white/70" : "border-brand/30 bg-brand/10 text-brand",
             )}
           >
-            <Icon className="size-5" />
+            <Mascot kind={role} size={36} state={pose} interactive={false} />
           </span>
           <div>
             <div className="flex items-center gap-2">

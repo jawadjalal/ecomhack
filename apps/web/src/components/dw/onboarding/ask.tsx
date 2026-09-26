@@ -158,7 +158,7 @@ export function AskChat({
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Mascot kind="analyst" frame size={52} active title="Darwin" />
+          <Mascot kind="leader" frame size={52} state={typing ? "thinking" : "idle"} title="Darwin" />
           <div>
             <div className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Darwin</div>
             <div className="text-[13.5px] text-dw-ink/60">Your store&apos;s analyst</div>

@@ -87,7 +87,7 @@ export function GrokCard({ className }: { className?: string }) {
             <BrandGlyph brand="grok" size={26} title="Grok" />
           </span>
           <span className="absolute -right-3 -bottom-2">
-            <Mascot kind="analyst" size={28} active title="Darwin" />
+            <Mascot kind="leader" size={28} state={acting ? "thinking" : "idle"} title="Darwin" />
           </span>
         </span>
         <div className="min-w-0 flex-1 pl-2">

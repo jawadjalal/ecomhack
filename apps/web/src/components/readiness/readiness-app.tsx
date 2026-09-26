@@ -558,7 +558,7 @@ function Intro() {
 function ErrorCard({ message, onRetry, onDemo }: { message: string; onRetry: () => void; onDemo: () => void }) {
   return (
     <div className="flex min-h-[340px] flex-col items-center justify-center gap-4 rounded-[26px] bg-dw-warn-bg px-6 py-10 text-center" role="alert" data-testid="readiness-error">
-      <Mascot kind="analyst" frame size={64} active={false} />
+      <Mascot kind="leader" frame size={64} state="error" title="Darwin" />
       <div>
         <p className="text-[22px] font-semibold tracking-[-0.02em]">We couldn&apos;t check that store</p>
         <p className="mx-auto mt-1.5 max-w-[34rem] text-[15px] break-words text-dw-warn">{message}</p>
@@ -677,7 +677,7 @@ export function ReadinessApp({ initialUrl = "" }: { initialUrl?: string }) {
               }}
             >
               <div className="flex min-w-0 flex-1 items-center gap-2.5 pl-2">
-                <Mascot kind="observer" size={34} active={loading} className="max-sm:hidden" />
+                <Mascot kind="observer" size={34} state={loading ? "working" : "idle"} className="max-sm:hidden" />
                 <input
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}

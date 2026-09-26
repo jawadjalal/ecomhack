@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
-import { Mascot } from "./mascot";
+import { DarwinLogo } from "./mascot";
 import { useDarwin } from "./provider";
 
 /** The roadmap: Overview, then the loop's four steps in order. */
@@ -46,7 +46,7 @@ export function TopNav() {
   return (
     <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3">
       <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
-        <Mascot kind="analyst" size={34} active />
+        <DarwinLogo size={34} />
         <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>
       </Link>
 

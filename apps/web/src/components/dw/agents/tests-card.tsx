@@ -207,7 +207,7 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
   if (!label) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[22px] bg-white/55 px-5 py-8 text-center">
-        <Mascot kind="experimenter" size={52} frame active={autopilot} />
+        <Mascot kind="experimenter" size={52} frame state={autopilot ? "working" : "sleeping"} />
         <p className="max-w-[22rem] text-[14px] text-dw-ink/70">
           {autopilot ? "Autopilot starts the next test as soon as buyer agents arrive." : "No test running. Turn on Autopilot, or press Test it on a lever to start one."}
         </p>

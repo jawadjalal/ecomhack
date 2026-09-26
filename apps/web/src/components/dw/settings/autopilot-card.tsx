@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/components/ui/cn";
 import { PHASE_META } from "@/lib/console/format";
 import { TRAFFIC_BATCH, useExperiments } from "@/lib/console/hooks";
+import { useNow } from "@/lib/console/hooks";
+import { crewMascotState } from "@/lib/mascot/state";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { Card, LiveDot, pct0 } from "../ui";
@@ -31,6 +33,14 @@ export function AutopilotCard({ className }: { className?: string }) {
     }
   };
 
+  const now = useNow();
+  const last = loop?.log.at(-1);
+  const shipper = crewMascotState("shipper", {
+    phase: loop?.phase,
+    autopilot,
+    lastEntry: last ? { actor: last.actor, message: last.message, at: last.at } : null,
+    now,
+  });
   const running = experiments?.find((e) => e.status === "running");
   const chance = running?.result?.probabilityToBeat;
   const phase = loop ? PHASE_META[loop.phase] : undefined;
@@ -38,7 +48,7 @@ export function AutopilotCard({ className }: { className?: string }) {
   return (
     <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Autopilot">
       <div className="flex items-start gap-4">
-        <Mascot kind="shipper" size={60} frame active={autopilot} title="Darwin's shipper" />
+        <Mascot kind="shipper" size={60} frame state={shipper} title="Darwin's shipper" />
         <div className="min-w-0 flex-1">
           <h2 className="text-[26px] leading-tight font-semibold tracking-[-0.02em]">Autopilot</h2>
           <p className="mt-1 flex items-center gap-2 text-[14px] text-[#4F4417]" aria-live="polite">
@@ -80,7 +90,7 @@ export function AutopilotCard({ className }: { className?: string }) {
       </div>
 
       <div className="mt-2.5 flex items-center gap-4 rounded-[20px] bg-white/60 p-4 ring-1 ring-white/50">
-        <Mascot kind="observer" size={40} active={trafficOn} />
+        <Mascot kind="observer" size={40} state={trafficOn ? "working" : "sleeping"} />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 text-[15px] font-semibold">
             Simulated shoppers

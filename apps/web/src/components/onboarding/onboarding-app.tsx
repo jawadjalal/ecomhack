@@ -31,7 +31,7 @@ import type { WhopConnection, WhopStatus } from "@/lib/whop";
 import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { DashboardGrid } from "@/components/dashboards/dashboard-grid";
-import { Mascot } from "@/components/dw/mascot";
+import { DarwinLogo, Mascot } from "@/components/dw/mascot";
 import { Card, Empty, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
 import { BrandGlyph, WhopLogo } from "@/components/dw/brand-logos";
 import {
@@ -395,7 +395,7 @@ export function OnboardingApp() {
                   aria-label="Darwin console"
                   className="flex items-center gap-2.5 justify-self-start rounded-full focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
                 >
-                  <Mascot kind="analyst" size={32} active />
+                  <DarwinLogo size={32} />
                   <span className="text-[22px] font-semibold tracking-[-0.02em]">darwin</span>
                 </Link>
                 <Stepper step={stage === "ask" ? "plan" : stage} className="col-span-2 justify-self-center max-md:order-last md:col-span-1" />
@@ -463,7 +463,7 @@ export function OnboardingApp() {
                         }
                         transition={{ duration: 0.8 }}
                       >
-                        <Mascot kind="analyst" frame size={44} active title="Darwin" />
+                        <Mascot kind="leader" frame size={44} state="idle" title="Darwin" />
                       </motion.span>
                       <textarea
                         value={prompt}
@@ -708,7 +708,7 @@ export function OnboardingApp() {
 
               {restoring && !plan && (stage === "install" || stage === "live") && (
                 <motion.section key="restoring" {...fade} className="flex flex-col items-center gap-4 py-24 text-center">
-                  <Mascot kind="analyst" frame size={64} active />
+                  <Mascot kind="leader" frame size={64} state="thinking" />
                   <p className="text-[17px] text-dw-ink/70">Picking up where you left off…</p>
                 </motion.section>
               )}
@@ -800,7 +800,7 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => v
         }}
         className="flex items-center gap-2 rounded-full border border-dw-hairline bg-dw-surface py-1.5 pr-1.5 pl-2 shadow-[0_18px_40px_-26px_rgba(20,20,19,0.4)] focus-within:border-dw-ink/30"
       >
-        <Mascot kind="analyst" size={30} active={busy} />
+        <Mascot kind="leader" size={30} state={busy ? "thinking" : "idle"} title="Darwin" />
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -1157,7 +1157,7 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
   return (
     <Card tone="white" hover={false} className="p-5 sm:p-6">
       <div className="flex items-center gap-3">
-        <Mascot kind={busy ? "shipper" : "shipper"} frame size={48} active={busy} />
+        <Mascot kind="shipper" frame size={48} state={busy ? "working" : error ? "error" : "idle"} />
         <div className="min-w-0">
           <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{busy ? "Opening your pull request" : "Ready when you are"}</h2>
           <p className="text-[14px] text-dw-ink/60">Three steps, a few seconds.</p>
@@ -1375,7 +1375,7 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           {data?.dashboards.length ? (
             <DashboardGrid dashboards={data.dashboards} compact />
           ) : (
-            <Empty mascot={<Mascot kind="experimenter" frame size={64} active />}>
+            <Empty mascot={<Mascot kind="experimenter" frame size={64} state={data ? "idle" : "thinking"} />}>
               {data ? "Your dashboards appear here as soon as the first events arrive." : "Building your dashboards…"}
             </Empty>
           )}
@@ -1394,7 +1394,7 @@ function LiveMascot({ celebrate }: { celebrate: boolean }) {
       animate={celebrate ? { y: [0, -18, 0, -8, 0], rotate: [0, -12, 8, -3, 0] } : undefined}
       transition={{ duration: 0.9, ease: "easeOut" }}
     >
-      <Mascot kind="experimenter" frame size={64} active />
+      <Mascot kind="experimenter" frame size={64} state={celebrate ? "success" : "working"} />
     </motion.span>
   );
 }

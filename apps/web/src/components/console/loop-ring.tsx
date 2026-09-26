@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Eye, FlaskConical, Rocket, Scale, ScanSearch, WandSparkles, type LucideIcon } from "lucide-react";
 import type { LoopPhase } from "@/lib/contracts";
 import { PHASES, PHASE_META, phaseIndex } from "@/lib/console/format";
+import { moodForPhase, phaseRole } from "@/lib/mascot/state";
 import { cn } from "@/components/ui/cn";
+import { Mascot } from "./mascot";
 
 export const PHASE_ICONS: Record<Exclude<LoopPhase, "idle">, LucideIcon> = {
   observe: Eye,
@@ -131,7 +133,7 @@ export function LoopRing({
       {/* nodes */}
       {PHASES.map((p, i) => {
         const { x, y } = nodePos(i);
-        const Icon = PHASE_ICONS[p];
+        const role = phaseRole(p) ?? "leader";
         const state = idx < 0 ? "todo" : i < idx ? "done" : i === idx ? "current" : "todo";
         const isNext = pending && i === nextIdx && idx >= 0;
         const viewing = viewPhase === p && viewPhase !== phase;
@@ -169,7 +171,12 @@ export function LoopRing({
                   transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
                 />
               )}
-              <Icon className="size-[5.9cqw]" strokeWidth={state === "current" ? 2.2 : 1.8} />
+              <Mascot
+                kind={role}
+                size={36}
+                interactive={false}
+                state={!autopilot && !pending ? "sleeping" : state === "current" ? moodForPhase(p) : isNext ? "thinking" : "idle"}
+              />
             </span>
             <span
               className={cn(

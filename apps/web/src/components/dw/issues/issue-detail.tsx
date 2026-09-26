@@ -195,7 +195,7 @@ function DetailBody({
         {/* The fix */}
         <div className="flex min-w-0 flex-col gap-2.5 rounded-[20px] bg-white px-[18px] py-4">
           <div className="flex items-center gap-2.5">
-            <Mascot kind="designer" size={30} frame active={row.status !== "queued"} />
+            <Mascot kind="designer" size={30} frame state={row.status === "test" ? "working" : row.status === "drafted" ? "thinking" : "idle"} />
             <span className="text-[14px] font-semibold">The fix</span>
             {row.status === "test" && (
               <span className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-dw-ink/60">

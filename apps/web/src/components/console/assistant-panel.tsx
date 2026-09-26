@@ -15,7 +15,7 @@ import { usePathname } from "next/navigation";
 import { ArrowUp, ChevronDown, Maximize2, RotateCcw } from "lucide-react";
 import type { AssistantAction, AssistantMessage, AssistantPendingConfirm, AssistantResponse } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
-import { Mascot, MASCOT_CSS, type MascotKind } from "./mascot";
+import { Mascot, MASCOT_CSS, useChatMascot, type MascotKind } from "./mascot";
 
 /* ------------------------------------------------------------------ design tokens (HANDOFF.md) */
 
@@ -118,6 +118,8 @@ export function AssistantPanel() {
   const hydrated = useRef(false);
 
   const inSheet = mode !== "bar" || dragH !== null;
+  const lastItem = items.at(-1);
+  const mood = useChatMascot(busy, !!lastItem && lastItem.role === "assistant" && !!lastItem.error);
   const height = dragH ?? heightFor(mode);
 
   /* thread survives page navigation within the console (per tab) */
@@ -289,7 +291,7 @@ export function AssistantPanel() {
             }}
             className="flex h-[60px] w-full items-center gap-3 rounded-full bg-white pr-2 pl-3.5 shadow-[0_0_0_1px_#E8DFCC,0_16px_40px_rgba(20,20,19,0.10)]"
           >
-            <Mascot kind="analyst" size={30} active />
+            <Mascot kind="leader" size={34} state={mood} title="Darwin" />
             <label htmlFor="dw-ask-bar" className="sr-only">
               Ask Darwin
             </label>
@@ -342,7 +344,7 @@ export function AssistantPanel() {
 
             <header className="flex h-[50px] shrink-0 items-center justify-between gap-3 pr-4 pl-5 sm:pr-5 sm:pl-7">
               <div className="flex min-w-0 items-center gap-3">
-                <Mascot kind="analyst" size={32} active />
+                <Mascot kind="leader" size={36} state={mood} title="Darwin" />
                 <span className="text-[18px] font-semibold">Darwin</span>
                 {model && (
                   <span
@@ -382,7 +384,7 @@ export function AssistantPanel() {
                         className="flex h-[76px] flex-col items-start justify-between rounded-[20px] px-[18px] py-3.5 text-left text-[16px] font-medium transition-transform hover:-translate-y-0.5 disabled:opacity-50 sm:h-[92px] sm:py-4 motion-reduce:transition-none"
                         style={{ background: s.bg, color: INK }}
                       >
-                        <Mascot kind={s.mascot} size={26} />
+                        <Mascot kind={s.mascot} size={26} state="idle" interactive={false} />
                         {s.text}
                       </button>
                     ))}
@@ -546,6 +548,15 @@ function Inline({ text }: { text: string }) {
 
 /** Darwin's reply: plain paragraphs (17/1.55) and "- " bullet lists, no bubble. */
 function Reply({ text, error }: { text: string; error?: boolean }) {
+  return (
+    <div className="flex items-start gap-3">
+      <Mascot kind="leader" size={32} state={error ? "error" : "idle"} title="Darwin" />
+      <ReplyBody text={text} error={error} />
+    </div>
+  );
+}
+
+function ReplyBody({ text, error }: { text: string; error?: boolean }) {
   const blocks = text.split(/\n{2,}/).map((b) => b.split("\n"));
   return (
     <div className={cn("flex flex-col gap-2.5 text-[16px] leading-[1.55] sm:text-[17px]", error && "rounded-[20px] bg-[#FBE7D3] px-[18px] py-3 text-[#B8621B]")}>
@@ -592,7 +603,7 @@ function ResultCards({ actions, reply }: { actions: AssistantAction[]; reply: st
         return (
           <div key={i} className="flex min-w-0 flex-col gap-2.5 rounded-[20px] px-5 py-4" style={{ background: a.ok ? s.bg : "#FBE7D3" }}>
             <div className="flex min-w-0 items-center gap-2.5">
-              <Mascot kind={s.mascot} size={26} />
+              <Mascot kind={s.mascot} size={26} state={a.ok ? "idle" : "error"} />
               <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{s.label}</span>
               {!a.ok && <Pill tone="warn">didn&apos;t work</Pill>}
               {a.synthetic && <Pill tone="sand">simulated</Pill>}
@@ -636,7 +647,7 @@ function ConfirmCard({
   return (
     <div className="flex flex-col gap-2.5 rounded-[20px] bg-[#F3EDE0] px-5 py-4 sm:max-w-[520px]">
       <div className="flex items-center gap-2.5">
-        <Mascot kind={s.mascot} size={26} active={!resolved} />
+        <Mascot kind={s.mascot} size={26} state={resolved ? "idle" : "thinking"} />
         <span className="flex-1 text-[15px] font-semibold">{s.label}</span>
         {resolved ? <Pill tone={resolved === "confirmed" ? "win" : "sand"}>{resolved}</Pill> : <Pill tone="warn">needs your OK</Pill>}
       </div>

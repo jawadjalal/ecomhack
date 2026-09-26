@@ -5,7 +5,7 @@ import { MotionConfig } from "motion/react";
 import { ArrowRight, Play, Sparkles } from "lucide-react";
 import { useExperiments } from "@/lib/console/hooks";
 import { useDarwin } from "../provider";
-import { Mascot } from "../mascot";
+import { CrewFace } from "../crew-face";
 import { PageHead, PillButton, PlainSurface } from "../ui";
 import { InTestCard, ThrownAwayCard, UpNextCard } from "../issues/fix-cards";
 import { FixDetail, FixList } from "../issues/fix-view";
@@ -88,7 +88,7 @@ function Fixes() {
   return (
     <PlainSurface>
       <PageHead
-        mascot={<Mascot kind="designer" size={52} frame active />}
+        mascot={<CrewFace kind="designer" />}
         title={`${n} fix${n === 1 ? "" : "es"}, ${tail}`}
         lede="Every fix is a small settings change Darwin can undo. Nothing reaches your store until it wins a test."
         right={right}

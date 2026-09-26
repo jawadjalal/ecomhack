@@ -792,7 +792,13 @@ function RuleRow({
       )}
     >
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <Mascot kind={mascot} size={40} frame active={rule.status === "running"} className="max-sm:hidden" />
+        <Mascot
+          kind={mascot}
+          size={40}
+          frame
+          state={rule.status === "running" ? "working" : rule.status === "draft" ? "thinking" : "idle"}
+          className="max-sm:hidden"
+        />
         <div className="min-w-0 flex-1">
           <div className="text-[15px] leading-snug font-semibold">{rule.name}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -1017,15 +1023,25 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
   );
 }
 
-/** Which crew member speaks for each autopilot decision. */
+/** Which crew member speaks for each autopilot decision. Darwin itself is the leader. */
 const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: string }> = {
-  on: { mascot: "analyst", who: "Darwin" },
-  off: { mascot: "analyst", who: "Darwin" },
+  on: { mascot: "leader", who: "Darwin" },
+  off: { mascot: "leader", who: "Darwin" },
   started: { mascot: "experimenter", who: "Experimenter" },
   shipped: { mascot: "shipper", who: "Shipper" },
   stopped: { mascot: "experimenter", who: "Experimenter" },
   waiting: { mascot: "observer", who: "Observer" },
 };
+
+function decisionPose(kind: WebAutopilotEntry["kind"], latest: boolean, on: boolean): "idle" | "working" | "thinking" | "success" | "error" | "sleeping" {
+  if (!latest) return "idle";
+  if (!on) return "sleeping";
+  if (kind === "shipped") return "success";
+  if (kind === "stopped") return "error";
+  if (kind === "waiting") return "thinking";
+  if (kind === "off") return "sleeping";
+  return "working";
+}
 
 function DecisionLog({ state }: { state: WebAutopilotState }) {
   const entries = state.log.slice(0, 25);
@@ -1050,7 +1066,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
           return (
             <li key={`${e.at}-${i}`} className="relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-3.5 last:pb-0">
               {i < entries.length - 1 && <span className="absolute top-9 bottom-0 left-[1.1rem] w-px bg-dw-ink/15" aria-hidden />}
-              <Mascot kind={actor.mascot} size={36} frame active={i === 0 && state.on} title={actor.who} />
+              <Mascot kind={actor.mascot} size={36} frame state={decisionPose(e.kind, i === 0, state.on)} title={actor.who} />
               <div className="min-w-0 pt-0.5">
                 <div className="flex items-baseline gap-2 text-[12.5px]">
                   <span className="font-semibold">{actor.who}</span>

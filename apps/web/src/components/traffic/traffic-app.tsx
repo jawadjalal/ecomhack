@@ -370,7 +370,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="analyst" size={34} active={!!busy} />
+          <Mascot kind="analyst" size={34} state={busy ? "thinking" : "idle"} />
           What to improve
         </span>
       </CardHead>

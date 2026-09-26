@@ -22,7 +22,7 @@ export function WhatChangesCard({ rows, source }: { rows: ChangeRow[]; source?: 
   return (
     <Card tone="white" hover={false} className="p-5 sm:px-6" aria-label="What B changes">
       <div className="flex flex-wrap items-center gap-2.5 px-1.5 pb-3">
-        <Mascot kind="designer" size={30} active />
+        <Mascot kind="designer" size={30} state="idle" />
         <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">What B changes</h2>
         {source && <span className="ml-auto text-[13px] text-dw-ink/55">{source}</span>}
       </div>

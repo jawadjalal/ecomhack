@@ -10,6 +10,8 @@ import { ArrowRight } from "lucide-react";
 import type { Experiment, LoopState } from "@/lib/contracts";
 import { PHASE_META } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
+import { useNow } from "@/lib/console/hooks";
+import { crewMascotState } from "@/lib/mascot/state";
 import { Mascot } from "../mascot";
 import { CountUp, Grow } from "./fx";
 import { liftText, pctSmart } from "./model";
@@ -39,12 +41,20 @@ function BeforeNow({ label, before, now, max }: { label: string; before: number;
 }
 
 export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState; experiments?: Experiment[]; simulated: boolean }) {
+  const tick = useNow();
   if (!loop) return null;
   const history = loop.history;
   const before = history[0];
   const now = history.at(-1);
   const shipped = history.filter((g) => g.generation > 0).length;
   const running = experiments?.filter((e) => e.status === "running").length ?? 0;
+  const last = loop.log.at(-1);
+  const shipper = crewMascotState("shipper", {
+    phase: loop.phase,
+    autopilot: loop.autopilot,
+    lastEntry: last ? { actor: last.actor, message: last.message, at: last.at } : null,
+    now: tick,
+  });
   const phase = PHASE_META[loop.phase];
   const measured = !!before && !!now && shipped > 0;
   const extra = measured ? (now.overallConversionRate - before.overallConversionRate) * 1000 : 0;
@@ -57,7 +67,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
       className="relative mt-8 grid grid-cols-1 gap-x-8 gap-y-5 border-y border-dw-ink/10 py-5 sm:grid-cols-2 lg:flex lg:items-center lg:gap-x-8"
     >
       <div className="flex min-w-0 items-center gap-3.5 sm:col-span-2 lg:flex-1">
-        <Mascot kind="shipper" size={46} frame active={loop.autopilot} />
+        <Mascot kind="shipper" size={46} frame state={shipper} />
         <div className="flex min-w-0 flex-col">
           {measured ? (
             <>

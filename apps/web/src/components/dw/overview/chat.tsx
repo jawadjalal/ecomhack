@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Fo
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUp, ChevronDown, Maximize2 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
+import { useChatMascot } from "@/components/mascot/mascot";
 import { Mascot, type MascotKind } from "../mascot";
 import { Typing } from "../ui";
 import { EASE } from "./fx";
@@ -96,6 +97,8 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
   const sheetInput = useRef<HTMLInputElement>(null);
   const barInput = useRef<HTMLInputElement>(null);
   const busy = msgs.some((m) => m.pending);
+  const lastFailed = msgs.at(-1)?.role === "darwin" && !!msgs.at(-1)?.failed;
+  const mood = useChatMascot(busy, lastFailed);
 
   const vp = useViewport();
   const snaps = snapHeights(vp);
@@ -231,7 +234,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                 onSubmit={submitBar}
                 className="flex h-[60px] w-full items-center gap-3 rounded-full bg-white pr-2 pl-3 shadow-[0_0_0_1px_#E8DFCC,0_16px_40px_rgba(20,20,19,0.10)] transition-shadow focus-within:shadow-[0_0_0_1.5px_#141413,0_16px_40px_rgba(20,20,19,0.14)]"
               >
-                <Mascot kind="analyst" size={40} frame active title="Darwin" />
+                <Mascot kind="leader" size={40} frame state={mood} title="Darwin" />
                 <label htmlFor="dw-ask-bar" className="sr-only">
                   Ask Darwin
                 </label>
@@ -287,7 +290,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
               </button>
               <div className="flex h-[50px] shrink-0 items-center justify-between pr-3 pl-4 sm:pr-5 sm:pl-7">
                 <div className="flex items-center gap-3">
-                  <Mascot kind="analyst" size={38} frame active={busy} title="Darwin" />
+                  <Mascot kind="leader" size={38} frame state={mood} title="Darwin" />
                   <span className="text-[18px] font-semibold">Darwin</span>
                   {lastDarwin?.source && !lastDarwin.pending && (
                     <span className="hidden rounded-full bg-dw-sand px-2 py-0.5 text-[11.5px] text-dw-ink/60 sm:inline">
@@ -334,7 +337,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                           style={{ background: s.tone }}
                         >
                           <span className="transition-transform duration-300 group-hover:-rotate-6">
-                            <Mascot kind={s.kind} size={26} active={false} />
+                            <Mascot kind={s.kind} size={26} state="idle" interactive={false} />
                           </span>
                           {s.text}
                         </motion.button>
@@ -401,7 +404,7 @@ function Message({ m }: { m: Msg }) {
       className="flex gap-3"
     >
       <span className="hidden shrink-0 pt-0.5 sm:block">
-        <Mascot kind="analyst" size={34} frame active={!!m.pending} title="Darwin" />
+        <Mascot kind="leader" size={34} frame state={m.pending ? "thinking" : m.failed ? "error" : "idle"} title="Darwin" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         {m.pending ? (
