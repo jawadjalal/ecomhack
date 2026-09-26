@@ -63,6 +63,13 @@ Prompt: *"Use the pace-store tools to buy me waterproof trail shoes, UK 10, unde
 - **Line to say:** "That's Cursor shopping our store. At Gen 0 it can't see stock or delivery time. Watch what happens
   after Darwin ships the agent-surface fix." Run it again after Gen 1: the same prompt gets real answers.
 
+### Optional: agent-to-agent in a terminal
+
+`npx tsx scripts/a2a-buyer.ts --url http://localhost:3000 --brief "trail shoes UK 10 under £150 by Friday"` runs a
+buyer agent that talks to the merchant agent over A2A. The conversation prints in the terminal and appears as chat
+bubbles in the **Agent-to-agent** panel (tagged A2A). The script labels itself synthetic; any other A2A client
+pointed at `http://localhost:3000` (it reads the agent card) shows as REAL.
+
 **Closing line:** "Darwin is CRO for the agentic web: it experiments on humans and AI shoppers, and ships the winners as code."
 
 ## What typically happens (heuristic mode)
@@ -96,6 +103,9 @@ Prompt: *"Use the pace-store tools to buy me waterproof trail shoes, UK 10, unde
   diffable, reversible and A/B testable, and it still ships as a normal PR editing `storefront.config.json`.
 - **"How do you tell agents from humans?"** Declared agent headers, the MCP/REST surface, and PostHog's crawler list
   split into AI agents, AI crawlers and automation.
-- **"What's agent-to-agent here?"** Buyer agents discover the store (`/llms.txt`, agent card), shop over MCP, and
-  negotiate with Darwin's merchant agent within margin limits the optimizer can switch on.
+- **"What's agent-to-agent here?"** Buyer agents discover the store (`/llms.txt`, `/.well-known/agent-card.json`)
+  and either call its tools over MCP or talk to PACE's merchant agent over **A2A** (v1.0 and v0.3, verified with the
+  official `@a2a-js/sdk`) in plain English: brief → shortlist → haggle within margin → order. Every conversation goes
+  through the same tracked, spec-aware store, so when Darwin exposes delivery times, the merchant agent can finally
+  answer "will it arrive by Friday?".
 - **"Business model?"** A share of the measured lift, or per-store pricing; agencies run it across client stores.

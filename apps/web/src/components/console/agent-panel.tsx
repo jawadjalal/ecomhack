@@ -22,6 +22,11 @@ function pickDefault(sessions: AgentSessionSummary[]): AgentSessionSummary | und
   );
 }
 
+/** How the agent reached the store, from the session id prefix (a2a_ / mcp_). */
+function transport(s: AgentSessionSummary): "A2A" | "MCP" | undefined {
+  return s.sessionId.startsWith("a2a_") ? "A2A" : s.sessionId.startsWith("mcp_") ? "MCP" : undefined;
+}
+
 function Outcome({ s }: { s: AgentSessionSummary }) {
   if (s.outcome === "purchased") return <Badge tone="good">Purchased{s.orderTotal ? ` · ${money(s.orderTotal)}` : ""}</Badge>;
   if (s.outcome === "abandoned") return <Badge tone="bad">Abandoned</Badge>;
@@ -64,6 +69,11 @@ function Detail({ s }: { s: AgentSessionSummary }) {
         <span className="flex size-7 items-center justify-center rounded-full bg-agent/15 text-[0.9rem]">🤖</span>
         <span className="truncate text-[0.95rem] font-semibold text-white">{s.agentName}</span>
         <Outcome s={s} />
+        {transport(s) && (
+          <span className="rounded-md border border-white/10 px-1.5 py-0.5 font-mono text-[0.62rem] text-white/50" title={transport(s) === "A2A" ? "Talking to the merchant agent over A2A (plain English)" : "Calling the store's tools over MCP"}>
+            {transport(s)}
+          </span>
+        )}
         <div className="flex-1" />
         {s.synthetic ? (
           <Tag>Synthetic</Tag>
@@ -76,7 +86,7 @@ function Detail({ s }: { s: AgentSessionSummary }) {
       </div>
       {!s.synthetic && !s.goal?.brief && (
         <div className="rounded-lg border-l-2 border-good/50 bg-good/[0.04] px-3 py-1.5 text-[0.8rem] text-white/70">
-          A real agent connected {s.sessionId.startsWith("mcp_") ? "over MCP" : "over the REST API"}, not the simulator.
+          A real agent connected {transport(s) ? `over ${transport(s)}` : "over the REST API"}, not the simulator.
           Every tool call below is live.
         </div>
       )}
@@ -321,7 +331,7 @@ export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
                     )}
                   />
                   <span className="max-w-[5.5rem] truncate">{s.agentName.replace(/-(shopper|buyer|agent)$/, "")}</span>
-                  {s.negotiation?.length ? <span>🤝</span> : null}
+                  {transport(s) === "A2A" ? <span>💬</span> : s.negotiation?.length ? <span>🤝</span> : null}
                   {active && pinned && <span className="absolute -top-1 -right-1 size-2 rounded-full bg-brand" title="Pinned" />}
                 </button>
               );

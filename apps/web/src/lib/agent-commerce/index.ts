@@ -10,6 +10,7 @@ import { resolveSpecForVisitor } from "@/lib/spec/resolve";
 import { runScriptedBuyer, type BuyerHooks, type BuyerRunResult } from "./buyer";
 import { runLlmBuyer } from "./buyer-llm";
 import { dispatchAgentTool, newSessionSummary } from "./dispatcher";
+import { resetA2aConversations } from "./a2a";
 import { resetMcpSessions } from "./mcp";
 import {
   AGENT_KV_KEYS,
@@ -121,4 +122,5 @@ export async function runBuyerAgent(
 export function resetAgentCommerce() {
   resetAgentState();
   resetMcpSessions();
+  resetA2aConversations();
 }

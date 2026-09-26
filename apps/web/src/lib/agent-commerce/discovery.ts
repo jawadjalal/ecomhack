@@ -8,6 +8,7 @@ import { PRODUCTS, SHIPPING_FEE } from "@/lib/catalog/products";
 import { formatGBP } from "@/lib/money";
 import { resolveSpecForVisitor } from "@/lib/spec/resolve";
 import { CORS_HEADERS, identityFromHeaders, publicOrigin } from "./http";
+import { A2A_PROTOCOL_VERSIONS } from "./a2a";
 import { MCP_PROTOCOL_VERSION, MCP_SERVER_INFO } from "./mcp";
 import { productUrl } from "./surface";
 import { TOOL_META } from "./tools";
@@ -48,7 +49,13 @@ export function buildLlmsTxt(origin: string, spec: PageSpec): string {
 
 ${catalog}
 
-## Shop via MCP (recommended)
+## Talk to our merchant agent (A2A)
+
+- Endpoint: \`POST ${origin}/api/a2a\` (A2A ${A2A_PROTOCOL_VERSIONS.join(" and ")}, JSON-RPC 2.0: \`SendMessage\` or \`message/send\`). Agent card: \`${origin}/.well-known/agent-card.json\`.
+- Say what you need in plain English ("trail shoes, UK 10, under £150, by Friday"); reuse the \`contextId\` from the reply to continue the conversation (it is your cart).
+- Then ask about an option ("tell me about the second one"), ${s.negotiation.enabled ? 'make an offer ("would you take £120?"), ' : ""}and say "buy it in UK 10". Replies carry a \`data\` part with the structured products, deal or order.
+
+## Shop via MCP (tools)
 
 - Endpoint: \`POST ${origin}/api/mcp\` (MCP Streamable HTTP, JSON-RPC 2.0, protocol ${MCP_PROTOCOL_VERSION}; JSON responses, no SSE).
 - Call \`initialize\`, keep the \`Mcp-Session-Id\` response header and send it on every later request (it is your cart), then \`tools/list\` and \`tools/call\`.
@@ -84,30 +91,68 @@ ${s.negotiation.enabled ? `- \`POST ${origin}/api/agent/negotiate\` \`{"id":"p_r
 `;
 }
 
+/** What the merchant agent can do in conversation (A2A skills). Negotiation only when the spec allows it. */
+function agentSkills(spec: PageSpec) {
+  const s = spec.agentSurface;
+  const skills = [
+    {
+      id: "shop",
+      name: "Personal shopper",
+      description:
+        "Describe what you need in plain English (category, UK size, budget, deadline) and get a shortlist, using only the product data this store exposes to agents.",
+      tags: ["commerce", "running", "search"],
+      examples: ["Trail shoes, UK 10, under £150, delivered by Friday", "A carbon race shoe for a marathon, UK 8"],
+    },
+    {
+      id: "product_details",
+      name: "Product questions",
+      description: "Ask about a product by name or by its number in the last shortlist.",
+      tags: ["commerce", "running", "read"],
+      examples: ["Tell me more about the second one"],
+    },
+    ...(s.negotiation.enabled
+      ? [
+          {
+            id: "negotiate",
+            name: "Negotiate a price",
+            description: `Make an offer and the merchant agent counters within its margin (up to ${s.negotiation.maxDiscountPct}% off). Agreed prices are honoured at checkout.`,
+            tags: ["commerce", "running", "negotiation"],
+            examples: ["Would you take £120 for the Ridge Trail Pro?"],
+          },
+        ]
+      : []),
+    {
+      id: "checkout",
+      name: "Place an order",
+      description: "Order a product in a size; stays within the budget from your brief, delivery included.",
+      tags: ["commerce", "running", "write"],
+      examples: ["Buy the first one in UK 10"],
+    },
+  ];
+  return skills;
+}
+
 export function buildAgentCard(origin: string, spec: PageSpec) {
   const s = spec.agentSurface;
   return {
     protocolVersion: "0.3.0",
     name: `${STORE_NAME} merchant agent`,
     description: `${STORE_BLURB} Search the catalog, check stock and delivery, ${s.negotiation.enabled ? "negotiate prices, " : ""}and place orders.`,
-    url: `${origin}/api/mcp`,
+    url: `${origin}/api/a2a`,
+    preferredTransport: "JSONRPC",
     version: MCP_SERVER_INFO.version,
     provider: { organization: STORE_NAME, url: origin },
     documentationUrl: `${origin}/llms.txt`,
     capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
-    defaultInputModes: ["application/json"],
-    defaultOutputModes: ["application/json"],
-    skills: toolsFor(spec).map((t) => ({
-      id: t,
-      name: TOOL_META[t].title,
-      description: TOOL_META[t].description,
-      tags: ["commerce", "running", TOOL_META[t].readOnly ? "read" : "write"],
-    })),
-    additionalInterfaces: [
-      { url: `${origin}/api/mcp`, transport: "MCP" },
-      { url: `${origin}/api/agent`, transport: "HTTP+JSON" },
-    ],
+    defaultInputModes: ["text/plain", "application/json"],
+    defaultOutputModes: ["text/plain", "application/json"],
+    skills: agentSkills(spec),
+    // A2A v1.0 clients read supportedInterfaces; v0.3 clients read url / preferredTransport / protocolVersion.
+    supportedInterfaces: A2A_PROTOCOL_VERSIONS.map((v) => ({ url: `${origin}/api/a2a`, protocolBinding: "JSONRPC", protocolVersion: v })),
+    additionalInterfaces: [{ url: `${origin}/api/a2a`, transport: "JSONRPC" }],
+    /** Non-A2A ways in: MCP tools and a REST API with the same capabilities. */
     endpoints: {
+      a2a: `${origin}/api/a2a`,
       mcp: `${origin}/api/mcp`,
       rest: `${origin}/api/agent`,
       llmsTxt: `${origin}/llms.txt`,

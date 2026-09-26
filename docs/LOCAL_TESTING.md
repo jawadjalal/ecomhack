@@ -16,6 +16,8 @@ ever called. The LLM code paths are covered by tests with a **mocked model** (`s
 - **Real MCP clients:** the official MCP SDK client (`@modelcontextprotocol/sdk` 1.30.1, Streamable HTTP) connects,
   lists the 8 tools and completes search → get_product → add_to_cart → checkout. The session appears in the console
   as a REAL agent (not synthetic), pinned at the top of the agent panel.
+- **A2A:** the official A2A SDK (`@a2a-js/sdk` 1.2.1) connects from the agent card with default settings (v1.0
+  `SendMessage`) and with `legacyCompat` (v0.3 `message/send`): brief → shortlist → "buy the first one" → order.
 - **Simulator:** calibration of human and agent conversion.
 - **GitHub PRs in dry-run mode:** title, body and diff are generated and nothing is sent. They also fall back to a
   preview when GitHub rejects the token.
@@ -53,6 +55,7 @@ Swap to Grok for the demo: `LLM_PROVIDER=xai`, `XAI_API_KEY=...`, `XAI_MODEL=<cu
 | 11 | Cost sanity | Check OpenRouter usage page after a full autopilot run | A few cents at most |
 | 12 | Real human traffic | Open `/store` in a normal browser (or a phone on the same network), buy something | It shows in the console's live feed as 🧑 **without** the SYNTHETIC tag (posthog-js → `/ingest`) |
 | 13 | A real AI agent shops (Cursor / Claude Code) | Add the store as an MCP server (see [DEMO.md](DEMO.md#optional-a-real-ai-agent-buys)), ask the agent to buy trail shoes | Agent uses `search_products` → … → `checkout`; console agent panel shows it first with a green REAL tag and its tool calls |
+| 14 | A2A with an LLM buyer | Point any A2A client (e.g. Google ADK, a2a-inspector) at `http://localhost:3000`, give it a brief | It finds the agent card, the merchant replies in plain English, the order completes; the panel shows the chat tagged A2A + REAL |
 
 > Use a **throwaway test repo** for 9–10, not `jawadjalal/ecomhack` main, unless you mean it.
 

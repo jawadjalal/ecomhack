@@ -170,7 +170,12 @@ describe("REST + discovery", () => {
     expect(after).toContain("up to 15% off");
 
     const card = await (await agentCard(new Request(`${URL_BASE}/.well-known/agent-card.json`))).json();
-    expect(card).toMatchObject({ url: `${URL_BASE}/api/mcp`, commerce: { negotiation: { enabled: true } } });
+    expect(card).toMatchObject({
+      url: `${URL_BASE}/api/a2a`,
+      preferredTransport: "JSONRPC",
+      endpoints: { mcp: `${URL_BASE}/api/mcp` },
+      commerce: { negotiation: { enabled: true } },
+    });
     expect(card.skills.map((s: { id: string }) => s.id)).toContain("negotiate");
   });
 });

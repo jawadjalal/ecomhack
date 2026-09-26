@@ -32,6 +32,7 @@ npm run build && npm start     # or: npm run dev
 | http://localhost:3000/store | The demo store (PACE running shoes) |
 | http://localhost:3000/llms.txt | What AI agents read about the store |
 | `POST /api/mcp` | MCP server for AI shoppers (search, availability, cart, negotiate, checkout) |
+| `POST /api/a2a` | A2A merchant agent (v1.0 and v0.3): buyer agents shop and haggle in plain English |
 
 All API keys are optional (`apps/web/.env.example`). With no keys the loop uses its heuristic playbook and GitHub PRs
 are dry-run previews. See [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md) for testing with an LLM and a real GitHub token,

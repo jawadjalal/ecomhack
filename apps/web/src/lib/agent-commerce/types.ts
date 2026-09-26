@@ -26,7 +26,7 @@ export const AGENT_TOOL_NAMES: readonly AgentToolName[] = [
 ];
 
 /** How the agent reached us. Stamped on events as `properties.channel`. */
-export type AgentChannel = "rest" | "mcp" | "in-process";
+export type AgentChannel = "rest" | "mcp" | "a2a" | "in-process";
 
 export interface AgentContext {
   /** Stable id for the agent (distinct_id). Also the experiment-assignment key. */
