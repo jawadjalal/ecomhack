@@ -109,7 +109,7 @@ export function rowLine(s: Shopper): string {
 }
 
 /** Plain words for Darwin's notes: no "test B", and the list belongs to Iris. */
-function plain(t: string): string {
+export function plain(t: string): string {
   return t
     .replace(/\bTest B fixes this step\b/g, "The new version in Ada’s test fixes this step")
     .replace(/\bin test B\b/g, "on the new version")
@@ -128,7 +128,7 @@ function versionSeen(s: Shopper, history: GenerationRecord[] | undefined): Gener
   return live;
 }
 
-export function JourneyHead({ s, now, big }: { s: Shopper; now: number; big?: boolean }) {
+export function JourneyHead({ s, now, big, showPill = false }: { s: Shopper; now: number; big?: boolean; showPill?: boolean }) {
   const won = s.status === "bought";
   const meta = [
     s.kind === "agent" ? `AI shopper · ${s.model}` : `Person · ${s.model.toLowerCase()}`,
@@ -141,9 +141,8 @@ export function JourneyHead({ s, now, big }: { s: Shopper; now: number; big?: bo
   const pill = (
     <span
       className={cn(
-        "flex h-8 shrink-0 items-center gap-1.5 self-start rounded-full px-3.5 text-[13px] font-semibold tabular-nums",
+        "flex h-7 shrink-0 items-center gap-1.5 self-start rounded-[8px] px-2.5 text-[13px] font-semibold tabular-nums",
         won ? "bg-dw-olive text-dw-ink" : s.status === "live" ? "bg-dw-surface text-dw-ink" : "bg-dw-ink text-white",
-        DEPTH,
       )}
     >
       {s.status === "live" && <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" />}
@@ -156,9 +155,9 @@ export function JourneyHead({ s, now, big }: { s: Shopper; now: number; big?: bo
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[20px] leading-tight font-semibold tracking-[-0.01em]">{s.name}</span>
         <span className={cn("text-[12.5px] text-[#3E4E70]", big ? "leading-snug" : "truncate")}>{meta}</span>
-        {big && <span className="mt-2 flex">{pill}</span>}
       </div>
-      {!big && pill}
+      {/* On desktop the path's pin already says where they left or paid; the sheet keeps it in the path too. */}
+      {showPill && pill}
     </div>
   );
 }
@@ -294,7 +293,7 @@ export function JourneyNotes({
         {link && (
           <Link
             href={link.href}
-            className="inline-flex h-7 max-w-full items-center gap-1.5 self-start truncate rounded-full border border-dw-hairline bg-dw-bg px-2.5 text-[12.5px] font-medium transition-transform hover:-translate-y-px"
+            className="inline-flex max-w-full items-center gap-1.5 self-start truncate text-[12.5px] font-medium underline decoration-dw-ink/25 underline-offset-[3px] hover:decoration-dw-ink"
           >
             <span className="size-[7px] shrink-0 rounded-full bg-dw-hot" />
             <span className="truncate">{link.label.replace(/^Test B · /, "Ada’s test · ")}</span>
@@ -359,6 +358,263 @@ export function JourneyNotes({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ the journey, top to bottom */
+
+/** The simulator's templated reasons, in plain words (formatting only; nothing is added). */
+const CATEGORY_WORDS: Record<string, [string, string]> = {
+  road: ["road-running shoe", "road-running shoes"],
+  trail: ["trail shoe", "trail shoes"],
+  racing: ["racing shoe", "racing shoes"],
+  carbon: ["carbon racing shoe", "carbon racing shoes"],
+  accessories: ["accessory", "accessories"],
+  products: ["product", "products"],
+};
+export function humanReason(t: string): string {
+  let out = t
+    .replace(/£(\d[\d,]*)\.00\b/g, "£$1")
+    .replace(/\b(no) (road|trail|racing|carbon|accessories|products)\b/gi, (_m, no: string, c: string) => `${no} ${CATEGORY_WORDS[c.toLowerCase()]?.[0] ?? c}`)
+    .replace(/\bwithin (£\d[\d,.]*)/g, "under $1")
+    .replace(/\bno delivery ETA exposed\b/gi, "the store didn’t show a delivery date")
+    .replace(/\bno landed price exposed\b/gi, "the store didn’t show the price with delivery")
+    .replace(/\bno stock levels exposed\b/gi, "the store didn’t show stock by size")
+    .replace(/\bincl\. shipping\b/g, "including delivery");
+  // "X: can't Y" → "X, so it couldn’t Y".
+  out = out.replace(/:\s+can[’']t\s+/i, ", so it couldn’t ");
+  return capitalise(out.trim());
+}
+
+const capitalise = (x: string) => (x ? x[0].toUpperCase() + x.slice(1) : x);
+
+/** "03:12" → 192. */
+function secs(t: string | undefined): number | undefined {
+  const m = t ? /^(\d+):(\d{2})$/.exec(t) : null;
+  return m ? Number(m[1]) * 60 + Number(m[2]) : undefined;
+}
+function gapText(s: number): string {
+  if (s < 60) return `+${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r ? `+${m}m ${r}s` : `+${m}m`;
+}
+
+const LEFT_AT = ["landing", "the product page", "the bag", "checkout"] as const;
+
+/** "Left at landing" / "Paid £115" / "Here now". */
+export function outcomeText(s: Shopper): string {
+  if (s.status === "bought") return s.orderTotal ? `Paid ${money(s.orderTotal)}` : "Paid";
+  if (s.status === "live") return "Here now";
+  return `Left at ${LEFT_AT[Math.min(s.reach, 3)]}`;
+}
+
+const TOOL_RESULT = (st: ShopperStep) =>
+  st.tool === "abandon" ? "left" : st.tone === "warn" ? "not shown" : st.tone === "fail" ? "failed" : st.tone === "live" ? "working" : "ok";
+
+/** A step's name: the stage in plain words, specific where the data says what they looked at. */
+function stepName(i: number, st: Stage, s: Shopper): string {
+  if (i === 4) return s.orderTotal ? `Paid ${money(s.orderTotal)}` : "Paid";
+  if (i === 1) {
+    const viewed = st.steps.map((x) => /^(?:Viewed|Opened) (.+)$/.exec(x.text)?.[1]).find(Boolean);
+    if (viewed && !/product page|a product/i.test(viewed)) return `Viewed ${viewed}`;
+    return "Viewed a product";
+  }
+  return ["Landed", "", "Added to bag", "Checkout"][i];
+}
+
+/** One plain header line: "Gemini shopper · 2 tool calls · simulated" / "Person on mobile · 14 seconds · simulated". */
+function headLine(s: Shopper, now: number): string {
+  const ago = s.status === "live" ? undefined : timeAgo(s.lastAt, now);
+  return [
+    s.kind === "agent" ? `${s.model} shopper` : `Person on ${s.model.toLowerCase()}`,
+    s.kind === "agent" ? `${s.steps.length} tool ${s.steps.length === 1 ? "call" : "calls"}` : humanDuration(Date.parse(s.lastAt) - Date.parse(s.startedAt)) + " on the store",
+    ago && ago !== "now" ? `${ago} ago` : undefined,
+    s.synthetic ? "simulated" : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+export function JourneyHeader({ s, now }: { s: Shopper; now: number }) {
+  const left = s.status === "left";
+  return (
+    <div className="flex items-center gap-4">
+      <ShopperAvatar s={s} size={48} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-[20px] leading-tight font-semibold tracking-[-0.01em]">{s.name}</span>
+        <span className="line-clamp-2 text-[12.5px] leading-snug text-[#3E4E70]">{headLine(s, now)}</span>
+      </div>
+      <span className={cn("flex shrink-0 items-center gap-2 text-[20px] leading-tight font-semibold tracking-[-0.01em] tabular-nums", left && "text-[#C2306F]")}>
+        {s.status === "live" && <span className="dw-live-dot size-2 rounded-full bg-dw-live" />}
+        {outcomeText(s)}
+      </span>
+    </div>
+  );
+}
+
+/** The steps top to bottom on a thin rail: reached steps in ink, the step they left on in pink, the rest faint. */
+export function JourneyTimeline({ s }: { s: Shopper }) {
+  const reduce = useReducedMotion();
+  const stages = stagesOf(s);
+  const won = s.status === "bought";
+  const live = s.status === "live";
+  const stopAt = Math.min(s.reach, 4);
+  // Seconds since the previous reached step, per step.
+  const gaps: (number | undefined)[] = [];
+  let prev: number | undefined;
+  stages.forEach((st, i) => {
+    const at = secs(st.at);
+    gaps.push(i > 0 && i <= s.reach && at !== undefined && prev !== undefined ? at - prev : undefined);
+    if (i <= s.reach && at !== undefined) prev = at;
+  });
+  return (
+    <ol aria-label="Path through the store" className="flex flex-col">
+      {stages.map((st, i) => {
+        const reached = i <= s.reach;
+        const here = i === stopAt && !won;
+        const last = i === stages.length - 1;
+        const gap = gaps[i];
+        const name = stepName(i, st, s);
+        const detail = st.steps.at(-1)?.text;
+        const showDetail = reached && i < 4 && detail && detail.toLowerCase() !== name.toLowerCase() && !(here && /^gave up$/i.test(detail));
+        const calls = s.kind === "agent" ? st.steps.slice(-2) : [];
+        return (
+          <motion.li
+            key={st.label}
+            initial={reduce ? false : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, delay: reduce ? 0 : i * 0.04, ease: [0.2, 0.8, 0.2, 1] }}
+            className="grid grid-cols-[24px_minmax(0,1fr)] gap-x-4"
+          >
+            {/* rail + node */}
+            <div className="relative flex flex-col items-center">
+              <span className="flex h-6 items-center">
+                <span
+                  className={cn(
+                    "relative z-[1] grid place-items-center rounded-full",
+                    here && !live && "size-4 bg-[#C2306F] ring-4 ring-[#C2306F]/20",
+                    here && live && "size-4 bg-dw-surface ring-4 ring-dw-surface/50",
+                    !here && reached && (i === 4 ? "size-4 bg-dw-ink" : "size-2.5 bg-dw-ink"),
+                    !reached && "size-2.5 border-[1.5px] border-dashed border-dw-ink/40",
+                  )}
+                >
+                  {here && live && <span className="dw-live-dot size-2 rounded-full bg-dw-live" />}
+                  {!here && reached && i === 4 && (
+                    <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden className="text-white">
+                      <path d="M3.5 8.4l3 3 6-6.4" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+              </span>
+              {!last && (
+                <span
+                  aria-hidden
+                  className={cn("w-0 flex-1 border-l-[1.5px]", i < s.reach ? "border-dw-ink/70" : "border-dashed border-dw-ink/20")}
+                />
+              )}
+            </div>
+            {/* the step */}
+            <div className={cn("flex min-w-0 flex-col gap-1", last ? "pb-0" : reached ? "pb-6" : "pb-4")}>
+              <div className="flex min-h-6 items-baseline gap-3">
+                <span className={cn("min-w-0 flex-1 truncate text-[15px] font-medium", !reached && "text-dw-ink/40")}>{name}</span>
+                {reached && (
+                  <span className="shrink-0 text-[12.5px] text-[#3E4E70] tabular-nums">
+                    {gap !== undefined ? gapText(gap) : i === 0 ? "start" : ""}
+                    {st.at && <span className="ml-2 text-dw-ink/40">{st.at}</span>}
+                  </span>
+                )}
+                {!reached && <span className="shrink-0 text-[12.5px] text-dw-ink/35">not reached</span>}
+              </div>
+              {showDetail && <span className="text-[13.5px] leading-snug text-dw-ink/70">{detail}</span>}
+              {calls.map((c, j) => (
+                <span key={`${c.tool}-${j}`} className="truncate font-dwmono text-[12px] text-dw-ink/55">
+                  {c.tool} → {TOOL_RESULT(c)}
+                </span>
+              ))}
+              {here && !live && (
+                <div className="mt-1 flex flex-col gap-0.5">
+                  <span className="text-[12.5px] font-semibold text-[#C2306F]">Left here</span>
+                  <span className="text-[14px] leading-snug text-dw-ink">{humanReason(plain(s.key.text))}</span>
+                </div>
+              )}
+              {here && live && <span className="mt-1 text-[12.5px] font-semibold">Here now</span>}
+            </div>
+          </motion.li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Iris's read and the page version they saw, as quiet text blocks split by hairlines. */
+export function JourneyWhy({ s, now, loop, test, board, summary }: { s: Shopper; now: number; loop?: LoopState; test?: TestView; board: BoardRow[]; summary?: AnalyticsSummary }) {
+  const note = humanReason(plain(darwinNote(s, { loop, test, board, summary })));
+  const link = linkFor(s, loop, test);
+  const inTest = test && s.experimentId === test.experiment.id ? s.arm : undefined;
+  const seen = versionSeen(s, loop?.history);
+  const version = inTest
+    ? { head: inTest === "B" ? "Saw the new version in the test" : "Saw your current page in the test", body: test?.experiment.name ?? "" }
+    : seen
+      ? {
+          head: `Saw version ${seen.generation}`,
+          body: `${seen.label.replace(/^(gen|version)\s*\d+\s*[:·-]\s*/i, "")}. Shipped ${timeAgo(seen.shippedAt, now) ? `${timeAgo(seen.shippedAt, now)} ago` : "just now"}.`,
+        }
+      : undefined;
+  return (
+    <div className="flex min-w-0 flex-col divide-y divide-dw-ink/10 border-t border-dw-ink/10">
+      <div className="flex flex-col gap-1 py-4">
+        <span className="text-[12.5px] text-[#3E4E70]">Why · the watcher’s read</span>
+        <p className="text-[14px] leading-normal">{note}</p>
+        {link && (
+          <Link href={link.href} className="self-start truncate text-[12.5px] font-medium underline decoration-dw-ink/25 underline-offset-[3px] hover:decoration-dw-ink">
+            {link.label.replace(/^Test B · /, "Test · ")}
+          </Link>
+        )}
+      </div>
+      {version && (
+        <div className="flex flex-col gap-1 py-4">
+          <span className="text-[12.5px] text-[#3E4E70]">{version.head}</span>
+          <p className="text-[14px] leading-normal">{version.body}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The whole panel: header, then the timeline beside what they saw and why (stacked on narrow screens). */
+export function JourneyView({
+  s,
+  now,
+  loop,
+  test,
+  board,
+  summary,
+  aside,
+  stacked,
+}: {
+  s: Shopper;
+  now: number;
+  loop?: LoopState;
+  test?: TestView;
+  board: BoardRow[];
+  summary?: AnalyticsSummary;
+  /** What they saw (the store page or the agent's last call). */
+  aside: React.ReactNode;
+  stacked?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-6">
+      <JourneyHeader s={s} now={now} />
+      <div className="h-px bg-dw-ink/10" />
+      <div className={cn("grid min-w-0 gap-8", stacked ? "grid-cols-1" : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
+        <JourneyTimeline s={s} />
+        <div className="flex min-w-0 flex-col gap-4">
+          {aside}
+          <JourneyWhy s={s} now={now} loop={loop} test={test} board={board} summary={summary} />
+        </div>
+      </div>
     </div>
   );
 }

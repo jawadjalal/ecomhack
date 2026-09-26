@@ -2,7 +2,7 @@
 
 /**
  * Small pieces the landing's sections share (ported from Wayari's scroll engine, rewritten with
- * motion/react): `Reveal` rises a block as it crosses the fold, and `Sel` draws the pink selection
+ * motion/react): `Reveal` rises a block (always visible) as it crosses the fold, and `Sel` draws the pink selection
  * box behind one phrase of a heading once it reaches the eye line, a third of the way up the window.
  * Both sit under the landing's MotionConfig (reducedMotion="user"), so reduced motion drops the
  * movement and shows the finished state.
@@ -13,14 +13,18 @@ import { cn } from "@/components/ui/cn";
 
 export const EASE = [0.2, 0.8, 0.2, 1] as const;
 
-/** A block that rises into place as it crosses the fold. */
-export function Reveal({ children, delay = 0, y = 18, className, as = "div" }: { children: ReactNode; delay?: number; y?: number; className?: string; as?: "div" | "li" | "article" | "header" }) {
+/**
+ * A block that rises into place as it crosses the fold. Only the small y-offset animates: the block is fully
+ * opaque at rest, so a full-page render that never scrolls (a link preview, a screenshot, an AI agent reading
+ * the page) still shows every section instead of blank cream. Reduced motion (MotionConfig) skips the rise.
+ */
+export function Reveal({ children, delay = 0, y = 14, className, as = "div" }: { children: ReactNode; delay?: number; y?: number; className?: string; as?: "div" | "li" | "article" | "header" }) {
   const Tag = as === "li" ? motion.li : as === "article" ? motion.article : as === "header" ? motion.header : motion.div;
   return (
     <Tag
       className={className}
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ y }}
+      whileInView={{ y: 0 }}
       viewport={{ once: true, margin: "0px 0px -8% 0px" }}
       transition={{ duration: 0.6, delay, ease: EASE }}
     >

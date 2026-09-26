@@ -636,7 +636,7 @@ export function OnboardingApp() {
                     </h1>
                     <p className="mt-3 text-[17px] leading-snug text-white [text-shadow:0_1px_8px_rgba(20,40,60,0.45)] sm:-mt-5 sm:text-[15.5px] sm:font-medium">
                       <span className="sm:hidden">Tell Darwin what you sell and what worries you. </span>
-                      <span className="max-sm:text-[14.5px] max-sm:text-white/85">{SETUP_SUMMARY}</span>
+                      <span className="inline-block rounded-full bg-[#0b2533]/40 px-2.5 py-0.5 text-white max-sm:mt-1 max-sm:text-[14.5px]">{SETUP_SUMMARY}</span>
                     </p>
 
                     {welcome ? (
@@ -659,7 +659,7 @@ export function OnboardingApp() {
                     {/* starters: one tap writes a first message */}
                     {!prompt.trim() && (
                       <div className="flex flex-wrap items-center gap-2 max-sm:mt-5 sm:order-last sm:justify-center" aria-label="Examples">
-                        <span className="text-[13.5px] font-medium text-white [text-shadow:0_1px_6px_rgba(20,40,60,0.5)] max-sm:sr-only">Try</span>
+                        <span className="rounded-full bg-[#0b2533]/40 px-2.5 py-1 text-[13.5px] font-medium text-white [text-shadow:0_1px_6px_rgba(20,40,60,0.5)] max-sm:sr-only">Try</span>
                         {EXAMPLES.map((x) => (
                           <button
                             key={x.label}
@@ -680,7 +680,7 @@ export function OnboardingApp() {
                         track("onboarding_skipped_to_demo");
                         startDemo();
                       }}
-                      className="order-last rounded-full px-2 py-1 text-[13.5px] sm:-mt-5 font-medium text-white underline decoration-white/50 underline-offset-[3px] [text-shadow:0_1px_6px_rgba(20,40,60,0.55)] hover:decoration-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none max-sm:hidden"
+                      className="order-last rounded-full bg-dw-bg/85 px-3.5 py-1.5 text-[13.5px] font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] transition-colors hover:bg-dw-bg hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none sm:-mt-5 max-sm:hidden"
                     >
                       Skip, explore with the demo store
                     </Link>
@@ -896,7 +896,7 @@ export function OnboardingApp() {
                         track("onboarding_skipped_to_demo");
                         startDemo();
                       }}
-                          className="ml-auto rounded-full px-2 py-1 text-[13px] font-medium text-white underline decoration-white/50 underline-offset-[3px] [text-shadow:0_1px_6px_rgba(20,40,60,0.55)] focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none sm:hidden"
+                          className="ml-auto rounded-full bg-dw-bg/85 px-3 py-1.5 text-[13px] font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none sm:hidden"
                         >
                           Skip: demo store
                         </Link>

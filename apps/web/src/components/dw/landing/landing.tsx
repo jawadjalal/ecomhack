@@ -102,13 +102,16 @@ export function Landing() {
             </GelLink>
             <Link
               href="/console"
-              className={`h-10 rounded-full px-3 text-[15.5px] leading-10 font-medium underline decoration-white/60 underline-offset-4 focus-visible:outline-2 focus-visible:outline-white sm:hidden ${ON_ART}`}
+              className="flex h-11 items-center rounded-full bg-dw-bg/85 px-5 text-[15.5px] font-medium text-dw-ink shadow-[0_1px_2px_rgba(20,20,19,0.12)] transition-colors hover:bg-dw-bg focus-visible:outline-2 focus-visible:outline-white sm:hidden"
             >
               Open Darwin
             </Link>
           </motion.div>
 
-          <motion.p {...rise(0.24)} className={`mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13.5px] max-sm:mt-3 ${ON_ART}`}>
+          <motion.p
+            {...rise(0.24)}
+            className={`mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13.5px] max-sm:mt-3 max-sm:rounded-full max-sm:bg-[#0b2533]/40 max-sm:px-3.5 max-sm:py-1.5 max-sm:font-medium ${ON_ART}`}
+          >
             <span>Sells to AI shoppers in</span>
             <span className="flex items-center gap-3 [filter:drop-shadow(0_1px_4px_rgba(20,40,60,0.45))]">
               {SHOPPERS.map((s) => (

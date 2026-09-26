@@ -23,8 +23,8 @@ export function Closing() {
         <motion.h2
           id="closing-title"
           className="text-[33px] leading-[1.08] font-semibold tracking-[-0.04em] text-white [text-shadow:0_1px_14px_rgba(26,16,48,0.5)] sm:text-[60px] xl:text-[76px]"
-          initial={{ opacity: 0, y: 18 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ y: 14 }}
+          whileInView={{ y: 0 }}
           viewport={{ once: true, margin: "0px 0px -10% 0px" }}
           transition={{ duration: 0.7, ease: EASE }}
         >
@@ -35,8 +35,8 @@ export function Closing() {
 
         <motion.div
           className="mt-10 flex w-full flex-col items-center gap-3 sm:mt-12 sm:w-auto sm:flex-row"
-          initial={{ opacity: 0, scale: 0.94 }}
-          whileInView={{ opacity: 1, scale: 1 }}
+          initial={{ scale: 0.97 }}
+          whileInView={{ scale: 1 }}
           viewport={{ once: true, margin: "0px 0px -10% 0px" }}
           transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
         >
@@ -55,8 +55,8 @@ export function Closing() {
               <motion.span
                 key={k}
                 className={cn(RIM, "inline-grid")}
-                initial={{ y: 12, opacity: 0 }}
-                whileInView={{ y: 0, opacity: 1 }}
+                initial={{ y: 12 }}
+                whileInView={{ y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 + i * 0.07, duration: 0.5, ease: EASE }}
               >

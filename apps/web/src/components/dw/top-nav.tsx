@@ -57,7 +57,7 @@ export function TopNav() {
     .find((n) => (n.href === "/console" ? path === "/console" : path?.startsWith(n.href)))?.key;
 
   return (
-    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3 max-sm:min-h-12 max-sm:gap-2">
+    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-2xl:gap-2.5 max-xl:grid-cols-[auto_1fr] max-xl:gap-y-3 max-sm:min-h-12 max-sm:gap-2">
       <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
         <Mascot kind="analyst" size={34} active />
         <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>
@@ -65,7 +65,7 @@ export function TopNav() {
 
       <nav
         aria-label="Main"
-        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink max-sm:hidden p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-lg:order-last max-lg:col-span-2 max-lg:justify-self-center"
+        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink max-sm:hidden p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-xl:order-last max-xl:col-span-2 max-xl:justify-self-center"
       >
         {NAV.map((n) => {
           const on = n.key === active;
@@ -76,7 +76,7 @@ export function TopNav() {
                 href={mock ? `${n.href}?mock=1` : n.href}
                 aria-current={on ? "page" : undefined}
                 className={cn(
-                  "flex h-11 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition-colors",
+                  "flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition-colors max-2xl:gap-1.5 max-2xl:px-2.5",
                   on ? "bg-dw-bg font-semibold text-dw-ink" : "font-medium text-[#CFCAC0] hover:text-white",
                 )}
               >
@@ -92,26 +92,26 @@ export function TopNav() {
         })}
       </nav>
 
-      <div className="flex items-center gap-2.5 justify-self-end max-sm:gap-1.5">
+      <div className="flex items-center gap-2.5 justify-self-end max-2xl:gap-1.5">
         <StoreChip />
         <button
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
           title={autopilot ? "Darwin's crew is improving the store on its own. Click to pause." : "Paused. Click to let Darwin's crew improve the store on its own."}
-          className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb] max-sm:h-9 max-sm:px-3"
+          className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb] max-2xl:px-3.5 max-sm:h-9 max-sm:px-3"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
           <span className="max-sm:text-[13.5px] max-sm:font-medium">
             {autopilot ? (
               <>
-                <span className="max-sm:hidden">Darwin running</span>
-                <span className="sm:hidden">Running</span>
+                <span className="max-2xl:hidden">Darwin running</span>
+                <span className="2xl:hidden">Running</span>
               </>
             ) : (
               "Paused"
             )}
           </span>
-          {mock && <span className="text-[12px] text-dw-ink/50">(demo data)</span>}
+          {mock && <span className="text-[12px] text-dw-ink/50 max-2xl:hidden">(demo data)</span>}
         </button>
         <LiveSwitch />
         <CommandPill />

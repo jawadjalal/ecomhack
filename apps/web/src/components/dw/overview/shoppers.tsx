@@ -17,10 +17,12 @@ import { cn } from "@/components/ui/cn";
 import { Art } from "../art";
 import { useDarwin } from "../provider";
 import { Silhouette } from "../mascot";
-import { ArmChip, PillButton, Segmented } from "../ui";
+import { ArmChip, PillButton } from "../ui";
 import { EASE } from "./fx";
-import { DEPTH, JourneyHead, JourneyNotes, JourneyPath, STAGES, ShopperAvatar, rowLine } from "./journey";
+import { DEPTH, JourneyView, STAGES, ShopperAvatar, rowLine } from "./journey";
 import type { BoardRow, Shopper, TestView } from "./model";
+import { MoneyFeed } from "./money-feed";
+import { StorePage } from "./store-view";
 
 type Filter = "all" | "people" | "agents";
 const ROWS = 6;
@@ -171,18 +173,13 @@ export function LiveShoppers({
           </span>
         </span>
       </div>
-      <Segmented<Filter>
+      <FilterTabs
         value={filter}
         onChange={(v) => {
           setFilter(v);
           setFrozen(null);
           setPicked(undefined);
         }}
-        options={[
-          { value: "all", label: "All" },
-          { value: "people", label: "People" },
-          { value: "agents", label: "Agents" },
-        ]}
       />
     </div>
   );
@@ -254,6 +251,7 @@ export function LiveShoppers({
             {rows.length ? `Newest ${rows.length} of ${total}` : " "}
             {simulated && rows.length ? " · simulated traffic" : ""}
           </span>
+          <MoneyFeed agents={agents} className="mt-2 px-1 lg:pr-3" />
         </div>
 
         {/* the journey, joined to the selected row */}
@@ -262,9 +260,8 @@ export function LiveShoppers({
             id="dw-journey"
             role="region"
             aria-label={sel ? `Journey of ${sel.name}` : "Journey"}
-            className="relative flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[22px] bg-dw-blue px-6 py-5"
+            className="relative flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[22px] bg-dw-blue p-6"
           >
-            <Silhouette kind="observer" color="#A8BCE7" size={240} style={{ right: -80, bottom: -96 }} />
             <AnimatePresence mode="popLayout" initial={false}>
               {sel && (
                 <motion.div
@@ -275,11 +272,7 @@ export function LiveShoppers({
                   exit={{ opacity: 0, x: 8, transition: { duration: 0.12 } }}
                   transition={{ duration: 0.24, ease: EASE }}
                 >
-                  <JourneyHead s={sel} now={now} />
-                  <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-5">
-                    <JourneyPath s={sel} />
-                    <JourneyNotes s={sel} now={now} loop={loop} test={test} board={board} summary={summary} />
-                  </div>
+                  <JourneyView s={sel} now={now} loop={loop} test={test} board={board} summary={summary} aside={<StorePage s={sel} test={test} />} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -290,13 +283,51 @@ export function LiveShoppers({
       <JourneySheet open={!wide && sheetOpen && !!sel} onClose={() => setSheetOpen(false)} s={sel}>
         {sel && (
           <>
-            <JourneyHead s={sel} now={now} big />
-            <JourneyPath s={sel} />
-            <JourneyNotes s={sel} now={now} loop={loop} test={test} board={board} summary={summary} />
+            <JourneyView s={sel} now={now} loop={loop} test={test} board={board} summary={summary} aside={<StorePage s={sel} test={test} />} stacked />
           </>
         )}
       </JourneySheet>
     </section>
+  );
+}
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "people", label: "People" },
+  { value: "agents", label: "Agents" },
+];
+
+/** A plain underlined text toggle (no pills). */
+function FilterTabs({ value, onChange }: { value: Filter; onChange: (v: Filter) => void }) {
+  const reduce = useReducedMotion();
+  return (
+    <div role="group" aria-label="Show shoppers" className="flex items-center gap-4">
+      {FILTERS.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "relative h-8 text-[13.5px] font-medium outline-none transition-colors focus-visible:text-dw-ink focus-visible:underline",
+              on ? "text-dw-ink" : "text-dw-muted hover:text-dw-ink",
+            )}
+          >
+            {o.label}
+            {on && (
+              <motion.span
+                layoutId="dw-shopper-filter"
+                aria-hidden
+                className="absolute inset-x-0 bottom-0.5 h-[2px] rounded-full bg-dw-ink"
+                transition={reduce ? { duration: 0 } : SPRING}
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
