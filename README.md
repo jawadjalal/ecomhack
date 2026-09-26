@@ -76,7 +76,7 @@ Two more teammates:
 1. Open the landing page and click **Set up your store**.
 2. Click **Skip, explore with the demo store**. It fills with simulated shoppers.
 3. Go to **Overview** in the console.
-4. Press the yellow **Darwin** button and watch the crew find a problem, draft a fix, test it and ship the winner.
+4. Press **Watch Darwin fix it** at the top and watch the crew find a problem, draft a fix, test it and ship the winner.
 
 ## How it works
 
