@@ -62,9 +62,19 @@ function visibleRows(filter: Filter, agents: Shopper[], people: Shopper[]): Shop
   return [...a.slice(0, takeA), ...p.slice(0, takeP)].sort(byRecent);
 }
 
+/**
+ * The last non-empty list. On Vercel a poll can land on a server instance that hasn't seen these shoppers,
+ * which briefly returns nothing; keep showing the shoppers we already had instead of flashing "Quiet".
+ */
+function useStickyList<T>(list: T[]): T[] {
+  const [kept, setKept] = useState(list);
+  if (list.length && list !== kept) setKept(list);
+  return list.length ? list : kept;
+}
+
 export function LiveShoppers({
-  agents,
-  people,
+  agents: agentsNow,
+  people: peopleNow,
   loop,
   test,
   board,
@@ -79,6 +89,8 @@ export function LiveShoppers({
   /** Kept for callers; the empty state sends a one-off batch of simulated shoppers itself. */
   onSendShoppers?: () => void;
 }) {
+  const agents = useStickyList(agentsNow);
+  const people = useStickyList(peopleNow);
   const now = useNow();
   const { api, notify } = useDarwin();
   const [filter, setFilter] = useState<Filter>("all");
