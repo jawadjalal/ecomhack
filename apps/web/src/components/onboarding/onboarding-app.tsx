@@ -36,7 +36,7 @@ import { Mascot } from "@/components/dw/mascot";
 import { Card, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
 import { BrandGlyph, WhopLogo } from "@/components/dw/brand-logos";
 import { Art } from "@/components/dw/art";
-import { Gel } from "@/components/dw/gel";
+import { Gel, GelLink } from "@/components/dw/gel";
 import { Sticker } from "@/components/dw/sticker";
 import {
   AgentBubble,
@@ -58,7 +58,8 @@ import {
 import { AskChat, answerChips, composePrompt, type Answers } from "@/components/dw/onboarding/ask";
 import { PrCard } from "@/components/dw/onboarding/pr-card";
 import { RepoPicker } from "@/components/dw/onboarding/repo-picker";
-import { clearProgress, loadProgress, saveProgress, type SavedProgress } from "@/components/dw/onboarding/persist";
+import { clearProgress, loadProgress, saveProgress, stageIndex, type SavedProgress, type SavedStage } from "@/components/dw/onboarding/persist";
+import { recallPlan, rememberPlan } from "@/lib/tracking/remember";
 
 /* ------------------------------------------------------------------ data */
 
@@ -164,6 +165,13 @@ export function OnboardingApp() {
   /** Re-fetching the saved plan after a reload. */
   const [restoring, setRestoring] = useState(false);
 
+  /** The furthest stage reached: a revisit resumes there, and going back to edit answers keeps it. */
+  const [furthest, setFurthest] = useState<SavedStage>("connect");
+  /** The site id being restored (kept in the saved progress while its plan loads). */
+  const [savedSite, setSavedSite] = useState<string | null>(null);
+  /** A revisit after going live: "Welcome back" instead of silently restarting. */
+  const [welcome, setWelcome] = useState<{ site: string; host: string; stage: SavedStage } | null>(null);
+
   function restore(saved: SavedProgress) {
     setPrompt(saved.prompt);
     setAnswers(saved.answers);
@@ -173,37 +181,59 @@ export function OnboardingApp() {
     setSnippet(saved.snippet);
     setPr(saved.pr);
     setChat(saved.chat);
+    setFurthest(saved.furthest ?? saved.stage);
     const reconnected = !!saved.repo || !!saved.website;
     if (!reconnected || saved.stage === "connect") return setStage("connect");
-    if (saved.stage === "ask") return setStage("ask");
-    const ctx = {
-      prompt: saved.prompt,
-      repo: saved.repo,
-      website: saved.website,
-      whop: saved.whop?.title,
-    };
-    // Plan, install or live: the plan is re-fetched so it's fresh. Gone server-side → plan again.
-    const replan = () => (saved.answers ? void runPlan(saved.answers, ctx) : setStage("ask"));
-    if (!saved.site) return replan();
-    setStage(saved.stage);
-    setRestoring(true);
-    http<{ plan: TrackingPlan | null }>("GET", `/api/onboarding/plan?site=${encodeURIComponent(saved.site)}`)
+    if (saved.stage === "ask" || !saved.site) {
+      // No plan yet: back to the questions (answers kept); nothing is regenerated behind the merchant's back.
+      return setStage("ask");
+    }
+    const site = saved.site;
+    setSavedSite(site);
+    const live = saved.stage === "live" || saved.furthest === "live";
+    // Already live: screen 1 greets them with their dashboards (the saved progress is left as it was).
+    if (live) setWelcome({ site, host: saved.website ? hostOf(saved.website) : (saved.repo ?? site), stage: saved.stage });
+    setStage(live ? "connect" : saved.stage);
+    // 1. The browser's copy: instant, and never regenerated.
+    const local = recallPlan(site);
+    if (local) setPlan(local);
+    else setRestoring(true);
+    // 2. Make sure this server instance has it too (the server's copy wins if it has one).
+    const sync = local
+      ? http<{ plan: TrackingPlan }>("POST", "/api/onboarding/restore", { plan: local })
+      : http<{ plan: TrackingPlan | null }>("GET", `/api/onboarding/plan?site=${encodeURIComponent(site)}`);
+    sync
       .then(
         (r) => {
           if (r.plan) setPlan(r.plan);
-          else replan();
+          else if (!local) setStage("ask");
         },
-        () => replan(),
+        () => {
+          if (!local) setStage("ask");
+        },
       )
       .finally(() => setRestoring(false));
   }
 
-  // Save progress on every change (this tab only).
+  // Keep the browser's copy of the plan (lib/tracking/remember): revisits and the console restore from it.
   useEffect(() => {
-    if (!hydrated) return;
+    if (plan) rememberPlan(plan);
+  }, [plan]);
+
+  // Track the furthest stage as the stage moves (adjusting state during render, not in an effect).
+  const [seenStage, setSeenStage] = useState<Stage>(stage);
+  if (seenStage !== stage) {
+    setSeenStage(stage);
+    if (stageIndex(stage) > stageIndex(furthest)) setFurthest(stage);
+  }
+
+  // Save progress on every change (localStorage: survives closing the tab). Not while "Welcome back" shows.
+  useEffect(() => {
+    if (!hydrated || welcome) return;
     saveProgress({
-      v: 1,
+      v: 2,
       stage,
+      furthest: stageIndex(stage) > stageIndex(furthest) ? stage : furthest,
       prompt,
       answers,
       repo,
@@ -216,7 +246,7 @@ export function OnboardingApp() {
             connectedAt: whop.connectedAt,
           }
         : null,
-      site: plan?.site ?? null,
+      site: plan?.site ?? savedSite,
       snippet,
       pr,
       chat: chat
@@ -227,10 +257,15 @@ export function OnboardingApp() {
           ...(chips ? { chips } : {}),
         })),
     });
-  }, [hydrated, stage, prompt, answers, repo, website, whop, plan?.site, snippet, pr, chat]);
+  }, [hydrated, welcome, stage, furthest, prompt, answers, repo, website, whop, plan?.site, savedSite, snippet, pr, chat]);
 
   const startOver = () => {
     clearProgress(DRAFT_KEY);
+    setWelcome(null);
+    setSavedSite(null);
+    setFurthest("connect");
+    setUrlDraft("");
+    setUrlError(null);
     setStage("connect");
     setPrompt("");
     setOpen(null);
@@ -339,6 +374,8 @@ export function OnboardingApp() {
           snippet?: string;
         }>("POST", "/api/onboarding/plan", {
           prompt: full || undefined,
+          // Part of the server's cache key: the same store, words and answers get the same plan back.
+          answers: { track: a.track, where: a.where, ...(a.note.trim() ? { note: a.note.trim() } : {}) },
           ...(ctx.website ? { siteUrl: ctx.website } : { repoUrl: `https://github.com/${ctx.repo}` }),
           whop: ctx.whop,
         }),
@@ -380,6 +417,7 @@ export function OnboardingApp() {
         } catch {
           /* nothing saved */
         }
+        setWelcome(null);
         setStage("connect");
         setAuthError(params.get("github_error"));
         setOpen("github");
@@ -389,7 +427,6 @@ export function OnboardingApp() {
     }, 0);
     return () => clearTimeout(t);
     // Runs once on mount; restore() only calls setters.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const say = async (text: string) => {
@@ -487,15 +524,7 @@ export function OnboardingApp() {
                         <Mascot kind="analyst" size={30} active />
                         <span className="text-[20px] font-semibold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(20,20,19,0.35)]">darwin</span>
                       </Link>
-                      {canStartOver && (
-                        <button
-                          type="button"
-                          onClick={startOver}
-                          className="h-9 rounded-full bg-dw-bg px-3.5 text-[13px] font-medium text-dw-ink transition-transform focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none active:scale-[0.97]"
-                        >
-                          Start over
-                        </button>
-                      )}
+                      {canStartOver && !welcome && <StartOver onConfirm={startOver} label="Start over" onPainting />}
                     </div>
 
                     <h1 className="isolate text-center text-[34px] leading-[1.06] font-semibold tracking-[-0.03em] text-balance text-white [text-shadow:0_2px_14px_rgba(20,40,60,0.35)] max-sm:mt-[7svh] max-sm:text-left max-sm:text-[40px] max-sm:leading-[1.02] sm:text-[52px]">
@@ -514,6 +543,23 @@ export function OnboardingApp() {
                     </h1>
                     <p className="mt-3 text-[17px] leading-snug text-white [text-shadow:0_1px_8px_rgba(20,40,60,0.45)] sm:hidden">Tell Darwin what you sell and what worries you.</p>
 
+                    {welcome ? (
+                      <WelcomeBack
+                        host={welcome.host}
+                        site={welcome.site}
+                        onContinue={() => {
+                          const back = welcome.stage;
+                          setWelcome(null);
+                          setStage(back);
+                          track("onboarding_resumed", { stage: back });
+                        }}
+                        onAnother={() => {
+                          track("onboarding_another_store");
+                          startOver();
+                        }}
+                      />
+                    ) : (
+                      <>
                     {/* starters: one tap writes a first message */}
                     {!prompt.trim() && (
                       <div className="flex flex-wrap items-center gap-2 max-sm:mt-5 sm:order-last sm:justify-center" aria-label="Examples">
@@ -749,6 +795,8 @@ export function OnboardingApp() {
                         </Gel>
                       </span>
                     </div>
+                      </>
+                    )}
                   </motion.section>
                 )}
 
@@ -900,18 +948,9 @@ export function OnboardingApp() {
                   </motion.section>
                 )}
               </AnimatePresence>
-              {canStartOver && (
+              {canStartOver && !welcome && (
                 <div className={cn("flex justify-center", stage === "connect" ? "mt-5 max-sm:hidden" : "mt-14")}>
-                  <button
-                    type="button"
-                    onClick={startOver}
-                    className={cn(
-                      "h-8 rounded-full px-3 text-[13px] transition-colors focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none",
-                      stage === "connect" ? "bg-dw-bg/90 text-dw-ink/70 hover:bg-dw-bg hover:text-dw-ink" : "text-dw-ink/50 hover:bg-dw-sand hover:text-dw-ink",
-                    )}
-                  >
-                    {stage === "connect" ? "Start over" : "Not the right store? Start over"}
-                  </button>
+                  <StartOver onConfirm={startOver} label={stage === "connect" ? "Start over" : "Not the right store? Start over"} onPainting={stage === "connect"} />
                 </div>
               )}
             </div>
@@ -928,6 +967,78 @@ const fade = {
   exit: { opacity: 0, y: -12, filter: "blur(4px)" },
   transition: { duration: 0.35, ease: EASE },
 };
+
+/* ------------------------------------------------------------------ resume */
+
+/** "Start over" asks first: it wipes the setup in this browser (the plans stay in the console). */
+function StartOver({ onConfirm, label, onPainting }: { onConfirm: () => void; label: string; onPainting?: boolean }) {
+  const [asking, setAsking] = useState(false);
+  const base = "h-8 rounded-full px-3 text-[13px] transition-colors focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none";
+  if (!asking) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAsking(true)}
+        className={cn(base, onPainting ? "bg-dw-bg/90 font-medium text-dw-ink/75 hover:bg-dw-bg hover:text-dw-ink" : "text-dw-ink/50 hover:bg-dw-sand hover:text-dw-ink")}
+      >
+        {label}
+      </button>
+    );
+  }
+  return (
+    <span role="group" aria-label="Confirm start over" className="inline-flex items-center gap-1 rounded-full bg-dw-bg py-1 pr-1 pl-3 text-[13px] text-dw-ink shadow-[0_0_0_1px_rgba(20,20,19,0.1)]">
+      <span className="mr-1">Wipe this setup?</span>
+      <button
+        type="button"
+        autoFocus
+        onClick={() => {
+          setAsking(false);
+          onConfirm();
+        }}
+        className="h-7 rounded-full bg-dw-ink px-3 font-medium text-white hover:bg-black focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:ring-offset-1 focus-visible:outline-none"
+      >
+        Yes, start over
+      </button>
+      <button type="button" onClick={() => setAsking(false)} className="h-7 rounded-full px-3 text-dw-ink/65 hover:bg-dw-sand hover:text-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none">
+        Cancel
+      </button>
+    </span>
+  );
+}
+
+/** A revisit after going live: straight to the dashboards, back into the setup, or another store. */
+function WelcomeBack({ host, site, onContinue, onAnother }: { host: string; site: string; onContinue: () => void; onAnother: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: EASE }}
+      className="dw-bevel w-full max-w-[40rem] rounded-[28px] p-6 max-sm:mt-auto max-sm:mb-[max(16px,env(safe-area-inset-bottom))] sm:p-7"
+      aria-label="Welcome back"
+    >
+      <div className="flex items-center gap-4">
+        <Mascot kind="analyst" frame size={52} active title="Darwin" />
+        <div className="min-w-0">
+          <h2 className="text-[24px] leading-tight font-semibold tracking-[-0.02em]">Welcome back</h2>
+          <p className="mt-0.5 text-[15px] leading-snug text-dw-ink/65">
+            <b className="font-semibold text-dw-ink">{host}</b> is set up. Your dashboards are waiting.
+          </p>
+        </div>
+      </div>
+      <div className="mt-6 flex flex-wrap items-center gap-2.5">
+        <GelLink href={`/console/dashboards?site=${encodeURIComponent(site)}`} h={50} className="max-sm:w-full">
+          <LayoutDashboard /> Open your dashboards
+        </GelLink>
+        <PillButton tone="sand" onClick={onContinue} className="h-[50px] max-sm:w-full">
+          Back to the setup
+        </PillButton>
+        <button type="button" onClick={onAnother} className={cn(linkCls, "self-center sm:ml-auto")}>
+          Set up another store
+        </button>
+      </div>
+    </motion.div>
+  );
+}
 
 /* ------------------------------------------------------------------ plan stage */
 
