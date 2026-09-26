@@ -48,14 +48,19 @@ export async function POST(req: Request) {
     }
   }
 
-  // Idempotent: same webhook-id on retries.
-  if (alreadySeen(envelope.webhook_id)) {
+  // Idempotent: same webhook-id on retries, and the same event id when Whop re-sends it as a new delivery.
+  const eventKey = envelope.id && envelope.id !== envelope.webhook_id ? `event:${envelope.id}` : undefined;
+  if (alreadySeen(envelope.webhook_id) || (eventKey && alreadySeen(eventKey))) {
     return NextResponse.json({ ok: true, duplicate: true });
   }
+  const seen = () => {
+    markSeen(envelope.webhook_id);
+    if (eventKey) markSeen(eventKey);
+  };
 
   const mapped = mapWhopEvent(envelope);
   if (mapped === null) {
-    markSeen(envelope.webhook_id);
+    seen();
     return NextResponse.json({ ok: true, ignored: envelope.type });
   }
 
@@ -65,7 +70,7 @@ export async function POST(req: Request) {
   for (const e of fresh) {
     if (e.uuid) markSeen(e.uuid);
   }
-  markSeen(envelope.webhook_id);
+  seen();
 
   return NextResponse.json({
     ok: true,
