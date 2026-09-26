@@ -78,11 +78,16 @@ export const CREW: readonly CrewMember[] = [
   {
     id: "grok",
     name: "Grok",
-    role: "Teammate",
+    role: "Briefings",
     oneLiner: "Sends your morning briefing",
     brand: "grok",
   },
 ] as const;
+
+/** One line the model, the tab bar and transcript cards all use. Display names, never internal ids. */
+export function crewBrief(): string {
+  return CREW.map((c) => `${c.name} (${c.role.toLowerCase()})`).join(", ");
+}
 
 export const CREW_IDS = CREW.map((c) => c.id) as CrewId[];
 

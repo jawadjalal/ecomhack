@@ -270,7 +270,15 @@ function Body({
             kind="designer"
             size={30}
             frame
-            active={fix.status === "test" || fix.status === "drafted"}
+            state={
+              fix.status === "test" || fix.status === "drafted"
+                ? "working"
+                : fix.status === "rejected" || fix.status === "stopped"
+                  ? "error"
+                  : fix.status === "shelved"
+                    ? "sleeping"
+                    : "idle"
+            }
           />
           <p
             className="min-w-[14rem] flex-1 text-[14.5px] lg:line-clamp-2 leading-[1.45]"

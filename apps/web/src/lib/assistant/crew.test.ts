@@ -16,7 +16,7 @@ const LLM_KEYS = [
 const env = { ...process.env };
 
 const { runTool, TOOLS } = await import("./tools");
-const { runAssistant } = await import("./agent");
+const { runAssistant, routeIntent, PERSONA } = await import("./agent");
 const { askAgent, buyerBrief, MAX_THREAD_TURNS } = await import("./crew");
 const { CREW, crewMember, resolveSpecialist, SIMULATED_SHOPPER } =
   await import("@/lib/crew");
@@ -57,7 +57,7 @@ describe("crew registry", () => {
       ["ada", "Fizz", "Tester"],
       ["max", "Dash", "Shipper"],
       ["mika", "Mika", "Store agent"],
-      ["grok", "Grok", "Teammate"],
+      ["grok", "Grok", "Briefings"],
     ]);
     for (const c of CREW)
       expect(Boolean(c.mascot) !== Boolean(c.brand)).toBe(true);
@@ -67,7 +67,22 @@ describe("crew registry", () => {
     expect(resolveSpecialist("store_agent")).toBe("mika");
     expect(resolveSpecialist("shopper")).toBe("shopper");
     expect(resolveSpecialist("darwin")).toBeUndefined();
+    expect(resolveSpecialist("Pixel")).toBe("theo");
+    expect(resolveSpecialist("Fizz")).toBe("ada");
+    expect(resolveSpecialist("Dash")).toBe("max");
     expect(SIMULATED_SHOPPER.label).toBe("simulated shopper");
+    expect(PERSONA).toContain("Pixel");
+    expect(PERSONA).toContain("Fizz");
+    expect(PERSONA).toContain("Dash");
+    expect(PERSONA).not.toMatch(/I don't have agents named/);
+  });
+
+  it("routes a group invite and a direct ask by display name", () => {
+    const group = routeIntent("get Pixel and Fizz on the headline fix");
+    expect(group.calls.map((c) => c.args.agent)).toEqual(["theo", "ada"]);
+    expect(routeIntent("Ask Fizz if the test is safe").calls[0]?.args.agent).toBe("ada");
+    expect(routeIntent("ask Iris where shoppers get stuck").calls).toHaveLength(1);
+    expect(routeIntent("ask Iris where shoppers get stuck").calls[0]?.args.agent).toBe("iris");
   });
 });
 

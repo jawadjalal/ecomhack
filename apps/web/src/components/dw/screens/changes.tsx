@@ -7,6 +7,7 @@ import { useSWRConfig } from "swr";
 import { pct, signedPct } from "@/lib/console/format";
 import { useExperiments, useGithubStatus, useLoop, useNow } from "@/lib/console/hooks";
 import { BrandGlyph } from "../brand-logos";
+import { CrewFace } from "../crew-face";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { StartDemo } from "../first-run";
@@ -73,7 +74,7 @@ export function ChangesScreen() {
   if (!loop) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Dash is loading your changes <Typing /></span>} />
+        <PageHead mascot={<Mascot kind="shipper" size={52} frame state="thinking" />} title="Changes" lede={<span className="inline-flex items-center gap-2">Dash is loading your changes <Typing /></span>} />
         <div className="h-[92px] animate-pulse rounded-[22px] bg-dw-surface sm:h-[100px]" aria-hidden />
         <div className={LIST_DETAIL} aria-hidden>
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
@@ -90,13 +91,13 @@ export function ChangesScreen() {
     return (
       <>
         <PageHead
-          mascot={<Mascot kind="shipper" size={52} frame active />}
+          mascot={<CrewFace kind="shipper" />}
           title="No changes yet"
           lede="When one of Fizz's tests wins, Dash puts the change live on your store and shows you what it did to sales. Dash can undo any change."
         />
         <Card tone="olive" shape="shipper" corner="br" hover={false} className={`rounded-[28px] ${DEPTH}`}>
           <Empty
-            mascot={<Mascot kind="shipper" size={88} frame active />}
+            mascot={<CrewFace kind="shipper" size={88} />}
             action={
               autopilot ? (
                 <span className="inline-flex items-center gap-2 text-[14px] text-dw-ink/80">
@@ -178,7 +179,7 @@ export function ChangesScreen() {
 
   return (
     <>
-      <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title={title} lede={lede} right={actions} />
+      <PageHead mascot={<CrewFace kind="shipper" />} title={title} lede={lede} right={actions} />
 
       <SummaryStrip items={items} />
 

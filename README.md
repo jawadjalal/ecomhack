@@ -91,6 +91,8 @@ Two more teammates:
 
 ![Rackd demo store](docs/screenshots/16-demo-site-rackd.png)
 
+![Orchard demo store](docs/screenshots/17-demo-site-orchard.png)
+
 ## Try it in 2 minutes
 
 1. Open the landing page and click **Set up your store**.

@@ -13,7 +13,7 @@ import type { AnalyticsSummary } from "@/lib/contracts";
 import { useMeasure } from "@/lib/console/hooks";
 import { cn } from "@/components/ui/cn";
 import { AgentTile, agentBrand } from "../agent-tile";
-import { Mascot } from "../mascot";
+import { CrewFace } from "../crew-face";
 import { Card, DEPTH, LegendKey, PillButton } from "../ui";
 import { CountUp, EASE, Grow, Tip, type CountFormat } from "./fx";
 import { SHIP_AT, countText, funnelSteps, pctSmart, seriesText, seriesValue, smoothPath, whom, type BoardRow, type ChartPoint, type ChartTab, type TestView } from "./model";
@@ -68,7 +68,7 @@ function CardHead({ title, href, hint, right }: { title: string; href: string; h
 function CardEmpty({ kind, children, action }: { kind: "designer" | "experimenter" | "observer" | "leader" | "analyst"; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center text-[15px] text-dw-ink/75">
-      <Mascot kind={kind} size={46} frame active />
+      <CrewFace kind={kind} size={46} />
       <p className="max-w-[26rem] leading-snug">{children}</p>
       {action}
     </div>
@@ -89,7 +89,7 @@ export function ConversionCard({ points, summary, simulated, onRun }: { points: 
     label: string;
   }[] = last
     ? [
-        { key: "converts", value: last.rate, format: "pct", label: "Converts" },
+        { key: "converts", value: summary?.overall.visitors ? summary.overall.conversionRate : last.rate, format: "pct", label: "Converts" },
         {
           key: "shoppers",
           value: summary?.overall.visitors ?? last.shoppers,

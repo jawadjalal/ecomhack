@@ -203,7 +203,7 @@ export function StepList({ steps, current, finished, className, reveal }: { step
               {done ? (
                 <CheckPop size={20} />
               ) : now ? (
-                <Mascot kind={crewFor(s)} size={26} active />
+                <Mascot kind={crewFor(s)} size={26} state="working" />
               ) : (
                 <span className="size-[18px] rounded-full border-[1.5px] border-dashed border-dw-ink/25" />
               )}
@@ -318,7 +318,7 @@ export function StageMascot({ kind, size = 64, active = true, celebrate = false 
             animate={celebrate && !reduce ? { y: [0, -16, 0, -7, 0], rotate: [0, -10, 8, -3, 0] } : undefined}
             transition={{ duration: 0.9, ease: "easeOut" }}
           >
-            <Mascot kind={kind} frame size={size} active={active} />
+            <Mascot kind={kind} frame size={size} active={active} flash={celebrate ? { state: "success", key: "celebrate" } : undefined} />
           </motion.span>
         </motion.span>
       </AnimatePresence>

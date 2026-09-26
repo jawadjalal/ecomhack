@@ -10,7 +10,7 @@ import { ArrowRight } from "lucide-react";
 import type { Experiment, LoopState } from "@/lib/contracts";
 import { PHASE_META } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
-import { Mascot } from "../mascot";
+import { CrewFace } from "../crew-face";
 import { DEPTH } from "../ui";
 import { CountUp, Grow } from "./fx";
 import { Swap } from "./swap";
@@ -26,7 +26,7 @@ function BeforeNow({ label, before, now, max }: { label: string; before: number;
   return (
     <div className="flex min-w-0 flex-col gap-1.5 lg:gap-1">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[13px] text-dw-ink/65 lg:text-[12.5px]">{label}</span>
+        <span className="text-[13px] whitespace-nowrap text-dw-ink/65 lg:text-[12.5px]">{label}</span>
         {lift !== undefined && <span className={cn("num min-w-[3.25rem] text-right text-[12px] font-semibold", lift >= 0 ? "text-dw-win" : "text-dw-warn")}>{liftText(lift)}</span>}
       </div>
       <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
@@ -58,11 +58,25 @@ function StripPlaceholder() {
   );
 }
 
-export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState; experiments?: Experiment[]; simulated: boolean }) {
+export function ImpactStrip({
+  loop,
+  experiments,
+  simulated,
+  nowRates,
+}: {
+  loop?: LoopState;
+  experiments?: Experiment[];
+  simulated: boolean;
+  /** Live rates from the same snapshot as the chat. Generation history stays the "before". */
+  nowRates?: { overall: number; human: number; agent: number };
+}) {
   if (!loop) return <StripPlaceholder />;
   const history = loop.history;
   const before = history[0];
-  const now = history.at(-1);
+  const recorded = history.at(-1);
+  const now = nowRates && recorded
+    ? { ...recorded, overallConversionRate: nowRates.overall, humanConversionRate: nowRates.human, agentConversionRate: nowRates.agent }
+    : recorded;
   const shipped = history.filter((g) => g.generation > 0).length;
   const running = experiments?.filter((e) => e.status === "running").length ?? 0;
   const phase = PHASE_META[loop.phase];
@@ -148,7 +162,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
         )}
       >
         <div className="flex min-w-0 items-center gap-4 sm:col-span-2 min-[1440px]:flex-1">
-          <Mascot kind="shipper" size={42} frame active={loop.autopilot} />
+          <CrewFace kind="shipper" size={42} />
           <div className="flex min-w-0 flex-col">
             {measured ? (
               <>

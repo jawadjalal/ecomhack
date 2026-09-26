@@ -21,8 +21,11 @@ import type {
   AgentThreadMessage,
   Experiment,
 } from "@/lib/contracts";
-import { getAnalyticsSummary } from "@/lib/analytics/summary";
+import { storeSnapshot } from "@/lib/analytics/snapshot";
+import { eventStore } from "@/lib/analytics/store";
 import { ask } from "@/lib/ask";
+import { demoStatus } from "@/lib/demo";
+import { citedFunnel } from "@/lib/store-agent";
 import { getBriefing } from "@/lib/briefing";
 import { listExperiments } from "@/lib/experiments/store";
 import { generateText, llmAvailable, type LlmProvider } from "@/lib/llm/client";
@@ -153,12 +156,22 @@ function consult(
 /* ------------------------------------------------------------------ Iris: the watcher (analytics + insights) */
 
 async function iris(q: string, from: string): Promise<SpecialistAnswer> {
+  const snap = storeSnapshot();
+  if (snap.kind === "empty") {
+    return {
+      agent: "iris",
+      answer: snap.emptyLine,
+      source: "rules",
+      synthetic: false,
+      thread: consult(from, "iris", q, snap.emptyLine),
+    };
+  }
   const res = await withTimeout(
     ask({ question: q }),
     SPECIALIST_TIMEOUT_MS,
     "Iris",
   ).catch(() => undefined);
-  const s = getAnalyticsSummary();
+  const s = snap.summary;
   const loop = getLoopState();
   const top = loop.insights
     .slice(0, 3)
@@ -173,16 +186,12 @@ async function iris(q: string, from: string): Promise<SpecialistAnswer> {
         : "No stuck points found yet.",
     ].join(" ");
   const source = res?.source === "llm" ? "ai" : "rules";
-  const synthetic =
-    s.overall.visitors > 0 &&
-    getAnalyticsSummary({ includeSynthetic: false }).overall.visitors <
-      s.overall.visitors;
   return {
     agent: "iris",
     answer: fallback,
     source,
-    synthetic,
-    thread: consult(from, "iris", q, fallback, synthetic),
+    synthetic: snap.simulated,
+    thread: consult(from, "iris", q, fallback, snap.simulated),
   };
 }
 
@@ -359,11 +368,35 @@ export async function a2aSend(
   };
 }
 
+const SALES_Q = /\b(sold|sales|revenue|bought|paid|conversion|how many|orders|whop)\b/i;
+
+function mikaSalesLine(): { answer: string; synthetic: boolean } {
+  const cited = citedFunnel(eventStore().all(), demoStatus().mode === "demo");
+  if (cited.emptyLine) return { answer: cited.emptyLine, synthetic: false };
+  const f = cited.funnel;
+  const pctPaid = `${(f.conversion * 100).toFixed(1)}%`;
+  const label = cited.synthetic ? " These figures are simulated." : "";
+  return {
+    answer: `${f.conversations} conversations, ${f.paid} paid (${pctPaid}), ${formatGBP(f.revenue)} from Whop.${label}`,
+    synthetic: cited.synthetic,
+  };
+}
+
 async function mika(
   q: string,
   from: string,
   origin: string,
 ): Promise<SpecialistAnswer> {
+  if (SALES_Q.test(q)) {
+    const sales = mikaSalesLine();
+    return {
+      agent: "mika",
+      answer: sales.answer,
+      source: "rules",
+      synthetic: sales.synthetic,
+      thread: consult(from, "mika", q, sales.answer, sales.synthetic),
+    };
+  }
   const r = await withTimeout(
     a2aSend(q, { origin, agentName: `${from} (Darwin crew)` }),
     SPECIALIST_TIMEOUT_MS,

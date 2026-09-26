@@ -101,6 +101,21 @@ export function agentFunnel(events: readonly AnalyticsEvent[]): AgentFunnel {
   };
 }
 
+/**
+ * The sales figures Mika and the agent funnel may cite.
+ * `simulatedOk` (demo mode): the simulated conversations are the dataset, and the caller labels them.
+ * Otherwise only real Whop conversations count. Simulated buyers are left out, not averaged in.
+ */
+export function citedFunnel(events: readonly AnalyticsEvent[], simulatedOk: boolean): { funnel: AgentFunnel; synthetic: boolean; emptyLine?: string } {
+  const source = simulatedOk ? events : events.filter((e) => e.properties?.synthetic !== true);
+  const funnel = agentFunnel(source);
+  if (!funnel.conversations && !funnel.paid) {
+    return { funnel, synthetic: false, emptyLine: simulatedOk ? "No shoppers have talked to Mika yet." : "No real Whop sales yet." };
+  }
+  const synthetic = simulatedOk && (funnel.simulated > 0 || source.some((e) => e.properties?.synthetic === true));
+  return { funnel, synthetic };
+}
+
 /** A simulated buyer agent's whole purchase, for demos: ask → offers → buy → (demo) pay. Labelled synthetic. */
 export async function runSimulatedBuyer(brief: string, origin: string): Promise<{ transcript: { from: "buyer" | "store"; text: string }[]; checkoutUrl?: string; paid: boolean }> {
   const transcript: { from: "buyer" | "store"; text: string }[] = [];

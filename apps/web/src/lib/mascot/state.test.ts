@@ -12,7 +12,9 @@ import {
 describe("mascotForActor", () => {
   it("maps each crew role onto its own character and Darwin onto the leader", () => {
     expect(mascotForActor("observer")).toBe("observer");
-    expect(mascotForActor("analyst")).toBe("analyst");
+    // The loop log's "analyst" (the diagnose step) is Iris, the observer.
+    expect(mascotForActor("analyst")).toBe("observer");
+    expect(mascotForActor("Pixel")).toBe("designer");
     expect(mascotForActor("designer")).toBe("designer");
     expect(mascotForActor("experimenter")).toBe("experimenter");
     expect(mascotForActor("shipper")).toBe("shipper");
@@ -36,7 +38,8 @@ describe("crewMascotState", () => {
     expect(moodForPhase("diagnose")).toBe("thinking");
     expect(phaseRole("decide")).toBe("experimenter");
     expect(crewMascotState("observer", { ...base, phase: "observe" })).toBe("working");
-    expect(crewMascotState("analyst", { ...base, phase: "diagnose" })).toBe("thinking");
+    expect(phaseRole("diagnose")).toBe("observer");
+    expect(crewMascotState("observer", { ...base, phase: "diagnose" })).toBe("thinking");
     expect(crewMascotState("designer", { ...base, phase: "propose" })).toBe("thinking");
     expect(crewMascotState("experimenter", { ...base, phase: "experiment" })).toBe("working");
     expect(crewMascotState("experimenter", { ...base, phase: "decide" })).toBe("thinking");
@@ -59,7 +62,7 @@ describe("crewMascotState", () => {
     expect(outcomeFromMessage(shipped.message)).toBe("success");
     expect(crewMascotState("shipper", { ...base, phase: "observe", lastEntry: shipped, now })).toBe("success");
     expect(crewMascotState("shipper", { ...base, phase: "observe", lastEntry: shipped, now: later })).toBe("idle");
-    expect(crewMascotState("analyst", { ...base, phase: "observe", lastEntry: shipped, now })).toBe("idle");
+    expect(crewMascotState("designer", { ...base, phase: "observe", lastEntry: shipped, now })).toBe("idle");
 
     const rejected = { actor: "experimenter", message: "Decision: REJECT. Not shipping a loser.", at };
     expect(outcomeFromMessage(rejected.message)).toBe("error");

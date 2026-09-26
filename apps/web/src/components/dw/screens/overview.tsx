@@ -15,7 +15,8 @@ import { AbCard, AgentsCard, ConversionCard, FunnelCard } from "../overview/card
 import { AssistantSuggestions } from "@/components/console/assistant-panel";
 import type { Suggestion } from "../overview/chat";
 import { EASE, Rise } from "../overview/fx";
-import { useFirstName, usePeopleEvents } from "../overview/hooks";
+import { useFirstName, usePeopleEvents, useStoreSnapshot } from "../overview/hooks";
+import { agentBrand } from "../agent-tile";
 import { ImpactStrip } from "../overview/impact";
 import { WatchStrip } from "../overview/watch-strip";
 import { CardDeck, DECK_ITEM, DECK_ROW } from "../overview/deck";
@@ -42,11 +43,11 @@ function greeting(hour: number) {
  * generation. "Darwin made PACE 2.4× better at selling" (or "+35% better" under 2×). Undefined at Gen 0,
  * with no baseline, or when there's no real gain, so the page falls back to the greeting.
  */
-function outcomeHeadline(loop: LoopState | undefined): string | undefined {
+function outcomeHeadline(loop: LoopState | undefined, liveRate?: number): string | undefined {
   const before = loop?.history[0];
-  const now = loop?.history.at(-1);
-  if (!before || !now || now.generation <= 0 || before.overallConversionRate <= 0) return undefined;
-  const x = now.overallConversionRate / before.overallConversionRate;
+  const generation = loop?.history.at(-1)?.generation ?? 0;
+  if (!before || generation <= 0 || before.overallConversionRate <= 0 || liveRate === undefined) return undefined;
+  const x = liveRate / before.overallConversionRate;
   if (!Number.isFinite(x) || x < 1.05) return undefined;
   return x >= 2 ? `Darwin made ${STORE} ${x.toFixed(1)}× better at selling` : `Darwin made ${STORE} ${Math.round((x - 1) * 100)}% better at selling`;
 }
@@ -57,9 +58,11 @@ function lowerFirst(s: string) {
 }
 
 export function OverviewScreen() {
-  const { loop, autopilot, setAutopilot, setTrafficOn } = useDarwin();
+  const { loop, autopilot, setAutopilot, setTrafficOn, mock } = useDarwin();
   const experiments = useExperiments();
-  const { summary } = useSummary({}, 3000);
+  const snap = useStoreSnapshot(!mock);
+  const { summary: polled } = useSummary({}, 3000);
+  const summary = snap?.summary ?? polled;
   const sessions = useSessions(80);
   const events = usePeopleEvents();
   const now = useNow();
@@ -68,13 +71,20 @@ export function OverviewScreen() {
 
   const test = useMemo(() => testView(loop, experiments), [loop, experiments]);
   const points = useMemo(() => chartPoints(loop?.history), [loop?.history]);
-  const board = useMemo(() => agentBoard(sessions), [sessions]);
+  const sessionBoard = useMemo(() => agentBoard(sessions), [sessions]);
+  const board = useMemo(
+    () =>
+      snap
+        ? snap.brands.map((b) => ({ brand: agentBrand(b.name), shoppers: b.shoppers, bought: b.bought, rate: b.rate }))
+        : sessionBoard,
+    [snap, sessionBoard],
+  );
   const agents = useMemo(() => (sessions ?? []).map((s) => agentShopper(s, now)).sort(recent), [sessions, now]);
   const people = useMemo(() => peopleFromEvents(events, now), [events, now]);
   const finished = board.reduce((n, r) => n + r.shoppers, 0);
-  const simulated = Boolean(
-    sessions?.some((s) => s.synthetic) || events?.some((e) => e.properties.synthetic) || (summary && summary.overall.visitors > 0 && !events?.length),
-  );
+  const simulated = snap
+    ? snap.simulated
+    : Boolean(sessions?.some((s) => s.synthetic) || events?.some((e) => e.properties.synthetic) || (summary && summary.overall.visitors > 0 && !events?.length));
 
   const run = () => void setAutopilot(true);
   const watch = useWatchRun();
@@ -84,20 +94,23 @@ export function OverviewScreen() {
 
   /* the one-line lede, from real numbers */
   const live = loop?.history.at(-1);
-  // Gen 0 before anyone visited has a 0% "rate" with no sample behind it: say nothing rather than 0.0%.
-  const seen = Boolean(demoVisitors || live?.humanVisitors || live?.agentVisitors || (loop?.history.length ?? 0) > 1);
-  const rate = seen ? (live?.overallConversionRate ?? (summary?.overall.visitors ? summary.overall.conversionRate : undefined)) : undefined;
+  // The headline rate is the same snapshot the chat cites, not the latest generation's own rate.
+  const seen = Boolean(demoVisitors || live?.humanVisitors || live?.agentVisitors || (loop?.history.length ?? 0) > 1 || summary?.overall.visitors);
+  const rate = summary?.overall.visitors ? summary.overall.conversionRate : undefined;
   const hello = now ? `${greeting(new Date(now).getHours())}${firstName ? `, ${firstName}` : ""}` : undefined;
-  const outcome = firstRun ? undefined : outcomeHeadline(loop);
+  const outcome = firstRun || rate === undefined ? undefined : outcomeHeadline(loop, rate);
   let lede: ReactNode;
   if (firstRun) {
     lede = <FirstRunLede />;
-  } else if (rate === undefined) {
+  } else if (snap?.kind === "empty") {
+    lede = snap.emptyLine;
+  } else if (rate === undefined || !seen) {
     lede = "Darwin hasn’t seen any shoppers yet. Let it run and this page fills up in seconds.";
   } else {
     const first = (
       <>
-        The demo store converts <b className="font-semibold text-dw-ink">{pctSmart(rate)}</b> of shoppers.{" "}
+        {simulated ? "The demo store" : "Your store"} converts <b className="font-semibold text-dw-ink">{pctSmart(rate)}</b> of shoppers
+        {simulated ? " (simulated)" : ""}.{" "}
       </>
     );
     const projected = test?.running ? projectIfShipped(live, test) : undefined;
@@ -174,7 +187,20 @@ export function OverviewScreen() {
         <>
       <div className="flex flex-col gap-3.5 lg:gap-3">
         <Rise i={0}>
-          <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
+          <ImpactStrip
+            loop={loop}
+            experiments={experiments}
+            simulated={simulated}
+            nowRates={
+              summary?.overall.visitors
+                ? {
+                    overall: summary.overall.conversionRate,
+                    human: summary.byKind.human.conversionRate,
+                    agent: summary.byKind.agent.conversionRate,
+                  }
+                : undefined
+            }
+          />
         </Rise>
         <Rise i={0}>
           <WatchStrip />
