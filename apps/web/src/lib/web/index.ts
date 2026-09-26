@@ -8,6 +8,7 @@ import type { WebRulesResponse } from "@/lib/contracts";
 import { eventStore } from "@/lib/analytics/store";
 import { computeSite, knownSites } from "./results";
 import { listRules } from "./store";
+import { getAutopilot } from "./autopilot";
 
 export { buildRuntime, runtimeRules } from "./runtime";
 export { classifySource, matchesAudience, assignWebVariant, fillValue, type Segment } from "./segment";
@@ -17,6 +18,7 @@ export {
   createRule,
   updateRule,
   deleteRule,
+  endRule,
   resetWebRules,
   WebRuleError,
   SiteSchema,
@@ -25,7 +27,8 @@ export {
   MAX_RULES_PER_SITE,
 } from "./store";
 export { computeSite, knownSites, stripPreviewParams, EXPOSURE_EVENT } from "./results";
-export { draftRule, heuristicDraft, suggestRules, PLAYBOOK } from "./drafts";
+export { draftRule, heuristicDraft, suggestRules, rankSources, ideaDraft, ideasFor, PLAYBOOK, FOLLOW_UPS } from "./drafts";
+export { getAutopilot, setAutopilot, stepAutopilot, resetAutopilot, judge, AUTOPILOT } from "./autopilot";
 export { pageOutline, outlineFromHtml } from "./outline";
 export { simulateWebTraffic, changeEffect, MAX_SIM_VISITORS } from "./simulate";
 
@@ -39,7 +42,7 @@ export function webState(site: string): WebRulesResponse {
   const all = listRules();
   const rules = all.filter((r) => r.site === site);
   const { overview, results } = computeSite(site, rules, events);
-  return { site, rules, results, overview, sites: knownSites(all, events) };
+  return { site, rules, results, overview, sites: knownSites(all, events), autopilot: getAutopilot(site) };
 }
 
 export { readJson, errorResponse, requestOrigin } from "./http";

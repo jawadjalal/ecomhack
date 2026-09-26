@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { kvGet, kvSet } from "@/lib/db/json-store";
-import { TRAFFIC_SOURCES, type TrafficSource, type WebRule, type WebRuleDraft, type WebRuleStatus } from "@/lib/contracts";
+import { TRAFFIC_SOURCES, type TrafficSource, type WebRule, type WebRuleDraft, type WebRuleOutcome, type WebRuleStatus } from "@/lib/contracts";
 import { id } from "@/lib/ids";
 
 const KEY = "web-rules";
@@ -129,6 +129,17 @@ export function updateRule(ruleId: string, patch: WebRulePatch | unknown): WebRu
   const next: WebRule = { ...current, ...p, updatedAt: now };
   if ((p.status === "running" || p.status === "shipped") && !current.startedAt) next.startedAt = now;
   if (p.status === "shipped" && !current.shippedAt) next.shippedAt = now;
+  kvSet(
+    KEY,
+    all().map((r) => (r.id === ruleId ? next : r)),
+  );
+  return next;
+}
+
+/** End a test on its result (autopilot or a person): ship it to the audience or stop it, and say why. */
+export function endRule(ruleId: string, outcome: WebRuleOutcome): WebRule {
+  const rule = updateRule(ruleId, { status: outcome.decision === "shipped" ? "shipped" : "paused" });
+  const next = { ...rule, outcome };
   kvSet(
     KEY,
     all().map((r) => (r.id === ruleId ? next : r)),

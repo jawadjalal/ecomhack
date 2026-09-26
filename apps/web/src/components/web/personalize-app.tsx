@@ -1,10 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bot, Check, Copy, ExternalLink, Eye, FlaskConical, Globe, LoaderCircle, Pause, Play, Rocket, Send, Sparkles, Trash, Users, WandSparkles, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Activity,
+  ArrowLeft,
+  Bot,
+  Check,
+  CircleStop,
+  Copy,
+  Cpu,
+  ExternalLink,
+  Eye,
+  FlaskConical,
+  Globe,
+  Hourglass,
+  LoaderCircle,
+  Pause,
+  Play,
+  Power,
+  Rocket,
+  Send,
+  Sparkles,
+  Trash,
+  Users,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import type {
   TrafficSource,
+  WebAutopilotEntry,
+  WebAutopilotState,
   WebChange,
   WebDraftResponse,
   WebRule,
@@ -17,6 +43,7 @@ import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Toggle } from "@/components/ui/switch";
 import { cn } from "@/components/ui/cn";
 import { DarwinWordmark } from "@/components/console/brand";
 
@@ -59,8 +86,9 @@ interface View {
   previewRuleId?: string;
 }
 
-function previewSrc(base: string, v: View): string {
+function previewSrc(base: string, v: View, version = ""): string {
   const u = new URL(base, window.location.origin);
+  if (version) u.searchParams.set("darwin_v", version);
   if (v.source === "original") u.searchParams.set("darwin_variant", "control");
   else {
     u.searchParams.set("darwin_source", v.source);
@@ -130,11 +158,13 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   }, [toast]);
 
   const pageUrl = data?.overview.url ?? (site === "north-trail" ? `${origin}/demo/north-trail` : undefined);
+  // Reload the preview whenever a rule changes (someone launched, shipped or stopped something).
+  const rulesVersion = data?.rules.reduce((v, r) => (r.updatedAt > v ? r.updatedAt : v), "") ?? "";
   const [src, setSrc] = useState<string>();
   useEffect(() => {
-    const t = setTimeout(() => setSrc(pageUrl ? previewSrc(pageUrl, view) : undefined), 0);
+    const t = setTimeout(() => setSrc(pageUrl ? previewSrc(pageUrl, view, rulesVersion) : undefined), 0);
     return () => clearTimeout(t);
-  }, [pageUrl, view, reload]);
+  }, [pageUrl, view, reload, rulesVersion]);
 
   const run = async (label: string, fn: () => Promise<void>) => {
     setBusy(label);
@@ -240,6 +270,43 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
       await load();
     });
 
+  /* ---------------- the loop: synthetic traffic and autopilot, driven from here while on */
+
+  const [trafficOn, setTrafficOn] = useState(false);
+  const autopilotOn = !!data?.autopilot.on;
+  const ticking = useRef(false);
+
+  const setAutopilot = (on: boolean) =>
+    run("autopilot", async () => {
+      await api<WebAutopilotState>("/api/web/autopilot", { body: { site, on } });
+      if (on && !data?.overview.visitors) setTrafficOn(true); // nothing to learn from yet
+      await load();
+    });
+
+  useEffect(() => {
+    if (!trafficOn && !autopilotOn) return;
+    const tick = async () => {
+      if (ticking.current) return;
+      ticking.current = true;
+      try {
+        if (trafficOn) await api<WebSimulateResponse>("/api/web/simulate", { body: { site, visitors: 300 } });
+        if (autopilotOn) {
+          const { actions } = await api<{ actions: WebAutopilotEntry[] }>("/api/web/autopilot/step", { body: { site } });
+          const shipped = actions.find((a) => a.kind === "shipped");
+          if (shipped) setToast({ tone: "good", text: shipped.message });
+        }
+        await load();
+      } catch (e) {
+        setToast({ tone: "bad", text: (e as Error).message });
+        setTrafficOn(false);
+      } finally {
+        ticking.current = false;
+      }
+    };
+    const t = setInterval(tick, 3000);
+    return () => clearInterval(t);
+  }, [trafficOn, autopilotOn, site, load]);
+
   const rules = useMemo(() => [...(data?.rules ?? [])].filter((r) => r.id !== draft?.savedId).reverse(), [data, draft?.savedId]);
   const resultOf = (id: string) => data?.results.find((r) => r.ruleId === id);
 
@@ -283,11 +350,26 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
             </a>
           )}
           <div className="flex-1" />
-          <p className="hidden text-[0.82rem] text-white/45 lg:block">Change any page with darwin.js, per traffic source and search query. A/B tested.</p>
+          <p className="hidden text-[0.82rem] text-white/45 2xl:block">Change any page with darwin.js, per traffic source and search query. A/B tested.</p>
           <Button onClick={simulate} disabled={!!busy} size="md" title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
             {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
-            Send 500 test visitors
+            +500 test visitors
           </Button>
+          <Toggle
+            on={trafficOn}
+            onChange={setTrafficOn}
+            tone="human"
+            icon={<Activity />}
+            label="Traffic"
+            title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic."
+          />
+          <Toggle
+            on={autopilotOn}
+            onChange={setAutopilot}
+            icon={<Cpu />}
+            label="Autopilot"
+            title="Darwin tests one idea per traffic source (biggest gap first), ships winners, stops losers, and tries the next idea"
+          />
         </header>
 
         {loadError && (
@@ -430,6 +512,8 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                 onDiscard={discard}
               />
             )}
+
+            {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
 
             <Panel>
               <PanelHeader icon={<FlaskConical />} title="Live rules & tests" right={<span className="text-[0.75rem] text-white/40">{data?.rules.length ?? 0} rules</span>} />
@@ -634,12 +718,23 @@ function RuleRow({
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[0.88rem] font-medium">{rule.name}</span>
             {status}
+            {rule.author === "autopilot" && (
+              <Badge tone="outline" title="Started by autopilot">
+                <Cpu /> autopilot
+              </Badge>
+            )}
             {result?.synthetic && (
               <Badge tone="warn" title="Every visitor counted in this result was simulated">
                 <Bot /> synthetic
               </Badge>
             )}
           </div>
+          {rule.outcome && (
+            <div className={cn("mt-1 text-[0.76rem]", rule.outcome.decision === "shipped" ? "text-[#7ee2a0]" : "text-white/55")}>
+              {rule.outcome.decision === "shipped" ? "Shipped" : "Stopped"}
+              {rule.outcome.by === "autopilot" ? " by autopilot" : ""}: {rule.outcome.reason}
+            </div>
+          )}
           <div className="mt-0.5 text-[0.76rem] text-white/45">{audienceLabel(rule)}</div>
           <div className="mt-1 truncate text-[0.76rem] text-white/60" title={rule.changes.map(describeChange).join("\n")}>
             {rule.changes.map(describeChange).join(" · ")}
@@ -721,6 +816,38 @@ function RuleRow({
         </div>
       )}
     </div>
+  );
+}
+
+const LOG_ICON: Record<WebAutopilotEntry["kind"], React.ReactNode> = {
+  on: <Power className="text-brand" />,
+  off: <Power className="text-white/40" />,
+  started: <FlaskConical className="text-[#9cc5ff]" />,
+  shipped: <Rocket className="text-[#7ee2a0]" />,
+  stopped: <CircleStop className="text-[#ff9b9b]" />,
+  waiting: <Hourglass className="text-white/40" />,
+};
+
+function DecisionLog({ state }: { state: WebAutopilotState }) {
+  return (
+    <Panel glow={state.on}>
+      <PanelHeader
+        icon={<Cpu />}
+        title="Darwin's decisions"
+        right={state.on ? <Badge tone="brand">Autopilot on</Badge> : <Badge tone="outline">Autopilot off</Badge>}
+      />
+      <ol className="flex max-h-[18rem] flex-col gap-2 overflow-y-auto px-5 pb-5">
+        {state.log.slice(0, 25).map((e, i) => (
+          <li key={`${e.at}-${i}`} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-2.5 text-[0.78rem] leading-snug [&_svg]:mt-0.5 [&_svg]:size-[0.9rem]">
+            {LOG_ICON[e.kind]}
+            <div className="min-w-0">
+              <span className="mr-1.5 font-mono text-[0.7rem] text-white/35 tabular">{new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+              <span className="text-white/75">{e.message}</span>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </Panel>
   );
 }
 

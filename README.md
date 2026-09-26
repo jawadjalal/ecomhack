@@ -84,6 +84,9 @@ The loop above optimizes a store built on a PageSpec. Web personalization works 
    paid, email, referral, direct) and search query, assigns a sticky arm, and applies the change with `textContent` and
    styles only (never HTML or scripts), without flicker.
 4. Results count orders after exposure, with each visitor's arm recomputed on the server.
+5. **Autopilot** runs this loop by itself: one A/B test per traffic source (biggest conversion gap first, up to 3 at
+   once), ships a winner at ≥97% with ≥300 visitors per arm and ≥30 orders, stops losers, then tries that source's
+   next idea. It never retries an idea, and every decision is logged with its numbers.
 
 ![Personalize: preview as an audience, draft from a prompt, live A/B results](apps/web/docs/screenshots/personalize/personalize-desktop.jpg)
 

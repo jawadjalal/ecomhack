@@ -94,7 +94,9 @@ only the darwin.js tag.
 2. Click **"Google searchers: put their search in the headline"** → **Start A/B test**. Switch "View the page as" to
    **Search**: the headline reads "Waterproof Trail Shoes: in stock, ships today". **Original page** shows it unchanged.
 3. **Send 500 test visitors** two or three times (labelled synthetic) → the tests fill with results and a chance-to-beat.
-4. Line: *"Same loop, but on any store: one script tag, and the page adapts to where each shopper came from."*
+4. Or just flip **Autopilot** (it turns simulated **Traffic** on if the site has none): within a minute Darwin starts a
+   test per traffic source, ships the first winner and logs why in *Darwin's decisions*; the preview reloads as it goes.
+5. Line: *"Same loop, but on any store: one script tag, and the page adapts to where each shopper came from."*
 
 ## What typically happens (heuristic mode)
 
