@@ -59,7 +59,7 @@ export function Crew() {
           <h2 id="crew-title" className={cn(H2, "mt-3")}>
             Meet <Sel tone="lilac">the crew.</Sel>
           </h2>
-          <p className="mx-auto mt-4 max-w-[560px] text-[17px] leading-relaxed text-dw-ink/75 sm:text-[18px]">
+          <p className="mx-auto mt-4 max-w-[560px] text-[17px] leading-relaxed text-balance text-dw-ink/75 sm:text-[18px]">
             Seven agents, one job each. You talk to Darwin, and Darwin runs the rest.
           </p>
         </Reveal>

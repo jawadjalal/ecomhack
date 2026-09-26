@@ -1,7 +1,7 @@
 /**
  * The footer (Wayari's, as Darwin's): a night sheet laid over the closing painting, its top corners
  * lapping it. The links in plain columns beside the name and one line of what Darwin is; then the
- * name as wide as the page, with the crew on its letters (Iris and Ada sitting on theirs, Theo and Max
+ * name as wide as the page, with the crew on its letters (Iris, Ada and Max sitting on theirs, Theo
  * peeking from behind, Darwin as the dot of the i); then the base line. Every link goes somewhere that
  * answers. No signup form: there is no mailing list behind it yet.
  */
@@ -42,8 +42,8 @@ const PERCH: Record<number, { kind: MascotKind; pose: "sit" | "peek" | "dot" | "
   0: { kind: "observer", pose: "tall", x: 30 },
   1: { kind: "designer", pose: "peek", x: 52 },
   2: { kind: "experimenter", pose: "sit", x: 40 },
-  3: { kind: "shipper", pose: "peek", x: 50 },
   4: { kind: "analyst", pose: "dot", x: 50 },
+  5: { kind: "shipper", pose: "sit", x: 56 },
 };
 
 const NAME = "darwin";

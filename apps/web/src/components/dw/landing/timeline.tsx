@@ -283,7 +283,7 @@ function StopRow({ s, i }: { s: Stop; i: number }) {
   const lit = useInView(key, { margin: "100000px 0px -50% 0px" });
   const flip = i % 2 === 1;
   return (
-    <li className="relative grid items-center gap-6 pl-[60px] lg:grid-cols-2 lg:gap-x-[128px] lg:pl-0">
+    <li className="relative grid grid-cols-1 items-center gap-6 pl-[60px] lg:grid-cols-2 lg:gap-x-[128px] lg:pl-0">
       <div
         ref={key}
         aria-hidden

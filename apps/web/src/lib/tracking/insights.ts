@@ -95,18 +95,20 @@ export function trend(d: DashboardSpec, ctx: InsightCtx): InsightPart {
   const by = new Map<string, number[]>();
   const previous = new Array<number>(n).fill(0);
   const counted: Ev[] = [];
+  const money = d.property === "revenue";
+  const weight = (e: Ev) => (money ? Number(e.properties?.revenue) || 0 : 1);
   for (const e of hits) {
     const b = Math.floor(ts(e) / step) - start;
     if (b >= 0 && b < n) {
       const k = key(e);
       const arr = by.get(k) ?? new Array<number>(n).fill(0);
-      arr[b]++;
+      arr[b] += weight(e);
       by.set(k, arr);
       counted.push(e);
-    } else if (b >= -n && b < 0) previous[b + n]++;
+    } else if (b >= -n && b < 0) previous[b + n] += weight(e);
   }
   const all = [...by]
-    .map(([k, values]) => ({ key: k, label: d.breakdown ? k : ctx.label(k), total: values.reduce((a, v) => a + v, 0), values }))
+    .map(([k, values]) => ({ key: k, label: d.breakdown ? k : money ? "Revenue" : ctx.label(k), total: values.reduce((a, v) => a + v, 0), values }))
     .sort((a, b) => b.total - a.total);
   // Five lines at most: the rest become "Everything else".
   const series = all.slice(0, 5);
@@ -116,9 +118,9 @@ export function trend(d: DashboardSpec, ctx: InsightCtx): InsightPart {
   }
   const total = series.reduce((a, s) => a + s.total, 0);
   return {
-    empty: total === 0,
+    empty: counted.length === 0,
     simulated: simShare(counted),
-    trend: { interval, display: d.display ?? (interval === "day" ? "bars" : "line"), breakdown: d.breakdown, buckets, series, total, previousTotal: previous.reduce((a, v) => a + v, 0), previous },
+    trend: { interval, display: d.display ?? (interval === "day" ? "bars" : "line"), breakdown: d.breakdown, buckets, series, total, previousTotal: previous.reduce((a, v) => a + v, 0), previous, ...(money ? { money: true } : {}) },
   };
 }
 

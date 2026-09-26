@@ -143,6 +143,8 @@ export interface DashboardData {
     total: number;
     previousTotal: number;
     previous: number[];
+    /** Values are revenue in pence. */
+    money?: boolean;
   };
   /** number: the headline figure. */
   number?: { label: string; value: number; previous: number; change?: number; period: string; spark: number[]; money?: boolean };
