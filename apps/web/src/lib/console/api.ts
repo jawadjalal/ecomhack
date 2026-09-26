@@ -96,7 +96,7 @@ export interface ConsoleApi {
   getEvents(after?: string, limit?: number, opts?: { realOnly?: boolean }): Promise<AnalyticsEventsResponse>;
   getSessions(limit?: number): Promise<AgentSessionsResponse>;
   /** Send one buyer agent shopping with a natural-language brief. */
-  sendShopper(brief: string, useLlm?: boolean): Promise<AgentShopResponse>;
+  sendShopper(brief: string, useLlm?: boolean, via?: "tools" | "a2a"): Promise<AgentShopResponse>;
   simulate(opts: SimulationOptions): Promise<SimulationResult>;
   getGithubStatus(): Promise<GithubStatusResponse>;
   connectRepo(repoUrl: string): Promise<PullRequestResult>;
@@ -181,10 +181,10 @@ export function createConsoleApi(mode: ApiMode = "auto", engineOrFactory: MockEn
     getSessions: (limit = 20) =>
       call("agents", () => request<AgentSessionsResponse>("GET", `/api/agent/sessions${qs({ limit })}`), () => eng().getSessions(limit)),
 
-    sendShopper: (brief, useLlm = true) =>
+    sendShopper: (brief, useLlm = true, via = "tools") =>
       call(
         "agents",
-        () => request<AgentShopResponse>("POST", "/api/agent/shop", { brief, useLlm }),
+        () => request<AgentShopResponse>("POST", "/api/agent/shop", { brief, useLlm, via }),
         () => eng().sendShopper(brief),
       ),
 

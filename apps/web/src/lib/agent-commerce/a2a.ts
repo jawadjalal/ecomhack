@@ -405,6 +405,20 @@ async function converse(input: Incoming, headers: Headers): Promise<Outgoing> {
   return { messageId: uuid(), contextId, text: reply.text, data: reply.data };
 }
 
+/** Identity of an in-process A2A caller (the console's shopper, tests). */
+export interface A2aCaller {
+  agentId: string;
+  agentName: string;
+  synthetic: boolean;
+}
+
+/** One buyer message to the merchant agent, in process (no HTTP). Same path as POST /api/a2a. */
+export async function a2aSend(text: string, caller: A2aCaller, contextId?: string): Promise<{ contextId: string; text: string; data: Record<string, unknown> }> {
+  const headers = new Headers({ "x-agent-id": caller.agentId, "x-agent-name": caller.agentName, ...(caller.synthetic ? { "x-darwin-synthetic": "1" } : {}) });
+  const out = await converse({ text, data: {}, contextId, metadata: {} }, headers);
+  return { contextId: out.contextId, text: out.text, data: out.data ?? {} };
+}
+
 function outgoingV03(o: Outgoing): A2aMessage {
   const parts: A2aPart[] = [{ kind: "text", text: o.text }];
   if (o.data) parts.push({ kind: "data", data: o.data });

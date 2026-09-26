@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { GET as cardRoute, POST } from "@/app/api/a2a/route";
 import { GET as llmsTxt } from "@/app/llms.txt/route";
-import { listAgentSessions } from "./index";
+import { POST as shopRoute } from "@/app/api/agent/shop/route";
+import { listAgentSessions, parseGoalBrief, runA2aBuyer } from "./index";
 import { eventsNamed, OPEN_SURFACE, resetWorld, useSpec } from "./test-utils";
 import { merchantFloor } from "./negotiation";
 import { PRODUCTS } from "@/lib/catalog/products";
@@ -102,6 +103,27 @@ describe("A2A merchant agent (POST /api/a2a)", () => {
     expect(done.result.message.parts[0].text).toMatch(/^Done: order ord_/);
     expect((await rpc("GetTask", { id: "t1" })).error.code).toBe(-32001);
     expect((await rpc("SendMessage", { message: { role: "ROLE_AGENT", parts: [{ text: "hi" }] } })).error.code).toBe(-32602);
+  });
+
+  it("the console's chat shopper walks when the merchant can't confirm delivery, and haggles then buys when it can", async () => {
+    const caller = { agentId: "agt_chat", agentName: "a2a-buyer", synthetic: true };
+    const walked = await runA2aBuyer(parseGoalBrief("Trail shoes, UK 10, under £150, delivered within 4 days"), caller);
+    expect(walked).toMatchObject({ outcome: "abandoned", synthetic: true });
+    expect(walked.reason).toMatch(/can't confirm delivery/);
+
+    useSpec(OPEN_SURFACE);
+    const bought = await runA2aBuyer(parseGoalBrief("Road shoes, UK 9, best price, delivered within 4 days"), caller);
+    expect(bought.outcome).toBe("purchased");
+    expect(bought.negotiation!.some((t) => /Would you take £\d+/.test(t.message))).toBe(true);
+    expect(bought.orderTotal).toBeGreaterThan(0);
+  });
+
+  it("POST /api/agent/shop via a2a runs the chat shopper", async () => {
+    useSpec(OPEN_SURFACE);
+    const res = await shopRoute(new Request(`${URL_BASE}/api/agent/shop`, { method: "POST", body: JSON.stringify({ brief: "Trail shoes UK 10 under £150", via: "a2a" }) }));
+    const { session } = await res.json();
+    expect(session).toMatchObject({ agentName: "a2a-buyer", outcome: "purchased", synthetic: true });
+    expect(session.sessionId).toMatch(/^a2a_ctx_/);
   });
 
   it("speaks JSON-RPC errors the A2A way", async () => {

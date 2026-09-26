@@ -11,6 +11,8 @@ import { runScriptedBuyer, type BuyerHooks, type BuyerRunResult } from "./buyer"
 import { runLlmBuyer } from "./buyer-llm";
 import { dispatchAgentTool, newSessionSummary } from "./dispatcher";
 import { resetA2aConversations } from "./a2a";
+export { a2aSend, type A2aCaller } from "./a2a";
+export { runA2aBuyer } from "./a2a-buyer";
 import { resetMcpSessions } from "./mcp";
 import {
   AGENT_KV_KEYS,

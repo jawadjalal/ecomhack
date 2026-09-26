@@ -32,10 +32,11 @@ export interface AgentSessionsResponse {
 //             (+ POST /api/agent/availability, GET /api/agent/cart, POST /api/agent/abandon)
 //             Every REST tool returns AgentToolResult { ok, data?, error?, missing?, code? }.
 // MCP:        POST /api/mcp (JSON-RPC 2.0: initialize, tools/list, tools/call)
-// A2A:        POST /api/a2a (A2A 0.3.0 JSON-RPC: message/send, plain-English conversation with the merchant agent)
+// A2A:        POST /api/a2a (A2A 1.0 SendMessage / 0.3 message/send: plain-English conversation with the merchant agent)
 // Discovery:  GET /llms.txt, GET /.well-known/agent-card.json
-// POST /api/agent/shop  { brief? | goal?: ShoppingGoal, useLlm?, agentName? } → AgentShopResponse
-//      (runs one in-process buyer agent; console "send a shopper" button; synthetic = true)
+// POST /api/agent/shop  { brief? | goal?: ShoppingGoal, useLlm?, agentName?, via?: "tools" | "a2a" } → AgentShopResponse
+//      (runs one in-process buyer agent; console "send a shopper" button; synthetic = true.
+//       via "a2a": the buyer talks to the merchant agent in plain English instead of calling tools)
 export interface AgentShopResponse {
   session: AgentSessionSummary;
 }

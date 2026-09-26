@@ -63,6 +63,17 @@ Prompt: *"Use the pace-store tools to buy me waterproof trail shoes, UK 10, unde
 - **Line to say:** "That's Cursor shopping our store. At Gen 0 it can't see stock or delivery time. Watch what happens
   after Darwin ships the agent-surface fix." Run it again after Gen 1: the same prompt gets real answers.
 
+### Agent-to-agent in one click (A2A)
+
+Press `s`, switch the box to **Chat (A2A)**, keep the brief ("… delivered by Friday") and **Send**. A buyer agent
+talks to PACE's merchant agent in plain English, and the chat appears in the **Agent-to-agent** panel.
+
+- **At Gen 0:** the merchant can't share delivery times, so the buyer walks: *"No thanks: I need it within 6 days and
+  you can't confirm delivery times."*
+- **After Darwin ships the delivery-ETA change:** send the same brief again and the buyer buys. With "best price" in
+  the brief and negotiation on, it haggles first.
+- **Line to say:** "Same buyer, same brief. The only difference is what Darwin shipped."
+
 ### Optional: agent-to-agent in a terminal
 
 `npx tsx scripts/a2a-buyer.ts --url http://localhost:3000 --brief "trail shoes UK 10 under £150 by Friday"` runs a

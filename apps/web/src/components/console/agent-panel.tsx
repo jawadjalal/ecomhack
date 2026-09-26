@@ -118,14 +118,14 @@ function Detail({ s }: { s: AgentSessionSummary }) {
       </div>
       {/* negotiation */}
       {s.negotiation?.length ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col justify-end gap-1.5 overflow-hidden">
           {s.negotiation.map((t, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, x: t.from === "buyer" ? -10 : 10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 + i * 0.12 }}
-              className={cn("flex items-end gap-1.5", t.from === "merchant" && "flex-row-reverse")}
+              className={cn("flex shrink-0 items-end gap-1.5", t.from === "merchant" && "flex-row-reverse")}
             >
               <span className="mb-0.5 text-[0.9rem]">{t.from === "buyer" ? "🤖" : "🏪"}</span>
               <div
@@ -170,6 +170,7 @@ const BRIEFS = [
 function ShopperBox({ onClose, onDone }: { onClose: () => void; onDone: (s: AgentSessionSummary) => void }) {
   const api = useApi();
   const [brief, setBrief] = useState(BRIEFS[0]);
+  const [via, setVia] = useState<"tools" | "a2a">("tools");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const send = async (e?: React.FormEvent) => {
@@ -178,7 +179,7 @@ function ShopperBox({ onClose, onDone }: { onClose: () => void; onDone: (s: Agen
     setBusy(true);
     setError(null);
     try {
-      const { session } = await api.sendShopper(brief.trim());
+      const { session } = await api.sendShopper(brief.trim(), true, via);
       onDone(session);
     } catch (err) {
       setError((err as Error).message);
@@ -199,9 +200,29 @@ function ShopperBox({ onClose, onDone }: { onClose: () => void; onDone: (s: Agen
         <span className="flex items-center gap-1.5">
           <Bot className="size-3.5 text-agent" /> Send an AI shopper with a brief
         </span>
-        <button type="button" onClick={onClose} className="text-white/40 hover:text-white" aria-label="Close">
-          <X className="size-3.5" />
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex rounded-md border border-white/10 bg-black/20 p-0.5 text-[0.68rem]">
+            {(
+              [
+                ["tools", "Tools (MCP)", "Calls the store's tools, like an MCP client"],
+                ["a2a", "Chat (A2A)", "Talks to the merchant agent in plain English over A2A"],
+              ] as const
+            ).map(([k, label, title]) => (
+              <button
+                key={k}
+                type="button"
+                title={title}
+                onClick={() => setVia(k)}
+                className={cn("rounded px-1.5 py-0.5", via === k ? "bg-agent/30 text-white" : "text-white/45 hover:text-white/80")}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={onClose} className="text-white/40 hover:text-white" aria-label="Close">
+            <X className="size-3.5" />
+          </button>
+        </div>
       </div>
       <div className="flex gap-2">
         <input

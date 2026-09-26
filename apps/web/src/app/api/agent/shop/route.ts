@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AgentShopResponse } from "@/lib/contracts";
-import { parseGoalBrief, runBuyerAgent } from "@/lib/agent-commerce";
+import { parseGoalBrief, runA2aBuyer, runBuyerAgent } from "@/lib/agent-commerce";
 import { json, preflight } from "@/lib/agent-commerce/http";
 import { id } from "@/lib/ids";
 import { llmAvailable, llmModel } from "@/lib/llm/client";
@@ -20,20 +20,27 @@ const Body = z.object({
     .optional(),
   useLlm: z.boolean().optional(),
   agentName: z.string().min(1).max(64).optional(),
+  /** tools: call the store's tools (default). a2a: talk to the merchant agent in plain English. */
+  via: z.enum(["tools", "a2a"]).optional(),
 });
 
 const DEFAULT_BRIEF = "Trail shoes, UK 10, under £140, delivered by Friday";
 
 /**
- * POST /api/agent/shop { brief? | goal?, useLlm?, agentName? } → AgentShopResponse.
+ * POST /api/agent/shop { brief? | goal?, useLlm?, agentName?, via? } → AgentShopResponse.
  * Sends one in-process buyer agent shopping (console "send a shopper" button). Marked synthetic.
  */
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return json({ error: z.prettifyError(parsed.error) }, { status: 400 });
-  const { brief, goal: explicit, useLlm = false, agentName } = parsed.data;
+  const { brief, goal: explicit, useLlm = false, agentName, via = "tools" } = parsed.data;
   const goal = explicit ?? parseGoalBrief(brief ?? DEFAULT_BRIEF);
   const usingLlm = useLlm && llmAvailable();
+
+  if (via === "a2a") {
+    const session = await runA2aBuyer(goal, { agentId: id("agt"), agentName: agentName ?? "a2a-buyer", synthetic: true });
+    return json({ session } satisfies AgentShopResponse);
+  }
 
   const session = await runBuyerAgent(
     goal,
