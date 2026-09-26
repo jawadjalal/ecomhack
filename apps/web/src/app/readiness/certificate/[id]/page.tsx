@@ -3,11 +3,9 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, RefreshCw } from "lucide-react";
-import { PillButton } from "@/components/dw/ui";
+import { ReadinessNav } from "@/components/readiness/readiness-nav";
 import { CertificateEmbed } from "@/components/readiness/certificate-embed";
 import { CertificateView, LEVEL_STYLE } from "@/components/readiness/certificate-view";
-import { ReadinessNav } from "@/components/readiness/readiness-nav";
-import { GLOW, NAV_LINK } from "@/components/readiness/styles";
 import { getCertificate, isExpired } from "@/lib/readiness";
 
 export const dynamic = "force-dynamic";
@@ -36,34 +34,32 @@ export default async function CertificatePage(props: PageProps<"/readiness/certi
   const expired = isExpired(cert);
 
   return (
-    <div data-dw className="relative isolate flex min-h-[100svh] w-full flex-col overflow-x-hidden bg-dw-bg font-dw text-dw-ink">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[48rem]" style={{ background: GLOW }} />
-      <ReadinessNav>
-        <Link href={`/readiness?url=${encodeURIComponent(cert.url)}`} className={NAV_LINK}>
-          <RefreshCw className="size-4" aria-hidden /> <span className="max-sm:hidden">Re-check this store</span>
-          <span className="sm:hidden">Re-check</span>
-        </Link>
-        <PillButton href="/onboarding" size="sm" className="ml-1.5 h-9 px-4">
-          Get started
-        </PillButton>
-      </ReadinessNav>
+    <main data-dw className="min-h-screen w-full bg-dw-bg font-dw text-dw-ink">
+      <div className="mx-auto flex w-full max-w-[52rem] flex-col gap-6 px-4 pb-20 sm:px-8">
+        <ReadinessNav>
+          <Link
+            href={`/readiness?url=${encodeURIComponent(cert.url)}`}
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-[14px] font-medium shadow-[0_0_0_1px_rgba(20,20,19,0.08)] hover:bg-[#fffaf0]"
+          >
+            <RefreshCw className="size-4" /> Check again
+          </Link>
+        </ReadinessNav>
 
-      <main className="mx-auto flex w-full max-w-[56rem] flex-col gap-4 px-4 pt-8 pb-24 sm:px-7 sm:pt-12">
         <CertificateView cert={cert} expired={expired} />
 
-        <section className="flex min-w-0 flex-col gap-3 rounded-[26px] border border-dw-hairline bg-dw-surface p-6">
-          <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Show it on your store</h2>
+        <section className="flex flex-col gap-3 rounded-[26px] border border-dw-hairline bg-dw-surface p-6">
+          <div className="text-[18px] font-semibold">Show it on your store</div>
           <CertificateEmbed base={base} certId={cert.id} levelLabel={LEVEL_STYLE[cert.level].label} />
         </section>
 
-        <p className="px-1 text-[14px] leading-relaxed text-dw-ink/60">
-          Darwin audits whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. With an LLM key, Grok also shops the store
-          itself (never completing a real checkout). Gold needs a score of 85+ and a passing agent trial, Silver 70+, Bronze 55+. Certificates are valid for 90 days.{" "}
-          <Link href="/readiness" className="inline-flex items-center gap-1 font-medium text-dw-ink underline decoration-dw-ink/25 underline-offset-4 hover:decoration-dw-ink">
+        <p className="text-[14px] leading-relaxed text-dw-muted">
+          Darwin checks whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. When an AI key is set, Grok also
+          shops the store itself (it never completes a real checkout). Gold needs 85+ and a passing trial, Silver 70+, Bronze 55+. Certificates last 90 days.{" "}
+          <Link href="/readiness" className="inline-flex items-center gap-1 font-medium text-dw-ink underline-offset-2 hover:underline">
             Check your store <ArrowRight className="size-3.5" />
           </Link>
         </p>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

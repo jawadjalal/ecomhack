@@ -1,5 +1,7 @@
 # Darwin UI redesign plan
 
+> **Status (merge of #57, 2026-09-26):** main redesigned Landing, Overview, Issues, Fixes, Experiments and Changes its own way before this plan merged (painted landing, `SummaryStrip` + list/detail loop pages, glossy pastel cards). Those screens follow main now; treat the per-page sections for them below as history. Settings is one column as planned. The rest (store agent, dashboards, personalize, traffic, research, onboarding, readiness) is still open.
+
 The cream app (`[data-dw]`, Outfit, tokens in `apps/web/src/app/globals.css`) repeats one pattern: a `PageHead`, then rows of pastel `Card` / `Panel` tiles (`rounded-[26px]`, mascot silhouette in a corner, `lg:grid-cols-[1.7fr_1fr]` or three equal-height tiles). Overview, Issues, Fixes, Experiments, Changes and Settings all do this, so the product reads as one bento grid with the labels swapped. The landing page then previews that same grid inside a tilted device (`components/dw/landing/mini-dashboard.tsx`).
 
 This is a layout and styling change only. Do not change API routes, data shapes, hooks, or what a control does. Keep every link, button, empty state, and `aria-label`. Simulated traffic stays labelled.

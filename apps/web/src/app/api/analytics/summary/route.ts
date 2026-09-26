@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import type { AnalyticsFilter, AnalyticsSummaryResponse } from "@/lib/contracts";
-import { getAnalyticsSummary } from "@/lib/analytics/summary";
+import { getAnalyticsSummaryShared } from "@/lib/analytics/summary";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,7 @@ export function GET(req: NextRequest) {
   const filter: AnalyticsFilter = Object.fromEntries(
     Object.entries(parsed.data).filter(([, v]) => v !== undefined),
   ) as AnalyticsFilter;
-  const body: AnalyticsSummaryResponse = getAnalyticsSummary(filter);
+  // Reused until the next event arrives, so polling consoles don't re-scan an unchanged store.
+  const body: AnalyticsSummaryResponse = getAnalyticsSummaryShared(filter);
   return Response.json(body, { headers: { "Cache-Control": "no-store" } });
 }

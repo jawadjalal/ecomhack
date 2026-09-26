@@ -209,6 +209,73 @@ describe("ask: heuristic answers", () => {
   });
 });
 
+describe("ask: questions about AI agents", () => {
+  it.each([
+    "Why are AI agents not buying?",
+    "why aren't bots converting",
+    "What's stopping ChatGPT from buying?",
+    "How are AI shoppers doing?",
+    "Where do agents drop off?",
+    "Is anything broken for A2A or MCP buyers?",
+    "Why is Claude not purchasing?",
+    "what's the biggest problem for agents",
+  ])("%s → agents", (q) => {
+    expect(intentOf(q)).toBe("agents");
+  });
+
+  it.each([
+    ["Which agents buy most?", "best-agent"],
+    ["Do agents convert better than people?", "versus"],
+    ["Is test B winning for agents?", "test"],
+    ["Why is conversion down?", "issue"],
+  ] as const)("still routes %s → %s", (q, intent) => {
+    expect(intentOf(q)).toBe(intent);
+  });
+
+  // The judge's case: the store-wide top issue is about people on the homepage.
+  const humanFirst = () =>
+    ctx(0.95, {
+      loop: loop({
+        experimentId: "exp_1",
+        insights: [
+          { id: "h", title: "Homepage hero hides prices", audience: "human", severity: "high", stage: "home", detail: "", evidence: [], impactScore: 14 },
+          { id: "i1", title: "Agents can't see a delivery date", audience: "agent", severity: "high", stage: "agent: catalog", detail: "", evidence: [], impactScore: 9.5 },
+        ],
+      }),
+    });
+
+  it("answers “why are agents not buying” from agent numbers, not the people-heavy store view", () => {
+    const res = heuristicAnswer("Why are AI agents not buying?", humanFirst());
+    expect(res.answer).toMatch(/^AI agents buy at 17%: 24 of 138 agent shoppers/);
+    expect(res.answer).toContain("view → cart: only 40% of agents move on");
+    expect(res.answer).toContain("issue 2: Agents can't see a delivery date");
+    expect(res.answer).not.toContain("Homepage hero");
+    expect(res.answer).not.toMatch(/^Your store converts/);
+    expect(res.answer).toMatch(/simulated shoppers\.$/);
+    expect(res.cards).toEqual([
+      { label: "Agents buy", value: "17%" },
+      { label: "Agent shoppers", value: "138" },
+      { label: "View → cart", value: "40%" },
+    ]);
+  });
+
+  it("uses a named assistant's own numbers and leavers", () => {
+    const res = heuristicAnswer("What's stopping ChatGPT from buying?", ctx());
+    expect(res.answer).toMatch(/^ChatGPT bought on 9 of its last 41 visits \(22%\)/);
+    expect(res.answer).toContain("The last ChatGPT agent that left said: “too expensive”");
+    expect(res.cards?.[0]).toEqual({ label: "ChatGPT buys", value: "22%" });
+  });
+
+  it("only says simulated when the shoppers are", () => {
+    expect(heuristicAnswer("why aren't bots converting", ctx(0.95, { simulated: false })).answer).not.toMatch(/simulated/);
+  });
+
+  it("says so when no agent has shopped yet", () => {
+    const empty = buildContext({ summary: summary([10, 5, 2, 1, 1], [0, 0, 0, 0, 0]), loop: loop({ insights: [] }), sessions: [], shipThreshold: 0.975 });
+    expect(heuristicAnswer("Why are AI agents not buying?", empty).answer).toMatch(/^No AI agents have shopped here yet/);
+  });
+});
+
 describe("ask: entry point", () => {
   it("falls back to the heuristic with no LLM configured", async () => {
     const prev = process.env.LLM_PROVIDER;

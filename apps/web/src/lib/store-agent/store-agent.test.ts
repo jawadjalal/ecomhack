@@ -1,7 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eventStore, track } from "@/lib/analytics/store";
 import { connectWhop } from "@/lib/whop";
-import { agentFunnel, budgetOf, DEMO_CATALOG, getCatalog, handleA2a, offerFromPlan, pickOffer, rankOffers, recordDemoPayment, resetCatalog, resetStoreAgent, runSimulatedBuyer, storeAgentCard } from ".";
+import {
+  agentFunnel,
+  budgetOf,
+  DEMO_CATALOG,
+  getCatalog,
+  handleA2a,
+  offerFromPlan,
+  pickOffer,
+  rankOffers,
+  recordDemoPayment,
+  replyTo,
+  resetCatalog,
+  resetStoreAgent,
+  runSimulatedBuyer,
+  storeAgentCard,
+} from ".";
 
 const ORIGIN = "https://darwin.example";
 const offers = DEMO_CATALOG.offers;
@@ -71,6 +86,42 @@ describe("store agent", () => {
     expect(pickOffer("buy the second one", offers, shown)?.id).toBe("plan_demo_gear");
     expect(pickOffer("buy the cheapest", offers, shown)?.id).toBe("plan_demo_gear");
     expect(pickOffer("buy Race-Day Pack", offers, [])?.id).toBe("plan_demo_race");
+    expect(pickOffer("buy plan_demo_gear", offers, [])?.id).toBe("plan_demo_gear");
+    expect(pickOffer("I'll take the coaching plan", offers, [])?.id).toBe("plan_demo_coaching");
+    expect(pickOffer("buy the first one", offers, shown)?.id).toBe("plan_demo_race");
+    // Never a fuzzy guess on a buy: an unknown id, or a name no title has, picks nothing.
+    expect(pickOffer("buy plan_free_everything", offers, shown)).toBeUndefined();
+    expect(pickOffer("buy plan_demo_coaching_pro", offers, [])).toBeUndefined();
+    expect(pickOffer("buy the yoga mat", offers, shown)).toBeUndefined();
+    expect(pickOffer("buy weekly plans", offers, [])).toBeUndefined(); // only the coaching plan's description says that
+  });
+
+  it("never sells what it wasn't asked for: unknown offers, negated buys, things it doesn't sell", async () => {
+    const say = async (text: string, contextId?: string) => replyTo(text, { contextId, agentName: "judge-bot", origin: ORIGIN });
+    const checkouts = () => eventStore().all().filter((e) => e.event === "checkout_started");
+
+    const unknown = await say("buy plan_free_everything");
+    expect(unknown.data.checkout).toBeUndefined();
+    expect(unknown.text).toMatch(/^We don't sell plan_free_everything\. Here's what we have: Trail Running Coaching \(monthly\) \(plan_demo_coaching\): £29\/month/);
+
+    const notYet = await say("Don't buy anything yet, just tell me about the Race-Day Pack");
+    expect(notYet.data.intent).toBe("offers");
+    expect(notYet.data.checkout).toBeUndefined();
+    expect(notYet.data.offers?.[0].id).toBe("plan_demo_race");
+    expect((await say("I'm not ready to purchase, what memberships do you have?")).data.intent).toBe("offers");
+
+    const mat = await say("Can I get the yoga mat?");
+    expect(mat.data.checkout).toBeUndefined();
+    expect(mat.text).toMatch(/^We don't sell that\. Here's what we have:/);
+    const socks = await say("Do you have yoga mats?");
+    expect(socks.text).toMatch(/^We don't sell anything that matches that exactly; here's what we have/);
+    expect(checkouts()).toHaveLength(0);
+
+    // A real buy still works.
+    const ask = await say("Trail running coaching under £40 a month");
+    const buy = await say("buy the first one", ask.contextId);
+    expect(buy.data.checkout?.offerId).toBe("plan_demo_coaching");
+    expect(checkouts()).toHaveLength(1);
   });
 
   it("sells over A2A v1.0: offers, then a checkout link credited to the conversation, then the payment", async () => {

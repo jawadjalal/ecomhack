@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, Ellipsis } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
-import { Mascot } from "./mascot";
+import { AccountAvatar } from "./account-avatar";
+import { CommandPill } from "./command/pill";
+import { LiveSwitch } from "./live-switch";
+import { Mascot, type MascotKind } from "./mascot";
 import { useDarwin } from "./provider";
+import { StoreChip } from "./store-context";
 
 /** The roadmap: Overview, then the loop's four steps in order. */
 export const NAV = [
@@ -18,14 +22,23 @@ export const NAV = [
   { key: "changes", label: "Changes", href: "/console/changes" },
 ] as const;
 
+/** Each section is run by one agent of the crew; its mascot stands in for a step number. */
+const NAV_AGENT: Record<(typeof NAV)[number]["key"], MascotKind> = {
+  overview: "leader",
+  issues: "observer",
+  fixes: "designer",
+  experiments: "experimenter",
+  changes: "shipper",
+};
+
 const MORE = [
-  { label: "Store agent", hint: "AI shoppers buy over A2A", href: "/console/agents" },
+  { label: "Store agent", hint: "Mika sells to AI shoppers", href: "/console/agents" },
   { label: "Dashboards", hint: "What you asked Darwin to track", href: "/console/dashboards" },
-  { label: "Personalize", hint: "Any store, per traffic source", href: "/console/personalize" },
+  { label: "Personalize", hint: "Change pages for each traffic source", href: "/console/personalize" },
   { label: "Traffic", hint: "Where visitors come from", href: "/console/traffic" },
   { label: "Set up a store", hint: "GitHub, a script tag, or Whop", href: "/onboarding" },
   { label: "Agent readiness", hint: "Score any store for AI shoppers", href: "/readiness" },
-  { label: "Classic mission control", hint: "The original loop view", href: "/console/classic" },
+  { label: "Classic view", hint: "The first version of this app", href: "/console/classic" },
 ];
 
 export function TopNav() {
@@ -44,17 +57,17 @@ export function TopNav() {
     .find((n) => (n.href === "/console" ? path === "/console" : path?.startsWith(n.href)))?.key;
 
   return (
-    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3">
+    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-2xl:gap-2.5 max-xl:grid-cols-[auto_1fr] max-xl:gap-y-3 max-sm:min-h-12 max-sm:gap-2">
       <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
-        <Mascot kind="analyst" size={34} active />
+        <Mascot kind="leader" size={34} active title="Darwin" />
         <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>
       </Link>
 
       <nav
         aria-label="Main"
-        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-lg:order-last max-lg:col-span-2 max-lg:justify-self-center"
+        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink max-sm:hidden p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-xl:order-last max-xl:col-span-2 max-xl:justify-self-center"
       >
-        {NAV.map((n, i) => {
+        {NAV.map((n) => {
           const on = n.key === active;
           const count = counts[n.key];
           return (
@@ -63,49 +76,49 @@ export function TopNav() {
                 href={mock ? `${n.href}?mock=1` : n.href}
                 aria-current={on ? "page" : undefined}
                 className={cn(
-                  "flex h-11 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition-colors",
+                  "flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition-colors max-2xl:gap-1.5 max-2xl:px-2.5",
                   on ? "bg-dw-bg font-semibold text-dw-ink" : "font-medium text-[#CFCAC0] hover:text-white",
                 )}
               >
-                {i > 0 && (
-                  <span
-                    className={cn(
-                      "grid size-[18px] place-items-center rounded-full text-[11px] font-semibold",
-                      on ? "bg-dw-ink text-dw-bg" : "bg-white/[0.12] text-[#CFCAC0]",
-                    )}
-                  >
-                    {i}
-                  </span>
-                )}
+                <span className={cn("grid size-[22px] shrink-0 place-items-center rounded-full", on ? "bg-dw-sand" : "bg-white/[0.10]")} aria-hidden>
+                  <Mascot kind={NAV_AGENT[n.key]} size={18} active={on} />
+                </span>
                 {n.label}
-                {!!count && <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-dw-pink px-[5px] text-[11px] font-semibold text-dw-ink">{count}</span>}
+                {!!count && <span className="size-[7px] rounded-full bg-dw-pink" title={`${count} new`} aria-label={`${count} new`} />}
               </Link>
-              {i < NAV.length - 1 && <ChevronRight className="mx-0.5 size-3 shrink-0 text-[#5E5A52]" strokeWidth={2.2} aria-hidden />}
+
             </div>
           );
         })}
       </nav>
 
-      <div className="flex items-center gap-2.5 justify-self-end">
+      <div className="flex items-center gap-2.5 justify-self-end max-2xl:gap-1.5">
+        <StoreChip />
         <button
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
-          title={autopilot ? "Darwin is improving the store on its own. Click to pause." : "Paused. Click to let Darwin run the loop on its own."}
-          className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb]"
+          title={autopilot ? "Darwin's crew is improving the store on its own. Click to pause." : "Paused. Click to let Darwin's crew improve the store on its own."}
+          className="flex h-11 items-center gap-2 rounded-full bg-dw-yellow px-4 text-[15px] whitespace-nowrap text-dw-ink transition-colors hover:bg-dw-yellow-shape max-2xl:px-3.5 max-sm:h-9 max-sm:px-3"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
-          <span className="max-sm:hidden">{autopilot ? "Darwin running" : "Paused"}</span>
-          {mock && <span className="text-[12px] text-dw-ink/50">(demo data)</span>}
+          <span className="max-sm:text-[13.5px] max-sm:font-medium">
+            {autopilot ? (
+              <>
+                <span className="max-2xl:hidden">Darwin running</span>
+                <span className="2xl:hidden">Running</span>
+              </>
+            ) : (
+              "Paused"
+            )}
+          </span>
+          {mock && <span className="text-[12px] text-dw-ink/50 max-2xl:hidden">(demo data)</span>}
         </button>
+        <LiveSwitch />
+        <CommandPill />
         <MoreMenu />
-        <Link
-          href="/console/settings"
-          aria-label="Profile and settings"
-          className="grid size-11 place-items-center rounded-full bg-dw-ink text-[14px] font-semibold text-white transition-transform hover:scale-[1.06]"
-        >
-          JJ
-        </Link>
+        <AccountAvatar />
       </div>
+      <StoreChip variant="bar" />
     </header>
   );
 }
@@ -131,7 +144,7 @@ function MoreMenu() {
         aria-label="More tools"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="grid size-11 place-items-center rounded-full bg-dw-sand text-dw-ink transition-colors hover:bg-[#e4dccb]"
+        className="grid size-11 place-items-center rounded-full bg-dw-sand text-dw-ink transition-colors hover:bg-[#e4dccb] max-sm:size-9"
       >
         <Ellipsis className="size-5" />
       </button>

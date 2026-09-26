@@ -103,7 +103,7 @@ export function SiteSelect({ value, options, onChange }: { value: string; option
   return (
     <label className="relative flex h-10 shrink-0 items-center gap-2 rounded-full bg-dw-sand pr-3 pl-3.5 text-[14px] text-dw-ink/70 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-dw-ink">
       <Globe className="size-4 text-dw-ink/50" aria-hidden />
-      <span>Site</span>
+      <span className="max-2xl:hidden">Site</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
