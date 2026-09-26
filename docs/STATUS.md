@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 13:40 UTC (lead agent, before the 15:30 UTC code freeze)
+Last updated: 2026-09-26 15:10 UTC (always-on watch)
 
 ---
 
@@ -15,7 +15,7 @@ Scored against the hackathon brief: *behaviour → insight → page change → b
 |---|---|---|---|
 | Technical execution | 7 | A2A + MCP + ACP on one store, Bayesian A/B with rollback, GitHub PRs, OAuth, Whop webhook, 500+ tests, CI green | Nothing verified against **real** Whop / xAI / GitHub from the sandbox; in-memory state per server instance |
 | Product thinking | 7 | One road: Issues → Fixes → Experiments → Changes; honest "who wrote it", rollback, no invented claims | Too many side pages; the lead-agent chat should be the front door |
-| AI leverage & autonomy | 7 | Autopilot ships winners, store agent A/B tests its own pitch, Grok teammate briefing ("want me to ship it?") | Lead agent that *acts* (⌘K / chat / WebMCP) — in progress; a real Grok key on stage |
+| AI leverage & autonomy | 8 | Autopilot ships winners; Darwin's watch checks the store every 15 min and writes one Inbox line with a one-tap Ship / Stop that runs through the team; standing policies can allow a drastic action on autopilot | A real Grok key on stage; the watch has not been proven against a live store's traffic |
 | Commerce innovation | 8 | A store that sells to AI agents three ways and optimises for them; agent checkout counted end to end | A real third-party agent buying live on the real Whop store |
 | Real-world usefulness | 5 | Mostly simulated traffic; the demo store is a demo | Real Whop store + script-tag install on a real site + one real purchase |
 | UX | 7 | Cream design system, mascots, real brand logos, mobile | Above-the-fold pass (in progress); readiness page still old dark style |
@@ -43,7 +43,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Limitations (team intro):** the intro script is fixed copy, not an LLM call (so it is instant and never wrong); the model chip shows the loop's model, which is "Built-in rules" until an OpenRouter key is set.
 
 ### Overview `/console`  ✅ (🟡 above-the-fold pass)
-- **Done:** impact strip (before Darwin vs now, extra buyers per 1,000), Conversion / A vs B / Which agents buy / How they convert, live shoppers joined to the journey, Ask Darwin bottom-sheet chat (mobile sheet too).
+- **Done:** impact strip (before Darwin vs now, extra buyers per 1,000), Conversion / A vs B / Which agents buy / How they convert, live shoppers joined to the journey, Ask Darwin bottom-sheet chat (mobile sheet too). **Darwin's watch** strip: last check, what the team looked at, signals found vs messages sent, next check. A signal opens the Inbox (or the group chat the team used).
 - **Left to do:** both card rows above the fold at 1440×900 (in progress); make the bottom chat the **lead agent on every screen** that can navigate and run any action (in progress, see Agent mode).
 - **Limitations:** People rows need store traffic on (events route has no store-only filter); `?mock=1` chat answers from the server.
 - **Next-run ideas:** a daily "what changed" digest card; pin a shopper journey to an issue.
@@ -68,8 +68,8 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Limitations:** every PR is a dry-run preview until a valid `GITHUB_TOKEN` is set.
 
 ### Settings `/console/settings`  ✅
-- **Done:** autopilot, simulated shoppers, connections, Darwin's brain (model logo), who Darwin tests for, Grok teammate briefing preview + ship/stop, start over, demo mode.
-- **Left to do:** real notification channels (email / Slack) instead of the Grok bot only; "who to test for" is read-only.
+- **Done:** autopilot, simulated shoppers, connections, Darwin's brain (model logo), who Darwin tests for, Grok teammate briefing preview + ship/stop, start over, demo mode. **Autonomy** card: off / suggest (default) / auto-safe / autopilot, plus a standing policy the merchant writes in plain English, compiled and read back before it counts.
+- **Left to do:** "who to test for" is read-only. Slack, Discord and email adapters exist and stay off until their webhook or Resend key is set; they have not been sent to a real workspace from here.
 
 ### Store agent `/console/agents`  ✅ (🟡 chat above the fold)
 - **Done:** the Whop store's own AI agent. Buyer agents buy three ways — chat (A2A `/a2a/whop`), tools (MCP `/api/store-agent/mcp`), checkout sessions (ACP `/acp/checkout_sessions`) — all in one funnel. A/B tests on the agent's pitch with autopilot. Demo payments count once per checkout.
@@ -96,17 +96,17 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ### Grok teammate (briefing)  ✅
 - **Done:** `GET /api/briefing`, `POST /api/briefing/act`, `docs/GROK_BOT.md`, xAI → OpenRouter fallback.
-- **Left to do:** set `XAI_API_KEY` on Vercel and run the real bot; a loop test can't be shipped from chat while running (needs `POST /api/loop/decide`).
+- **Left to do:** set `XAI_API_KEY` on Vercel and run the real bot; a loop test can't be shipped from chat while running (needs `POST /api/loop/decide`). The always-on Inbox (`GET /api/team/inbox`, action tokens on `POST /api/team/chat`) is the path the bot should prefer; the hourly briefing still works.
 
 ### Lead agent: ⌘K, bottom chat, WebMCP  🟡
 - **In progress:** one typed command layer (`src/lib/commands`) used by ⌘K, the bottom prompt-bar chat on every screen, and WebMCP (`navigator.modelContext`) so a browser agent can navigate, build dashboards, simulate traffic, roll back, draft personalizations, ship/stop tests. `window.darwin.run(name, input)` for automation.
 - **Left to do:** every new user-facing action must be added as a command (rule in AGENTS.md).
 
 ### Agent team: Darwin + Iris, Pixel, Fizz, Dash (`lib/team`, `/api/team/**`)  🟡 (backend ✅, panel UI in progress)
-- **Done:** Darwin (team lead) plans and delegates; specialists each have their own tools (roster in `lib/team/roster.ts`, registries in `lib/team/tools.ts`). Several parts of an ask run **concurrently** (max 3) in a group chat Darwin opens, with ≤140-char progress/tool messages, then Darwin reports in the merchant's chat. Specialists can `ask` a teammate once (depth 1). Every side-effecting tool (merge, commit/PR, publish rule, ship, autopilot, reset) posts a `confirm` message and runs only after the merchant approves (once). NDJSON stream `POST /api/team/chat`; `GET /api/team`, `GET /api/team/chats/[id]`, `POST /api/team/chats`; chats persisted in `.data/team-*.json`. No key → keyword routing with the same group chats and real tool results. Onboarding (`context.path = "/onboarding"`) gets a short team intro. Pixel/Dash can list/read repo files, commit to `darwin/*` branches, open, check and merge PRs (`lib/github/edit.ts`; dry-run/offline return previews). LLM: `runToolLoop` with native tool calling → JSON-protocol fallback → next provider; DeepSeek V4 Flash via OpenRouter by default, APINex for Pixel (`APINEX_EDITOR_MODEL`), hard tasks and overflow (`OPENROUTER_MAX_CONCURRENT`). 18 tests.
-- **Left to do:** the bottom chat panel UI rendering chats/group chats/confirm buttons (other agent); register team actions in the command layer once `src/lib/commands` lands on this branch; the keyword path never marks tasks hard (only Darwin's LLM `delegate` does, per task).
-- **Limitations:** live model calls were not verified here (the sandbox egress blocks openrouter.ai and api.apinex.bond), so the live curl ran the heuristic path; APINex tool calling is unverified (the JSON fallback covers it); heuristic splitting is keyword based ("A and B, then C"); history sent to the model is the last 12 text messages of the chat; one in-process semaphore (not shared across instances).
-- **Next-run ideas:** let Darwin resume a delegation after a confirm is approved (today the approving agent just reports the tool result); stream specialists' model tokens; show per-agent cost/latency; have Dash poll `pr_status` after a merge-able PR opens and ping the merchant.
+- **Done:** Darwin (team lead) plans and delegates; specialists each have their own tools (roster in `lib/team/roster.ts`, registries in `lib/team/tools.ts`). Several parts of an ask run **concurrently** (max 3) in a group chat Darwin opens, with ≤140-char progress/tool messages, then Darwin reports in the merchant's chat. Specialists can `ask` a teammate once (depth 1). Every side-effecting tool (merge, commit/PR, publish rule, ship, autopilot, reset) posts a `confirm` message and runs only after the merchant approves (once). NDJSON stream `POST /api/team/chat`; `GET /api/team`, `GET /api/team/chats/[id]`, `POST /api/team/chats`; chats persisted in `.data/team-*.json`. No key → keyword routing with the same group chats and real tool results. Onboarding (`context.path = "/onboarding"`) gets a short team intro. Pixel/Dash can list/read repo files, commit to `darwin/*` branches, open, check and merge PRs (`lib/github/edit.ts`; dry-run/offline return previews). LLM: `runToolLoop` with native tool calling → JSON-protocol fallback → next provider; DeepSeek V4 Flash via OpenRouter by default, APINex for Pixel (`APINEX_EDITOR_MODEL`), hard tasks and overflow (`OPENROUTER_MAX_CONCURRENT`). **Always-on watch** (`lib/team/watch.ts`, `POST/GET /api/team/watch`): Iris and Fizz check in parallel through real tools (briefing decisions, real-traffic KPI band, AI-shopper funnel, PRs, readiness, research, a stuck loop, a 7-day follow-up). A notability gate (dedupe 24h, 1 message/hour, 6/day, quiet hours, daily digest) writes at most one line into a pinned Inbox chat. One-tap tokens are single-use, bound to the action, and expire in 24h; tapping runs through the team and the same confirm path. Autonomy off / suggest / auto-safe / autopilot; a standing policy is compiled, read back, and only fires once confirmed. Drastic actions (ship, merge, a live PR, publish, reset, payments/auth/CI) still need a tap or a matching policy. Channels: in-app Inbox always; Grok bot pulls `GET /api/team/inbox` when `DARWIN_GROK_BOT=1`; Slack/Discord/email only when their URL or key is set. Admin MCP `POST /api/team/mcp` (`team_ask`, `team_inbox`, `team_decide`) and A2A `GET /a2a/team/agent-card.json` (admin bearer). Vercel Cron every 15 min; `DARWIN_WATCH=1` starts an in-process interval. Commands: `watch.run`, `watch.inbox`, `autonomy.set`, `policy.add`, `policy.confirm`.
+- **Left to do:** the bottom chat panel UI rendering chats/group chats/confirm buttons (other agent); wire `src/lib/commands` into ⌘K / the bottom chat / WebMCP (the registry exists, nothing calls it yet); the keyword path never marks tasks hard (only Darwin's LLM `delegate` does, per task).
+- **Limitations:** live model calls were not verified here (the sandbox egress blocks openrouter.ai and api.apinex.bond), so messages are the heuristic voice; APINex tool calling is unverified (the JSON fallback covers it); heuristic splitting is keyword based ("A and B, then C"); history sent to the model is the last 12 text messages of the chat; one in-process semaphore and one watch lease (not shared across instances, so two Vercel instances can both speak); KPI bands need five prior real-traffic windows of 100+ visitors, so a new store stays quiet on KPIs; `/api/team/watch` is outside the admin proxy so Vercel Cron's `CRON_SECRET` can call it, and the route still checks the admin token or that secret.
+- **Next-run ideas:** have the watch resume a half-finished group chat instead of opening a new one; share the lease across instances; let a confirmed policy name a maximum spend, not just a probability and a sample size.
 
 ### Agent readiness `/readiness`  ⬜ restyle
 - **Done:** audit any store URL for AI shoppers.
@@ -128,6 +128,8 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 ---
 
 ## Run log (newest first)
+
+- **2026-09-26 UTC — team (always-on watch).** Darwin checks the store every 15 minutes (`POST /api/team/watch`, Vercel Cron, or `DARWIN_WATCH=1`), writes at most one Inbox line when something is worth a tap, and runs Ship / Stop through the team on a single-use token. Open: the command registry is not wired into the bottom chat yet; Slack/Discord/email stay off until configured; no live LLM in this sandbox.
 
 - **2026-09-26 UTC — team (agent team backend).** Shipped `lib/team` (roster, per-agent tools, orchestrator with concurrent delegation, group chats, ask, confirm gate), `/api/team/**` NDJSON API, `runToolLoop` + OpenRouter/APINex routing in `lib/llm/client.ts` (default model now `deepseek/deepseek-v4.1-flash`), repo editing in `lib/github/edit.ts`. Open: panel UI, command-layer registration, live LLM check outside the sandbox.
 

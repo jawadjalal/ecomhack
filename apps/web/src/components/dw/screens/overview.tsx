@@ -15,6 +15,7 @@ import { DarwinChat, type Suggestion } from "../overview/chat";
 import { EASE, Rise } from "../overview/fx";
 import { useFirstName, usePeopleEvents } from "../overview/hooks";
 import { ImpactStrip } from "../overview/impact";
+import { WatchStrip } from "../overview/watch-strip";
 import { agentBoard, agentShopper, chartPoints, pctSmart, peopleFromEvents, projectIfShipped, testView, type Shopper } from "../overview/model";
 import { LiveShoppers } from "../overview/shoppers";
 
@@ -121,6 +122,9 @@ export function OverviewScreen() {
       <div className="flex flex-col gap-3.5">
         <Rise i={0}>
           <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
+        </Rise>
+        <Rise i={0}>
+          <WatchStrip />
         </Rise>
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
           <Rise i={1}>

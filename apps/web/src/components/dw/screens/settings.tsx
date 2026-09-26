@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { MotionConfig, motion } from "motion/react";
 import { AudienceCard } from "../settings/audience-card";
+import { AutonomyCard } from "../settings/autonomy-card";
 import { AutopilotCard } from "../settings/autopilot-card";
 import { GrokCard } from "../settings/grok-card";
 import { DemoCard, ResetCard } from "../settings/reset-card";
@@ -19,8 +20,12 @@ export function SettingsScreen() {
     <MotionConfig reducedMotion="user">
       <PageHead title="Settings" lede="How much Darwin may do on its own, and where it reports back." />
 
+      <Rise i={0}>
+        <AutonomyCard />
+      </Rise>
+
       <div className="grid items-stretch gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <Rise i={0}>
+        <Rise i={1}>
           <AutopilotCard className="h-full" />
         </Rise>
         <Rise i={1}>

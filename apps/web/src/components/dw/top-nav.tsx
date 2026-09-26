@@ -19,6 +19,7 @@ export const NAV = [
 ] as const;
 
 const MORE = [
+  { label: "Inbox", hint: "What Darwin noticed, and the tap to do it", href: "/console/inbox" },
   { label: "Store agent", hint: "AI shoppers buy over A2A", href: "/console/agents" },
   { label: "Dashboards", hint: "What you asked Darwin to track", href: "/console/dashboards" },
   { label: "Personalize", hint: "Any store, per traffic source", href: "/console/personalize" },
