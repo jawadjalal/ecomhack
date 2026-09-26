@@ -134,12 +134,12 @@ export function OnboardingApp() {
   };
 
   return (
-    <main data-darwin-dark className="relative min-h-screen w-full overflow-hidden bg-[#05060a] text-white">
+    <main data-darwin-dark className="relative min-h-screen w-full overflow-clip bg-[#05060a] text-white">
       {/* Blurred mission control behind the composer */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
+      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/onboarding/dashboard-backdrop.jpg" alt="" className="size-full scale-110 object-cover object-top opacity-55 blur-[14px] saturate-[0.8]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(5,6,10,0.55),rgba(5,6,10,0.92)_70%)]" />
+        <img src="/onboarding/dashboard-backdrop.jpg" alt="" className="size-full scale-105 object-cover object-top opacity-80 blur-[7px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,rgba(5,6,10,0.72),rgba(5,6,10,0.35)_75%)]" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-[52rem] flex-col px-4 sm:px-6">
@@ -199,13 +199,13 @@ export function OnboardingApp() {
                     )}
                   </AnimatePresence>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-2 pb-4">
-                    <div className="relative flex flex-wrap items-center gap-2">
-                      {!connected && !open && (
-                        <span className="absolute -top-7 left-1 flex items-center gap-1 text-[0.75rem] font-medium text-brand/80">
-                          <ArrowDown className="size-3.5 animate-bounce" /> Connect both to start
-                        </span>
-                      )}
+                  {!connected && !open && (
+                    <span className="flex items-center gap-1 px-5 pb-1 text-[0.75rem] font-medium text-brand/80">
+                      <ArrowDown className="size-3.5 animate-bounce" /> Connect both to start
+                    </span>
+                  )}
+                  <div className="flex items-end justify-between gap-3 px-4 pt-2 pb-4">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <ConnectChip
                         icon={<WhopMark />}
                         label="Whop"
@@ -227,7 +227,7 @@ export function OnboardingApp() {
                       onClick={toAnalytics}
                       disabled={!connected}
                       aria-label="Continue"
-                      className="grid size-10 place-items-center rounded-xl bg-brand text-[#0b1200] shadow-[0_0_0_1px_rgba(182,240,90,0.4),0_8px_30px_-8px_rgba(182,240,90,0.55)] transition-[opacity,transform] hover:bg-[#c8f77c] active:scale-95 disabled:opacity-30 disabled:shadow-none"
+                      className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand text-[#0b1200] shadow-[0_0_0_1px_rgba(182,240,90,0.4),0_8px_30px_-8px_rgba(182,240,90,0.55)] transition-[opacity,transform] hover:bg-[#c8f77c] active:scale-95 disabled:opacity-30 disabled:shadow-none"
                     >
                       <ArrowUp className="size-5" />
                     </button>
