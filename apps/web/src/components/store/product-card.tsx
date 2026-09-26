@@ -63,12 +63,12 @@ export function ProductCard({ product, position, eager = false }: { product: Pro
           <button
             type="button"
             onClick={onQuick}
-            className="pace-btn pace-btn-primary absolute bottom-3 right-3 min-h-10 px-4 text-[13px] shadow-lg transition-all duration-200 lg:translate-y-2 lg:opacity-0 lg:group-focus-within:translate-y-0 lg:group-focus-within:opacity-100 lg:group-hover:translate-y-0 lg:group-hover:opacity-100"
+            className="pace-btn pace-btn-primary absolute bottom-2.5 right-2.5 min-h-10 px-3 text-[13px] shadow-lg sm:bottom-3 sm:right-3 sm:px-4 transition-all duration-200 lg:translate-y-2 lg:opacity-0 lg:group-focus-within:translate-y-0 lg:group-focus-within:opacity-100 lg:group-hover:translate-y-0 lg:group-hover:opacity-100"
             data-darwin="quick-add"
             aria-label={`Quick add ${product.name}`}
           >
             <Plus className="size-4" aria-hidden />
-            <span>Quick add</span>
+            <span className="max-sm:sr-only">Quick add</span>
           </button>
         )}
         {showQuickAdd && picking && (
@@ -97,11 +97,11 @@ export function ProductCard({ product, position, eager = false }: { product: Pro
         )}
       </div>
       <StoreLink href={href} className="pace-focus mt-4 flex flex-1 flex-col" data-darwin="product-link">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <h3 className="text-[15px] font-semibold leading-snug">{product.name}</h3>
           <Price price={product.price} compareAt={product.compareAtPrice} className="shrink-0 text-[15px] font-semibold" />
         </div>
-        <p className="mt-1 text-sm text-(--muted)">{product.tagline}</p>
+        <p className="mt-1 line-clamp-2 text-[13px] text-(--muted) sm:text-sm">{product.tagline}</p>
         {showRatings && (
           <div className="mt-2 flex items-center gap-1.5 text-xs text-(--muted)" data-darwin="card-rating">
             <Stars rating={product.rating} size={13} />

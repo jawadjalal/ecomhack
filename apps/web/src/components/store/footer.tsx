@@ -9,7 +9,7 @@ const COLS = [
 export function StoreFooter({ slim = false }: { slim?: boolean }) {
   if (slim) {
     return (
-      <footer className="mt-16 border-t border-(--line) py-6 text-center text-xs text-(--muted)">
+      <footer className="border-t border-(--line) px-4 py-6 text-center text-xs text-(--muted)">
         © 2026 PACE Running Ltd · Demo store powered by Darwin · No real payments are taken
       </footer>
     );

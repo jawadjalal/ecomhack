@@ -5,7 +5,7 @@
  * 1200×900 canvas with a soft ground shadow. `npm exec tsx src/lib/storefront/art/generate.ts`
  * writes them to `public/products/*.svg`; the storefront serves them as static files.
  */
-import { mix, shade, tint } from "./color";
+import { shade, tint } from "./color";
 
 export const ART_W = 1200;
 export const ART_H = 900;

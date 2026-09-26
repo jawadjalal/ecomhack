@@ -74,9 +74,10 @@ export function Hero({ spec }: { spec: PageSpec }) {
         <Art
           src={productImage(hero, "Solar")}
           alt={`${hero.name} in Solar`}
-          className="pointer-events-none absolute -right-[18%] top-[2%] w-[120%] max-w-none rotate-[-10deg] drop-shadow-[0_40px_60px_rgba(0,0,0,0.5)] sm:-right-[8%] sm:top-[-6%] sm:w-[88%] lg:-right-[4%] lg:top-[-12%] lg:w-[68%]"
+          className="pointer-events-none absolute -right-[20%] top-[-3%] w-[118%] max-w-none rotate-[-10deg] drop-shadow-[0_40px_60px_rgba(0,0,0,0.5)] sm:-right-[8%] sm:top-[-6%] sm:w-[88%] lg:-right-[7%] lg:top-[-8%] lg:w-[62%]"
         />
-        <Container className="relative flex min-h-[600px] flex-col justify-end pb-14 pt-64 sm:min-h-[660px] sm:pb-20 lg:min-h-[700px] lg:pt-24">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-[#0c0a09] via-[#0c0a09]/85 to-transparent lg:hidden" />
+        <Container className="relative flex min-h-[620px] flex-col justify-end pb-14 pt-72 sm:min-h-[660px] sm:pb-20 lg:min-h-[700px] lg:pt-24">
           <div className="max-w-2xl">
             <Eyebrow dark />
             <h1 className="pace-display mt-5 text-[3.2rem] font-extrabold sm:text-7xl lg:text-[5.6rem]">{headline}</h1>

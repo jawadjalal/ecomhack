@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { getProduct } from "@/lib/catalog/products";
 import { formatGBP } from "@/lib/money";
@@ -13,6 +14,10 @@ import { StoreLink } from "./store-provider";
 export function AddedToast() {
   const added = useLastAdded();
   const { count } = useCart();
+  const pathname = usePathname();
+
+  // Navigating away (e.g. to the bag) closes the toast.
+  useEffect(() => dismissAdded, [pathname]);
 
   useEffect(() => {
     if (!added) return;

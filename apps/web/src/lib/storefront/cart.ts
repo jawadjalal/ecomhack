@@ -4,7 +4,7 @@
  *
  *   const { lines, add, setQuantity, remove, clear } = useCart();
  */
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { lineKey, type CartLine } from "./pricing";
 
 const KEY = "pace_cart_v1";
@@ -150,6 +150,28 @@ export function saveOrder(order: StoredOrder) {
 
 export function getOrder(id: string): StoredOrder | null {
   return readJson<Record<string, StoredOrder>>(ORDERS_KEY, {})[id] ?? null;
+}
+
+function readOrdersRaw(): string | null {
+  try {
+    return window.localStorage.getItem(ORDERS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Read a saved order after hydration (`hydrated` is false during SSR / first paint). */
+export function useStoredOrder(id?: string): { hydrated: boolean; order: StoredOrder | null } {
+  const raw = useSyncExternalStore(noopSubscribe, readOrdersRaw, () => undefined);
+  const order = useMemo<StoredOrder | null>(() => {
+    if (!raw || !id) return null;
+    try {
+      return (JSON.parse(raw) as Record<string, StoredOrder>)[id] ?? null;
+    } catch {
+      return null;
+    }
+  }, [raw, id]);
+  return { hydrated: raw !== undefined, order };
 }
 
 /** Returns true exactly once per order id (per browser) — used to fire order_completed once. */
