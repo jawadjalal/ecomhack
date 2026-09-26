@@ -1,0 +1,56 @@
+{
+  "version": 0,
+  "label": "Baseline",
+  "hero": {
+    "headline": "Orchard Phone 17 Pro",
+    "subheadline": "Forged in titanium. Made for everything.",
+    "ctaText": "Learn more",
+    "layout": "centered",
+    "showSocialProof": false
+  },
+  "announcement": {
+    "enabled": false,
+    "text": ""
+  },
+  "productGrid": {
+    "columns": 4,
+    "showRatings": false,
+    "showQuickAdd": false,
+    "sort": "featured"
+  },
+  "productPage": {
+    "ctaText": "Add to Bag",
+    "ctaPosition": "below-description",
+    "showReviews": false,
+    "showSizeGuide": false,
+    "showDeliveryEstimate": false,
+    "showReturnsPolicy": false,
+    "urgency": "none",
+    "trustBadges": false
+  },
+  "cart": {
+    "showShippingUpfront": false,
+    "freeShippingThreshold": null,
+    "upsell": false
+  },
+  "checkout": {
+    "steps": 3,
+    "guestCheckout": false,
+    "expressPay": false
+  },
+  "theme": {
+    "accent": "#0071e3",
+    "radius": "full"
+  },
+  "agentSurface": {
+    "structuredData": false,
+    "exposeStock": false,
+    "exposeDeliveryEta": false,
+    "exposeReturnPolicy": false,
+    "exposeLandedPrice": false,
+    "negotiation": {
+      "enabled": false,
+      "maxDiscountPct": 0
+    }
+  }
+}
