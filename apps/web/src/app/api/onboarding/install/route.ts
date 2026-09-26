@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { githubTokenFor } from "@/lib/auth/oauth";
 import { connectRepository, githubErrorStatus, publicOrigin } from "@/lib/github";
 import { getPlan, trackingDoc, trackingSummary } from "@/lib/tracking";
 
@@ -13,7 +14,8 @@ export async function POST(req: Request) {
   const plan = getPlan(parsed.data.site);
   if (!plan?.repo) return Response.json({ error: "Make a plan first (POST /api/onboarding/plan)" }, { status: 404 });
   try {
-    const pr = await connectRepository(plan.repo, { host: publicOrigin(req), tracking: { doc: trackingDoc(plan), summary: trackingSummary(plan) } });
+    // The signed-in merchant's token (GitHub OAuth) when there is one, else the server's GITHUB_TOKEN.
+    const pr = await connectRepository(plan.repo, { host: publicOrigin(req), tracking: { doc: trackingDoc(plan), summary: trackingSummary(plan) }, token: githubTokenFor(req) });
     return Response.json(pr);
   } catch (err) {
     const { status, error } = githubErrorStatus(err);

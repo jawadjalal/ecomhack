@@ -68,6 +68,21 @@ function track(event: string, props: Record<string, unknown> = {}) {
 
 const REPO_RE = /^(?:https?:\/\/github\.com\/)?([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/i;
 
+const DRAFT_KEY = "darwin-onboarding-draft";
+
+interface AuthSession {
+  providers: { github: boolean };
+  github?: { login: string; name?: string; avatarUrl?: string };
+}
+
+interface RepoSummary {
+  fullName: string;
+  private: boolean;
+  defaultBranch: string;
+  updatedAt: string;
+  description?: string;
+}
+
 interface Message {
   from: "you" | "darwin";
   text: string;
@@ -94,9 +109,29 @@ export function OnboardingApp() {
   const [busy, setBusy] = useState(false);
   const [pr, setPr] = useState<PullRequestResult | null>(null);
 
+  const [auth, setAuth] = useState<AuthSession | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+
   useEffect(() => {
     http<GithubStatusResponse>("GET", "/api/github/status").then(setGhStatus, () => {});
     http<WhopStatus>("GET", "/api/whop/status").then(setWhopStatus, () => {});
+    http<AuthSession>("GET", "/api/auth/session").then(setAuth, () => {});
+    // Back from GitHub's sign-in: restore what was typed, and reopen the GitHub drawer on the repo picker.
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("github") || params.has("github_error")) {
+      const t = setTimeout(() => {
+        try {
+          const saved = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}") as { prompt?: string };
+          if (saved.prompt) setPrompt(saved.prompt);
+        } catch {
+          /* nothing saved */
+        }
+        setAuthError(params.get("github_error"));
+        setOpen("github");
+        window.history.replaceState(null, "", window.location.pathname);
+      }, 0);
+      return () => clearTimeout(t);
+    }
   }, []);
 
   const connected = !!repo;
@@ -226,6 +261,18 @@ export function OnboardingApp() {
                       <Drawer key="github">
                         <GithubConnect
                           status={ghStatus}
+                          auth={auth}
+                          authError={authError}
+                          onSignIn={() => {
+                            try {
+                              sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ prompt }));
+                            } catch {
+                              /* storage blocked: the prompt is retyped */
+                            }
+                            track("github_sign_in_started");
+                            // A full-page navigation (not the router): the API route redirects to github.com.
+                            window.location.assign(new URL("/api/auth/github/start?return=/onboarding", window.location.origin).href);
+                          }}
                           onConnected={(r) => {
                             setRepo(r);
                             setOpen(null);
@@ -892,13 +939,105 @@ function WhopConnect({ status, onConnected }: { status: WhopStatus | null; onCon
   );
 }
 
-function GithubConnect({ status, onConnected }: { status: (GithubStatusResponse & { dryRun?: boolean }) | null; onConnected: (repo: string) => void }) {
+function GithubConnect({
+  status,
+  auth,
+  authError,
+  onSignIn,
+  onConnected,
+}: {
+  status: (GithubStatusResponse & { dryRun?: boolean }) | null;
+  auth: AuthSession | null;
+  authError: string | null;
+  onSignIn: () => void;
+  onConnected: (repo: string) => void;
+}) {
   const [url, setUrl] = useState(status?.repo ? `https://github.com/${status.repo}` : "");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(authError);
+  const [paste, setPaste] = useState(false);
+  const [repos, setRepos] = useState<RepoSummary[] | null>(null);
+  const [filter, setFilter] = useState("");
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => input.current?.focus(), []);
-  const dryRun = status ? (status.dryRun ?? !status.configured) : false;
+  const signedIn = !!auth?.github;
+  const oauth = !!auth?.providers.github;
 
+  useEffect(() => {
+    if (!signedIn) return;
+    http<{ repos: RepoSummary[] }>("GET", "/api/auth/github/repos").then(
+      (r) => setRepos(r.repos),
+      (e) => setError((e as Error).message),
+    );
+  }, [signedIn]);
+  useEffect(() => input.current?.focus(), [paste, signedIn]);
+
+  const dryRun = !signedIn && (status ? (status.dryRun ?? !status.configured) : false);
+  const shown = (repos ?? []).filter((r) => r.fullName.toLowerCase().includes(filter.trim().toLowerCase())).slice(0, 8);
+
+  // 1. Not signed in, and sign-in is available: the button is the main path.
+  if (oauth && !signedIn && !paste) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-[0.85rem] text-white/55">Sign in so Darwin can see your repositories and open the install pull request as you. It only ever changes code through pull requests you review.</p>
+        <Button variant="primary" size="lg" onClick={onSignIn} className="w-full">
+          <GithubMark className="size-5" /> Sign in with GitHub
+        </Button>
+        <button type="button" onClick={() => setPaste(true)} className="self-start text-[0.78rem] text-white/40 underline-offset-2 hover:text-white hover:underline">
+          or paste a repository URL
+        </button>
+        {error && <ErrorLine error={error} />}
+      </div>
+    );
+  }
+
+  // 2. Signed in: pick one of your repositories.
+  if (signedIn && !paste) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-[0.85rem] text-white/60">
+          {auth!.github!.avatarUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={auth!.github!.avatarUrl} alt="" className="size-6 rounded-full" />
+          )}
+          Signed in as <b className="text-white">{auth!.github!.login}</b>. Which repository is your store?
+        </div>
+        <input ref={input} value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search your repositories" aria-label="Search your repositories" className={inputCls} />
+        {!repos && !error && (
+          <span className="flex items-center gap-2 text-[0.82rem] text-white/45">
+            <LoaderCircle className="size-4 animate-spin" /> Loading your repositories…
+          </span>
+        )}
+        {repos && (
+          <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto" role="listbox" aria-label="Your repositories">
+            {shown.map((r) => (
+              <li key={r.fullName}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => onConnected(r.fullName)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-left hover:border-brand/40 hover:bg-brand/[0.06]"
+                >
+                  <GithubMark className="size-4 shrink-0 text-white/50" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-mono text-[0.85rem] text-white/90">{r.fullName}</span>
+                    {r.description && <span className="block truncate text-[0.75rem] text-white/40">{r.description}</span>}
+                  </span>
+                  {r.private && <Badge tone="outline">private</Badge>}
+                </button>
+              </li>
+            ))}
+            {!shown.length && <li className="px-1 text-[0.82rem] text-white/40">No repositories match.</li>}
+          </ul>
+        )}
+        <button type="button" onClick={() => setPaste(true)} className="self-start text-[0.78rem] text-white/40 underline-offset-2 hover:text-white hover:underline">
+          or paste a repository URL
+        </button>
+        {error && <ErrorLine error={error} />}
+      </div>
+    );
+  }
+
+  // 3. Paste a URL (no sign-in configured, or chosen).
   return (
     <form
       onSubmit={(e) => {
@@ -917,7 +1056,12 @@ function GithubConnect({ status, onConnected }: { status: (GithubStatusResponse 
           <Check /> Connect
         </Button>
       </div>
-      {dryRun && <span className="text-[0.75rem] text-white/35">No GITHUB_TOKEN on the server: the PR runs as a dry run and shows the would-be changes.</span>}
+      {oauth && (
+        <button type="button" onClick={() => (signedIn ? setPaste(false) : onSignIn())} className="self-start text-[0.78rem] text-white/40 underline-offset-2 hover:text-white hover:underline">
+          {signedIn ? "or pick from your repositories" : "or sign in with GitHub"}
+        </button>
+      )}
+      {dryRun && <span className="text-[0.75rem] text-white/35">No GitHub access on the server: the PR runs as a preview and shows the would-be changes.</span>}
       {error && <ErrorLine error={error} />}
     </form>
   );
