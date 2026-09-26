@@ -2,25 +2,30 @@
 /**
  * Browser analytics helper used by storefront components. Public API (stable):
  *
- *   initAnalytics({ distinctId, props })   once per page (repeat calls just update attribution)
+ *   initAnalytics({ distinctId, props })   before the first capture (repeat calls just update attribution)
  *   capture("product_added", { product_id, price })
  *   flush()
  *
  * Default path — posthog-js: `initAnalytics()` lazy-loads posthog-js pointed at our PostHog-compatible
  * `/ingest` endpoint (src/app/ingest), bootstrapped with the server's `distinctId`, with autocapture,
- * rage clicks and `$pageview`/`$pageleave` (incl. client-side navigations) on and session recording off.
- * `props` (experiment_id, variant, spec_version…) are registered as super properties, so every event —
- * autocaptured or not — carries attribution. `capture()` goes through posthog.
- * `capture("$pageview" | "$pageleave")` is IGNORED in this mode because posthog already captures them;
- * that is what keeps pageviews from being double counted.
+ * rage clicks and `$pageleave` on and session recording off. `props` (experiment_id, variant,
+ * spec_version…) are registered as super properties, so every event — autocaptured or not — carries
+ * attribution. `capture()` goes through posthog.
+ *
+ * Pageviews: the storefront fires `capture("$pageview")` itself on every page, so posthog's automatic
+ * pageview capture is OFF (no double counting). posthog captures `$pageleave` on unload, so explicit
+ * `capture("$pageleave")` calls are dropped in posthog mode.
+ *
+ * Unload: events captured during `pagehide` (e.g. `checkout_abandoned`) are sent immediately by beacon,
+ * because posthog's own unload handler may already have drained its queue.
  *
  * Fallback — `/api/capture`: if posthog-js fails to load (or `NEXT_PUBLIC_DARWIN_POSTHOG=0`), events are
- * batched to `/api/capture` exactly as before, and explicit `$pageview`s are sent as-is.
+ * batched to `/api/capture` as before.
  *
- * Events captured before `initAnalytics()` / while posthog-js loads are held and replayed with their
- * original timestamps, so child components can capture before the provider's effect runs.
+ * Events captured while posthog-js loads are held and replayed with their original time and page.
+ * Events captured without any `initAnalytics()` call (e.g. previews) are dropped after a few seconds.
  */
-import type { PostHog } from "posthog-js";
+import type { CaptureOptions, PostHog } from "posthog-js";
 import type { AnalyticsEventInput, EventProperties } from "@/lib/contracts";
 
 const INGEST_PATH = "/ingest";
@@ -28,7 +33,7 @@ const POSTHOG_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_KEY || "phc_darwin_local";
 const POSTHOG_ENABLED = process.env.NEXT_PUBLIC_DARWIN_POSTHOG !== "0";
 const LOAD_TIMEOUT_MS = 5000;
 /** Captured automatically by posthog-js; explicit calls are dropped in posthog mode. */
-const AUTO_EVENTS = new Set(["$pageview", "$pageleave"]);
+const AUTO_EVENTS = new Set(["$pageleave"]);
 /** Attribution keys that must not outlive the experiment that set them (posthog persists super props). */
 const ATTRIBUTION_KEYS = ["experiment_id", "variant", "spec_version"];
 
@@ -49,8 +54,12 @@ let held: Held[] = [];
 let heldTimer: ReturnType<typeof setTimeout> | undefined;
 let queue: AnalyticsEventInput[] = [];
 let timer: ReturnType<typeof setTimeout> | undefined;
+let unloading = false;
 
 const isBrowser = () => typeof window !== "undefined";
+const devWarn = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== "production") console.warn("[analytics]", ...args);
+};
 
 function sessionId() {
   try {
@@ -108,7 +117,8 @@ function loadPosthog() {
           person_profiles: "identified_only",
           autocapture: true,
           rageclick: true,
-          capture_pageview: "history_change",
+          // The storefront captures $pageview itself on every page (incl. client-side navigations).
+          capture_pageview: false,
           capture_pageleave: true,
           // Capture bots and headless browsers too: the server classifies humans vs agents.
           opt_out_useragent_filter: true,
@@ -123,7 +133,7 @@ function loadPosthog() {
           capture_performance: false,
           advanced_disable_toolbar_metrics: true,
           request_queue_config: { flush_interval_ms: 1000 },
-          // Runs before the initial $pageview, so it already carries attribution.
+          // Runs before anything is captured, so every event already carries attribution.
           loaded: (inst) => syncPosthog(inst),
         });
       } else {
@@ -141,7 +151,7 @@ function loadPosthog() {
 
 function fallBack(reason: unknown) {
   if (mode === "posthog" || mode === "fallback") return;
-  if (process.env.NODE_ENV !== "production") console.warn("[analytics] posthog-js unavailable, using /api/capture:", reason);
+  devWarn("posthog-js unavailable, using /api/capture:", reason);
   mode = "fallback";
   drainHeld();
 }
@@ -151,13 +161,23 @@ function drainHeld() {
   heldTimer = undefined;
   const items = held;
   held = [];
-  for (const h of items) send(h);
+  for (const h of items) send(h, true);
 }
 
-function send(h: Held) {
+/** `wasHeld`: captured before posthog-js loaded, so replay its original time and page. */
+function send(h: Held, wasHeld = false) {
   if (mode === "posthog" && ph) {
     if (AUTO_EVENTS.has(h.event)) return;
-    ph.capture(h.event, { ...h.page, ...h.props }, { timestamp: h.at });
+    const opts: CaptureOptions = {};
+    if (wasHeld) opts.timestamp = h.at;
+    if (unloading) {
+      // posthog's unload handler may already have drained its queue: send this one now.
+      opts.send_instantly = true;
+      opts.transport = "sendBeacon";
+    }
+    const props = wasHeld ? { ...h.page, ...h.props } : h.props;
+    if (wasHeld || unloading) ph.capture(h.event, props, opts);
+    else ph.capture(h.event, props);
     return;
   }
   queue.push({
@@ -173,7 +193,8 @@ function send(h: Held) {
     },
   });
   clearTimeout(timer);
-  timer = setTimeout(flush, 300);
+  if (unloading) flush();
+  else timer = setTimeout(flush, 300);
 }
 
 export function initAnalytics(opts: { distinctId: string; props: EventProperties }) {
@@ -191,15 +212,20 @@ export function capture(event: string, props: EventProperties = {}) {
   const h: Held = { event, props, at: new Date(), page: pageContext() };
   if (mode === "posthog" || mode === "fallback") return send(h);
   held.push(h);
-  // Nobody called initAnalytics(): don't hold events forever.
   if (mode === "idle" && !heldTimer) {
     heldTimer = setTimeout(() => {
-      if (mode === "idle") fallBack("initAnalytics() not called");
+      if (mode !== "idle") return;
+      devWarn(`capture() without initAnalytics(): dropped ${held.length} event(s)`);
+      held = [];
+      heldTimer = undefined;
     }, LOAD_TIMEOUT_MS);
   }
 }
 
-/** Send any `/api/capture` batch now. (posthog-js flushes itself every second and on pagehide.) */
+/**
+ * Send the `/api/capture` batch now. In posthog mode there is nothing to do: posthog flushes every
+ * second and on pagehide, and events captured during unload are sent immediately by beacon.
+ */
 export function flush() {
   if (!isBrowser()) return;
   clearTimeout(timer);
@@ -213,15 +239,23 @@ export function flush() {
   }
 }
 
+// Registered when this module first loads, i.e. before any component's pagehide listener, so later
+// listeners (e.g. the checkout's `checkout_abandoned`) already see `unloading`.
 function onPageHide() {
-  // Leaving before posthog-js loaded: deliver held events the simple way rather than lose them.
-  if (held.length && mode !== "posthog") {
+  unloading = true;
+  if (mode === "loading") {
+    // posthog-js won't finish loading now: deliver what we hold the simple way.
     mode = "fallback";
     drainHeld();
+  } else if (mode === "idle") {
+    held = []; // never initialised (e.g. previews): nothing to send
   }
   flush();
 }
 
 if (isBrowser()) {
   window.addEventListener("pagehide", onPageHide);
+  window.addEventListener("pageshow", () => {
+    unloading = false; // restored from the back/forward cache
+  });
 }

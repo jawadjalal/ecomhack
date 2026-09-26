@@ -33,7 +33,7 @@ export function GET(req: NextRequest) {
   const filtered = Boolean((kind === "human" || kind === "agent") || only || exclude);
 
   const store = eventStore();
-  // Everything after the cursor (bounded by the store size), or a recent window when there is none.
+  // Everything after the cursor (up to SCAN_MAX), or a recent window when there is no cursor.
   const scanned = store.since(after, after ? SCAN_MAX : filtered ? 5000 : limit);
 
   let events: AnalyticsEvent[] = scanned;
