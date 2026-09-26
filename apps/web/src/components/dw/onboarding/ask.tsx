@@ -4,7 +4,7 @@
  * Onboarding, screen 2: Darwin asks two questions in a chat (what to track, where), and the answers are
  * appended to the prompt that goes to POST /api/onboarding/plan, so the plan is personalised.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Globe, Plus } from "lucide-react";
 import { cn } from "@/components/ui/cn";
@@ -149,10 +149,21 @@ export function AskChat({
     setStep(1);
     setTyping(true);
   };
+  /** Nothing ticked is not a dead end: Darwin starts with the website (the recommended setup). */
+  const whereOrDefault = where.length ? where : ["website"];
   const finish = () => {
+    if (!where.length) setWhere(whereOrDefault);
     setStep(2);
-    setTimeout(() => onDone(answers), 450);
+    setTimeout(() => onDone({ ...answers, where: whereOrDefault }), 450);
   };
+
+  // Question 2's button can land under the fold: bring it into view as soon as the question is asked.
+  const cta = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (step !== 1 || typing) return;
+    const t = setTimeout(() => cta.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 120);
+    return () => clearTimeout(t);
+  }, [step, typing]);
 
   const trackChips = [...TRACK_OPTIONS.filter((o) => track.includes(o.id)).map((o) => o.label), ...(note.trim() ? [note.trim()] : [])];
 
@@ -281,8 +292,9 @@ export function AskChat({
                         </button>
                       );
                     })}
-                    <div className="mt-2 flex justify-end">
-                      <Gel h={46} onClick={finish} disabled={!where.length} className="max-sm:w-full">
+                    <div ref={cta} className="relative z-10 mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-2 scroll-mb-6">
+                      {!where.length && <span className="mr-auto text-[13px] text-dw-ink/60">Nothing ticked: Darwin starts with your website.</span>}
+                      <Gel h={46} onClick={finish} className="max-sm:w-full">
                         Make my plan <ArrowRight />
                       </Gel>
                     </div>
@@ -290,7 +302,7 @@ export function AskChat({
                 )}
               </AgentBubble>
             )}
-            {step > 1 && <YouBubble chips={WHERE_OPTIONS.filter((o) => where.includes(o.id)).map((o) => o.label)} />}
+            {step > 1 && <YouBubble chips={WHERE_OPTIONS.filter((o) => whereOrDefault.includes(o.id)).map((o) => o.label)} />}
           </motion.div>
         )}
       </AnimatePresence>
