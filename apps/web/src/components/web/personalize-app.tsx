@@ -580,7 +580,9 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
           Live rules &amp; tests
         </CardHead>
         <div className="mt-4 grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
-          {rules.length === 0 && (
+          {!data &&
+            [0, 1, 2].map((i) => <div key={i} className={cn("h-44 animate-pulse rounded-[22px] bg-dw-sand", i > 0 && "max-lg:hidden", i > 1 && "max-2xl:hidden")} />)}
+          {data && rules.length === 0 && (
             <div className="lg:col-span-2 2xl:col-span-3">
               <Empty mascot={<Mascot kind="experimenter" size={56} frame />}>Nothing yet. Ask Darwin for a change, or get ideas from your data.</Empty>
             </div>
@@ -1094,7 +1096,13 @@ function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string })
       >
         Who orders, by where they came from
       </CardHead>
-      {!o?.visitors ? (
+      {!data ? (
+        <div className="mt-6 grid h-[196px] animate-pulse grid-cols-7 items-end gap-2" aria-label="Loading">
+          {[40, 70, 55, 90, 30, 60, 45].map((h, i) => (
+            <span key={i} className="mx-auto w-[26px] rounded-full bg-dw-ink/10" style={{ height: h }} />
+          ))}
+        </div>
+      ) : !o?.visitors ? (
         <Empty mascot={<Mascot kind="observer" size={56} frame />}>No visitors on {site} yet. Open the store, or send test visitors.</Empty>
       ) : (
         <>

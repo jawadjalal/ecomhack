@@ -199,7 +199,7 @@ export function TrafficApp() {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 pt-2">
-        <h2 className="mr-auto text-[22px] font-semibold tracking-[-0.02em]">Where they came from</h2>
+        <h2 className="mr-auto text-[22px] font-semibold tracking-[-0.02em] max-sm:basis-full">Where they came from</h2>
         <LegendKey>People</LegendKey>
         <LegendKey dashed>AI agents</LegendKey>
         <span className="text-[12px] text-dw-ink/60">visitors · share who ordered</span>
