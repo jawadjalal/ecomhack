@@ -24,12 +24,30 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "live", label: "Live" },
 ];
 
+/** What screen 1 promises: short, and true for the timed path. */
+export const SETUP_SUMMARY = "4 steps · about 2 minutes";
+
 /**
  * The top-nav's black pill, as numbered setup steps. The cream pill slides to the current step.
  * `variant="bar"` (phones): four thin segments that fill up, with the step names under them.
+ * With `onStep`, every step reached so far (up to `reached`) is a button: back without losing answers.
  */
-export function Stepper({ step, className, variant = "pill" }: { step: Step; className?: string; variant?: "pill" | "bar" }) {
+export function Stepper({
+  step,
+  className,
+  variant = "pill",
+  reached,
+  onStep,
+}: {
+  step: Step;
+  className?: string;
+  variant?: "pill" | "bar";
+  reached?: Step;
+  onStep?: (s: Step) => void;
+}) {
   const idx = STEPS.findIndex((s) => s.id === step);
+  const reachIdx = Math.max(idx, reached ? STEPS.findIndex((s) => s.id === reached) : idx);
+  const canGo = (i: number) => !!onStep && i !== idx && i <= reachIdx;
   if (variant === "bar") {
     return (
       <ol aria-label="Setup steps" className={cn("grid w-full grid-cols-4 gap-1.5", className)}>
@@ -37,7 +55,15 @@ export function Stepper({ step, className, variant = "pill" }: { step: Step; cla
           const on = i === idx;
           const done = i < idx;
           return (
-            <li key={s.id} className="flex min-w-0 flex-col gap-1.5" aria-current={on ? "step" : undefined}>
+            <li key={s.id} className="relative flex min-w-0 flex-col gap-1.5" aria-current={on ? "step" : undefined}>
+              {canGo(i) && (
+                <button
+                  type="button"
+                  onClick={() => onStep?.(s.id)}
+                  aria-label={`${i < idx ? "Back" : "Go"} to ${s.label}`}
+                  className="absolute -inset-y-2 inset-x-0 z-10 rounded-md focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+                />
+              )}
               <span className="relative block h-1 overflow-hidden rounded-full bg-dw-ink/10">
                 <motion.span
                   className="absolute inset-y-0 left-0 rounded-full bg-dw-ink"
@@ -66,11 +92,21 @@ export function Stepper({ step, className, variant = "pill" }: { step: Step; cla
         const on = i === idx;
         const done = i < idx;
         return (
-          <li key={s.id} className="flex items-center" aria-current={on ? "step" : undefined}>
+          <li key={s.id} className="relative flex items-center" aria-current={on ? "step" : undefined}>
+            {canGo(i) && (
+              <button
+                type="button"
+                onClick={() => onStep?.(s.id)}
+                aria-label={`${i < idx ? "Back" : "Go"} to ${s.label}`}
+                title={`${i < idx ? "Back" : "Go"} to ${s.label}`}
+                className="peer absolute inset-y-0 left-0 right-4 z-10 rounded-full focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+              />
+            )}
             <span
               className={cn(
-                "relative flex h-10 items-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap sm:px-3.5",
+                "relative flex h-10 items-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-colors sm:px-3.5",
                 on ? "font-semibold text-dw-ink" : done ? "font-medium text-white" : "font-medium text-[#CFCAC0]",
+                canGo(i) && "peer-hover:bg-white/[0.1]",
               )}
             >
               {on && <motion.span layoutId="dwo-step" className="absolute inset-0 rounded-full bg-dw-bg" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}

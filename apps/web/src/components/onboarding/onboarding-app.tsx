@@ -53,6 +53,7 @@ import {
   YouBubble,
   inputCls,
   linkCls,
+  SETUP_SUMMARY,
   useIsPhone,
 } from "@/components/dw/onboarding/bits";
 import { AskChat, answerChips, composePrompt, type Answers } from "@/components/dw/onboarding/ask";
@@ -300,6 +301,16 @@ export function OnboardingApp() {
   const draftSite = website || repo ? null : storeOrigin(urlDraft);
   const connected = !!repo || !!website || !!draftSite;
 
+  /** The stepper: back (or forward again) to any step reached, answers kept. */
+  const goStep = (s: "connect" | "plan" | "install" | "live") => {
+    if (busy) return;
+    track("onboarding_step_clicked", { from: stage, to: s });
+    setOpen(null);
+    if (s === "connect") return setStage("connect");
+    if (s === "plan") return setStage(plan ? "plan" : "ask");
+    if (plan) setStage(s);
+  };
+
   const changeTools = (t: string[]) => {
     setTools(t);
     track("tools_chosen", { tools: t.join(",") });
@@ -521,7 +532,12 @@ export function OnboardingApp() {
                   <Mascot kind="analyst" size={32} active />
                   <span className="text-[20px] font-semibold tracking-[-0.02em]">darwin</span>
                 </Link>
-                <Stepper step={stage === "ask" ? "plan" : stage} className="col-span-2 justify-self-center max-md:order-last max-sm:hidden md:col-span-1" />
+                <Stepper
+                  step={stage === "ask" ? "plan" : stage}
+                  reached={furthest === "ask" ? "plan" : furthest}
+                  onStep={goStep}
+                  className="col-span-2 justify-self-center max-md:order-last max-sm:hidden md:col-span-1"
+                />
                 <span
                   className="flex h-10 max-w-[12rem] min-w-0 items-center gap-2 justify-self-end rounded-full bg-dw-bg px-3.5 text-[13.5px] font-medium sm:max-w-[18rem]"
                   title={connectedTo}
@@ -548,7 +564,9 @@ export function OnboardingApp() {
                 stage === "connect" ? "justify-center py-10 max-sm:justify-start max-sm:py-0" : "pt-5 sm:pt-10",
               )}
             >
-              {stage !== "connect" && <Stepper variant="bar" step={stage === "ask" ? "plan" : stage} className="mb-6 sm:hidden" />}
+              {stage !== "connect" && (
+                <Stepper variant="bar" step={stage === "ask" ? "plan" : stage} reached={furthest === "ask" ? "plan" : furthest} onStep={goStep} className="mb-6 sm:hidden" />
+              )}
               <AnimatePresence mode="wait">
                 {stage === "connect" && (
                   <motion.section key="connect" {...fade} className="flex flex-col items-center gap-8 max-sm:flex-1 max-sm:items-stretch max-sm:gap-0 sm:gap-9">
@@ -575,7 +593,10 @@ export function OnboardingApp() {
                         improve itself
                       </span>
                     </h1>
-                    <p className="mt-3 text-[17px] leading-snug text-white [text-shadow:0_1px_8px_rgba(20,40,60,0.45)] sm:hidden">Tell Darwin what you sell and what worries you.</p>
+                    <p className="mt-3 text-[17px] leading-snug text-white [text-shadow:0_1px_8px_rgba(20,40,60,0.45)] sm:-mt-5 sm:text-[15.5px] sm:font-medium">
+                      <span className="sm:hidden">Tell Darwin what you sell and what worries you. </span>
+                      <span className="max-sm:text-[14.5px] max-sm:text-white/85">{SETUP_SUMMARY}</span>
+                    </p>
 
                     {welcome ? (
                       <WelcomeBack
@@ -1236,7 +1257,7 @@ function PlanSkeleton() {
   );
 }
 
-const DASH_ICON: Record<DashboardKind, ReactNode> = {
+const DASH_ICON: Partial<Record<DashboardKind, ReactNode>> = {
   kpis: <Gauge />,
   funnel: <ListChecks />,
   sources: <Globe />,
