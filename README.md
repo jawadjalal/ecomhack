@@ -111,6 +111,21 @@ records a simulated payment.
 
 ![Store agent](apps/web/docs/screenshots/agents/store-agent.jpg)
 
+**A/B tests on the agent's pitch.** Darwin tests how the store agent sells, one lever at a time, judged on paid
+conversations (sticky per conversation, Bayesian, ships at ≥97% chance better):
+
+| Lever | What changes in the reply |
+|---|---|
+| Facts up front | Instant access, cancel any time, paid on Whop (text + a `facts` array) |
+| One best pick | One recommendation with the reason instead of a list |
+| Structured buy instructions | Exact offer ids and `reply "buy <id>"` in the data part |
+| Upsell the yearly plan | Leads with the biggest plan |
+
+Winners ship into the pitch and stack; the next lever is tested on top. Turn on **Autopilot** in `/console/agents`
+(it starts labelled simulated buyer agents if there's no traffic yet). API: `GET/POST /api/store-agent/tests`.
+
+![Agent A/B tests](apps/web/docs/screenshots/agents/agent-ab-tests.jpg)
+
 ### Personalize any store
 
 The loop above optimizes a store built on a PageSpec. Web personalization works on **any** store with the darwin.js tag:

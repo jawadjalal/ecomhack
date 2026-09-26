@@ -101,5 +101,6 @@ export const config = {
     // Not /a2a/* or /api/store-agent/demo-pay: buyer agents and the demo checkout are public.
     "/api/store-agent/stats",
     "/api/store-agent/buyer",
+    "/api/store-agent/tests",
   ],
 };
