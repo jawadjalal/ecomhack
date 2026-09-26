@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
+  ArrowUpRight,
   Bot,
+  FlaskConical,
+  Lightbulb,
+  Sparkles,
   ExternalLink,
   Globe,
   Link2,
@@ -17,7 +21,7 @@ import {
   ShoppingBag,
   Users,
 } from "lucide-react";
-import type { TrafficDimension, TrafficReport, TrafficRow } from "@/lib/traffic";
+import type { InsightCategory, InsightsResponse, TrafficDimension, TrafficInsight, TrafficReport, TrafficRow } from "@/lib/traffic";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -164,6 +168,8 @@ export function TrafficApp() {
           <Kpi label="Countries" value={t ? String(t.countries) : "–"} />
         </div>
 
+        <InsightsPanel site={site} synthetic={synthetic} visitors={t?.visitors ?? 0} />
+
         {/* try it */}
         <Panel>
           <PanelHeader icon={<ExternalLink />} title="Try it: visit the store as if you came from…" />
@@ -251,5 +257,143 @@ function DimensionPanel({ title, icon, rows, empty, note, avg }: { title: string
         {note && <p className="mt-2 text-[0.72rem] leading-snug text-white/35">{note}</p>}
       </div>
     </Panel>
+  );
+}
+
+/* ------------------------------------------------------------------ insights */
+
+const CATEGORY: Record<InsightCategory, { label: string; tone: "info" | "good" | "agent" | "neutral" }> = {
+  seo: { label: "SEO", tone: "info" },
+  conversion: { label: "Conversion", tone: "good" },
+  agents: { label: "AI agents", tone: "agent" },
+  tracking: { label: "Tracking", tone: "neutral" },
+};
+
+/** Sites whose pages run darwin.js, so a suggestion can become a personalization A/B test. */
+const testableSite = (site: string) => site !== "all" && site !== "pace-store";
+
+function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic: boolean; visitors: number }) {
+  const [res, setRes] = useState<InsightsResponse>();
+  const [busy, setBusy] = useState<"rules" | "llm">();
+  const [error, setError] = useState<string>();
+  const ask = useCallback(
+    async (llm: boolean) => {
+      setBusy(llm ? "llm" : "rules");
+      try {
+        setRes(await api<InsightsResponse>("/api/traffic/insights", { site, synthetic, llm }));
+        setError(undefined);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setBusy(undefined);
+      }
+    },
+    [site, synthetic],
+  );
+
+  // Rule-based suggestions refresh for free when the filters change or traffic first arrives.
+  const hasTraffic = visitors > 0;
+  useEffect(() => {
+    const t = setTimeout(() => ask(false), 0);
+    return () => clearTimeout(t);
+  }, [ask, hasTraffic]);
+
+  const total = (res?.insights ?? []).reduce((n, i) => n + (i.impact?.orders ?? 0), 0);
+
+  return (
+    <Panel glow>
+      <PanelHeader
+        icon={<Lightbulb />}
+        title="What to improve"
+        right={
+          <>
+            {res && (
+              <span className="hidden text-[0.75rem] text-white/45 md:inline">
+                {res.source === "llm" ? `Written by ${res.author.replace(/^llm:/, "")}` : "Built-in rules"}
+                {total > 0 && ` · up to +${total} orders at today's traffic`}
+              </span>
+            )}
+            <Button size="sm" variant="primary" onClick={() => ask(true)} disabled={!!busy} title="Send this report to Darwin's AI model (Grok / Claude) for suggestions">
+              {busy === "llm" ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+              Ask Darwin
+            </Button>
+          </>
+        }
+      />
+      <div className="px-5 pb-5">
+        {error && <p className="mb-3 text-[0.85rem] text-[#ffb4b4]">{error}</p>}
+        {res?.note && <p className="mb-3 text-[0.75rem] text-white/40">{res.note}</p>}
+        {!res && <p className="text-[0.85rem] text-white/40">Reading the numbers…</p>}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+          {res?.insights.map((i) => <InsightCard key={i.id} insight={i} site={site} />)}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function InsightCard({ insight: i, site }: { insight: TrafficInsight; site: string }) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const [msg, setMsg] = useState<string>();
+  const cat = CATEGORY[i.category];
+
+  const draftTest = async () => {
+    if (!i.testPrompt) return;
+    setState("busy");
+    try {
+      // Same path as typing it into /console/personalize: draft (LLM or rules), then save as a draft rule.
+      const draft = await api<{ rule: unknown }>("/api/web/draft", { site, prompt: i.testPrompt });
+      await api("/api/web/rules", { rule: draft.rule, status: "draft" });
+      setState("done");
+    } catch (e) {
+      setMsg((e as Error).message);
+      setState("error");
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+      <div className="flex items-center gap-2">
+        <Badge tone={cat.tone}>{cat.label}</Badge>
+        {i.confidence === "low" && (
+          <span className="text-[0.7rem] text-white/35" title="Small sample: treat as a hint">
+            small sample
+          </span>
+        )}
+        {i.impact && i.impact.orders > 0 && (
+          <span className="ml-auto font-mono text-[0.75rem] text-[#7ee2a0] tabular" title="If this group converted at the site average, at today's traffic">
+            +{i.impact.orders} orders{i.impact.revenue > 0 ? ` · ${gbp(i.impact.revenue)}` : ""}
+          </span>
+        )}
+      </div>
+      <h3 className="text-[0.95rem] leading-snug font-semibold text-white/90">{i.title}</h3>
+      <p className="font-mono text-[0.75rem] leading-relaxed text-white/50">{i.evidence}</p>
+      <p className="text-[0.83rem] leading-relaxed text-white/70">{i.action}</p>
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+        {i.testPrompt &&
+          (testableSite(site) ? (
+            state === "done" ? (
+              <Link href={`/console/personalize?site=${encodeURIComponent(site)}`} className="flex items-center gap-1 text-[0.8rem] font-medium text-brand hover:underline">
+                Draft saved: review in Personalize <ArrowUpRight className="size-3.5" />
+              </Link>
+            ) : (
+              <Button size="sm" onClick={draftTest} disabled={state === "busy"} title={i.testPrompt}>
+                {state === "busy" ? <LoaderCircle className="animate-spin" /> : <FlaskConical />}
+                Draft A/B test
+              </Button>
+            )
+          ) : (
+            <span className="text-[0.72rem] text-white/35" title={i.testPrompt}>
+              Pick a darwin.js site above to test this
+            </span>
+          ))}
+        {i.link && (
+          <Link href={i.link.href} className="flex items-center gap-1 text-[0.8rem] text-white/60 hover:text-white">
+            {i.link.label} <ArrowUpRight className="size-3.5" />
+          </Link>
+        )}
+        {state === "error" && <span className="text-[0.75rem] text-[#ffb4b4]">{msg}</span>}
+      </div>
+    </div>
   );
 }

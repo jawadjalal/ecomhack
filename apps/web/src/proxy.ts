@@ -80,6 +80,7 @@ export const config = {
     "/api/github/:path*",
     "/api/whop/:path*",
     "/api/traffic",
+    "/api/traffic/:path*",
     "/api/simulate",
     "/api/agent/shop",
     "/api/agent/sessions",
