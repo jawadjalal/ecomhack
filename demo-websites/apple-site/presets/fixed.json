@@ -1,0 +1,56 @@
+{
+  "version": 0,
+  "label": "Preview: every fix applied",
+  "hero": {
+    "headline": "Orchard Phone 17 Pro",
+    "subheadline": "Forged in titanium. Made for everything.",
+    "ctaText": "Buy",
+    "layout": "centered",
+    "showSocialProof": true
+  },
+  "announcement": {
+    "enabled": true,
+    "text": "Free delivery on orders over £50 and free 14-day returns."
+  },
+  "productGrid": {
+    "columns": 4,
+    "showRatings": true,
+    "showQuickAdd": true,
+    "sort": "bestselling"
+  },
+  "productPage": {
+    "ctaText": "Add to Bag",
+    "ctaPosition": "sticky",
+    "showReviews": true,
+    "showSizeGuide": true,
+    "showDeliveryEstimate": true,
+    "showReturnsPolicy": true,
+    "urgency": "none",
+    "trustBadges": true
+  },
+  "cart": {
+    "showShippingUpfront": true,
+    "freeShippingThreshold": 5000,
+    "upsell": true
+  },
+  "checkout": {
+    "steps": 1,
+    "guestCheckout": true,
+    "expressPay": true
+  },
+  "theme": {
+    "accent": "#0071e3",
+    "radius": "full"
+  },
+  "agentSurface": {
+    "structuredData": true,
+    "exposeStock": true,
+    "exposeDeliveryEta": true,
+    "exposeReturnPolicy": true,
+    "exposeLandedPrice": true,
+    "negotiation": {
+      "enabled": false,
+      "maxDiscountPct": 0
+    }
+  }
+}
