@@ -254,7 +254,7 @@ export function buildSpecPrBody(input: SpecPrInput): string {
   if (input.mode === "offline") {
     out.push(
       "> [!NOTE]",
-      "> **Dry run — preview only.** No `GITHUB_TOKEN` is configured, so no branch or PR was created. The diff below is against the previous spec Darwin served.",
+      "> **Dry run — preview only.** Darwin has no working `GITHUB_TOKEN`, so no branch or PR was created. The diff below is against the previous spec Darwin served.",
       "",
     );
   } else if (input.mode === "dry-run") {

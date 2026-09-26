@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { GithubMark } from "./brand";
+import { Markdown } from "./markdown";
 
 export function PrBody({ pr }: { pr: PrInfo }) {
   const files = pr.files ?? [];
@@ -44,9 +45,9 @@ export function PrBody({ pr }: { pr: PrInfo }) {
         </ul>
       )}
       {(pr.body || pr.note) && (
-        <pre className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 font-sans text-[0.85rem] leading-relaxed whitespace-pre-wrap text-white/65">
-          {pr.body ?? pr.note}
-        </pre>
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+          <Markdown source={pr.body ?? pr.note ?? ""} />
+        </div>
       )}
       {files.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -109,7 +110,7 @@ export function ConnectRepoModal({
   onConnected: (pr: PullRequestResult) => void;
 }) {
   const api = useApi();
-  const [url, setUrl] = useState("https://github.com/pace-running/storefront");
+  const [url, setUrl] = useState(status?.repo ? `https://github.com/${status.repo}` : "https://github.com/pace-running/storefront");
   const [busy, setBusy] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
   const [error, setError] = useState<string | null>(null);

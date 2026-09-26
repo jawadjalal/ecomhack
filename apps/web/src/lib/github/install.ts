@@ -516,7 +516,7 @@ export function buildInstallPrBody({ repo, detection, plan, snippet, mode }: Ins
   if (mode === "offline") {
     out.push(
       "> [!NOTE]",
-      "> **Dry run — preview only.** No `GITHUB_TOKEN` is configured, so Darwin could not read this repository.",
+      "> **Dry run — preview only.** Darwin has no working `GITHUB_TOKEN`, so it could not read this repository.",
       `> This preview assumes a ${detection.label} project with \`${detection.targets[0]}\`; the real PR is generated from your actual files.`,
       "",
     );

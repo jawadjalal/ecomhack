@@ -105,7 +105,7 @@ describe("offline dry run (no GITHUB_TOKEN)", () => {
     expect(pr.files[0].content).toContain('src="https://darwin.example.com/darwin.js"');
     expect(pr.files[0].content).toContain('data-darwin-site="acme-storefront"');
     expect(pr.files[0].content).toContain('strategy="afterInteractive"');
-    expect(pr.body).toContain("No `GITHUB_TOKEN` is configured");
+    expect(pr.body).toContain("no working `GITHUB_TOKEN`");
     expect(pr.body).toContain("assumes a Next.js (App Router) project");
   });
 
