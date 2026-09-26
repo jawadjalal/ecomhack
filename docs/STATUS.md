@@ -119,6 +119,12 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ---
 
+### Crew mascots  ✅
+- **Done:** six animated characters from the final pack (`public/mascots/{kind}-{state}.svg`). Darwin (leader, red crowned squircle) is the logo, favicon, and Ask Darwin avatar. Observer, analyst, designer, experimenter and shipper show on the loop, activity feed, page heads, autopilot, onboarding, readiness loading, personalize decisions and the store-agent chat. Pose: working / thinking / brief success / error / sleeping / idle, from `crewMascotState` and `useChatMascot`. Tap restarts the 1.4s one-shot (`stopPropagation`, so a parent card link does not fire). `prefers-reduced-motion` is inside each SVG.
+- **Left to do:** `src/lib/status/roadmap.ts` is still not in the tree, so the in-app "what's left" answer does not mention this.
+- **Limitations:** card-corner silhouettes stay flat vectors. ChatGPT / Claude / Gemini / etc. keep their official glyphs. Purple and penguin leader alternates were not copied into `public`. A failed chat *message* stays on the error pose; the header avatar returns to idle. Starter chips pass `interactive={false}` so the chip's own click still sends.
+- **Next-run ideas:** flash success on the shipper the moment a change lands, even after you open that change later; offer the penguin leader as a setting.
+
 ## Platform limitations (fix before real merchants)
 
 - **State lives in memory + `.data/`**: on Vercel each instance has its own state → demo from one process (`npm run build && npm start`) or move to Supabase (`lib/analytics/supabase.ts` mirror exists).
