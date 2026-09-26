@@ -88,9 +88,9 @@ export function Card({
 
 export function CardTitle({ children, right, className }: { children: ReactNode; right?: ReactNode; className?: string }) {
   return (
-    <div className={cn("flex items-start justify-between gap-3", className)}>
-      <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{children}</h2>
-      {right && <div className="shrink-0 pt-1 text-[13px] text-dw-ink/70">{right}</div>}
+    <div className={cn("flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1", className)}>
+      <h2 className="min-w-0 text-[22px] leading-tight font-semibold tracking-[-0.02em] text-balance">{children}</h2>
+      {right && <div className="min-w-0 text-[13px] text-pretty text-dw-ink/70">{right}</div>}
     </div>
   );
 }
@@ -98,9 +98,9 @@ export function CardTitle({ children, right, className }: { children: ReactNode;
 /** Big number + small caps label ("5.2%" / "converts"). */
 export function Stat({ value, label, active, className }: { value: ReactNode; label: ReactNode; active?: boolean; className?: string }) {
   return (
-    <div className={cn("flex flex-col", className)}>
-      <span className="num text-[20px] leading-tight font-semibold tracking-[-0.02em]">{value}</span>
-      <span className={cn("mt-0.5 text-[12px] tracking-[0.02em] text-dw-ink/70 uppercase", active && "border-b-2 border-dw-ink pb-1.5 text-dw-ink")}>{label}</span>
+    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+      <span className="num text-[20px] leading-none font-semibold tracking-[-0.02em] whitespace-nowrap">{value}</span>
+      <span className={cn("text-[12px] leading-tight tracking-[0.02em] whitespace-nowrap text-dw-ink/70 uppercase", active && "border-b-2 border-dw-ink pb-1.5 text-dw-ink")}>{label}</span>
     </div>
   );
 }
@@ -108,7 +108,7 @@ export function Stat({ value, label, active, className }: { value: ReactNode; la
 /** Legend chip: 10px rounded square, solid (series 1) or dashed (series 2). */
 export function LegendKey({ children, dashed, className }: { children: ReactNode; dashed?: boolean; className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-[12px] text-dw-ink/75", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap text-dw-ink/75", className)}>
       <span className={cn("size-2.5 rounded-[3px]", dashed ? "border border-dashed border-dw-ink" : "bg-dw-ink")} />
       {children}
     </span>
@@ -174,7 +174,7 @@ export function Segmented<T extends string>({ value, options, onChange, classNam
           type="button"
           onClick={() => onChange(o.value)}
           className={cn(
-            "h-8 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+            "h-8 rounded-full px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors",
             o.value === value ? "bg-dw-ink text-dw-bg" : "text-dw-ink/70 hover:text-dw-ink",
           )}
         >
@@ -265,15 +265,15 @@ export function Typing() {
 /** Page heading: optional mascot, H1 46/600 (two lines max), one-line lede. */
 export function PageHead({ mascot, title, lede, right }: { mascot?: ReactNode; title: ReactNode; lede?: ReactNode; right?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-5">
-      <div className="min-w-0">
-        <h1 className="flex items-center gap-4 text-[36px] leading-[1.05] font-semibold tracking-[-0.03em] sm:text-[46px]">
-          {mascot}
-          <span className="min-w-0">{title}</span>
+    <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+      <div className="min-w-0 flex-1 basis-[min(100%,32rem)]">
+        <h1 className="flex items-center gap-4 text-[34px] leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-[46px]">
+          {mascot && <span className="shrink-0">{mascot}</span>}
+          <span className="min-w-0 text-balance">{title}</span>
         </h1>
-        {lede && <p className="mt-3 max-w-[60rem] text-[17px] leading-snug text-dw-ink/75">{lede}</p>}
+        {lede && <p className="mt-4 max-w-[42rem] text-[17px] leading-relaxed text-pretty text-dw-ink/75">{lede}</p>}
       </div>
-      {right && <div className="flex shrink-0 items-center gap-2.5">{right}</div>}
+      {right && <div className="flex min-w-0 flex-wrap items-center gap-2.5">{right}</div>}
     </header>
   );
 }

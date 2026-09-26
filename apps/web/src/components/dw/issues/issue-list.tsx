@@ -85,7 +85,7 @@ export function IssueList({
                 {r.n}
               </span>
               <span className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="line-clamp-2 text-[15px] leading-snug font-semibold [overflow-wrap:anywhere]" title={r.insight.title}>{r.insight.title}</span>
+                <span className="line-clamp-2 text-[15px] leading-snug font-semibold text-balance" title={r.insight.title}>{r.insight.title}</span>
                 <span className={cn("text-[13px]", on ? "text-[#4F4417]" : "text-[#6B655A]")}>
                   <WhoMark who={r.who} /> {whoLabel(r.who)} · {r.where}
                   {r.status !== "queued" && <span className="font-medium text-dw-ink sm:hidden"> · {STATUS_LABEL[r.status]}</span>}

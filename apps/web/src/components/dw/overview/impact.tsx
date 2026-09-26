@@ -17,7 +17,7 @@ import { Swap } from "./swap";
 import { liftText, pctSmart } from "./model";
 
 function Divider() {
-  return <span aria-hidden className="hidden w-px self-stretch bg-dw-hairline lg:block" />;
+  return <span aria-hidden className="hidden w-px self-stretch bg-dw-hairline min-[1440px]:block" />;
 }
 
 /** Before (dashed) vs now (solid): ink-only, like every chart on the page. */
@@ -119,9 +119,9 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
                 },
               ]
           ).map((x, i) => (
-            <div key={i} className={cn("flex min-w-0 flex-col gap-1", i === 0 ? "pr-3" : "px-3")}>
-              <span className="num text-[30px] leading-none font-semibold tracking-[-0.03em]">{x.value}</span>
-              <span className="text-[12px] leading-snug text-dw-ink/60">{x.label}</span>
+            <div key={i} className={cn("flex min-w-0 flex-col gap-1.5", i === 0 ? "pr-3" : "px-3")}>
+              <span className="num text-[30px] leading-none font-semibold tracking-[-0.03em] whitespace-nowrap">{x.value}</span>
+              <span className="text-[12px] leading-snug text-balance text-dw-ink/60">{x.label}</span>
             </div>
           ))}
         </div>
@@ -143,18 +143,21 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
       <section
         aria-label="Darwin’s impact so far"
         className={cn(
-          "relative max-sm:hidden grid grid-cols-1 gap-x-6 gap-y-4 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-4 tabular-nums sm:grid-cols-2 lg:flex lg:h-[80px] lg:items-center lg:gap-x-5 lg:py-2.5",
+          "relative max-sm:hidden grid grid-cols-1 gap-x-8 gap-y-5 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-5 tabular-nums sm:grid-cols-2 min-[1440px]:flex min-[1440px]:items-center min-[1440px]:gap-x-6 min-[1440px]:py-4",
           DEPTH,
         )}
       >
-        <div className="flex min-w-0 items-center gap-3.5 sm:col-span-2 lg:flex-1">
+        <div className="flex min-w-0 items-center gap-4 sm:col-span-2 min-[1440px]:flex-1">
           <Mascot kind="shipper" size={42} frame active={loop.autopilot} />
           <div className="flex min-w-0 flex-col">
             {measured ? (
               <>
-                <span className="text-[20px] leading-tight font-semibold tracking-[-0.02em] lg:text-[18px]">
-                  {extra >= 0 ? "+" : "−"}
-                  <CountUp value={Math.abs(extra)} format="int" /> buyers per 1,000 visitors
+                <span className="text-[20px] leading-snug font-semibold tracking-[-0.02em] text-balance min-[1440px]:text-[18px]">
+                  <span className="num whitespace-nowrap">
+                    {extra >= 0 ? "+" : "−"}
+                    <CountUp value={Math.abs(extra)} format="int" />
+                  </span>{" "}
+                  buyers per 1,000 visitors
                 </span>
                 {/* The "simulated" label never truncates: only the sentence before it may. */}
                 <span className="flex min-w-0 items-baseline gap-1 text-[13.5px] leading-snug text-dw-ink/65 lg:text-[13px]">
@@ -170,7 +173,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
               </>
             ) : (
               <>
-                <span className="text-[20px] leading-tight font-semibold tracking-[-0.02em] lg:text-[18px]">{before ? "Your original store is measured" : "Darwin is getting to know your store"}</span>
+                <span className="text-[20px] leading-snug font-semibold tracking-[-0.02em] text-balance min-[1440px]:text-[18px]">{before ? "Your original store is measured" : "Darwin is getting to know your store"}</span>
                 <span className="text-[13.5px] leading-snug text-dw-ink/65 lg:line-clamp-1 lg:text-[13px]">
                   {before
                     ? `${pctSmart(before.overallConversionRate)} of shoppers buy today. Darwin’s impact shows here once the first change ships.`
