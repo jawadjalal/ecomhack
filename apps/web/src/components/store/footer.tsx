@@ -1,4 +1,8 @@
 import { PaceLogo } from "./logo";
+import { StoreLink } from "./store-provider";
+
+/** Footer entries that have a real page. */
+const HREFS: Record<string, string> = { Delivery: "/store/help/delivery", Returns: "/store/help/returns" };
 
 const COLS = [
   { title: "Shop", links: ["Road", "Trail", "Racing", "Accessories", "Gift cards"] },
@@ -44,7 +48,13 @@ export function StoreFooter({ slim = false }: { slim?: boolean }) {
               <ul className="mt-4 space-y-2.5 text-sm text-white/80">
                 {c.links.map((l) => (
                   <li key={l}>
-                    <span className="cursor-default hover:text-white">{l}</span>
+                    {HREFS[l] ? (
+                      <StoreLink href={HREFS[l]} className="hover:text-white">
+                        {l}
+                      </StoreLink>
+                    ) : (
+                      <span className="cursor-default hover:text-white">{l}</span>
+                    )}
                   </li>
                 ))}
               </ul>

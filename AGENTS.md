@@ -23,6 +23,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/optimizer/           The loop: insights → proposals → experiments → decisions → ship.
   src/lib/agent-commerce/      Agent-facing store: REST tools, MCP server, A2A merchant agent, negotiation, llms.txt.
   src/lib/github/              Connect repo, open analytics-install PR, open "ship winner" PR.
+  src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher.
   src/lib/llm/                 Grok (xAI) / Claude / heuristic fallback.
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
   src/app/store/**             The demo storefront (what shoppers see).
@@ -41,6 +42,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | simulator | `lib/simulator/**`, `/api/simulate` | `simulateTraffic` |
 | optimizer | `lib/optimizer/**`, `/api/loop/**`, `/api/experiments/**` | `getLoopState`, `stepLoop`, `setAutopilot`, `resetLoop` |
 | github | `lib/github/**`, `/api/github/**` | `openAnalyticsInstallPR`, `openSpecPR` |
+| readiness | `lib/readiness/**`, `/api/readiness`, `/api/leads`, `app/readiness/**`, `components/readiness/**` | `auditStore`, `evaluate` |
 | console | `app/page.tsx`, `app/console/**`, `components/console/**` | — |
 
 Cross-module calls go through the public API above, never deep imports into another area.
