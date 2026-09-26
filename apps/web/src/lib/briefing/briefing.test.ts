@@ -57,7 +57,9 @@ describe("merchant briefing", () => {
     expect(["winning", "ready"]).toContain(item.status);
     expect(item.probabilityToBeat).toBeGreaterThanOrEqual(0.8);
     expect(item.sample).toBeGreaterThan(0);
-    expect(item.say).toMatch(/\(simulated traffic\)\.$/);
+    // Always labelled. Depending on how the (random) arm split landed, the line ends there, notes that it's past the
+    // ship bar, or says Darwin would wait for more conversations before calling it.
+    expect(item.say).toMatch(/\(simulated traffic\)(, past the \d+(\.\d+)?% bar to ship|; Darwin would wait for more conversations before calling it)?\.$/);
     expect(briefing.ask).toEqual({ id: item.id, action: "ship" });
     expect(briefing.headline).toMatch(/“Facts up front” is (winning at|ready to ship)/);
     expect(briefing.headline).toContain("want me to ship it?");

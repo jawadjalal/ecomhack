@@ -62,7 +62,7 @@ export function SuccessView({ orderId }: { orderId?: string }) {
         <p className="pace-eyebrow mt-6 text-(--muted)">Order {ref} confirmed</p>
         <h1 className="pace-display mt-3 text-4xl font-extrabold sm:text-5xl">Thanks, {order.firstName}. You&apos;re all set.</h1>
         <p className="mt-4 max-w-md text-(--muted)">
-          We&apos;ve sent a confirmation to <span className="font-medium text-(--ink)">{order.email}</span>. Your order arrives{" "}
+          Confirmation for <span className="font-medium text-(--ink)">{order.email}</span> (a demo store, so no email is sent). Your order arrives{" "}
           <span className="font-medium text-(--ink)">{order.deliveryDate ?? "in 2–3 days"}</span>.
         </p>
       </div>
