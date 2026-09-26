@@ -1,0 +1,206 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChevronRight, Handshake } from "lucide-react";
+import type { AgentSessionSummary } from "@/lib/contracts";
+import { money, timeAgo } from "@/lib/console/format";
+import { useNow } from "@/lib/console/hooks";
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { Badge, Tag } from "@/components/ui/badge";
+import { cn } from "@/components/ui/cn";
+
+function pickDefault(sessions: AgentSessionSummary[]): AgentSessionSummary | undefined {
+  const recent = sessions.slice(0, 6);
+  return recent.find((s) => s.negotiation?.length && s.outcome === "purchased") ?? recent.find((s) => s.negotiation?.length) ?? sessions[0];
+}
+
+function Outcome({ s }: { s: AgentSessionSummary }) {
+  if (s.outcome === "purchased") return <Badge tone="good">Purchased{s.orderTotal ? ` · ${money(s.orderTotal)}` : ""}</Badge>;
+  if (s.outcome === "abandoned") return <Badge tone="bad">Abandoned</Badge>;
+  return <Badge tone="info">In progress</Badge>;
+}
+
+function GoalChips({ s }: { s: AgentSessionSummary }) {
+  const g = s.goal;
+  if (!g) return null;
+  const chips = [
+    g.maxBudget ? `≤ ${money(g.maxBudget)}` : undefined,
+    g.size ? `UK ${g.size}` : undefined,
+    g.deadlineDays ? `in ${g.deadlineDays}d` : undefined,
+    g.requiresFreeReturns ? "free returns" : undefined,
+    g.negotiates ? "negotiates" : undefined,
+  ].filter(Boolean) as string[];
+  return (
+    <div className="flex flex-wrap gap-1">
+      {chips.map((c) => (
+        <span key={c} className="rounded-md bg-white/[0.05] px-1.5 py-0.5 text-[0.68rem] text-white/55">
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Detail({ s }: { s: AgentSessionSummary }) {
+  const now = useNow();
+  return (
+    <motion.div
+      key={s.sessionId}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.22 }}
+      className="flex min-h-0 flex-1 flex-col gap-2.5"
+    >
+      <div className="flex items-center gap-2">
+        <span className="flex size-7 items-center justify-center rounded-full bg-agent/15 text-[0.9rem]">🤖</span>
+        <span className="truncate text-[0.95rem] font-semibold text-white">{s.agentName}</span>
+        <Outcome s={s} />
+        <div className="flex-1" />
+        {s.synthetic && <Tag>Synthetic</Tag>}
+        <span className="text-[0.7rem] text-white/30 tabular">{now ? timeAgo(s.startedAt, now) : ""}</span>
+      </div>
+      {s.goal?.brief && (
+        <div className="rounded-lg border-l-2 border-agent/50 bg-white/[0.025] px-3 py-1.5">
+          <div className="text-[0.84rem] text-white/80 italic">“{s.goal.brief}”</div>
+          <div className="mt-1">
+            <GoalChips s={s} />
+          </div>
+        </div>
+      )}
+      {/* tool timeline */}
+      <div className="flex flex-wrap items-center gap-1">
+        {s.toolCalls.map((c, i) => (
+          <span key={`${c.tool}-${i}`} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight className="size-3 text-white/20" />}
+            <span
+              title={c.missing?.length ? `missing: ${c.missing.join(", ")}` : undefined}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[0.66rem]",
+                !c.ok ? "border-bad/35 bg-bad/10 text-[#ff9b9b]" : c.missing?.length ? "border-warn/35 bg-warn/10 text-[#ffd27a]" : "border-white/10 bg-white/[0.04] text-white/65",
+              )}
+            >
+              {c.ok ? "✓" : "✗"} {c.tool}
+              {c.missing?.length ? <span className="opacity-75">· no {c.missing.join(", ")}</span> : null}
+            </span>
+          </span>
+        ))}
+      </div>
+      {/* negotiation */}
+      {s.negotiation?.length ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden">
+          {s.negotiation.map((t, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: t.from === "buyer" ? -10 : 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.12 }}
+              className={cn("flex items-end gap-1.5", t.from === "merchant" && "flex-row-reverse")}
+            >
+              <span className="mb-0.5 text-[0.9rem]">{t.from === "buyer" ? "🤖" : "🏪"}</span>
+              <div
+                className={cn(
+                  "max-w-[82%] rounded-2xl px-3 py-1.5 text-[0.8rem] leading-snug",
+                  t.from === "buyer" ? "rounded-bl-sm bg-agent/12 text-white/80" : "rounded-br-sm bg-brand/10 text-white/80",
+                )}
+              >
+                {t.message}
+                {t.offer !== undefined && (
+                  <span
+                    className={cn(
+                      "ml-1.5 inline-block rounded-md px-1.5 text-[0.7rem] font-semibold tabular",
+                      t.from === "buyer" ? "bg-agent/20 text-[#f5a6cb]" : "bg-brand/20 text-brand",
+                    )}
+                  >
+                    {money(t.offer)}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[0.76rem] text-white/30">No negotiation in this session.</div>
+      )}
+      {s.outcome === "abandoned" && s.reason && (
+        <div className="mt-auto rounded-lg bg-bad/[0.08] px-3 py-1.5 text-[0.8rem] text-[#ffb4b4]">
+          <span className="font-semibold">Left because:</span> {s.reason}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
+  const [pinned, setPinned] = useState<string | null>(null);
+  const list = sessions ?? [];
+  // follow the most interesting recent session, but switch at most every 6s so it stays readable
+  const candidate = pickDefault(list)?.sessionId;
+  const [autoId, setAutoId] = useState<string | undefined>(undefined);
+  const lastSwitch = useRef(0);
+  useEffect(() => {
+    if (!candidate || candidate === autoId) return;
+    const wait = autoId ? Math.max(0, 6000 - (Date.now() - lastSwitch.current)) : 0;
+    const t = setTimeout(() => {
+      lastSwitch.current = Date.now();
+      setAutoId(candidate);
+    }, wait);
+    return () => clearTimeout(t);
+  }, [candidate, autoId]);
+  const find = (id?: string | null) => (id ? list.find((s) => s.sessionId === id) : undefined);
+  const selected = find(pinned) ?? find(autoId) ?? pickDefault(list);
+  const purchased = list.filter((s) => s.outcome === "purchased").length;
+
+  return (
+    <Panel className="h-full">
+      <PanelHeader
+        icon={<Handshake />}
+        title="Agent-to-agent commerce"
+        right={
+          list.length > 0 && (
+            <span className="text-[0.74rem] text-white/45 tabular">
+              <span className="font-semibold text-white/80">{purchased}</span>/{list.length} bought
+            </span>
+          )
+        }
+      />
+      {list.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center text-[0.85rem] text-white/35">
+          <Handshake className="size-6 text-white/15" />
+          Buyer agents discover the store via llms.txt, shop over MCP and negotiate with Darwin&apos;s merchant agent.
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-4">
+          <div className="flex gap-1.5 overflow-hidden">
+            {list.slice(0, 7).map((s) => {
+              const active = selected?.sessionId === s.sessionId;
+              return (
+                <button
+                  key={s.sessionId}
+                  onClick={() => setPinned(active && pinned ? null : s.sessionId)}
+                  title={`${s.agentName}: ${s.goal?.brief ?? ""} (${s.outcome})`}
+                  className={cn(
+                    "relative flex h-8 min-w-0 shrink-0 items-center gap-1.5 rounded-lg border px-2 text-[0.72rem] transition-colors",
+                    active ? "border-white/25 bg-white/[0.08] text-white" : "border-white/[0.07] bg-white/[0.02] text-white/50 hover:text-white/80",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      s.outcome === "purchased" ? "bg-good" : s.outcome === "abandoned" ? "bg-bad" : "bg-sky-400",
+                    )}
+                  />
+                  <span className="max-w-[5.5rem] truncate">{s.agentName.replace(/-(shopper|buyer|agent)$/, "")}</span>
+                  {s.negotiation?.length ? <span>🤝</span> : null}
+                  {active && pinned && <span className="absolute -top-1 -right-1 size-2 rounded-full bg-brand" title="Pinned" />}
+                </button>
+              );
+            })}
+          </div>
+          <AnimatePresence mode="wait">{selected && <Detail key={selected.sessionId} s={selected} />}</AnimatePresence>
+        </div>
+      )}
+    </Panel>
+  );
+}

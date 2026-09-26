@@ -3,14 +3,6 @@ import { compareArms, MockEngine } from "./mock";
 import { createConsoleApi } from "./api";
 import { describeEvent, findPullRequest, parseDiffLine, sourceBadge } from "./format";
 
-async function stepUntil(engine: MockEngine, phase: string, max = 30) {
-  for (let i = 0; i < max; i++) {
-    const s = await engine.stepLoop();
-    if (s.phase === phase) return s;
-  }
-  throw new Error(`never reached ${phase}`);
-}
-
 describe("mock engine", () => {
   it("walks the full loop and ships a winner with a PR", async () => {
     const engine = new MockEngine({ latency: 0 });

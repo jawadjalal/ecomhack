@@ -489,6 +489,8 @@ interface KindAgg {
   revenue: number;
   funnel: number[];
   events: number;
+  /** Error-diffusion accumulators per funnel step, so small samples convert at the modelled rate. */
+  acc: number[];
 }
 interface Bucket {
   specVersion: number;
@@ -501,7 +503,17 @@ interface Bucket {
   lastAt: string;
 }
 
-const emptyKind = (): KindAgg => ({ visitors: 0, orders: 0, revenue: 0, funnel: [0, 0, 0, 0, 0], events: 0 });
+const emptyKind = (): KindAgg => ({ visitors: 0, orders: 0, revenue: 0, funnel: [0, 0, 0, 0, 0], events: 0, acc: [0.5, 0.35, 0.6, 0.45] });
+
+/** Dithered Bernoulli: passes at exactly rate p over time (±1), in a jittered order. */
+function pass(agg: KindAgg, step: number, p: number, jitter: number) {
+  agg.acc[step] += p + (jitter - 0.5) * 0.3 * p;
+  if (agg.acc[step] >= 1) {
+    agg.acc[step] -= 1;
+    return true;
+  }
+  return false;
+}
 
 function sumKpis(aggs: KindAgg[]): SegmentKpis {
   const t = aggs.reduce(
@@ -716,14 +728,14 @@ export class MockEngine {
     const common = { persona: persona.name, $device_type: persona.mobile ? "Mobile" : "Desktop" };
     push("$pageview", { ...common, $pathname: "/store" });
     agg.funnel[0] += 1;
-    if (this.rng() >= r[0]) return;
+    if (!pass(agg, 0, r[0], this.rng())) return;
     push("product_viewed", { ...common, product_id: product.id, price: product.price, $pathname: `/store/products/${product.slug}` });
     agg.funnel[1] += 1;
     if (spec.productPage.ctaPosition === "below-description" && this.rng() < 0.09) {
       push("$rageclick", { ...common, element: "size selector" });
       this.friction(b, { kind: "rage_click", audience: "human", location: "product page · size selector" });
     }
-    if (this.rng() >= r[1]) {
+    if (!pass(agg, 1, r[1], this.rng())) {
       if (spec.productPage.ctaPosition === "below-description" && this.rng() < 0.5) {
         this.friction(b, { kind: "dead_end", audience: "human", location: "product page", detail: "never reached Add to bag" });
       }
@@ -731,7 +743,7 @@ export class MockEngine {
     }
     push("product_added", { ...common, product_id: product.id, price: product.price, size, quantity: 1 });
     agg.funnel[2] += 1;
-    if (this.rng() >= r[2]) {
+    if (!pass(agg, 2, r[2], this.rng())) {
       if (!spec.checkout.guestCheckout && this.rng() < 0.5) {
         this.friction(b, { kind: "dead_end", audience: "human", location: "checkout · account wall" });
       }
@@ -742,7 +754,7 @@ export class MockEngine {
     push("checkout_started", { ...common, value: product.price, product_id: product.id });
     agg.funnel[3] += 1;
     if (!spec.cart.showShippingUpfront && shipping > 0) push("shipping_cost_revealed", { ...common, shipping });
-    if (this.rng() >= r[3]) {
+    if (!pass(agg, 3, r[3], this.rng())) {
       const shock = !spec.cart.showShippingUpfront && shipping > 0 && this.rng() < 0.7;
       const reason = shock ? "surprise shipping cost" : !spec.checkout.guestCheckout ? "account required" : "left at payment";
       push("checkout_abandoned", { ...common, reason, product_id: product.id });
@@ -817,7 +829,7 @@ export class MockEngine {
     // 1. discover
     call("search_products", true);
     agg.funnel[0] += 1;
-    if (this.rng() >= r[0]) {
+    if (!pass(agg, 0, r[0], this.rng())) {
       abandon(s.structuredData ? "nothing matched the brief" : "no structured product data to compare");
       return finish();
     }
@@ -833,7 +845,7 @@ export class MockEngine {
       const stockMissing = s.exposeStock ? [] : ["stock"];
       call("check_availability", s.exposeStock, stockMissing);
     }
-    if (this.rng() >= r[1]) {
+    if (!pass(agg, 1, r[1], this.rng())) {
       const missing = [...wanted, ...(goal.size && !s.exposeStock ? ["stock"] : [])];
       const reasons: Record<string, string> = {
         deliveryEtaDays: "no delivery ETA exposed",
@@ -865,14 +877,14 @@ export class MockEngine {
       call("negotiate", s.negotiation.enabled);
       for (const turn of turns) push("agent_negotiation", { agent_name: agentName, from: turn.from, message: turn.message, offer: turn.offer });
     }
-    if (this.rng() >= r[2]) {
+    if (!pass(agg, 2, r[2], this.rng())) {
       abandon(goal.negotiates && !s.negotiation.enabled ? "wanted a discount; merchant can't negotiate" : "over budget after shipping");
       return finish();
     }
     push("checkout_started", { agent_name: agentName, value: price, product_id: product.id });
     agg.funnel[3] += 1;
     // 4. checkout
-    if (this.rng() >= r[3]) {
+    if (!pass(agg, 3, r[3], this.rng())) {
       call("checkout", false);
       abandon(spec.checkout.guestCheckout ? "payment declined by principal" : "checkout requires creating an account");
       return finish();

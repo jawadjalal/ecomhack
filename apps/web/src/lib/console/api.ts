@@ -94,7 +94,9 @@ export interface ConsoleApi {
   connectRepo(repoUrl: string): Promise<PullRequestResult>;
 }
 
-export function createConsoleApi(mode: ApiMode = "auto", engine: MockEngine = mockEngine()): ConsoleApi {
+export function createConsoleApi(mode: ApiMode = "auto", engineOrFactory: MockEngine | (() => MockEngine) = mockEngine): ConsoleApi {
+  // Lazy so that server-side rendering never instantiates the simulation.
+  const eng = () => (typeof engineOrFactory === "function" ? engineOrFactory() : engineOrFactory);
   /** group → time it was found missing. */
   const missing = new Map<ApiGroup, number>();
   const listeners = new Set<() => void>();
@@ -134,13 +136,13 @@ export function createConsoleApi(mode: ApiMode = "auto", engine: MockEngine = mo
       return () => listeners.delete(listener);
     },
 
-    getLoop: () => call("optimizer", () => request<LoopResponse>("GET", "/api/loop"), () => engine.getLoop()),
-    stepLoop: () => call("optimizer", () => request<LoopResponse>("POST", "/api/loop/step", {}), () => engine.stepLoop()),
+    getLoop: () => call("optimizer", () => request<LoopResponse>("GET", "/api/loop"), () => eng().getLoop()),
+    stepLoop: () => call("optimizer", () => request<LoopResponse>("POST", "/api/loop/step", {}), () => eng().stepLoop()),
     setAutopilot: (on) =>
-      call("optimizer", () => request<LoopResponse>("POST", "/api/loop/autopilot", { on }), () => engine.setAutopilot(on)),
-    resetLoop: () => call("optimizer", () => request<LoopResponse>("POST", "/api/loop/reset", {}), () => engine.resetLoop()),
+      call("optimizer", () => request<LoopResponse>("POST", "/api/loop/autopilot", { on }), () => eng().setAutopilot(on)),
+    resetLoop: () => call("optimizer", () => request<LoopResponse>("POST", "/api/loop/reset", {}), () => eng().resetLoop()),
     getExperiments: () =>
-      call("optimizer", () => request<ExperimentsResponse>("GET", "/api/experiments"), () => engine.getExperiments()),
+      call("optimizer", () => request<ExperimentsResponse>("GET", "/api/experiments"), () => eng().getExperiments()),
 
     getSummary: (filter = {}) =>
       call(
@@ -155,23 +157,23 @@ export function createConsoleApi(mode: ApiMode = "auto", engine: MockEngine = mo
               specVersion: filter.specVersion,
             })}`,
           ),
-        () => engine.getSummary(filter),
+        () => eng().getSummary(filter),
       ),
     getEvents: (after, limit = 100) =>
       call(
         "analytics",
         () => request<AnalyticsEventsResponse>("GET", `/api/analytics/events${qs({ after, limit })}`),
-        () => engine.getEvents(after, limit),
+        () => eng().getEvents(after, limit),
       ),
 
     getSessions: (limit = 20) =>
-      call("agents", () => request<AgentSessionsResponse>("GET", `/api/agent/sessions${qs({ limit })}`), () => engine.getSessions(limit)),
+      call("agents", () => request<AgentSessionsResponse>("GET", `/api/agent/sessions${qs({ limit })}`), () => eng().getSessions(limit)),
 
-    simulate: (opts) => call("simulator", () => request<SimulationResult>("POST", "/api/simulate", opts), () => engine.simulate(opts)),
+    simulate: (opts) => call("simulator", () => request<SimulationResult>("POST", "/api/simulate", opts), () => eng().simulate(opts)),
 
     getGithubStatus: () =>
-      call("github", () => request<GithubStatusResponse>("GET", "/api/github/status"), () => engine.getGithubStatus()),
+      call("github", () => request<GithubStatusResponse>("GET", "/api/github/status"), () => eng().getGithubStatus()),
     connectRepo: (repoUrl) =>
-      call("github", () => request<PullRequestResult>("POST", "/api/github/connect", { repoUrl }), () => engine.connectRepo(repoUrl)),
+      call("github", () => request<PullRequestResult>("POST", "/api/github/connect", { repoUrl }), () => eng().connectRepo(repoUrl)),
   };
 }
