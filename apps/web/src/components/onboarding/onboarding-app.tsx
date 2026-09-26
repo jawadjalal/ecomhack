@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import type { DashboardKind, DashboardsResponse, GithubStatusResponse, TrackingEvent, TrackingPlan, WebSimulateResponse } from "@/lib/contracts";
 import type { PullRequestResult } from "@/lib/github";
+import type { VerifyResult } from "@/lib/tracking/verify";
 import type { WhopConnection, WhopStatus } from "@/lib/whop";
 import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
@@ -1483,6 +1484,7 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
 /** The install step without GitHub: copy one script tag, then start recording. */
 function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet: string; onDone: () => void }) {
   const [copied, setCopied] = useState(false);
+  const verify = useVerify(plan.site, plan.siteUrl);
   const custom = plan.events.filter((e) => e.enabled && !e.automatic).length;
   return (
     <>
@@ -1518,12 +1520,72 @@ function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet
           </PillButton>
         </div>
       </Card>
+      <VerifyRow host={hostOf(plan.siteUrl ?? "")} verify={verify} />
       <div className="flex justify-end">
         <Gel h={52} onClick={onDone} className="max-sm:w-full">
           <Radio /> Start recording
         </Gel>
       </div>
     </>
+  );
+}
+
+/**
+ * Is darwin.js really on the store? GET /api/onboarding/verify every 5 s until it is (a real event from the
+ * store, or the tag on its homepage). Without a store address (the GitHub path) there's nothing to poll.
+ */
+function useVerify(site: string, url: string | undefined) {
+  const [result, setResult] = useState<VerifyResult | null>(null);
+  const [checking, setChecking] = useState(false);
+  const check = useCallback(async () => {
+    if (!url) return;
+    setChecking(true);
+    try {
+      const r = await http<VerifyResult>("GET", `/api/onboarding/verify?site=${encodeURIComponent(site)}&url=${encodeURIComponent(url)}`);
+      setResult(r);
+      if (r.verified) track("install_verified", { site, via: r.via });
+    } catch {
+      /* the next poll tries again */
+    } finally {
+      setChecking(false);
+    }
+  }, [site, url]);
+  const verified = !!result?.verified;
+  useEffect(() => {
+    if (!url || verified) return;
+    const first = setTimeout(check, 0);
+    const t = setInterval(check, 5000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [check, url, verified]);
+  return { result, verified, checking, check };
+}
+
+type Verify = ReturnType<typeof useVerify>;
+
+/** "Waiting to detect darwin.js on eastfork.com…" → "Verified: darwin.js found on eastfork.com". */
+function VerifyRow({ host, verify, className }: { host: string; verify: Verify; className?: string }) {
+  const { result, verified, checking, check } = verify;
+  return (
+    <div
+      aria-live="polite"
+      className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] px-4 py-3", verified ? "bg-dw-win-bg text-dw-win" : "bg-dw-sand/80 text-dw-ink", className)}
+    >
+      <span className="grid size-6 shrink-0 place-items-center">
+        {verified ? <CheckPop size={20} tone="live" burst /> : <LoaderCircle className="size-[18px] animate-spin text-dw-ink/45 motion-reduce:animate-none" aria-hidden />}
+      </span>
+      <span className="min-w-0 flex-1 basis-52">
+        <span className="block text-[14.5px] font-semibold">{verified ? `Verified: darwin.js found on ${host}` : `Waiting to detect darwin.js on ${host}…`}</span>
+        {result?.detail && <span className={cn("block text-[13px] leading-snug", verified ? "text-dw-win/80" : "text-dw-ink/60")}>{result.detail}</span>}
+      </span>
+      {!verified && (
+        <PillButton tone="white" size="sm" onClick={() => void check()} disabled={checking} className="max-sm:w-full">
+          {checking ? <LoaderCircle className="animate-spin" /> : <Radio />} Test my install
+        </PillButton>
+      )}
+    </div>
   );
 }
 
@@ -1573,6 +1635,9 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
     }
   }, [recorded, plan.site]);
   const real = data ? data.totalEvents - data.syntheticEvents : 0;
+  const verify = useVerify(plan.site, plan.siteUrl);
+  /** Only proof counts as "Recording": the tag on the store, or real visits (the GitHub path has no address to check). */
+  const recording = verify.verified || (!plan.siteUrl && real > 0);
 
   return (
     <>
@@ -1582,8 +1647,9 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           <div className="min-w-0">
             <h1 className="text-[32px] leading-[1.05] font-semibold tracking-[-0.03em] text-balance sm:text-[46px]">Your dashboards are built</h1>
             <p className="mt-2 max-w-[48rem] text-[15.5px] leading-snug text-dw-ink/70 sm:text-[17px]">
-              {plan.siteUrl ? "Publish the script tag" : "Merge the pull request and deploy"}: real shoppers show up here within seconds. Or fill it now with simulated shoppers
-              (labelled, never mixed into your real numbers).
+              {recording
+                ? "darwin.js is live: real shoppers show up here within seconds. Simulated shoppers stay labelled and never mix into your real numbers."
+                : `${plan.siteUrl ? "Publish the script tag" : "Merge the pull request and deploy"}: until Darwin sees it, this is a simulated preview. Send simulated shoppers to watch it fill (labelled, never mixed into your real numbers).`}
             </p>
           </div>
         </div>
@@ -1597,6 +1663,8 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           </Gel>
         </div>
       </header>
+
+      {plan.siteUrl && <VerifyRow host={hostOf(plan.siteUrl)} verify={verify} className="-mt-2" />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[21rem_minmax(0,1fr)]">
         <Card tone="yellow" shape="experimenter" corner="br" hover={false} className="self-start p-5 sm:p-6">
@@ -1624,7 +1692,15 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
             />
           </div>
           <div className="mt-3 flex min-w-0 items-center gap-2 text-[13px] text-dw-ink/75">
-            <LiveDot /> Recording <span className="truncate font-dwmono text-[12.5px]">{plan.site}</span>
+            {recording ? (
+              <>
+                <LiveDot /> Recording <span className="truncate font-dwmono text-[12.5px]">{plan.site}</span>
+              </>
+            ) : (
+              <>
+                <span aria-hidden className="size-2 shrink-0 rounded-full bg-dw-ink/30" /> Not verified yet: simulated preview
+              </>
+            )}
           </div>
           <ul className="mt-3 flex flex-col">
             {events.map((e, i) => {
