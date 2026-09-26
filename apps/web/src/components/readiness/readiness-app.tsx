@@ -150,7 +150,7 @@ function FetchFeed({ rows, host, report, running }: { rows: FetchRow[]; host: st
               <span className={cn("grid size-6 shrink-0 place-items-center rounded-full", w.good ? "bg-dw-win-bg text-dw-win" : "bg-dw-sand text-dw-muted")}>
                 {w.good ? <Check className="size-3.5" /> : <Minus className="size-3.5" />}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[14px]">{r.label}</span>
+              <span className="min-w-0 flex-1 text-[14px] leading-snug break-words">{r.label}</span>
               <span className={cn("shrink-0 text-[12px] font-medium", w.good ? "text-dw-win" : "text-dw-muted")}>{w.word}</span>
               <span className="hidden w-12 shrink-0 text-right font-dwmono text-[11px] text-dw-muted tabular-nums sm:block">{r.ms}ms</span>
             </li>
