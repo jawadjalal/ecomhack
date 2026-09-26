@@ -12,6 +12,7 @@ import { PHASE_META } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "../mascot";
 import { CountUp, Grow } from "./fx";
+import { Swap } from "./swap";
 import { liftText, pctSmart } from "./model";
 
 function Divider() {
@@ -25,10 +26,10 @@ function BeforeNow({ label, before, now, max }: { label: string; before: number;
     <div className="flex min-w-0 flex-col gap-1.5 lg:gap-1">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[13px] text-dw-ink/65 lg:text-[12.5px]">{label}</span>
-        {lift !== undefined && <span className={cn("num text-[12px] font-semibold", lift >= 0 ? "text-dw-win" : "text-dw-warn")}>{liftText(lift)}</span>}
+        {lift !== undefined && <span className={cn("num min-w-[3.25rem] text-right text-[12px] font-semibold", lift >= 0 ? "text-dw-win" : "text-dw-warn")}>{liftText(lift)}</span>}
       </div>
       <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:gap-3">
-        <span className="num text-[16px] leading-tight font-semibold whitespace-nowrap lg:text-[15px]">
+        <span className="num text-[16px] leading-tight font-semibold whitespace-nowrap lg:min-w-[6.5rem] lg:text-[15px]">
           <span className="font-medium text-dw-ink/55">{pctSmart(before)}</span> → {pctSmart(now)}
         </span>
         <span className="flex w-full flex-col gap-[3px] sm:w-[132px] lg:w-14" aria-hidden>
@@ -40,8 +41,24 @@ function BeforeNow({ label, before, now, max }: { label: string; before: number;
   );
 }
 
+/** Holds the strip's exact footprint while the first poll is in flight, so nothing below it jumps. */
+function StripPlaceholder() {
+  return (
+    <>
+      <div aria-hidden className="h-[92px] sm:hidden" />
+      <div aria-hidden className="flex h-[80px] items-center gap-3.5 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 max-sm:hidden">
+        <span className="size-[42px] shrink-0 rounded-full bg-dw-ink/[0.06]" />
+        <span className="flex flex-col gap-2">
+          <span className="h-3.5 w-56 rounded-full bg-dw-ink/[0.07]" />
+          <span className="h-2.5 w-40 rounded-full bg-dw-ink/[0.05]" />
+        </span>
+      </div>
+    </>
+  );
+}
+
 export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState; experiments?: Experiment[]; simulated: boolean }) {
-  if (!loop) return null;
+  if (!loop) return <StripPlaceholder />;
   const history = loop.history;
   const before = history[0];
   const now = history.at(-1);
@@ -55,6 +72,11 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
 
   const lift = measured && before.overallConversionRate > 0 ? now.overallConversionRate / before.overallConversionRate - 1 : undefined;
   const status = loop.autopilot ? phase.verb : "Paused";
+  const blurb = loop.autopilot
+    ? `${phase.blurb}.`
+    : loop.phase === "idle"
+      ? `Let Darwin run to ${shipped ? "keep" : "start"} improving your store.`
+      : `Stopped while ${phase.verb.toLowerCase()}. Let it run to carry on.`;
 
   return (
     <>
@@ -88,10 +110,12 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
           ))}
         </div>
         <div className="flex items-center justify-between gap-3 text-[12.5px] text-dw-ink/60">
-          <span className="flex min-w-0 items-center gap-1.5 truncate">
+          <span className="flex min-w-0 items-center gap-1.5">
             <span className={cn("size-1.5 shrink-0 rounded-full", loop.autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
-            {status}
-            {simulated ? " · simulated shoppers" : ""}
+            <Swap k={status} className="min-w-0 whitespace-nowrap">
+              {status}
+            </Swap>
+            {simulated && <span className="shrink-0 whitespace-nowrap">· simulated</span>}
           </span>
           <Link
             href="/console/changes"
@@ -105,7 +129,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
 
       <section
         aria-label="Darwin’s impact so far"
-        className="relative max-sm:hidden grid grid-cols-1 gap-x-6 gap-y-4 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-4 sm:grid-cols-2 lg:flex lg:min-h-[72px] lg:items-center lg:gap-x-5 lg:py-2.5"
+        className="relative max-sm:hidden grid grid-cols-1 gap-x-6 gap-y-4 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-4 sm:grid-cols-2 lg:flex lg:h-[80px] lg:items-center lg:gap-x-5 lg:py-2.5"
       >
         <div className="flex min-w-0 items-center gap-3.5 sm:col-span-2 lg:flex-1">
           <Mascot kind="shipper" size={42} frame active={loop.autopilot} />
@@ -152,9 +176,9 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
         )}
 
         <Divider />
-        <div className="flex min-w-0 flex-col gap-1 lg:shrink-0">
-          <span className="text-[16px] leading-tight font-semibold lg:text-[15px]">
-            {shipped} change{shipped === 1 ? "" : "s"} shipped
+        <div className="flex min-w-0 flex-col gap-1 lg:w-[15.5rem] lg:shrink-0">
+          <span className="text-[16px] leading-tight font-semibold whitespace-nowrap lg:text-[15px]">
+            <CountUp value={shipped} format="int" /> change{shipped === 1 ? "" : "s"} shipped
             <span className="font-normal text-dw-ink/65 max-lg:hidden">
               {" "}
               · {running ? `${running} test${running === 1 ? "" : "s"} running` : "no test running"}
@@ -173,16 +197,12 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
         <Divider />
         <div className="flex min-w-0 flex-col gap-1 lg:w-[13.5rem] lg:shrink-0">
           <span className="flex items-center gap-2 text-[16px] leading-tight font-semibold lg:text-[15px]">
-            <span className={cn("size-2 shrink-0 rounded-full", loop.autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
-            {loop.autopilot ? phase.verb : "Paused"}
+            <span className={cn("size-2 shrink-0 rounded-full transition-colors", loop.autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
+            <Swap k={status}>{status}</Swap>
           </span>
-          <span className="text-[13px] leading-snug text-dw-ink/65 lg:line-clamp-2 lg:text-[12.5px]">
-            {loop.autopilot
-              ? `${phase.blurb}.`
-              : loop.phase === "idle"
-                ? `Let Darwin run to ${shipped ? "keep" : "start"} improving your store.`
-                : `Stopped while ${phase.verb.toLowerCase()}. Let it run to carry on.`}
-          </span>
+          <Swap k={blurb} className="text-[13px] leading-snug text-dw-ink/65 lg:h-[2lh] lg:text-[12.5px]">
+            <span className="lg:line-clamp-2">{blurb}</span>
+          </Swap>
         </div>
       </section>
     </>

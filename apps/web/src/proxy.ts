@@ -108,5 +108,7 @@ export const config = {
     "/api/ask",
     // The ⌘K / WebMCP command planner (lib/commands).
     "/api/command",
+    // The Darwin control MCP server (headless commands for agents and the CLI).
+    "/api/darwin/:path*",
   ],
 };
