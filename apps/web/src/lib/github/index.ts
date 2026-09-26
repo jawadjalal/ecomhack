@@ -60,7 +60,7 @@ import {
 } from "./store";
 
 export { GitHubClient, GitHubError, parseRepoUrl } from "./client";
-export { detectAnalytics, detectFramework, planInstall, type Framework, type FrameworkDetection } from "./install";
+export { detectAnalytics, detectFramework, planInstall, scriptTag, type Framework, type FrameworkDetection } from "./install";
 export type { TrafficMix } from "./spec-pr";
 export type { GithubConnection, GithubMode, PullRequestRecord } from "./store";
 

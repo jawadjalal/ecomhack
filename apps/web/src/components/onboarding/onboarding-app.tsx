@@ -13,7 +13,9 @@ import {
   ChevronDown,
   ChevronRight,
   Code,
+  Copy,
   GitPullRequest,
+  Globe,
   LayoutDashboard,
   LoaderCircle,
   Radio,
@@ -101,6 +103,9 @@ export function OnboardingApp() {
 
   const [ghStatus, setGhStatus] = useState<(GithubStatusResponse & { dryRun?: boolean }) | null>(null);
   const [repo, setRepo] = useState<string | null>(null);
+  /** No GitHub: the store's address; darwin.js goes in with one script tag. */
+  const [website, setWebsite] = useState<string | null>(null);
+  const [snippet, setSnippet] = useState<string | null>(null);
   const [whopStatus, setWhopStatus] = useState<WhopStatus | null>(null);
   const [whop, setWhop] = useState<WhopConnection | null>(null);
 
@@ -134,7 +139,7 @@ export function OnboardingApp() {
     }
   }, []);
 
-  const connected = !!repo;
+  const connected = !!repo || !!website;
 
   const reply = (text: string) => setChat((c) => [...c.filter((m) => !m.pending), { from: "darwin", text }]);
 
@@ -149,21 +154,26 @@ export function OnboardingApp() {
         from: "darwin",
         text: "",
         pending: true,
-        steps: [`Reading ${repo}`, "Looking for analytics you already run", prompt.trim() ? "Planning from what you said" : "Planning a standard store setup", "Choosing your dashboards"],
+        steps: [
+          ...(website ? [`Setting up ${hostOf(website)} (no GitHub needed)`] : [`Reading ${repo}`, "Looking for analytics you already run"]),
+          prompt.trim() ? "Planning from what you said" : "Planning a standard store setup",
+          "Choosing your dashboards",
+        ],
       },
     ]);
-    track("onboarding_connected", { whop: !!whop, described: !!prompt.trim() });
+    track("onboarding_connected", { whop: !!whop, described: !!prompt.trim(), via: website ? "script_tag" : "github" });
     try {
       // Keep the steps on screen long enough to read, even when the plan comes back instantly.
       const [res] = await Promise.all([
-        http<{ plan: TrackingPlan; reply: string; note?: string }>("POST", "/api/onboarding/plan", {
+        http<{ plan: TrackingPlan; reply: string; note?: string; snippet?: string }>("POST", "/api/onboarding/plan", {
           prompt: prompt.trim() || undefined,
-          repoUrl: `https://github.com/${repo}`,
+          ...(website ? { siteUrl: website } : { repoUrl: `https://github.com/${repo}` }),
           whop: whop?.title,
         }),
         new Promise((r) => setTimeout(r, 1800)),
       ]);
       setPlan(res.plan);
+      setSnippet(res.snippet ?? null);
       reply(res.note ? `${res.reply}\n\n${res.note}` : res.reply);
       track("plan_ready", { events: res.plan.events.filter((e) => e.enabled).length, goals: res.plan.goals?.length ?? 0 });
     } catch (err) {
@@ -226,7 +236,9 @@ export function OnboardingApp() {
                   <h1 className="text-[2rem] leading-tight font-semibold tracking-[-0.035em] sm:text-[2.6rem]">
                     Let&apos;s make your store <span className="text-brand">improve itself</span>
                   </h1>
-                  <p className="mt-2 text-[0.95rem] text-white/55">Tell Darwin about your store and connect its code. Darwin plans what to measure, installs it as a pull request, and builds your dashboards.</p>
+                  <p className="mt-2 text-[0.95rem] text-white/55">
+                    Tell Darwin about your store and connect its code (GitHub, or one script tag). Darwin plans what to measure, installs it, and builds your dashboards.
+                  </p>
                 </header>
 
                 <Panel glow={connected} className="overflow-visible">
@@ -275,7 +287,14 @@ export function OnboardingApp() {
                           }}
                           onConnected={(r) => {
                             setRepo(r);
+                            setWebsite(null);
                             setOpen(null);
+                          }}
+                          onWebsite={(url) => {
+                            setWebsite(url);
+                            setRepo(null);
+                            setOpen(null);
+                            track("script_tag_chosen");
                           }}
                         />
                       </Drawer>
@@ -284,15 +303,15 @@ export function OnboardingApp() {
 
                   {!connected && !open && (
                     <span className="flex items-center gap-1 px-5 pb-1 text-[0.75rem] font-medium text-brand/80">
-                      <ArrowDown className="size-3.5 animate-bounce" /> Connect GitHub to start (Whop is optional: it adds your payments)
+                      <ArrowDown className="size-3.5 animate-bounce" /> Connect GitHub or add a script tag to start (Whop is optional: it adds your payments)
                     </span>
                   )}
                   <div className="flex items-end justify-between gap-3 px-4 pt-2 pb-4">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <ConnectChip
-                        icon={<GithubMark className="size-4" />}
-                        label="GitHub"
-                        value={repo ?? undefined}
+                        icon={website ? <Globe className="size-4" /> : <GithubMark className="size-4" />}
+                        label={website ? "Website" : "GitHub"}
+                        value={repo ?? (website ? hostOf(website) : undefined)}
                         active={open === "github"}
                         onClick={() => setOpen(open === "github" ? null : "github")}
                       />
@@ -348,7 +367,20 @@ export function OnboardingApp() {
               </motion.section>
             )}
 
-            {stage === "install" && plan && (
+            {stage === "install" && plan?.siteUrl && (
+              <motion.section key="install" {...fade} className="flex flex-col gap-4">
+                <InstallSnippet
+                  plan={plan}
+                  snippet={snippet ?? `<script src="${window.location.origin}/darwin.js" data-darwin-site="${plan.site}" defer></script>`}
+                  onDone={() => {
+                    track("script_tag_installed");
+                    setStage("live");
+                  }}
+                />
+              </motion.section>
+            )}
+
+            {stage === "install" && plan && !plan.siteUrl && (
               <motion.section key="install" {...fade} className="flex flex-col gap-4">
                 <AgentBubble>
                   I&apos;ll open one pull request on <b className="font-mono text-white">{plan.repo}</b>: it loads darwin.js (under 5 KB) and commits your plan as{" "}
@@ -511,7 +543,7 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
           {plan.framework && <Fact label="Stack" value={plan.repoRead === false ? `${plan.framework} (assumed)` : plan.framework} />}
           <Fact
             label="Analytics"
-            value={plan.repoRead === false ? "not checked yet" : plan.existingAnalytics?.length ? plan.existingAnalytics.join(" · ") : "none found"}
+            value={plan.siteUrl ? "not checked (no repo)" : plan.repoRead === false ? "not checked yet" : plan.existingAnalytics?.length ? plan.existingAnalytics.join(" · ") : "none found"}
             hint={plan.existingAnalytics?.some((a) => !a.startsWith("Darwin")) ? "darwin.js runs alongside" : undefined}
           />
           {!!plan.goals?.length && <Fact label="Heard" value={plan.goals.join(", ")} brand />}
@@ -540,7 +572,7 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
         </section>
 
         <section>
-          <SectionTitle icon={<Code />} title="Your store sends" hint="one line each, listed in the PR" />
+          <SectionTitle icon={<Code />} title="Your store sends" hint={plan.siteUrl ? "one line each, where it happens" : "one line each, listed in the PR"} />
           <ul className="flex flex-col gap-1.5">
             <AnimatePresence initial={false}>
               {custom.map((e) => (
@@ -750,7 +782,7 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           </div>
           <h1 className="mt-1 text-[1.9rem] leading-tight font-semibold tracking-[-0.03em] sm:text-[2.3rem]">Your dashboards are built</h1>
           <p className="mt-1 max-w-[46rem] text-[0.92rem] text-white/55">
-            Merge the pull request and deploy: real shoppers show up here within seconds. Want to see it fill now? Send simulated shoppers (they&apos;re labelled, and never mixed into your real numbers).
+            {plan.siteUrl ? "Publish the script tag" : "Merge the pull request and deploy"}: real shoppers show up here within seconds. Want to see it fill now? Send simulated shoppers (they&apos;re labelled, and never mixed into your real numbers).
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -945,16 +977,19 @@ function GithubConnect({
   authError,
   onSignIn,
   onConnected,
+  onWebsite,
 }: {
   status: (GithubStatusResponse & { dryRun?: boolean }) | null;
   auth: AuthSession | null;
   authError: string | null;
   onSignIn: () => void;
   onConnected: (repo: string) => void;
+  onWebsite: (url: string) => void;
 }) {
   const [url, setUrl] = useState(status?.repo ? `https://github.com/${status.repo}` : "");
   const [error, setError] = useState<string | null>(authError);
   const [paste, setPaste] = useState(false);
+  const [noGithub, setNoGithub] = useState(false);
   const [repos, setRepos] = useState<RepoSummary[] | null>(null);
   const [filter, setFilter] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -973,6 +1008,9 @@ function GithubConnect({
   const dryRun = !signedIn && (status ? (status.dryRun ?? !status.configured) : false);
   const shown = (repos ?? []).filter((r) => r.fullName.toLowerCase().includes(filter.trim().toLowerCase())).slice(0, 8);
 
+  if (noGithub) return <WebsiteConnect onWebsite={onWebsite} onGithub={() => setNoGithub(false)} />;
+  const other = <NoGithub onChoose={() => setNoGithub(true)} />;
+
   // 1. Not signed in, and sign-in is available: the button is the main path.
   if (oauth && !signedIn && !paste) {
     return (
@@ -985,6 +1023,7 @@ function GithubConnect({
           or paste a repository URL
         </button>
         {error && <ErrorLine error={error} />}
+        {other}
       </div>
     );
   }
@@ -1033,6 +1072,7 @@ function GithubConnect({
           or paste a repository URL
         </button>
         {error && <ErrorLine error={error} />}
+        {other}
       </div>
     );
   }
@@ -1063,7 +1103,114 @@ function GithubConnect({
       )}
       {dryRun && <span className="text-[0.75rem] text-white/35">No GitHub access on the server: the PR runs as a preview and shows the would-be changes.</span>}
       {error && <ErrorLine error={error} />}
+      {other}
     </form>
+  );
+}
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+
+/** The ways in that don't need GitHub. */
+function NoGithub({ onChoose }: { onChoose: () => void }) {
+  return (
+    <div className="mt-1 flex flex-col gap-1.5 border-t border-white/[0.06] pt-3 text-[0.8rem] text-white/50">
+      <span>
+        No GitHub?{" "}
+        <button type="button" onClick={onChoose} className="font-medium text-brand underline-offset-2 hover:underline">
+          Add one script tag instead
+        </button>{" "}
+        (Shopify, Webflow, WordPress, any site you can edit).
+      </span>
+      <span>
+        Only sell on Whop?{" "}
+        <Link href="/console/agents" className="font-medium text-white/80 underline-offset-2 hover:text-white hover:underline">
+          Your store agent needs no code
+        </Link>
+        : AI shoppers buy your Whop plans through it.
+      </span>
+    </div>
+  );
+}
+
+/** No GitHub: the store's address; darwin.js is installed with one script tag after the plan. */
+function WebsiteConnect({ onWebsite, onGithub }: { onWebsite: (url: string) => void; onGithub: () => void }) {
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => input.current?.focus(), []);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const raw = url.trim();
+        const full = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+        try {
+          const u = new URL(full);
+          if (!u.hostname.includes(".")) throw new Error();
+          setError(null);
+          onWebsite(u.origin);
+        } catch {
+          setError("Use your store's address, like https://shop.example.com");
+        }
+      }}
+      className="flex flex-col gap-3"
+    >
+      <p className="text-[0.85rem] text-white/55">
+        Your store&apos;s address. After the plan, Darwin gives you one line to paste into your site&apos;s <code className="font-mono text-white/75">&lt;head&gt;</code>: no GitHub, no pull request.
+      </p>
+      <div className="flex gap-2">
+        <input ref={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://shop.example.com" aria-label="Your store's address" className={inputCls} />
+        <Button type="submit" variant="primary" disabled={!url.trim()}>
+          <Check /> Continue
+        </Button>
+      </div>
+      <button type="button" onClick={onGithub} className="self-start text-[0.78rem] text-white/40 underline-offset-2 hover:text-white hover:underline">
+        or connect GitHub instead
+      </button>
+      {error && <ErrorLine error={error} />}
+    </form>
+  );
+}
+
+/** The install step without GitHub: copy one script tag, then start recording. */
+function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet: string; onDone: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const custom = plan.events.filter((e) => e.enabled && !e.automatic).length;
+  return (
+    <>
+      <AgentBubble>
+        No pull request needed. Paste this one line into your site&apos;s <code className="font-mono text-white/80">&lt;head&gt;</code> so it loads on every page
+        {custom ? `, then add the one-line call for each of your ${custom} events where it happens (they're in the plan)` : ""}. darwin.js is under 5 KB and never reads form
+        fields.
+      </AgentBubble>
+      <Panel glow className="flex flex-col gap-3 p-5">
+        <pre className="rounded-lg bg-black/40 px-3 py-3 font-mono text-[0.8rem] break-all whitespace-pre-wrap text-[#cfe9a8]">{snippet}</pre>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[0.78rem] text-white/45">Shopify: Online Store → Themes → Edit code → theme.liquid · Webflow: Site settings → Custom code → Head · WordPress: a header-scripts plugin</span>
+          <Button
+            onClick={() => {
+              navigator.clipboard?.writeText(snippet).then(
+                () => setCopied(true),
+                () => setCopied(false),
+              );
+            }}
+          >
+            {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+      </Panel>
+      <div className="flex justify-end">
+        <Button variant="primary" size="lg" onClick={onDone}>
+          <Radio /> Start recording
+        </Button>
+      </div>
+    </>
   );
 }
 
