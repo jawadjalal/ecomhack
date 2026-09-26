@@ -109,7 +109,7 @@ export function rowLine(s: Shopper): string {
 }
 
 /** Plain words for Darwin's notes: no "test B", and the list belongs to Iris. */
-function plain(t: string): string {
+export function plain(t: string): string {
   return t
     .replace(/\bTest B fixes this step\b/g, "The new version in Ada’s test fixes this step")
     .replace(/\bin test B\b/g, "on the new version")
@@ -128,7 +128,7 @@ function versionSeen(s: Shopper, history: GenerationRecord[] | undefined): Gener
   return live;
 }
 
-export function JourneyHead({ s, now, big }: { s: Shopper; now: number; big?: boolean }) {
+export function JourneyHead({ s, now, big, showPill = false }: { s: Shopper; now: number; big?: boolean; showPill?: boolean }) {
   const won = s.status === "bought";
   const meta = [
     s.kind === "agent" ? `AI shopper · ${s.model}` : `Person · ${s.model.toLowerCase()}`,
@@ -141,9 +141,8 @@ export function JourneyHead({ s, now, big }: { s: Shopper; now: number; big?: bo
   const pill = (
     <span
       className={cn(
-        "flex h-8 shrink-0 items-center gap-1.5 self-start rounded-full px-3.5 text-[13px] font-semibold tabular-nums",
+        "flex h-7 shrink-0 items-center gap-1.5 self-start rounded-[8px] px-2.5 text-[13px] font-semibold tabular-nums",
         won ? "bg-dw-olive text-dw-ink" : s.status === "live" ? "bg-dw-surface text-dw-ink" : "bg-dw-ink text-white",
-        DEPTH,
       )}
     >
       {s.status === "live" && <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" />}
@@ -156,9 +155,9 @@ export function JourneyHead({ s, now, big }: { s: Shopper; now: number; big?: bo
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[20px] leading-tight font-semibold tracking-[-0.01em]">{s.name}</span>
         <span className={cn("text-[12.5px] text-[#3E4E70]", big ? "leading-snug" : "truncate")}>{meta}</span>
-        {big && <span className="mt-2 flex">{pill}</span>}
       </div>
-      {!big && pill}
+      {/* On desktop the path's pin already says where they left or paid; the sheet keeps it in the path too. */}
+      {showPill && pill}
     </div>
   );
 }
@@ -294,7 +293,7 @@ export function JourneyNotes({
         {link && (
           <Link
             href={link.href}
-            className="inline-flex h-7 max-w-full items-center gap-1.5 self-start truncate rounded-full border border-dw-hairline bg-dw-bg px-2.5 text-[12.5px] font-medium transition-transform hover:-translate-y-px"
+            className="inline-flex max-w-full items-center gap-1.5 self-start truncate text-[12.5px] font-medium underline decoration-dw-ink/25 underline-offset-[3px] hover:decoration-dw-ink"
           >
             <span className="size-[7px] shrink-0 rounded-full bg-dw-hot" />
             <span className="truncate">{link.label.replace(/^Test B · /, "Ada’s test · ")}</span>
