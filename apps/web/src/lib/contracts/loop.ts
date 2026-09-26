@@ -68,6 +68,11 @@ export interface ExperimentResult {
   /** 95% credible interval on lift. */
   liftInterval: [number, number];
   decision: "running" | "ship" | "reject" | "inconclusive";
+  /**
+   * Visitors that lift / probabilityToBeat / liftInterval are computed on. "all" (default) or a single
+   * audience when the change can only affect it (agentSurface-only patches are measured on agents).
+   */
+  audience?: Audience;
 }
 
 export interface Experiment {
