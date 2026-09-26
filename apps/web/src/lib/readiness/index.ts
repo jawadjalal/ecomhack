@@ -8,7 +8,13 @@
  */
 export { auditStore, auditWithArtifacts, normaliseStoreUrl } from "./audit";
 export { BlockedUrlError, safeFetch } from "./fetcher";
-export { evaluate, score, draftLlmsTxt, type Artifacts, type Fetched } from "./checks";
+export {
+  evaluate,
+  score,
+  draftLlmsTxt,
+  type Artifacts,
+  type Fetched,
+} from "./checks";
 export {
   badgeSvg,
   certifyStore,

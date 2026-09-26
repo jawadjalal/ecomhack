@@ -17,7 +17,8 @@ import { pipeline, type Readable } from "node:stream";
 import { constants, createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import type { Fetched } from "./checks";
 
-export const USER_AGENT = "Mozilla/5.0 (compatible; DarwinReadiness/1.0; +https://github.com/jawadjalal/ecomhack)";
+export const USER_AGENT =
+  "Mozilla/5.0 (compatible; DarwinReadiness/1.0; +https://github.com/jawadjalal/ecomhack)";
 const MAX_BYTES = 1_500_000;
 const MAX_REDIRECTS = 4;
 
@@ -51,7 +52,9 @@ const PRIVATE_V4 = [
 ];
 
 function allowLoopback(): boolean {
-  return !process.env.VERCEL && process.env.DARWIN_READINESS_ALLOW_LOCAL !== "0";
+  return (
+    !process.env.VERCEL && process.env.DARWIN_READINESS_ALLOW_LOCAL !== "0"
+  );
 }
 
 /** The eight 16-bit groups of an IPv6 address (zone id dropped, trailing dotted IPv4 allowed), or null. */
@@ -145,14 +148,21 @@ async function vetUrl(raw: string): Promise<Vetted> {
   } catch {
     throw new BlockedUrlError("That doesn't look like a URL.");
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") throw new BlockedUrlError("Only http and https URLs can be checked.");
-  if (url.username || url.password) throw new BlockedUrlError("URLs with credentials aren't allowed.");
+  if (url.protocol !== "http:" && url.protocol !== "https:")
+    throw new BlockedUrlError("Only http and https URLs can be checked.");
+  if (url.username || url.password)
+    throw new BlockedUrlError("URLs with credentials aren't allowed.");
   const host = url.hostname.replace(/^\[|\]$/g, "");
-  const addresses = isIP(host) ? [host] : (await lookup(host, { all: true }).catch(() => [])).map((a) => a.address);
+  const addresses = isIP(host)
+    ? [host]
+    : (await lookup(host, { all: true }).catch(() => [])).map((a) => a.address);
   if (!addresses.length) throw new BlockedUrlError(`Couldn't resolve ${host}.`);
   for (const ip of addresses) {
     const why = blockedReason(ip);
-    if (why) throw new BlockedUrlError(`${host} points to a ${why}, which can't be checked.`);
+    if (why)
+      throw new BlockedUrlError(
+        `${host} points to a ${why}, which can't be checked.`,
+      );
   }
   return { url, address: addresses[0], family: isIP(addresses[0]) === 6 ? 6 : 4 };
 }
@@ -258,9 +268,31 @@ export async function safeFetch(raw: string, init: FetchInit = {}): Promise<Fetc
       }
       return { url: target.url.href, ...res };
     }
-    return { url: current, status: 0, headers: {}, body: "", error: "too many redirects" };
+    return {
+      url: current,
+      status: 0,
+      headers: {},
+      body: "",
+      error: "too many redirects",
+    };
   } catch (e) {
-    const msg = e instanceof BlockedUrlError ? e.message : e instanceof Error ? (e.name === "TimeoutError" ? "timed out" : e.message) : String(e);
-    return { url: current, status: 0, headers: {}, body: "", error: msg.slice(0, 200) };
+    const msg =
+      e instanceof BlockedUrlError
+        ? e.message
+        : e instanceof Error
+          ? e.name === "TimeoutError"
+            ? "timed out"
+            : e.message
+          : String(e);
+    return {
+      url: current,
+      status: 0,
+      headers: {},
+      body: "",
+      error: msg.slice(0, 200),
+    };
   }
 }
+
+/** Full 8-hextet form of an IPv6 address (dotted IPv4 tails included), or null if it isn't one. */
+export const expandIpv6 = ipv6Groups;

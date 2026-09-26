@@ -1,11 +1,41 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractJson, generateText, llmLabel, llmProvider, resetLlmCooldowns, resolveProvider } from "./client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+
+const oa = vi.hoisted(() => ({
+  create: vi.fn(),
+  opts: [] as Record<string, unknown>[],
+}));
+vi.mock("openai", () => ({
+  default: class {
+    chat = { completions: { create: oa.create } };
+    constructor(o: Record<string, unknown>) {
+      oa.opts.push(o);
+    }
+  },
+}));
+
+import {
+  DEFAULT_OPENROUTER_MODEL,
+  extractJson,
+  llmAvailable,
+  llmLabel,
+  llmModel,
+  llmProvider,
+  resolveProvider,
+  runToolLoop,
+  toolFromZod,
+  type LlmToolCall,
+} from "./client";
 
 describe("extractJson", () => {
   it("reads bare, fenced and prose-wrapped JSON", () => {
     expect(extractJson('{"a":1}')).toEqual({ a: 1 });
-    expect(extractJson('Here you go:\n```json\n{"a":[1,2]}\n```\nThanks')).toEqual({ a: [1, 2] });
-    expect(extractJson('Sure! {"title":"x","nested":{"b":true}} hope that helps')).toEqual({ title: "x", nested: { b: true } });
+    expect(
+      extractJson('Here you go:\n```json\n{"a":[1,2]}\n```\nThanks'),
+    ).toEqual({ a: [1, 2] });
+    expect(
+      extractJson('Sure! {"title":"x","nested":{"b":true}} hope that helps'),
+    ).toEqual({ title: "x", nested: { b: true } });
     expect(extractJson("[1,2,3]")).toEqual([1, 2, 3]);
   });
 
@@ -17,7 +47,17 @@ describe("extractJson", () => {
 describe("provider selection", () => {
   afterEach(() => vi.unstubAllEnvs());
   const clear = () => {
-    for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "OPENROUTER_MODEL", "XAI_MODEL"]) vi.stubEnv(k, "");
+    for (const k of [
+      "LLM_PROVIDER",
+      "XAI_API_KEY",
+      "APINEX_API_KEY",
+      "APINEX_MODEL",
+      "ANTHROPIC_API_KEY",
+      "OPENROUTER_API_KEY",
+      "OPENROUTER_MODEL",
+      "XAI_MODEL",
+    ])
+      vi.stubEnv(k, "");
   };
 
   it("falls back to heuristics with no keys", () => {
@@ -26,17 +66,28 @@ describe("provider selection", () => {
     expect(llmLabel()).toBe("heuristic");
   });
 
-  it("prefers xAI (sponsor), then Anthropic, then OpenRouter", () => {
+  it("auto-detects xAI, then OpenRouter (DeepSeek V4 Flash by default), then Anthropic, then Apinex", () => {
     clear();
-    vi.stubEnv("OPENROUTER_API_KEY", "k");
-    expect(llmProvider()).toBe("openrouter");
-    expect(llmLabel()).toBe("llm:deepseek/deepseek-chat");
+    vi.stubEnv("APINEX_API_KEY", "k");
+    expect(llmProvider()).toBe("apinex");
+    expect(llmLabel()).toBe("llm:free/gpt-6-luna");
     vi.stubEnv("ANTHROPIC_API_KEY", "k");
     expect(llmProvider()).toBe("anthropic");
+    vi.stubEnv("OPENROUTER_API_KEY", "k");
+    expect(llmProvider()).toBe("openrouter");
+    expect(DEFAULT_OPENROUTER_MODEL).toBe("deepseek/deepseek-v4-flash");
+    expect(llmLabel()).toBe("llm:deepseek/deepseek-v4-flash");
+    vi.stubEnv("OPENROUTER_MODEL", "other/model");
+    expect(llmLabel()).toBe("llm:other/model");
     vi.stubEnv("XAI_API_KEY", "k");
     vi.stubEnv("XAI_MODEL", "grok-test");
     expect(llmProvider()).toBe("xai");
     expect(llmLabel()).toBe("llm:grok-test");
+    // A feature that pins OpenRouter (the assistant's tool loop) still gets it; Apinex stays reachable.
+    expect(resolveProvider("openrouter")).toBe("openrouter");
+    expect(resolveProvider("apinex")).toBe("apinex");
+    expect(llmAvailable("openrouter")).toBe(true);
+    expect(llmModel("openrouter")).toBe("other/model");
   });
 
   it("honours LLM_PROVIDER when that provider has a key", () => {
@@ -64,122 +115,223 @@ describe("provider selection", () => {
   });
 });
 
-describe("xAI → OpenRouter fallback", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
+/* ------------------------------------------------------------------ runToolLoop (OpenAI client mocked) */
 
-  const completion = (model: string, content: string) =>
-    Response.json({ id: "c1", object: "chat.completion", created: 1, model, choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content } }] });
-
-  function setup(withOpenRouter: boolean) {
-    for (const k of ["LLM_PROVIDER", "APINEX_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
-    vi.stubEnv("XAI_API_KEY", "xai-test");
-    vi.stubEnv("XAI_MODEL", "grok-test");
-    vi.stubEnv("OPENROUTER_API_KEY", withOpenRouter ? "or-test" : "");
-    const calls: { url: string; auth: string | null; model: string }[] = [];
-    vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input instanceof Request ? input.url : input);
-      const headers = new Headers(init?.headers);
-      const body = JSON.parse(String(init?.body ?? "{}"));
-      calls.push({ url, auth: headers.get("authorization"), model: body.model });
-      if (url.startsWith("https://api.x.ai/")) return Response.json({ error: { message: "Incorrect API key provided", type: "invalid_request_error" } }, { status: 401 });
-      return completion("deepseek/deepseek-chat", "hello from openrouter");
-    });
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    return { calls, info };
-  }
-
-  it("retries once through OpenRouter when Grok fails, and logs who answered (not the prompt)", async () => {
-    const { calls, info } = setup(true);
-    const text = await generateText({ system: "sys", prompt: "SECRET PROMPT TEXT" });
-    expect(text).toBe("hello from openrouter");
-    expect(calls.map((c) => c.url)).toEqual(["https://api.x.ai/v1/chat/completions", "https://openrouter.ai/api/v1/chat/completions"]);
-    expect(calls[0]).toMatchObject({ auth: "Bearer xai-test", model: "grok-test" });
-    expect(calls[1]).toMatchObject({ auth: "Bearer or-test", model: "deepseek/deepseek-chat" });
-    expect(info).toHaveBeenCalledTimes(1);
-    const line = String(info.mock.calls[0][0]);
-    expect(line).toMatch(/^\[llm\] openrouter deepseek\/deepseek-chat answered in \d+ms \(fallback after xai failed\)$/);
-    expect(line).not.toContain("SECRET");
-  });
-
-  it("throws the xAI error when there's no OpenRouter key to fall back on", async () => {
-    const { calls, info } = setup(false);
-    await expect(generateText({ system: "sys", prompt: "hi" })).rejects.toThrow(/401|Incorrect API key/);
-    expect(calls).toHaveLength(1);
-    expect(info).not.toHaveBeenCalled();
-  });
-
-  it("logs the provider and model when Grok answers", async () => {
-    const { info } = setup(true);
-    vi.stubGlobal("fetch", async () => completion("grok-test", "hi from grok"));
-    expect(await generateText({ system: "sys", prompt: "hi" })).toBe("hi from grok");
-    expect(String(info.mock.calls[0][0])).toMatch(/^\[llm\] xai grok-test answered in \d+ms$/);
-  });
+const calls = (...list: [string, Record<string, unknown>][]) => ({
+  choices: [
+    {
+      message: {
+        content: null,
+        tool_calls: list.map(([name, args], i) => ({
+          id: `c${i}`,
+          type: "function",
+          function: { name, arguments: JSON.stringify(args) },
+        })),
+      },
+    },
+  ],
 });
+const text = (content: string) => ({ choices: [{ message: { content } }] });
+const TOOLS = [
+  toolFromZod("lookup", "Look something up", z.object({ q: z.string() })),
+  toolFromZod("act", "Change something", z.object({})),
+];
 
-describe("Apinex", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it("is picked from APINEX_API_KEY, runs free/gpt-6-luna, and falls back to OpenRouter on a billing error", async () => {
-    for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
-    vi.stubEnv("APINEX_API_KEY", "apx-test");
-    vi.stubEnv("OPENROUTER_API_KEY", "or-test");
-    expect(llmProvider()).toBe("apinex");
-    expect(llmLabel()).toBe("llm:free/gpt-6-luna");
-
-    const calls: { url: string; auth: string | null; model: string }[] = [];
-    vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
-      const url = String(input instanceof Request ? input.url : input);
-      calls.push({ url, auth: new Headers(init?.headers).get("authorization"), model: JSON.parse(String(init?.body ?? "{}")).model });
-      if (url.startsWith("https://api.apinex.bond/")) return Response.json({ error: { message: "Daily check-in required to use free models.", type: "billing_error" } }, { status: 402 });
-      return Response.json({ id: "c1", object: "chat.completion", created: 1, model: "deepseek/deepseek-chat", choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "from openrouter" } }] });
-    });
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    expect(await generateText({ system: "sys", prompt: "hi" })).toBe("from openrouter");
-    expect(calls[0]).toMatchObject({ url: "https://api.apinex.bond/v1/chat/completions", auth: "Bearer apx-test", model: "free/gpt-6-luna" });
-    expect(calls[1].url).toBe("https://openrouter.ai/api/v1/chat/completions");
-    expect(String(info.mock.calls[0][0])).toMatch(/\(fallback after apinex failed\)$/);
-  });
-});
-
-describe("rate limits", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-    resetLlmCooldowns();
-  });
-
-  it("doesn't wait out a 429: falls back at once, then skips the provider until Retry-After passes", async () => {
-    for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
-    vi.stubEnv("APINEX_API_KEY", "apx-test");
-    vi.stubEnv("OPENROUTER_API_KEY", "or-test");
-    const urls: string[] = [];
-    vi.stubGlobal("fetch", async (input: string | URL | Request) => {
-      const url = String(input instanceof Request ? input.url : input);
-      urls.push(url);
-      if (url.startsWith("https://api.apinex.bond/"))
-        return Response.json({ error: { message: "Rate limit exceeded. Max 5 requests per minute for this API key. Retry in 60s." } }, { status: 429, headers: { "retry-after": "60" } });
-      return Response.json({ id: "c1", object: "chat.completion", created: 1, model: "deepseek/deepseek-chat", choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "ok" } }] });
-    });
+describe("runToolLoop", () => {
+  beforeEach(() => {
+    for (const k of [
+      "LLM_PROVIDER",
+      "XAI_API_KEY",
+      "APINEX_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "OPENROUTER_MODEL",
+      "OPENROUTER_REASONING",
+    ])
+      vi.stubEnv(k, "");
+    vi.stubEnv("OPENROUTER_API_KEY", "k");
+    oa.create.mockReset();
+    oa.opts.length = 0;
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
 
-    const t = Date.now();
-    expect(await generateText({ system: "s", prompt: "p" })).toBe("ok");
-    expect(await generateText({ system: "s", prompt: "p" })).toBe("ok");
-    expect(Date.now() - t).toBeLessThan(2_000);
-    expect(urls.filter((u) => u.startsWith("https://api.apinex.bond/"))).toHaveLength(1);
-    expect(urls.filter((u) => u.startsWith("https://openrouter.ai/"))).toHaveLength(2);
+  it("retries a failed Apinex turn once through OpenRouter, and honours a pinned provider", async () => {
+    vi.stubEnv("APINEX_API_KEY", "apx");
+    vi.stubEnv("LLM_PROVIDER", "apinex");
+    oa.create
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Daily check-in required"), { status: 402 }),
+      )
+      .mockResolvedValueOnce(text("from openrouter"));
+    const out = await runToolLoop({
+      system: "s",
+      messages: [{ role: "user", content: "q" }],
+      tools: TOOLS,
+      execute: async () => ({ content: "" }),
+    });
+    expect(out.text).toBe("from openrouter");
+    expect(oa.create.mock.calls[0][0].model).toBe("free/gpt-6-luna");
+    expect(oa.create.mock.calls[1][0].model).toBe("deepseek/deepseek-v4-flash");
+    expect(oa.opts[0]).toMatchObject({ baseURL: "https://api.apinex.bond/v1" });
+    expect(oa.opts[1]).toMatchObject({ baseURL: "https://openrouter.ai/api/v1" });
+
+    oa.create.mockReset();
+    oa.opts.length = 0;
+    oa.create.mockResolvedValueOnce(text("pinned"));
+    await runToolLoop({
+      system: "s",
+      messages: [{ role: "user", content: "q" }],
+      tools: TOOLS,
+      provider: "openrouter",
+      execute: async () => ({ content: "" }),
+    });
+    expect(oa.opts[0]).toMatchObject({ baseURL: "https://openrouter.ai/api/v1" });
+  });
+
+  it("builds JSON-schema tools from zod", () => {
+    expect(TOOLS[0].parameters).toMatchObject({
+      type: "object",
+      properties: { q: { type: "string" } },
+      required: ["q"],
+    });
+    expect(TOOLS[1].parameters).toMatchObject({ type: "object" });
+  });
+
+  it("feeds tool results back as messages, runs parallel calls, then returns the answer", async () => {
+    oa.create
+      .mockResolvedValueOnce(
+        calls(["lookup", { q: "a" }], ["lookup", { q: "b" }]),
+      )
+      .mockResolvedValueOnce(text("done: A B"));
+    const seen: LlmToolCall[] = [];
+    const out = await runToolLoop({
+      system: "sys",
+      messages: [{ role: "user", content: "hi" }],
+      tools: TOOLS,
+      execute: async (c) => {
+        seen.push(c);
+        return { content: String(c.args.q).toUpperCase() };
+      },
+    });
+    expect(out).toMatchObject({
+      text: "done: A B",
+      mode: "native",
+      steps: 2,
+      stopped: false,
+    });
+    expect(seen.map((c) => c.args.q)).toEqual(["a", "b"]);
+    const first = oa.create.mock.calls[0][0];
+    expect(first.model).toBe("deepseek/deepseek-v4-flash");
+    expect(first.tools[0]).toMatchObject({
+      type: "function",
+      function: { name: "lookup" },
+    });
+    expect(first.tool_choice).toBe("auto");
+    const second = oa.create.mock.calls[1][0];
+    expect(second.messages.map((m: { role: string }) => m.role)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "tool",
+      "tool",
+    ]);
+    expect(second.messages[3]).toMatchObject({
+      role: "tool",
+      tool_call_id: "c0",
+      content: "A",
+    });
+    expect(oa.opts[0]).toMatchObject({
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: { "X-Title": "Darwin" },
+    });
+    expect(
+      (oa.opts[0].defaultHeaders as Record<string, string>)["HTTP-Referer"],
+    ).toBeTruthy();
+  });
+
+  it("stops when a tool asks to (confirm gate) and skips the rest of that turn", async () => {
+    oa.create.mockResolvedValueOnce(calls(["act", {}], ["lookup", { q: "x" }]));
+    const execute = vi.fn(async (c: LlmToolCall) =>
+      c.name === "act"
+        ? { content: "waiting", stop: true }
+        : { content: "ran" },
+    );
+    const out = await runToolLoop({
+      system: "s",
+      messages: [{ role: "user", content: "do it" }],
+      tools: TOOLS,
+      execute,
+    });
+    expect(out.stopped).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(oa.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("is bounded by maxSteps: the last turn disables tools", async () => {
+    oa.create.mockResolvedValue(calls(["lookup", { q: "again" }]));
+    const execute = vi.fn(async () => ({ content: "ok" }));
+    const out = await runToolLoop({
+      system: "s",
+      messages: [{ role: "user", content: "loop" }],
+      tools: TOOLS,
+      execute,
+      maxSteps: 2,
+    });
+    expect(oa.create).toHaveBeenCalledTimes(3);
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(oa.create.mock.calls[2][0].tool_choice).toBe("none");
+    expect(out.stopped).toBe(false);
+  });
+
+  it("falls back to prompted-JSON tool calls when the model rejects tools", async () => {
+    oa.create
+      .mockRejectedValueOnce(
+        Object.assign(new Error("No endpoints found that support tool use"), {
+          status: 404,
+        }),
+      )
+      .mockResolvedValueOnce(
+        text('{"tool_calls":[{"name":"lookup","args":{"q":"z"}}]}'),
+      )
+      .mockResolvedValueOnce(text('{"answer":"Z it is"}'));
+    const execute = vi.fn(async () => ({ content: "Z" }));
+    const out = await runToolLoop({
+      system: "s",
+      messages: [{ role: "user", content: "q" }],
+      tools: TOOLS,
+      execute,
+    });
+    expect(out).toMatchObject({ text: "Z it is", mode: "json" });
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "lookup", args: { q: "z" } }),
+    );
+    expect(oa.create.mock.calls[1][0].tools).toBeUndefined();
+  });
+
+  it("rethrows other errors and refuses without a key", async () => {
+    oa.create.mockRejectedValueOnce(
+      Object.assign(new Error("rate limited"), { status: 429 }),
+    );
+    await expect(
+      runToolLoop({
+        system: "s",
+        messages: [{ role: "user", content: "q" }],
+        tools: TOOLS,
+        execute: async () => ({ content: "" }),
+      }),
+    ).rejects.toThrow(/rate limited/);
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    await expect(
+      runToolLoop({
+        system: "s",
+        messages: [],
+        tools: TOOLS,
+        execute: async () => ({ content: "" }),
+      }),
+    ).rejects.toThrow(/No LLM provider/);
   });
 });

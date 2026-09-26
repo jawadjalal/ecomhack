@@ -5,7 +5,7 @@ import { heuristicInsights, llmInsights, sharedTrafficReport } from "@/lib/traff
 const Body = z.object({
   site: z.string().max(100).default("all"),
   synthetic: z.boolean().default(true),
-  /** Ask the LLM (Grok / Claude). false = built-in rules only (free, instant). */
+  /** Ask the LLM (DeepSeek via OpenRouter / Grok / Claude). false = built-in rules only (free, instant). */
   llm: z.boolean().default(false),
 });
 
