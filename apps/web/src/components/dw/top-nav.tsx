@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
+import { AccountAvatar } from "./account-avatar";
 import { CommandPill } from "./command/pill";
 import { Mascot } from "./mascot";
 import { useDarwin } from "./provider";
@@ -109,13 +110,7 @@ export function TopNav() {
         </button>
         <CommandPill />
         <MoreMenu />
-        <Link
-          href="/console/settings"
-          aria-label="Profile and settings"
-          className="grid size-11 place-items-center rounded-full bg-dw-ink text-[14px] font-semibold text-white transition-transform hover:scale-[1.06] max-sm:size-9 max-sm:text-[12.5px]"
-        >
-          JJ
-        </Link>
+        <AccountAvatar />
       </div>
     </header>
   );
