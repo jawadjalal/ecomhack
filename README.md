@@ -173,6 +173,34 @@ claude mcp add --transport http pace-store http://localhost:3000/api/mcp
 npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
 ```
 
+### Telegram
+
+Text Darwin from Telegram. Messages go through the same Ask Darwin chat as the console overview (`ask()` in `src/lib/ask`, `POST /api/ask`): the same system prompt, shopper context, heuristic and LLM client.
+
+1. In Telegram, open [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the bot token.
+2. Pick a webhook secret: 1–256 characters, only `A–Z`, `a–z`, `0–9`, `_` and `-` (for example `openssl rand -hex 32`).
+3. On the Vercel project for [usedarwin.app](https://usedarwin.app), set:
+   - `TELEGRAM_BOT_TOKEN` — the token from BotFather
+   - `TELEGRAM_WEBHOOK_SECRET` — the secret from step 2
+   - `TELEGRAM_ALLOWED_CHAT_IDS` — leave blank for a first try, or set `0` so the bot replies with your chat id and ignores everyone else
+4. Redeploy so the new env vars are live.
+5. Register the webhook (this calls Telegram `setWebhook` for `https://usedarwin.app/api/telegram` and sends the secret):
+
+   ```bash
+   cd apps/web
+   TELEGRAM_BOT_TOKEN='…' TELEGRAM_WEBHOOK_SECRET='…' npm run telegram:setup
+   ```
+
+   Or, after the redeploy, if `DARWIN_ADMIN_TOKEN` is set on Vercel:
+
+   ```bash
+   curl -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN" https://usedarwin.app/api/telegram
+   ```
+
+6. Open the bot and send `/start`, then a question (`How is conversion?`, `What should I do next?`).
+
+If `TELEGRAM_ALLOWED_CHAT_IDS` is set and your chat is not on it, the bot replies **once** with your chat id. Add that id (comma-separated if you have several), redeploy, and message again. Leave the variable empty only if you accept that anyone who finds the bot can spend the LLM key. The bot answers questions; it does not ship changes or step the loop (that stays in the console).
+
 ### Honest notes
 
 - **Security:** mission control and every state-changing API (loop, GitHub PRs, simulator, LLM shoppers, raw
