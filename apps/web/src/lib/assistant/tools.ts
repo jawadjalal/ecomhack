@@ -11,6 +11,7 @@
  */
 import { z } from "zod";
 import type {
+  AgentThread,
   AnalyticsSummary,
   ChangeProposal,
   Experiment,
@@ -56,6 +57,8 @@ import { askResearch, researchCompetitors } from "@/lib/research";
 import { llmAvailable } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
 import { formatGBP } from "@/lib/money";
+import { resolveSpecialist, specialistName } from "@/lib/crew";
+import { askAgent } from "./crew";
 
 /* ------------------------------------------------------------------ types */
 
@@ -79,6 +82,10 @@ export interface ToolOutcome {
   synthetic?: boolean;
   /** A link the merchant may want to open (PR, dashboards page…). */
   link?: { label: string; href: string };
+  /** The UI should open `link` now (the `navigate` tool). */
+  navigate?: boolean;
+  /** An agent-to-agent exchange this tool ran (`ask_agent`), rendered as a thread. */
+  thread?: AgentThread;
 }
 
 export interface AssistantTool<S extends z.ZodType = z.ZodType> {
@@ -187,7 +194,7 @@ export function stateSnapshot(): StateSnapshot {
       phase: loop.phase,
       generation: loop.generation,
       autopilot: loop.autopilot,
-      designer: loop.designer,
+      designer: aiOrRules(loop.designer),
       topInsights: loop.insights.slice(0, 3).map((i) => i.title),
       proposal: loop.proposal?.title,
     },
@@ -205,6 +212,42 @@ export function stateSnapshot(): StateSnapshot {
 }
 
 /* ------------------------------------------------------------------ helpers */
+
+/** "llm:<model>" → "ai", anything else → "rules": model names never reach the model's replies or the UI. */
+function aiOrRules(label: string | undefined): "ai" | "rules" | undefined {
+  if (!label) return undefined;
+  return label.startsWith("llm:") ? "ai" : "rules";
+}
+
+/** Console pages the `navigate` tool can open. */
+export const CONSOLE_PAGES = {
+  overview: { label: "Overview", href: "/console" },
+  issues: { label: "Issues", href: "/console/issues" },
+  fixes: { label: "Fixes", href: "/console/fixes" },
+  experiments: { label: "Experiments", href: "/console/experiments" },
+  changes: { label: "Changes", href: "/console/changes" },
+  agents: { label: "Store agent", href: "/console/agents" },
+  dashboards: { label: "Dashboards", href: "/console/dashboards" },
+  personalize: { label: "Personalize", href: "/console/personalize" },
+  traffic: { label: "Traffic", href: "/console/traffic" },
+  settings: { label: "Settings", href: "/console/settings" },
+  research: { label: "Research", href: "/console/research" },
+} as const;
+export type ConsolePage = keyof typeof CONSOLE_PAGES;
+
+/** Who `ask_agent` can consult: crew ids plus the old role names. */
+export const ASK_AGENT_NAMES = [
+  "iris",
+  "theo",
+  "ada",
+  "max",
+  "mika",
+  "shopper",
+  "grok",
+  "analyst",
+  "designer",
+  "store_agent",
+] as const;
 
 function loopSummary(loop: LoopState): string {
   const parts = [
@@ -225,7 +268,7 @@ function compactLoop(loop: LoopState) {
     generation: loop.generation,
     autopilot: loop.autopilot,
     liveSpecVersion: loop.liveSpec.version,
-    designer: loop.designer,
+    designer: aiOrRules(loop.designer),
     insights: loop.insights.slice(0, 4).map((i) => ({
       title: i.title,
       audience: i.audience,
@@ -235,7 +278,7 @@ function compactLoop(loop: LoopState) {
       ? {
           title: loop.proposal.title,
           expectedLift: loop.proposal.expectedLift,
-          source: loop.proposal.source,
+          source: aiOrRules(loop.proposal.source),
         }
       : undefined,
     experimentId: loop.experimentId,
@@ -875,6 +918,64 @@ export const TOOLS = {
         summary: `${f.conversations} agent conversations → ${f.offersShown} saw offers → ${f.checkouts} checkout links → ${f.paid} paid (${pct(f.conversion)}), ${formatGBP(f.revenue)}.${f.simulated ? ` ${f.simulated} of the conversations were simulated buyers.` : ""}`,
         link: { label: "Open store agent", href: "/console/agents" },
         data: { ...f, recent: f.recent.slice(0, 4) },
+      };
+    },
+  }),
+
+  ask_agent: tool({
+    name: "ask_agent",
+    description:
+      "Consult a crew specialist (agent-to-agent) and get their answer plus the conversation. Each knows only its own data: iris (analyst: analytics, where shoppers and AI agents get stuck), theo (designer: the proposed page change and why), ada (tester: A/B results), max (shipper: what shipped, rollback info; read-only), mika (store_agent: the Whop store's own sales agent, a real A2A message; ask what it would say to a buyer), shopper (a simulated buyer agent shops mika for a few turns), grok (the morning briefing). Old names analyst/designer/store_agent also work.",
+    args: z.object({
+      agent: z.enum(ASK_AGENT_NAMES),
+      question: z.string().trim().min(2).max(500),
+    }),
+    untrusted: true,
+    async run({ agent, question }, ctx) {
+      const who = resolveSpecialist(agent)!;
+      const r = await askAgent({ agent: who, question, origin: ctx.origin });
+      const name = specialistName(who);
+      return {
+        ok: true,
+        synthetic: r.synthetic || undefined,
+        summary:
+          `${name}${who === "shopper" ? " (simulated shopper)" : ""}: ${r.answer}`.slice(
+            0,
+            700,
+          ),
+        thread: r.thread,
+        link:
+          who === "mika" || who === "shopper"
+            ? { label: "Open store agent", href: "/console/agents" }
+            : who === "ada"
+              ? { label: "Open experiments", href: "/console/experiments" }
+              : undefined,
+        data: {
+          agent: who,
+          name,
+          answer: r.answer,
+          source: r.source,
+          synthetic: r.synthetic,
+        },
+      };
+    },
+  }),
+
+  navigate: tool({
+    name: "navigate",
+    description:
+      "Open a console page for the merchant: overview, issues, fixes, experiments, changes, agents (store agent), dashboards, personalize, traffic, settings or research.",
+    args: z.object({
+      to: z.enum(Object.keys(CONSOLE_PAGES) as [ConsolePage, ...ConsolePage[]]),
+    }),
+    async run({ to }) {
+      const page = CONSOLE_PAGES[to];
+      return {
+        ok: true,
+        summary: `Opening ${page.label}.`,
+        link: { label: page.label, href: page.href },
+        navigate: true,
+        data: { href: page.href },
       };
     },
   }),
