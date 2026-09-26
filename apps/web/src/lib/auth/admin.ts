@@ -29,6 +29,7 @@ export const PROTECTED_PREFIXES = [
   "/api/dashboards",
   "/api/store-agent/stats",
   "/api/store-agent/buyer",
+  "/api/store-agent/tests",
 ] as const;
 
 /** Public paths under a protected prefix: merchant runtimes + inbound Whop webhooks. */

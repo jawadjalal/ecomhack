@@ -4,11 +4,30 @@
  */
 import type { AnalyticsEvent } from "@/lib/contracts";
 import { track } from "@/lib/analytics/store";
-import { replyTo, STORE_SITE } from "./agent";
+import { conversationLevers, replyTo, STORE_SITE } from "./agent";
+import { agentTestResults, getAgentTests, type Lever } from "./experiments";
 import { DEMO_CATALOG, getCatalog } from "./catalog";
 
 export { handleA2a, storeAgentCard } from "./a2a";
 export { replyTo, rankOffers, pickOffer, budgetOf, resetStoreAgent, STORE_SITE, type AgentTurn } from "./agent";
+export {
+  AGENT_TEST_RULES,
+  LEVERS,
+  LEVER_ORDER,
+  agentTestResults,
+  getAgentTests,
+  pitchFor,
+  resetAgentTests,
+  runningTest,
+  setAgentAutopilot,
+  startAgentTest,
+  stepAgentTests,
+  type AgentArm,
+  type AgentTest,
+  type AgentTestResult,
+  type AgentTestState,
+  type Lever,
+} from "./experiments";
 export { getCatalog, createCheckout, offerFromPlan, formatPrice, resetCatalog, companyId, DEMO_CATALOG, type Catalog, type Offer } from "./catalog";
 
 export interface AgentFunnel {
@@ -125,3 +144,63 @@ export function recordDemoPayment(offerId: string, ref: string, simulatedBuyer =
 }
 
 const DEMO_OFFERS = () => DEMO_CATALOG.offers;
+
+/* ------------------------------------------------------------------ simulated buyer agents */
+
+/**
+ * Buyer-agent personas and how each pitch lever moves their chance to buy (a toy model: it's how the
+ * demo shows the loop working, and every conversation it creates is labelled simulated).
+ */
+export const BUYER_PERSONAS: { id: string; share: number; base: number; briefs: string[]; effect: Partial<Record<Lever, number>> }[] = [
+  { id: "decisive", share: 0.3, base: 0.3, briefs: ["Trail running coaching under £40 a month", "Best marathon plan"], effect: { "one-pick": 1.5, facts: 1.05, upsell: 0.85 } },
+  { id: "cautious", share: 0.3, base: 0.18, briefs: ["Coaching membership under £40 I can cancel any time", "Something one-off under £20"], effect: { facts: 1.9, "one-pick": 1.1, upsell: 0.7 } },
+  { id: "api", share: 0.25, base: 0.26, briefs: ["trail running coaching", "gear guide"], effect: { structured: 1.6, facts: 1.1, upsell: 0.9 } },
+  { id: "price", share: 0.15, base: 0.22, briefs: ["Cheapest trail running plan", "Something under £10"], effect: { upsell: 0.6, facts: 1.1 } },
+];
+
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** n simulated buyer agents shop the store agent (each through the real conversation logic). Labelled synthetic. */
+export async function runSimulatedBuyers(n: number, origin: string, seed = Date.now()): Promise<{ buyers: number; paid: number }> {
+  const rand = mulberry32(seed);
+  let paid = 0;
+  const count = Math.max(1, Math.min(500, Math.floor(n)));
+  for (let i = 0; i < count; i++) {
+    let r = rand();
+    const persona = BUYER_PERSONAS.find((p) => (r -= p.share) < 0) ?? BUYER_PERSONAS[0];
+    const brief = persona.briefs[Math.floor(rand() * persona.briefs.length)];
+    const agentName = `simulated ${persona.id} buyer`;
+    // Seeded conversation ids: the same seed gives the same arms, so runs are reproducible.
+    const first = await replyTo(brief, { contextId: `ctx_sim_${(seed >>> 0).toString(36)}_${i}`, agentName, origin, synthetic: true });
+    const levers = conversationLevers(first.contextId) ?? [];
+    const p = Math.min(0.95, levers.reduce((acc, l) => acc * (persona.effect[l] ?? 1), persona.base));
+    if (!first.data.offers?.length || rand() >= p) continue;
+    const buy = await replyTo(first.data.buy?.reply ?? "buy the first one", { contextId: first.contextId, agentName, origin, synthetic: true });
+    const checkout = buy.data.checkout;
+    if (!checkout) continue;
+    const catalog = await getCatalog();
+    const offer = catalog.offers.find((o) => o.id === checkout.offerId);
+    track({
+      event: "order_completed",
+      distinct_id: `agent_${checkout.ref}`,
+      properties: { darwin_site: STORE_SITE, visitor_kind: "agent", agent_name: agentName, darwin_ref: checkout.ref, channel: "a2a", product_id: checkout.offerId, revenue: offer?.price ?? 0, currency: offer?.currency, synthetic: true },
+    });
+    paid++;
+  }
+  return { buyers: count, paid };
+}
+
+/** Tests on the agent's pitch, with their results. */
+export function agentTestsView(events: readonly AnalyticsEvent[]) {
+  const state = getAgentTests();
+  return { state, results: agentTestResults(events, state) };
+}

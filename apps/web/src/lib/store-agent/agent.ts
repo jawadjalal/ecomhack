@@ -11,6 +11,7 @@ import type { AnalyticsEventInput } from "@/lib/contracts";
 import { track } from "@/lib/analytics/store";
 import { id } from "@/lib/ids";
 import { createCheckout, formatPrice, getCatalog, type Catalog, type Offer } from "./catalog";
+import { pitchFor, type Lever } from "./experiments";
 
 export const STORE_SITE = "whop";
 
@@ -23,6 +24,10 @@ export interface AgentTurn {
     business: string;
     catalog: Catalog["source"];
     offers?: { id: string; title: string; description?: string; price: number; currency: string; billing: string; priceLabel: string }[];
+    /** Structured pitch: exactly how to buy (lever "structured"). */
+    buy?: { reply: string; offerIds: string[] };
+    /** Policy facts (lever "facts"). */
+    facts?: string[];
     checkout?: { url: string; offerId: string; title: string; ref: string; tagged: boolean };
   };
 }
@@ -32,6 +37,8 @@ interface Conversation {
   agentName: string;
   synthetic: boolean;
   startedAt: string;
+  /** How this conversation is pitched (its arm in the running A/B test, else the default). */
+  levers: Lever[];
 }
 
 const g = globalThis as unknown as { __darwinStoreAgent?: Map<string, Conversation> };
@@ -90,6 +97,8 @@ const ORDINALS: [RegExp, number][] = [
 
 /** Which offer a "buy …" message means: an ordinal of what was shown, the cheapest, a named one, or the only one shown. */
 export function pickOffer(text: string, offers: Offer[], shown: string[]): Offer | undefined {
+  const byId = offers.find((o) => text.includes(o.id));
+  if (byId) return byId;
   const shownOffers = shown.map((s) => offers.find((o) => o.id === s)).filter((o): o is Offer => !!o);
   const ord = ORDINALS.find(([re]) => re.test(text));
   if (ord && shownOffers[ord[1]]) return shownOffers[ord[1]];
@@ -120,10 +129,12 @@ export async function replyTo(
   let conv = convs.get(contextId);
   const events: AnalyticsEventInput[] = [];
   if (!conv) {
-    conv = { shown: [], agentName: (opts.agentName ?? "unknown-agent").slice(0, 60), synthetic: !!opts.synthetic, startedAt: new Date().toISOString() };
+    const pitch = pitchFor(contextId);
+    conv = { shown: [], agentName: (opts.agentName ?? "unknown-agent").slice(0, 60), synthetic: !!opts.synthetic, startedAt: new Date().toISOString(), levers: pitch.levers };
     convs.set(contextId, conv);
     if (convs.size > 5000) convs.delete(convs.keys().next().value!);
-    events.push(event("agent_conversation_started", contextId, conv));
+    events.push(event("agent_conversation_started", contextId, conv, { levers: pitch.levers.join(",") }));
+    if (pitch.testId) events.push(event("agent_variant", contextId, conv, { test_id: pitch.testId, variant: pitch.variant, levers: pitch.levers.join(",") }));
   }
   const catalog = await getCatalog();
   const base = { business: catalog.business, catalog: catalog.source };
@@ -136,7 +147,7 @@ export async function replyTo(
     if (!offer) {
       turn = { contextId, text: `Which one? Tell me the name, or ask me what's available first.`, data: { intent: "none", ...base } };
     } else {
-      const checkout = await createCheckout(offer, catalog, { ref: contextId, agentName: conv.agentName }, opts.origin);
+      const checkout = await createCheckout(offer, catalog, { ref: contextId, agentName: conv.agentName, synthetic: conv.synthetic }, opts.origin);
       events.push(event("checkout_started", contextId, conv, { product_id: offer.id, price: offer.price, currency: offer.currency, value: offer.price, checkout_tagged: checkout.tagged }));
       turn = {
         contextId,
@@ -152,18 +163,44 @@ export async function replyTo(
     };
   } else {
     const ranked = rankOffers(catalog.offers, text);
-    const top = (ranked.length ? ranked : [...catalog.offers].sort((a, b) => a.price - b.price)).slice(0, 3);
+    const L = new Set(conv.levers);
+    let top = (ranked.length ? ranked : [...catalog.offers].sort((a, b) => a.price - b.price)).slice(0, 3);
+    // upsell: lead with the biggest plan in the catalog.
+    if (L.has("upsell")) {
+      const biggest = [...catalog.offers].sort((a, b) => b.price - a.price)[0];
+      if (biggest) top = [biggest, ...top.filter((o) => o.id !== biggest.id)].slice(0, 3);
+    }
+    // one-pick: a single recommendation, with the reason.
+    const others = top.length - 1;
+    if (L.has("one-pick")) top = top.slice(0, 1);
     conv.shown = top.map((o) => o.id);
     for (const o of top) events.push(event("product_viewed", contextId, conv, { product_id: o.id, price: o.price, currency: o.currency }));
     const exact = ranked.length > 0;
+    const facts = L.has("facts") ? ["Instant access as soon as the payment goes through.", "Memberships cancel any time from your Whop account.", "Payment is handled by Whop's checkout."] : undefined;
+    const lines = L.has("one-pick")
+      ? [`My pick for you: ${top[0].title}, ${formatPrice(top[0])}.${top[0].description ? ` ${top[0].description}` : ""}`, `${exact ? "It's the closest match to what you asked for" : "Nothing matches exactly; it's our most popular starting point"}${others > 0 ? ` (${others} other option${others === 1 ? "" : "s"}: ask to see them)` : ""}.`]
+      : [`${exact ? "Here's what fits" : "Nothing matches that exactly; here's what we have"} at ${catalog.business}:`, ...top.map((o, i) => `${i + 1}. ${L.has("upsell") && i === 0 ? "Best value: " : ""}${o.title}: ${formatPrice(o)}${o.description ? `. ${o.description}` : ""}`)];
+    if (facts) lines.push(`Good to know: ${facts.join(" ")}`);
+    lines.push(L.has("structured") ? `To buy, reply: buy ${top[0].id}${top.length > 1 ? ` (or the id of another offer: ${top.slice(1).map((o) => o.id).join(", ")})` : ""}.` : `Say "buy the first one" (or its name) and I'll send a checkout link.`);
     turn = {
       contextId,
-      text: `${exact ? "Here's what fits" : "Nothing matches that exactly; here's what we have"} at ${catalog.business}:\n${top.map((o, i) => `${i + 1}. ${o.title}: ${formatPrice(o)}${o.description ? `. ${o.description}` : ""}`).join("\n")}\nSay "buy the first one" (or its name) and I'll send a checkout link.`,
-      data: { intent: "offers", ...base, offers: top.map(offerData) },
+      text: lines.join("\n"),
+      data: {
+        intent: "offers",
+        ...base,
+        offers: top.map(offerData),
+        ...(facts ? { facts } : {}),
+        ...(L.has("structured") ? { buy: { reply: `buy ${top[0].id}`, offerIds: top.map((o) => o.id) } } : {}),
+      },
     };
   }
   track(events);
   return turn;
+}
+
+/** How a conversation is being pitched (for simulated buyers and tests). */
+export function conversationLevers(contextId: string): Lever[] | undefined {
+  return conversations().get(contextId)?.levers;
 }
 
 export function resetStoreAgent() {

@@ -124,8 +124,10 @@ export async function getCatalog(opts: { fresh?: boolean; now?: number } = {}): 
  * A checkout link for one offer, tagged so the payment comes back as this agent's sale: Whop checkout
  * configuration with metadata, else the plan's plain link; demo offers use Darwin's demo checkout page.
  */
-export async function createCheckout(offer: Offer, catalog: Catalog, meta: { ref: string; agentName: string }, origin: string): Promise<{ url: string; tagged: boolean }> {
+export async function createCheckout(offer: Offer, catalog: Catalog, meta: { ref: string; agentName: string; synthetic?: boolean }, origin: string): Promise<{ url: string; tagged: boolean }> {
   if (catalog.source === "demo") return { url: `${origin}/checkout/demo?offer=${encodeURIComponent(offer.id)}&ref=${encodeURIComponent(meta.ref)}`, tagged: true };
+  // Simulated buyers never touch the merchant's Whop account (no checkout configurations created for them).
+  if (meta.synthetic) return { url: offer.checkoutUrl, tagged: false };
   const key = whopKey();
   if (key) {
     try {
