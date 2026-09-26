@@ -20,7 +20,7 @@ function Ctas({ spec, dark = false, center = false }: { spec: PageSpec; dark?: b
     <div className={`mt-8 flex flex-wrap gap-3 ${center ? "justify-center" : ""}`}>
       <StoreLink
         href="/store#collection"
-        className={`pace-btn ${dark ? "pace-btn-dark-surface" : "pace-btn-primary"} min-h-[52px] px-7 text-base`}
+        className={`pace-btn pace-btn-wrap ${dark ? "pace-btn-dark-surface" : "pace-btn-primary"} min-h-[52px] px-7 text-base`}
         data-darwin="hero-cta"
       >
         {spec.hero.ctaText}

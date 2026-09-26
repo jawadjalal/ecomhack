@@ -59,6 +59,14 @@
   text-align: center;
   line-height: 1.25;
 }
+/* Inline buttons whose copy comes from the PageSpec (hero CTA, up to 32 chars): stay one line when they fit,
+   wrap on the smallest phones instead of overflowing. */
+.pace-btn-wrap {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
 .pace-btn:active {
   transform: translateY(1px) scale(0.99);
 }
