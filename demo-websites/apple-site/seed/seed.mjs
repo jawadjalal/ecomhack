@@ -6,7 +6,8 @@
  *   node seed/seed.mjs --darwin http://localhost:3000            # 1200 humans + 120 agents, then 4 loop steps
  *   node seed/seed.mjs --darwin https://darwin.example --token $DARWIN_ADMIN_TOKEN --humans 1500
  *   node seed/seed.mjs --dry-run                                  # print the funnel, send nothing
- *   node seed/seed.mjs --write-baseline /path/to/DARWIN_DATA_DIR  # make this config Darwin's Gen 0 (Darwin stopped)
+ *   node seed/seed.mjs --darwin http://localhost:3000 --import-baseline   # make this config Darwin's Gen 0 first (resets Darwin's loop)
+ *   node seed/seed.mjs --write-baseline /path/to/DARWIN_DATA_DIR  # same, offline (Darwin stopped)
  *
  * Every event is synthetic and labelled so: it goes to Darwin's POST /api/simulate/events, which stamps
  * `properties.synthetic = true` server-side (the public ingest routes can't, by design). Darwin's console
@@ -43,8 +44,27 @@ const LOOP_STEPS = Number(flag("loop", 4));
 const DRY = Boolean(flag("dry-run", false));
 const SEED = Number(flag("seed", Date.now() % 1e9));
 const BASELINE_DIR = flag("write-baseline", "");
+const IMPORT_BASELINE = Boolean(flag("import-baseline", false));
 
 const spec = JSON.parse(fs.readFileSync(CONFIG, "utf8"));
+/** The live spec version events are attributed to (Darwin's, after --import-baseline). */
+let SPEC_VERSION = spec.version;
+
+if (IMPORT_BASELINE && !DRY) {
+  // Darwin's POST /api/loop/baseline makes this config Darwin's Gen 0 (resetting Darwin's loop), so winner
+  // PRs keep Orchard's copy. Events are then tagged with the version Darwin assigned.
+  const res = await fetch(`${DARWIN}/api/loop/baseline`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(TOKEN ? { authorization: `Bearer ${TOKEN}` } : {}) },
+    body: JSON.stringify({ spec, reset: true }),
+  }).catch((err) => ({ ok: false, status: err.message }));
+  if (!res.ok) {
+    console.error(`Darwin refused the baseline import (${res.status}). Update Darwin or drop --import-baseline.`);
+    process.exit(1);
+  }
+  SPEC_VERSION = (await res.json()).spec.version;
+  console.log(`Imported ${path.basename(CONFIG)} as Darwin's baseline (live spec v${SPEC_VERSION}).`);
+}
 
 if (BASELINE_DIR) {
   // Darwin keeps its live PageSpec in DARWIN_DATA_DIR/spec.json. Writing this site's config there (while
@@ -134,7 +154,7 @@ function session(kind, i) {
   const id = `v_seed_${SEED.toString(36)}_${kind[0]}${i}`;
   const sid = `s_seed_${SEED.toString(36)}_${kind[0]}${i}`;
   let t = now - rand() * HOURS * 3600_000;
-  const base = { darwin_site: SITE, $lib: "darwin-seed", $session_id: sid, spec_version: spec.version, orchard_config_version: spec.version, store: "orchard" };
+  const base = { darwin_site: SITE, $lib: "darwin-seed", $session_id: sid, spec_version: SPEC_VERSION, orchard_config_version: spec.version, store: "orchard" };
   const emit = (event, props = {}, path) => {
     t += 1500 + rand() * 20_000;
     if (t > now) t = now - rand() * 1000;
