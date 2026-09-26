@@ -7,7 +7,7 @@ import { PHASE_META } from "@/lib/console/format";
 import { TRAFFIC_BATCH, useExperiments } from "@/lib/console/hooks";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, LiveDot, pct0 } from "../ui";
+import { Card, DEPTH, LiveDot, pct0 } from "../ui";
 import { Switch } from "./switch";
 
 /**
@@ -36,11 +36,11 @@ export function AutopilotCard({ className }: { className?: string }) {
   const phase = loop ? PHASE_META[loop.phase] : undefined;
 
   return (
-    <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Autopilot">
+    <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Autopilot">
       <div className="flex items-start gap-4">
         <Mascot kind="shipper" size={60} frame active={autopilot} title="Max, the shipper" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-[26px] leading-tight font-semibold tracking-[-0.02em]">Autopilot</h2>
+          <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Autopilot</h2>
           <p className="mt-1 flex items-center gap-2 text-[14px] text-[#4F4417]" aria-live="polite">
             {autopilot ? <LiveDot /> : <span className="size-2 rounded-full bg-dw-ink/30" />}
             {!loop ? (
@@ -128,7 +128,12 @@ function ShipBar({ chance, name }: { chance?: number; name?: string }) {
         aria-valuemax={100}
         aria-valuenow={Math.round(at * 100)}
       >
-        <motion.div className="absolute inset-y-0 left-0 rounded-full bg-dw-ink" initial={{ width: 0 }} animate={{ width: `${at * 100}%` }} transition={{ type: "spring", stiffness: 90, damping: 20 }} />
+        <motion.div
+          className="absolute inset-y-0 left-0 rounded-full bg-dw-ink"
+          initial={{ width: 0 }}
+          animate={{ width: `${at * 100}%` }}
+          transition={{ type: "spring", stiffness: 90, damping: 20 }}
+        />
         <span className="absolute top-1/2 h-5 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-dw-ink" style={{ left: `${SHIP_BAR * 100}%` }} aria-hidden />
         {chance !== undefined && (
           <motion.span

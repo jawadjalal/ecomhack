@@ -17,6 +17,7 @@ import type {
   WebSimulateResponse,
 } from "@/lib/contracts";
 import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
+import { INSTALL_STATUS_LABEL, installStatus } from "@/lib/web/install-status";
 import { cn } from "@/components/ui/cn";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
@@ -593,7 +594,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
           )}
 
           {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
-          <InstallPanel site={site} origin={origin} />
+          <InstallPanel install={data?.install} realVisitors={data ? data.overview.visitors - data.overview.syntheticVisitors : 0} />
         </div>
       </div>
 
@@ -1306,9 +1307,34 @@ function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string })
   );
 }
 
-function InstallPanel({ site, origin }: { site: string; origin: string }) {
+/**
+ * The install tag comes from the server (GET /api/web/rules → install, built by lib/github installSnippet: the
+ * same helper onboarding, the install PR and llms.txt use), never from window.location. One tag: darwin.js loads
+ * the personalization runtime itself. Status uses the three shared words (lib/web/install-status).
+ */
+function InstallPanel({ install, realVisitors }: { install?: WebRulesResponse["install"]; realVisitors: number }) {
   const [copied, setCopied] = useState(false);
-  const snippet = `<script src="${origin}/api/web/runtime.js?site=${site}"></script>\n<script async src="${origin}/darwin.js" data-darwin-site="${site}"></script>`;
+  const [verify, setVerify] = useState<{ verified: boolean; via?: "events" | "tag" } | null>(null);
+  const snippet = install?.tag ?? "";
+  const storeUrl = install?.storeUrl;
+  const siteId = install?.siteId;
+  useEffect(() => {
+    if (!storeUrl || !siteId || realVisitors > 0) return;
+    let stop = false;
+    const check = () =>
+      fetch(`/api/onboarding/verify?site=${encodeURIComponent(siteId)}&url=${encodeURIComponent(storeUrl)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((v) => !stop && setVerify(v))
+        .catch(() => undefined);
+    const first = setTimeout(check, 0);
+    const t = setInterval(check, 10_000);
+    return () => {
+      stop = true;
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [storeUrl, siteId, realVisitors]);
+  const status = installStatus({ verify, realVisitors });
   return (
     <Card tone="white" hover={false}>
       <CardHead
@@ -1316,6 +1342,7 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
           <PillButton
             size="sm"
             tone="sand"
+            disabled={!snippet}
             onClick={() => {
               navigator.clipboard?.writeText(snippet).then(() => {
                 setCopied(true);
@@ -1330,10 +1357,14 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
       >
         Install on any store
       </CardHead>
-      <pre className="mt-4 overflow-x-auto rounded-[18px] bg-dw-ink p-4 font-dwmono text-[12px] leading-relaxed whitespace-pre text-[#EDE6D6]">{snippet}</pre>
+      <p className="mt-3 flex items-center gap-2 text-[13px] font-medium text-dw-ink/75" title="Installed = the tag was found on your store's page. Verified = a real (not simulated) event arrived.">
+        <span className={cn("size-2 rounded-full", status === "verified" ? "bg-dw-live" : status === "installed" ? "bg-dw-olive" : "bg-dw-ink/25")} aria-hidden />
+        {INSTALL_STATUS_LABEL[status]}
+      </p>
+      <pre className="mt-3 overflow-x-auto rounded-[18px] bg-dw-ink p-4 font-dwmono text-[12px] leading-relaxed whitespace-pre text-[#EDE6D6]">{snippet || "Loading…"}</pre>
       <p className="mt-3 text-[13px] leading-snug text-dw-ink/60">
-        Paste both in <code className="font-dwmono">&lt;head&gt;</code>. darwin.js alone works too (it loads the rules itself); the first line stops the page flickering. Changes are
-        text and styles only, never scripts.
+        Paste it in <code className="font-dwmono">&lt;head&gt;</code>. This one tag records visits and loads the personalization rules. Changes are text and styles only, never
+        scripts.
       </p>
     </Card>
   );

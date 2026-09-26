@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, Cpu, LoaderCircle, Users, X } from "lucide-react";
 import type { AgentTestResult, AgentTestState, Lever } from "@/lib/store-agent";
 import { cn } from "@/components/ui/cn";
-import { Card, CardTitle, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
+import { Card, CardTitle, DEPTH, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
 import { Mascot } from "@/components/dw/mascot";
 import { Pill } from "@/components/dw/dashboards/charts";
 import { SwitchRow } from "./switch";
@@ -34,7 +34,12 @@ const RULES = [
 
 const pctOf = (x?: number) => (x === undefined || !Number.isFinite(x) ? "–" : `${Math.round(x * 100)}%`);
 const signedPct = (x?: number) => (x === undefined || !Number.isFinite(x) ? "–" : `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))}%`);
-const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const clock = (iso: string) =>
+  new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
 /** "A/B tests on your agent": autopilot, simulated buyers, the four pitch levers, the live test and the log. */
 export function TestsCard({
@@ -56,10 +61,11 @@ export function TestsCard({
   const pitch = s?.levers.length ? s.levers.map((l) => LEVER_LABEL[l]).join(" + ") : "a plain list of offers";
 
   return (
-    <Card tone="pink" shape="experimenter" corner="br" className="min-w-0">
+    <Card tone="pink" shape="experimenter" corner="br" className={`min-w-0 tabular-nums ${DEPTH}`}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="min-w-0 flex-1 basis-[22rem]">
           <CardTitle
+            className="[&>h2]:text-[20px]"
             right={
               running ? (
                 <span className="flex items-center gap-1.5 font-medium text-dw-ink">
@@ -73,8 +79,7 @@ export function TestsCard({
             Tests on Mika&apos;s pitch
           </CardTitle>
           <p className="mt-1.5 max-w-[46rem] text-[14px] leading-snug text-dw-ink/75">
-            Ada changes one thing about how Mika pitches at a time. She keeps it only if more chats end in a payment. The pitch today:{" "}
-            <b className="font-semibold text-dw-ink">{pitch}</b>.
+            Ada changes one thing about how Mika pitches at a time. She keeps it only if more chats end in a payment. The pitch today: <b className="font-semibold text-dw-ink">{pitch}</b>.
           </p>
         </div>
         <div className="grid w-full gap-2 sm:grid-cols-2 xl:w-[42rem]">
@@ -108,10 +113,7 @@ export function TestsCard({
                 <li
                   key={l}
                   title={t?.reason}
-                  className={cn(
-                    "dw-row flex min-h-[60px] items-center gap-3 rounded-[18px] px-3.5 py-2.5",
-                    status === "running" ? "bg-white shadow-[0_0_0_1.5px_#141413]" : "bg-white/55",
-                  )}
+                  className={cn("dw-row flex min-h-[60px] items-center gap-3 rounded-[18px] px-3.5 py-2.5", status === "running" ? "bg-white shadow-[0_0_0_1.5px_#141413]" : "bg-white/55")}
                 >
                   <LeverIcon status={status} />
                   <div className="min-w-0 flex-1">

@@ -231,6 +231,14 @@ await window.darwin.do("send 200 shoppers then open the top issue")        // pl
 `GET /api/command` returns the registry (admin-gated like the rest of mission control). Numbers in results come
 from Darwin's APIs, and simulated traffic is always labelled.
 
+Setup and demo commands (same registry, so also `darwin_<name>` over MCP and the CLI):
+`start_demo` ("watch Darwin improve the demo store": simulated shoppers + autopilot), `watch_fix` ("watch Darwin
+fix it": the Overview's watch run, `/console?watch=1`; headless it steps the loop phase by phase),
+`check_install` ("test my install on shop.example.com": waiting / installed / verified), `save_setup` ("save my
+setup as jo@example.com": returns a 30-day resume link, nothing is emailed), `which_store` (demo store or your
+repo / sites), `detect_platform` ("what platform is shop.example.com on?") and `research_competitors`
+("research competitors for trail running shoes in the UK").
+
 ### Drive Darwin with an agent: MCP server and CLI
 
 The same commands also run headless (`lib/commands/server-run.ts`), through Darwin's own API routes, so any

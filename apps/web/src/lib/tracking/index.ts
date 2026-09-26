@@ -10,6 +10,8 @@ import { heuristicPlan } from "./plan";
 export { buildPlan, heuristicPlan, amendPlan, heuristicAmend, applyToggles, dashboardsFor, planIntro, trackingDoc, trackingSummary, AUTOMATIC, FUNNEL } from "./plan";
 export { computeDashboards } from "./dashboards";
 export { askForChart, removeChart, type ChartAnswer } from "./charts";
+export { funnelDrill, newBoard, assignBoard } from "./drill";
+export { boardsFor, boardNames, BOARDS } from "./boards";
 export type { PlanInput } from "./plan";
 export { TrackingPlanSchema } from "./schema";
 

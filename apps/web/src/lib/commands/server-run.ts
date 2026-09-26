@@ -12,7 +12,8 @@
 import type { Insight, LoopState } from "@/lib/contracts";
 import { money, PHASE_META, pct } from "@/lib/console/format";
 import { ROADMAP, roadmapArea, roadmapFor, whatsLeftText, type RoadmapArea } from "@/lib/status/roadmap";
-import { resolveSite } from "./parse";
+import { resolveSite, siteSlug } from "./parse";
+import { describeStore, installState, installText, platformText, researchText, type InspectLite, type ResearchLite, type VerifyLite, type WhichStore } from "./results";
 import { AGENT_LEVERS, inputJsonSchema, pageHref, PAGE_KEYS, PAGES, resolveCommand, specOf, type CommandInput, type PageKey } from "./specs";
 import type { CommandName, CommandResult, CommandSites } from "./types";
 
@@ -337,7 +338,143 @@ const RUNNERS: { [N in CommandName]: Runner<N> } = {
       return { ok: true, text: roadmapOverview(), data: ROADMAP.map(roadmapLine) };
     },
   },
+
+  start_demo: {
+    async run(_input, ctx) {
+      const demo = await http<DemoResponseLite>(ctx, "POST", "/api/demo");
+      const loop = await http<LoopState>(ctx, "POST", "/api/loop/autopilot", { on: true });
+      // Headless there's no open console to keep shoppers coming, so top the store up once when /api/demo didn't.
+      const sim = demo.action === "none" || !demo.action ? await http<SimLite>(ctx, "POST", "/api/simulate", { humans: 200, agents: 20 }).catch(() => undefined) : undefined;
+      const filled =
+        demo.action === "seeded"
+          ? `Darwin filled the demo store with simulated shoppers and ran its loop to Gen ${demo.status.generation}`
+          : demo.action === "refilled"
+            ? "Darwin sent a fresh round of simulated shoppers to the demo store"
+            : sim
+              ? `Darwin sent ${plural(sim.humans, "simulated person", "simulated people")} and ${plural(sim.agents, "simulated AI agent")} to the demo store`
+              : "The demo store already has simulated shoppers";
+      const auto = loop.autopilot ? "Autopilot is on: Darwin observes, tests and ships winners by itself (move it along headless with step_loop or watch_fix)." : "Autopilot didn't switch on: try set_autopilot.";
+      const connected = demo.status.mode === "connected" ? " Note: a store of yours is connected too; this only runs on the demo store." : "";
+      return {
+        ok: loop.autopilot,
+        text: `${filled}. ${auto} Every shopper here is simulated and labelled.${connected}`,
+        synthetic: true,
+        href: abs(ctx, "/console"),
+        linkLabel: "Watch it on Overview",
+        data: { demo, autopilot: loop.autopilot, phase: loop.phase, generation: loop.generation, simulated: sim },
+      };
+    },
+  },
+
+  watch_fix: {
+    async run({ steps }, ctx) {
+      const before = await http<LoopState>(ctx, "GET", "/api/loop").catch(() => undefined);
+      const startLen = before?.log.length ?? 0;
+      const phases: { phase: LoopState["phase"]; said?: string }[] = [];
+      let last: LoopState | undefined;
+      for (let i = 0; i < steps; i++) {
+        last = await http<LoopState>(ctx, "POST", "/api/loop/step", {});
+        phases.push({ phase: last.phase, said: last.log.at(-1)?.message });
+        if (last.log.length > startLen && (last.phase === "ship" || last.phase === "idle")) break;
+      }
+      if (!last) return { ok: false, text: "The loop didn't move." };
+      const lines = phases.map((p, i) => `${i + 1}. ${PHASE_META[p.phase].label}${p.said ? `: ${p.said}` : ""}`);
+      const end = last.phase === "ship" ? `Darwin reached Ship (Gen ${last.generation} live).` : last.phase === "idle" ? "The run is done: Darwin is back at Idle." : `Darwin stopped at ${PHASE_META[last.phase].label} after ${plural(phases.length, "phase")}: run watch_fix again to carry on.`;
+      return {
+        ok: true,
+        text: `${lines.join("\n")}\n${end} Test traffic in the experiment phase is simulated.`,
+        synthetic: true,
+        href: abs(ctx, "/console"),
+        linkLabel: "See Overview",
+        data: { phases: phases.map((p) => p.phase), generation: last.generation, phase: last.phase },
+      };
+    },
+  },
+
+  check_install: {
+    async run({ url: given, site: named }, ctx) {
+      const known = await sites(ctx).catch(() => ({ tracking: [], web: [] }) as CommandSites);
+      const all = [...new Set([...known.tracking, ...known.web])];
+      const saved = given ? undefined : await savedStore(ctx, named ?? (all.length === 1 ? all[0] : undefined));
+      const url = given ?? saved?.url;
+      if (!url) {
+        return { ok: false, text: "Which store should Darwin check? Pass url, your store's address (like https://shop.example.com).", href: abs(ctx, "/onboarding"), linkLabel: "Set up a store" };
+      }
+      const site = named ? resolveSite(named, all) : (saved?.site ?? resolveSite(siteSlug(url), all));
+      if (!site) return { ok: false, text: `Which darwin.js site is ${url}? Pass site.` };
+      const v = await http<VerifyLite>(ctx, "GET", `/api/onboarding/verify?${new URLSearchParams({ site, url })}`);
+      const state = installState(v);
+      return { ok: true, text: installText(state, v), href: abs(ctx, "/onboarding"), linkLabel: "Open setup", data: { state, site, ...v } };
+    },
+  },
+
+  save_setup: {
+    async run({ email, site: named }, ctx) {
+      if (!email) return { ok: false, text: "What email should Darwin save your setup under? Pass email. Nothing is sent to it: you get a link to keep." };
+      const site = named ? resolveSite(named, (await sites(ctx).catch(() => ({ tracking: [], web: [] }) as CommandSites)).tracking) : undefined;
+      const r = await http<{ email: string; resumeUrl: string }>(ctx, "POST", "/api/account", { email, ...(site ? { site } : {}) });
+      return {
+        ok: true,
+        text: `Saved your setup under ${r.email}${site ? ` for ${site}` : ""}. Keep this link to pick up where you left off on any browser (valid 30 days): ${r.resumeUrl}. Nothing was emailed.`,
+        href: r.resumeUrl,
+        linkLabel: "Resume link",
+        data: { email: r.email, site, resumeUrl: r.resumeUrl },
+      };
+    },
+  },
+
+  which_store: {
+    async run(_input, ctx) {
+      const w = await whichStore(ctx);
+      return { ok: true, text: w.text, href: abs(ctx, w.demo ? "/store" : "/console/settings"), linkLabel: w.demo ? "Open the demo store" : "Open Settings", data: w };
+    },
+  },
+
+  detect_platform: {
+    async run({ url }, ctx) {
+      const r = await http<InspectLite>(ctx, "GET", `/api/onboarding/inspect?${new URLSearchParams({ url })}`);
+      return { ok: r.reachable, text: platformText(r), href: abs(ctx, "/onboarding"), linkLabel: "Set up this store", data: r };
+    },
+  },
+
+  research_competitors: {
+    async run({ query, store }, ctx) {
+      const r = await http<ResearchLite>(ctx, "POST", "/api/research", { kind: "competitors", query, ...(store ? { store } : {}) });
+      const href = abs(ctx, `/console/research?id=${encodeURIComponent(r.id)}`);
+      return { ok: true, text: `${researchText(r)} Full report: ${href}`, href, linkLabel: "Open the report", data: r };
+    },
+  },
 };
+
+/* ------------------------------------------------------------------ helpers for the setup / demo commands */
+
+interface DemoResponseLite {
+  status: { mode: "demo" | "connected"; generation: number; hasSimulatedTraffic: boolean; connections: { github?: string; sites: string[]; whop?: string } };
+  action?: "seeded" | "refilled" | "none";
+  steps?: number;
+}
+interface SimLite {
+  humans: number;
+  agents: number;
+  orders: number;
+  revenue: number;
+}
+/** The onboarding store for a site (its tracking plan's address), when one is saved. */
+async function savedStore(ctx: Ctx, site: string | undefined): Promise<{ site: string; url?: string } | undefined> {
+  if (!site) return undefined;
+  const r = await http<{ plan?: { siteUrl?: string } }>(ctx, "GET", `/api/onboarding/plan?${new URLSearchParams({ site })}`).catch(() => undefined);
+  const url = r?.plan?.siteUrl;
+  return { site, url: url && /^https?:\/\//.test(url) ? url : undefined };
+}
+
+async function whichStore(ctx: Ctx): Promise<WhichStore> {
+  const [gh, account, known] = await Promise.all([
+    http<{ repo?: string; connection?: { repo?: string } }>(ctx, "GET", "/api/github/status").catch(() => undefined),
+    http<{ email?: string; sites?: string[] }>(ctx, "GET", "/api/account").catch(() => undefined),
+    sites(ctx).catch(() => ({ tracking: [], web: [] }) as CommandSites),
+  ]);
+  return describeStore(gh, account, known);
+}
 
 function roadmapLine(a: RoadmapArea) {
   return { key: a.key, name: a.name, route: a.route, status: a.status, leftToDo: a.leftToDo };

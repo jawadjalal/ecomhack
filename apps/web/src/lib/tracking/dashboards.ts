@@ -77,7 +77,7 @@ export function computeDashboards(site: string, plan: TrackingPlan | undefined, 
   ];
 
   const build = (d: DashboardSpec): DashboardData => {
-    const base = { id: d.id, kind: d.kind, title: d.title, why: d.why, ...(d.custom ? { custom: true } : {}) };
+    const base = { id: d.id, kind: d.kind, title: d.title, why: d.why, ...(d.custom ? { custom: true } : {}), ...(d.board ? { board: d.board } : {}), ...(d.events?.length ? { events: d.events } : {}) };
     switch (d.kind) {
       case "kpis": {
         const converted = people.filter((v) => v.converted).length;

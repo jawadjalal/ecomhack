@@ -19,7 +19,14 @@ export type CommandName =
   | "draft_personalization"
   | "briefing"
   | "act_on_briefing"
-  | "whats_left";
+  | "whats_left"
+  | "start_demo"
+  | "watch_fix"
+  | "check_install"
+  | "save_setup"
+  | "which_store"
+  | "detect_platform"
+  | "research_competitors";
 
 /** safe: runs straight away. confirm: the human approves it in the page first (always, even for browser agents). */
 export type CommandRisk = "safe" | "confirm";

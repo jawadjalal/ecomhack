@@ -5,29 +5,18 @@
  * (olive). Ink-only charts: solid pills = series 1 (people / B), dashed pills = series 2 (agents / A).
  */
 import Link from "next/link";
-import { useId, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, type MouseEvent } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { AnalyticsSummary } from "@/lib/contracts";
 import { useMeasure } from "@/lib/console/hooks";
 import { cn } from "@/components/ui/cn";
 import { AgentTile, agentBrand } from "../agent-tile";
 import { Mascot } from "../mascot";
-import { Card, LegendKey, PillButton } from "../ui";
+import { Card, DEPTH, LegendKey, PillButton } from "../ui";
 import { CountUp, EASE, Grow, Tip, type CountFormat } from "./fx";
-import {
-  SHIP_AT,
-  countText,
-  funnelSteps,
-  pctSmart,
-  seriesText,
-  seriesValue,
-  smoothPath,
-  whom,
-  type BoardRow,
-  type ChartPoint,
-  type ChartTab,
-  type TestView,
-} from "./model";
+import { SHIP_AT, countText, funnelSteps, pctSmart, seriesText, seriesValue, smoothPath, whom, type BoardRow, type ChartPoint, type ChartTab, type TestView } from "./model";
 
 const FILL = "[&>div]:flex [&>div]:h-full [&>div]:flex-col";
 /**
@@ -39,24 +28,44 @@ const ROW2 = "lg:h-[clamp(184px,calc(100vh_-_686px),214px)] lg:py-[18px]";
 /** Phones: every card in the carousel is as tall as the tallest, and gives under a press. */
 const PHONE = "max-sm:h-full max-sm:min-h-[300px] max-sm:active:scale-[0.985] max-sm:active:brightness-[0.98]";
 
-function CardHead({ title, right }: { title: string; right?: React.ReactNode }) {
+/** Every Overview card is a door to its page: the title is the link, and a click on the card's empty space follows it. */
+const CLICK = "cursor-pointer";
+function useCardClick(href: string) {
+  const router = useRouter();
+  return (e: MouseEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).closest("a,button,input,textarea,select,[role=tab]")) return;
+    if (window.getSelection()?.toString()) return;
+    router.push(href);
+  };
+}
+
+/** The card title as a link, with a small arrow that nudges on hover. 20px semibold, like every Darwin card. */
+function TitleLink({ href, children, hint }: { href: string; children: React.ReactNode; hint: string }) {
+  return (
+    <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">
+      <Link href={href} title={hint} className="group/t inline-flex items-center gap-1.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2">
+        {children}
+        <ArrowUpRight
+          aria-hidden
+          className="size-[18px] opacity-45 transition-[opacity,transform] duration-200 group-hover/t:translate-x-0.5 group-hover/t:-translate-y-0.5 group-hover/t:opacity-100"
+        />
+      </Link>
+    </h2>
+  );
+}
+
+function CardHead({ title, href, hint, right }: { title: string; href: string; hint: string; right?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-      <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{title}</h2>
-      {right && <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-[12px]">{right}</div>}
+      <TitleLink href={href} hint={hint}>
+        {title}
+      </TitleLink>
+      {right && <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-[12px] tabular-nums">{right}</div>}
     </div>
   );
 }
 
-function CardEmpty({
-  kind,
-  children,
-  action,
-}: {
-  kind: "designer" | "experimenter" | "observer" | "analyst";
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
+function CardEmpty({ kind, children, action }: { kind: "designer" | "experimenter" | "observer" | "analyst"; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center text-[15px] text-dw-ink/75">
       <Mascot kind={kind} size={46} frame active />
@@ -68,27 +77,37 @@ function CardEmpty({
 
 /* ------------------------------------------------------------------ Conversion */
 
-export function ConversionCard({
-  points,
-  summary,
-  simulated,
-  onRun,
-}: {
-  points: ChartPoint[];
-  summary?: AnalyticsSummary;
-  simulated: boolean;
-  onRun?: () => void;
-}) {
+export function ConversionCard({ points, summary, simulated, onRun }: { points: ChartPoint[]; summary?: AnalyticsSummary; simulated: boolean; onRun?: () => void }) {
   const [tab, setTab] = useState<ChartTab>("converts");
+  const open = useCardClick("/console/changes");
   const reduce = useReducedMotion();
-  const gid = useId().replace(/:/g, "");
   const last = points.at(-1);
-  const tabs: { key: ChartTab; value: number; format: CountFormat; label: string }[] = last
+  const tabs: {
+    key: ChartTab;
+    value: number;
+    format: CountFormat;
+    label: string;
+  }[] = last
     ? [
         { key: "converts", value: last.rate, format: "pct", label: "Converts" },
-        { key: "shoppers", value: summary?.overall.visitors ?? last.shoppers, format: "int", label: "Shoppers" },
-        { key: "bought", value: summary?.overall.orders ?? last.bought, format: "int", label: "Bought" },
-        { key: "better", value: last.multiple, format: "mult", label: "Since Darwin started" },
+        {
+          key: "shoppers",
+          value: summary?.overall.visitors ?? last.shoppers,
+          format: "int",
+          label: "Shoppers",
+        },
+        {
+          key: "bought",
+          value: summary?.overall.orders ?? last.bought,
+          format: "int",
+          label: "Bought",
+        },
+        {
+          key: "better",
+          value: last.multiple,
+          format: "mult",
+          label: "Since Darwin started",
+        },
       ]
     : [];
 
@@ -108,10 +127,12 @@ export function ConversionCard({
   }, [points, tab]);
 
   return (
-    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col px-[26px] py-[22px]", ROW1, PHONE, FILL)} aria-label="Conversion">
+    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW1, PHONE, FILL)} aria-label="Conversion" onClick={open}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Conversion</h2>
+          <TitleLink href="/console/changes" hint="See every change Max shipped">
+            Conversion
+          </TitleLink>
           {points.length > 0 && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
               <LegendKey className="text-[#4F4417]">{tabs.find((t) => t.key === tab)?.label ?? "Converts"}</LegendKey>
@@ -123,11 +144,7 @@ export function ConversionCard({
           )}
         </div>
         {last && chart && (
-          <div
-            role="tablist"
-            aria-label="Chart"
-            className="flex flex-wrap gap-x-6 gap-y-2 max-sm:grid max-sm:w-full max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:gap-y-3"
-          >
+          <div role="tablist" aria-label="Chart" className="flex flex-wrap gap-x-6 gap-y-2 max-sm:grid max-sm:w-full max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:gap-y-3">
             {tabs.map((t) => {
               const on = t.key === tab;
               return (
@@ -185,18 +202,13 @@ export function ConversionCard({
                 })}
               </div>
               <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden>
-                <defs>
-                  <linearGradient id={`conv-${gid}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#141413" stopOpacity="0.2" />
-                    <stop offset="1" stopColor="#141413" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
                 {points.length > 1 && (
                   <>
                     <motion.path
                       key={`a-${tab}`}
                       d={chart.area}
-                      fill={`url(#conv-${gid})`}
+                      fill="#141413"
+                      fillOpacity={0.08}
                       className="max-sm:hidden"
                       initial={reduce ? false : { opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -220,7 +232,10 @@ export function ConversionCard({
               <motion.div
                 key={`d-${tab}`}
                 className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-dw-ink shadow-[0_0_0_4px_#F6D76B]"
-                style={{ left: `${chart.lastPt[0] / 10}%`, top: `${chart.lastPt[1]}%` }}
+                style={{
+                  left: `${chart.lastPt[0] / 10}%`,
+                  top: `${chart.lastPt[1]}%`,
+                }}
                 initial={reduce ? false : { scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.4, delay: 0.8, ease: EASE }}
@@ -260,10 +275,13 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
   const lift = test?.lift;
   const ended = test && !test.running;
   const decision = test?.experiment.result?.decision;
+  const open = useCardClick("/console/experiments");
   return (
-    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col px-[26px] py-[22px]", ROW1, PHONE, FILL)} aria-label="A vs B">
+    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW1, PHONE, FILL)} aria-label="A vs B" onClick={open}>
       <CardHead
         title={ended ? (decision === "ship" ? "Last win" : "Last test") : "A vs B"}
+        href="/console/experiments"
+        hint={test ? `Open Ada's test: ${test.experiment.name}` : "Open Ada's tests"}
         right={
           test && (
             <Link
@@ -277,7 +295,7 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
       />
       {!test || !hasResult ? (
         <CardEmpty kind="experimenter" action={!autopilot && onRun ? <PillButton onClick={onRun}>Let Darwin run</PillButton> : undefined}>
-          {test ? "The test just started. The first shoppers are on their way." : "No test yet. Darwin starts one as soon as it has a fix worth trying."}
+          {test ? "Ada just started this test. The first shoppers are on their way." : "No test yet. Ada starts one as soon as Theo has a fix worth trying."}
         </CardEmpty>
       ) : (
         <div className="mt-3.5 grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-end gap-6 lg:mt-2">
@@ -314,8 +332,8 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
               <span className="mt-1 text-[13px] text-[#5A2744]">
                 {ended
                   ? decision === "ship"
-                    ? `B shipped: more ${whom(test.audience)} bought`
-                    : `Kept A: B didn’t beat it`
+                    ? `Max shipped B: more ${whom(test.audience)} bought`
+                    : `Ada kept A: B didn’t beat it`
                   : lift === undefined
                     ? "Waiting for buyers in A"
                     : `${lift >= 0 ? "more" : "fewer"} ${whom(test.audience)} buy in B`}
@@ -334,14 +352,7 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
                   <span>ships at {Math.round(SHIP_AT * 1000) / 10}%</span>
                 )}
               </div>
-              <div
-                className="relative h-2 rounded-full bg-dw-ink/[0.12]"
-                role="progressbar"
-                aria-label="Chance B wins"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(chance * 100)}
-              >
+              <div className="relative h-2 rounded-full bg-dw-ink/[0.12]" role="progressbar" aria-label="Chance B wins" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(chance * 100)}>
                 <Grow axis="x" size={`${Math.max(2, chance * 100)}%`} delay={0.35} className="h-2 rounded-full bg-dw-ink" />
                 <span className="absolute -top-1 h-4 w-0.5 rounded-full bg-dw-ink" style={{ left: `${SHIP_AT * 100}%` }} aria-hidden />
               </div>
@@ -359,10 +370,13 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
   const rows = board.slice(0, 5);
   const max = Math.max(...rows.map((r) => r.rate), peopleRate ?? 0, 1e-9);
   const people = agentBrand(undefined, "human");
+  const open = useCardClick("/console/agents");
   return (
-    <Card tone="blue" shape="observer" corner="tr" className={cn("flex flex-col px-[26px] py-[22px]", ROW2, PHONE, FILL)} aria-label="Which agents buy">
+    <Card tone="blue" shape="observer" corner="tr" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW2, PHONE, FILL)} aria-label="Which agents buy" onClick={open}>
       <CardHead
         title="Which agents buy"
+        href="/console/agents"
+        hint="Open Mika, your store agent"
         right={
           sample > 0 && (
             <span className="text-[#2E3A55]">
@@ -372,7 +386,7 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
         }
       />
       {!rows.length ? (
-        <CardEmpty kind="observer">No AI shoppers have finished a visit yet. When they do, Darwin ranks them by how often they buy.</CardEmpty>
+        <CardEmpty kind="observer">No AI shoppers have finished a visit yet. When they do, Iris ranks them by how often they buy.</CardEmpty>
       ) : (
         <div className="mt-3.5 flex min-h-0 flex-1 flex-col justify-between gap-1.5 lg:mt-2.5 lg:gap-1">
           {rows.map((r, i) => (
@@ -412,12 +426,7 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
               </span>
               <span tabIndex={0} className="group relative block h-3 outline-none">
                 <Tip align="right">{pctSmart(peopleRate)} of people buy</Tip>
-                <Grow
-                  axis="x"
-                  size={`${Math.max(4, (peopleRate / max) * 100)}%`}
-                  delay={0.6}
-                  className="absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink"
-                />
+                <Grow axis="x" size={`${Math.max(4, (peopleRate / max) * 100)}%`} delay={0.6} className="absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink" />
               </span>
               <span className="num text-right font-dwmono text-[13px]">{pctSmart(peopleRate)}</span>
             </div>
@@ -441,10 +450,13 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
   steps.forEach((s, i) => {
     if (s.people !== undefined && (weakest < 0 || s.people < (steps[weakest].people ?? 1))) weakest = i;
   });
+  const open = useCardClick("/console/issues");
   return (
-    <Card tone="olive" shape="analyst" corner="br" className={cn("flex flex-col px-[26px] py-[22px]", ROW2, PHONE, FILL)} aria-label="How they convert">
+    <Card tone="olive" shape="analyst" corner="br" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW2, PHONE, FILL)} aria-label="How they convert" onClick={open}>
       <CardHead
         title="How they convert"
+        href="/console/issues"
+        hint="See where Iris found shoppers getting stuck"
         right={
           <>
             <LegendKey className="text-[#2F3517]">People</LegendKey>
@@ -482,14 +494,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                   );
                 })}
               </div>
-              <span
-                className={cn(
-                  "text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap",
-                  i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]",
-                )}
-              >
-                {s.label}
-              </span>
+              <span className={cn("text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap", i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]")}>{s.label}</span>
             </div>
           ))}
         </div>

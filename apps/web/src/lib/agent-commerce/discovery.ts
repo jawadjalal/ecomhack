@@ -24,7 +24,11 @@ function toolsFor(spec: PageSpec) {
 
 const yesNo = (v: boolean) => (v ? "yes" : "not exposed");
 
-export function buildLlmsTxt(origin: string, spec: PageSpec): string {
+/**
+ * `install`: Darwin's darwin.js tag (lib/github installSnippet, the same tag onboarding and Personalize show), so the
+ * page tells merchants' agents one canonical install URL. Optional: without it the section is left out.
+ */
+export function buildLlmsTxt(origin: string, spec: PageSpec, install?: { src: string; tag: string }): string {
   const s = spec.agentSurface;
   const threshold = spec.cart.freeShippingThreshold;
   const catalog = PRODUCTS.map(
@@ -88,7 +92,16 @@ ${s.negotiation.enabled ? `- \`POST ${origin}/api/agent/negotiate\` \`{"id":"p_r
 - Delivery: ${deliveryParts.join("; ")}.
 - Returns: ${returns}
 - Orders: checkout places the order immediately. This is a demo store; no payment is taken.
-`;
+${
+  install
+    ? `
+## Install Darwin on your own store
+
+One tag in \`<head>\` records visits (humans and AI agents) and loads Darwin's personalization rules: \`${install.tag}\`
+(script: ${install.src}; set \`data-darwin-site\` to your site id).
+`
+    : ""
+}`;
 }
 
 /** What the merchant agent can do in conversation (A2A skills). Negotiation only when the spec allows it. */

@@ -160,6 +160,19 @@ export function useWatchRun() {
   // Leaving the page ends the run (the loop itself just stays where it is).
   useEffect(() => () => void (run.current += 1), []);
 
+  // The watch_fix command (lib/commands/run.ts): /console?watch=1, or its "darwin:watch" event when already here.
+  useEffect(() => {
+    const go = () => void start();
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("watch") === "1") {
+      q.delete("watch");
+      window.history.replaceState(null, "", `${window.location.pathname}${q.size ? `?${q}` : ""}`);
+      go();
+    }
+    window.addEventListener("darwin:watch", go);
+    return () => window.removeEventListener("darwin:watch", go);
+  }, [start]);
+
   return { running, start, stop };
 }
 
