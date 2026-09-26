@@ -535,22 +535,27 @@ export function getAnalyticsSummary(filter: AnalyticsFilter = {}): AnalyticsSumm
   return summarize(eventStore().all(), filter);
 }
 
-const lastSummaries = new Map<string, { events: readonly AnalyticsEvent[]; length: number; newest?: string; summary: AnalyticsSummary }>();
+/** While events keep arriving (live or simulated traffic), a shared summary is still reused for this long. */
+export const SHARED_SUMMARY_MAX_AGE_MS = 1500;
+
+const lastSummaries = new Map<string, { events: readonly AnalyticsEvent[]; length: number; newest?: string; at: number; summary: AnalyticsSummary }>();
 
 /**
  * getAnalyticsSummary for polled, read-only endpoints: the last summary for the same filter is reused
- * until an event is added or the store is reset (same array, same length, same newest event), so
- * repeated polls between events cost nothing. The result is shared: don't mutate it.
+ * while the store is unchanged (same array, same length, same newest event), and for at most
+ * SHARED_SUMMARY_MAX_AGE_MS while events keep arriving, so polls don't each re-scan the store.
+ * A reset store is never served from the memo. The result is shared: don't mutate it.
  */
 export function getAnalyticsSummaryShared(filter: AnalyticsFilter = {}): AnalyticsSummary {
   const events = eventStore().all();
   const key = JSON.stringify(filter);
   const newest = events[events.length - 1]?.uuid;
+  const now = Date.now();
   const hit = lastSummaries.get(key);
-  if (hit && hit.events === events && hit.length === events.length && hit.newest === newest) return hit.summary;
+  if (hit && hit.events === events && ((hit.length === events.length && hit.newest === newest) || now - hit.at < SHARED_SUMMARY_MAX_AGE_MS)) return hit.summary;
   const summary = summarize(events, filter);
   if (lastSummaries.size >= 32) lastSummaries.clear();
-  lastSummaries.set(key, { events, length: events.length, newest, summary });
+  lastSummaries.set(key, { events, length: events.length, newest, at: now, summary });
   return summary;
 }
 

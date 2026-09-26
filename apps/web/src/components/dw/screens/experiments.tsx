@@ -7,6 +7,7 @@ import { count, pct, sourceBadge } from "@/lib/console/format";
 import { useExperiments, useNow, useSamples } from "@/lib/console/hooks";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
+import { StartDemo } from "../first-run";
 import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing, pct0 } from "../ui";
 import { ChanceCard, WhoBuysCard, type ChancePoint } from "../experiments/charts";
 import { PastExperiments, WhatChangesCard } from "../experiments/changes";
@@ -117,7 +118,7 @@ export function ExperimentsScreen() {
                   <LiveDot /> Darwin is looking for the first fix <Typing />
                 </span>
               ) : (
-                <PillButton onClick={() => void setAutopilot(true)}>Let Darwin run</PillButton>
+                <StartDemo />
               )
             }
           >

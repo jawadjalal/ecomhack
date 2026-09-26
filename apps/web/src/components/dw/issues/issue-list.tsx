@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/components/ui/cn";
 import { Tag } from "../ui";
@@ -33,12 +34,15 @@ export function IssueList({
   focus,
   onSelect,
   panelId,
+  children,
 }: {
   rows: IssueRow[];
   selected?: string;
   focus: Focus;
   onSelect: (id: string) => void;
   panelId: string;
+  /** Rendered under the open issues (the greyed "Already fixed" list). */
+  children?: ReactNode;
 }) {
   const list = useCollapsed(rows, rows.findIndex((r) => r.insight.id === selected));
   return (
@@ -90,6 +94,7 @@ export function IssueList({
         })}
       </div>
       <MoreButton hidden={list.hidden} canCollapse={list.canCollapse} noun={list.hidden === 1 ? "issue" : "issues"} onClick={list.toggle} />
+      {children}
     </section>
   );
 }

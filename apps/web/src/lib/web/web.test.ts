@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AnalyticsEvent, WebRule } from "@/lib/contracts";
 import { eventStore, track } from "@/lib/analytics/store";
+import { GET as demoPage } from "@/app/demo/north-trail/route";
 import {
   assignWebVariant,
   changeEffect,
@@ -9,11 +10,13 @@ import {
   createRule,
   deleteRule,
   EXPOSURE_EVENT,
+  forgetPages,
   heuristicDraft,
   knownSites,
   listRules,
   matchesAudience,
   outlineFromHtml,
+  rememberPage,
   resetWebRules,
   simulateWebTraffic,
   stripPreviewParams,
@@ -22,18 +25,24 @@ import {
   webState,
 } from ".";
 
-beforeEach(() => {
+beforeEach(async () => {
   resetWebRules();
   eventStore().clear();
+  // Darwin has read the demo store's page: live copy is checked against it (claims.ts).
+  forgetPages();
+  rememberPage(SITE, outlineFromHtml(await (await demoPage(new Request("http://localhost/demo/north-trail"))).text()));
 });
-afterEach(() => resetWebRules());
+afterEach(() => {
+  resetWebRules();
+  forgetPages();
+});
 
 const SITE = "north-trail";
 const draft = (over: Record<string, unknown> = {}) => ({
   site: SITE,
   name: "Facts banner",
   audience: { sources: ["ai"] },
-  changes: [{ action: "banner", value: "Free delivery · Free returns" }],
+  changes: [{ action: "banner", value: "Free UK delivery over £60 · Free 60-day returns" }],
   ...over,
 });
 

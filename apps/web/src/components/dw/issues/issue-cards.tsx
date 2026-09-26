@@ -160,10 +160,13 @@ export function WhoCard({
   rows,
   onFocus,
   onSelect,
+  fixed,
 }: {
   rows: IssueRow[];
   onFocus: (f: Focus) => void;
   onSelect: (id: string) => void;
+  /** Issues already fixed (shipped), per group: keeps a group visible once its open issues are gone. */
+  fixed?: Partial<Record<IssueRow["who"], number>>;
 }) {
   const groups = (["Agents", "People", "Everyone"] as const)
     .map((who) => {
@@ -199,6 +202,9 @@ export function WhoCard({
           {tie
             ? `${sorted[0].who} and ${sorted[1].who.toLowerCase()} lose about as many buyers.`
             : `${top.who === "Everyone" ? "Issues that hit everyone" : top.who} account for ${share}% of lost buyers.`}
+          {top.who !== "Agents" && !groups.find((g) => g.who === "Agents")?.list.length && fixed?.Agents
+            ? ` Darwin already fixed ${fixed.Agents} for AI agents.`
+            : ""}
         </p>
       )}
       <div
@@ -212,11 +218,15 @@ export function WhoCard({
             <button
               key={g.who}
               type="button"
-              disabled={!g.list.length}
+              disabled={!g.list.length && !fixed?.[g.who]}
               onMouseEnter={() => onFocus({ kind: "who", who: g.who })}
               onFocus={() => onFocus({ kind: "who", who: g.who })}
               onBlur={() => onFocus(null)}
-              onClick={() => g.list[0] && onSelect(g.list[0].insight.id)}
+              onClick={() =>
+                g.list[0]
+                  ? onSelect(g.list[0].insight.id)
+                  : document.getElementById("dw-resolved")?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
               className="group flex flex-col gap-1 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-dw-ink disabled:cursor-default"
             >
               <span className="flex w-full items-center justify-between gap-3 text-[14px]">
@@ -225,7 +235,9 @@ export function WhoCard({
                   {g.who}
                 </span>
                 <span className="num font-semibold">
-                  {plural(g.list.length, "issue")} · {fmtImpact(g.lost)} lost
+                  {!g.list.length && fixed?.[g.who]
+                    ? `0 open · ${fixed[g.who]} fixed`
+                    : `${plural(g.list.length, "issue")} · ${fmtImpact(g.lost)} lost`}
                 </span>
               </span>
               <span className="relative block h-3 w-full rounded-full bg-dw-ink/12">

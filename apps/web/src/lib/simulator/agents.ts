@@ -22,7 +22,16 @@
  *   negotiator      negotiate tool        agentSurface.negotiation
  *   web-browsing agents also need schema.org data   agentSurface.structuredData
  *
- * Calibration: DEFAULT_SPEC ~12–22% of agents buy; full surface + negotiation ~55–70%.
+ * Two things the merchant does NOT control cap agent conversion well below 100%, as in real agentic
+ * commerce: (1) the agent hands the cart to its principal (the human) to confirm, and many decline,
+ * defer or buy elsewhere; brands differ in how often they run with pre-authorised spend
+ * (AGENT_NAMES[].approval); (2) web-browsing agents misread pages without schema.org data
+ * (WEB_PARSE_FAIL). `agentGate` applies both to the default driver (agent-commerce `runBuyerAgent`) too,
+ * so every simulated agent visit is subject to the same hand-off.
+ *
+ * Calibration (default driver, measured by the scratch loop script, 1,500 agents): DEFAULT_SPEC
+ * ~15–20% of agents buy; full agent surface ~48–53%; brands ~40–58% on the full surface.
+ * Built-in policy (simulator.test.ts bands): DEFAULT_SPEC ~8–16%; full surface + negotiation ~38–52%.
  */
 import type { AnalyticsEventInput, EventProperties, PageSpec, ShoppingGoal } from "@/lib/contracts";
 import { PRODUCTS, SHIPPING_FEE, type Product } from "@/lib/catalog/products";
@@ -44,14 +53,27 @@ export const AGENT_GOAL_MIX: Record<AgentGoalKind, number> = {
   negotiator: 0.2,
 };
 
-/** Agent names, how they reach the store, and their traffic share. */
-export const AGENT_NAMES: { name: string; channel: "mcp" | "rest" | "web"; share: number }[] = [
-  { name: "grok-shopper", channel: "mcp", share: 0.26 },
-  { name: "gpt-shopping-agent", channel: "rest", share: 0.26 },
-  { name: "claude-buyer", channel: "mcp", share: 0.2 },
-  { name: "perplexity-shop", channel: "web", share: 0.16 },
-  { name: "gemini-agent", channel: "web", share: 0.12 },
+/**
+ * Agent names, how they reach the store, their traffic share, and `approval`: P(the principal confirms
+ * the purchase once the agent has found an item that meets the brief). Agents present the cart for
+ * confirmation; principals decline, defer ("ask me tomorrow") or buy elsewhere after comparing. Brands
+ * whose users more often pre-authorise spend check out more. This caps agent conversion around 50% on a
+ * perfect store, whatever the merchant does, and makes brands differ for reasons outside the page.
+ */
+export const AGENT_NAMES: { name: string; channel: "mcp" | "rest" | "web"; share: number; approval: number }[] = [
+  { name: "grok-shopper", channel: "mcp", share: 0.26, approval: 0.62 },
+  { name: "gpt-shopping-agent", channel: "rest", share: 0.26, approval: 0.58 },
+  { name: "claude-buyer", channel: "mcp", share: 0.2, approval: 0.66 },
+  { name: "perplexity-shop", channel: "web", share: 0.16, approval: 0.56 },
+  { name: "gemini-agent", channel: "web", share: 0.12, approval: 0.5 },
 ];
+
+/** Fallback approval for an agent name not in AGENT_NAMES. */
+export const AGENT_APPROVAL = 0.58;
+
+export function agentApproval(agentName: string): number {
+  return AGENT_NAMES.find((a) => a.name === agentName)?.approval ?? AGENT_APPROVAL;
+}
 
 export type AgentField = "deliveryEtaDays" | "returnPolicy" | "sizes" | "landedPrice";
 
@@ -79,8 +101,38 @@ export const WEB_PARSE_FAIL = { without: 0.3, with: 0.02 };
 /** API/MCP agents get structured JSON regardless; small residual failure rate. */
 export const API_PARSE_FAIL = 0.03;
 
-/** Once every requirement is met, P(principal approves the purchase). */
-export const AGENT_APPROVAL = 0.8;
+/** Why a principal did not confirm a cart the agent had built. */
+export const DECLINE_REASONS = ["principal declined purchase", "found a better offer elsewhere", "principal asked to wait"] as const;
+
+export const PARSE_FAIL_REASON = {
+  without: "could not verify product attributes (no structured data)",
+  with: "could not verify product attributes",
+} as const;
+
+/**
+ * Outside-the-page outcomes for one agent visit, drawn from the visit's own seed before it sees the
+ * store (so the same seed on two specs is the same agent and the same principal):
+ *   - `parseFail`: set when the agent cannot read product data on this spec (web agents without
+ *     structured data fail far more often). Applied after it opens a product.
+ *   - `decline`: set when the principal will not confirm the cart. Applied at add-to-cart.
+ */
+export interface AgentGate {
+  parseFail?: string;
+  decline?: string;
+}
+
+export function agentGate(seed: number, who: { agentName: string; channel: "mcp" | "rest" | "web" }, spec: PageSpec): AgentGate {
+  const r = createRng(seed);
+  const uParse = r.next();
+  const uApproval = r.next();
+  const reason = DECLINE_REASONS[Math.floor(r.next() * DECLINE_REASONS.length)];
+  const structured = spec.agentSurface.structuredData;
+  const pParse = who.channel === "web" ? (structured ? WEB_PARSE_FAIL.with : WEB_PARSE_FAIL.without) : API_PARSE_FAIL;
+  return {
+    ...(uParse < pParse ? { parseFail: who.channel === "web" && !structured ? PARSE_FAIL_REASON.without : PARSE_FAIL_REASON.with } : {}),
+    ...(uApproval < agentApproval(who.agentName) ? {} : { decline: reason }),
+  };
+}
 
 /** Negotiators: P(buy at list price when the merchant can't negotiate). */
 export const NEGOTIATOR_BUYS_AT_LIST = 0.4;
@@ -271,8 +323,8 @@ export function simulateAgentVisit(
     who.channel === "web" ? (surface.structuredData ? WEB_PARSE_FAIL.with : WEB_PARSE_FAIL.without) : API_PARSE_FAIL;
   if (u.parse < parseFail) {
     return abandon(
-      surface.structuredData ? "could not verify product attributes" : "could not verify product attributes (no structured data)",
-      surface.structuredData ? undefined : ["structuredData"],
+      who.channel === "web" && !surface.structuredData ? PARSE_FAIL_REASON.without : PARSE_FAIL_REASON.with,
+      who.channel === "web" && !surface.structuredData ? ["structuredData"] : undefined,
     );
   }
 
@@ -338,9 +390,9 @@ export function simulateAgentVisit(
     }
   }
 
-  /* 7. principal approval */
-  if (!(u.approval < AGENT_APPROVAL)) {
-    return abandon(fx.pick(["principal declined purchase", "found a better offer elsewhere", "principal asked to wait"]));
+  /* 7. principal approval (per brand, see AGENT_NAMES) */
+  if (!(u.approval < agentApproval(who.agentName))) {
+    return abandon(fx.pick([...DECLINE_REASONS]));
   }
 
   /* 8. cart + checkout (blind assumptions can still fail here) */

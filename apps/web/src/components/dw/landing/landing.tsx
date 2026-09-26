@@ -24,7 +24,7 @@ const SHOPPERS: { brand: BrandKey; name: string }[] = [
 const ON_ART = "text-white [text-shadow:0_1px_10px_rgba(20,40,60,0.45)]";
 
 const NAV_LINK =
-  "flex h-10 items-center gap-1.5 rounded-full px-3 text-[14.5px] font-medium text-white transition-colors [text-shadow:0_1px_6px_rgba(20,40,60,0.5)] hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white";
+  "flex h-10 items-center gap-1.5 rounded-full bg-dw-bg/90 px-3.5 text-[14.5px] font-medium text-dw-ink/80 transition-colors hover:bg-dw-bg hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-white max-sm:w-10 max-sm:justify-center max-sm:px-0";
 
 /**
  * The public landing page: one screen. A painting, the headline, one gel door, and the Darwin
@@ -39,7 +39,7 @@ export function Landing() {
     <MotionConfig reducedMotion="user">
       <div data-dw className="relative isolate flex min-h-[100svh] w-full flex-col overflow-x-hidden bg-dw-bg font-dw text-dw-ink lg:h-[100svh] lg:overflow-hidden">
         {/* the painting: full-bleed on a computer, the hero's sky on a phone */}
-        <Art id="marsh" position="50% 22%" priority className="-z-10 max-sm:bottom-auto max-sm:h-[470px]" />
+        <Art id="flowers" position="16% 8%" priority scrim="bg-[#0b2533]/10 max-sm:bg-[#0b2533]/20" className="-z-10 max-sm:bottom-auto max-sm:h-[456px]" />
 
         {/* quiet nav */}
         <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-4 pt-4 sm:px-7">
@@ -47,7 +47,7 @@ export function Landing() {
             <Mascot kind="analyst" size={32} active />
             <span className={`text-[22px] font-semibold tracking-[-0.02em] ${ON_ART}`}>darwin</span>
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-0.5">
+          <nav aria-label="Main" className="flex items-center gap-1.5">
             <Link href="/readiness" className={NAV_LINK} aria-label="Agent readiness">
               <Gauge className="size-4" aria-hidden />
               <span className="max-sm:hidden">Agent readiness</span>
@@ -80,7 +80,7 @@ export function Landing() {
               improving itself.
             </span>
           </motion.h1>
-          <motion.p {...rise(0.12)} className={`mt-3 text-center text-[16px] max-sm:self-stretch max-sm:text-left max-sm:text-[17px] sm:text-[17px] ${ON_ART}`}>
+          <motion.p {...rise(0.12)} className={`mt-3 text-center text-[16px] font-medium max-sm:self-stretch max-sm:text-left max-sm:text-[17px] sm:text-[17px] ${ON_ART}`}>
             For the people and the AI agents who shop there.
           </motion.p>
 
@@ -110,7 +110,7 @@ export function Landing() {
           </motion.p>
 
           {/* the dashboard, live */}
-          <div className="relative mt-6 w-full max-w-[1320px] max-sm:mt-12 max-sm:pb-8 lg:mt-[clamp(1rem,3.5vh,2.25rem)] lg:min-h-0 lg:flex-1">
+          <div className="relative mt-6 w-full max-w-[1320px] max-sm:mt-14 max-sm:pb-8 lg:mt-[clamp(1rem,3.5vh,2.25rem)] lg:min-h-0 lg:flex-1">
             <LandingLoop className="lg:h-full" />
             {/* fade the bottom edge into the page */}
             <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-dw-bg to-transparent max-lg:hidden" />

@@ -48,6 +48,8 @@ const STOP = new Set([
   ...["i", "a", "an", "the", "for", "and", "or", "to", "of", "me", "my", "we", "want", "need", "looking", "find", "show", "some", "something", "anything"],
   ...["any", "with", "under", "below", "less", "than", "per", "month", "monthly", "year", "yearly", "please", "can", "you", "do", "have", "is", "are"],
   ...["it", "that", "this", "what", "which", "one", "off", "time", "buy", "get", "cheap", "cheapest", "best", "good", "thing", "stuff", "max", "budget"],
+  ...["just", "tell", "about", "yet", "don", "dont", "not", "know", "more", "info", "information", "like", "would", "purchase", "order", "take"],
+  ...["first", "second", "third", "last", "option", "number", "now", "right", "away", "today"],
 ]);
 
 /** Words that describe what they want (not prices, budgets or filler). */
@@ -89,22 +91,66 @@ export function rankOffers(offers: Offer[], text: string): Offer[] {
 }
 
 const BUY = /\b(buy|purchase|check ?out|order|subscribe|sign me up|i'?ll take|take (it|the)|get (it|the)|go with)\b/i;
+/** "don't buy anything yet", "not ready to purchase", "no checkout": a buy word that isn't a buy. */
+const NOT_BUYING =
+  /\b(?:don'?t|do not|not|never|won'?t|no need to|without)\s+(?:\w+\s+){0,3}?(?:buy|purchase|check ?out|order|subscribe)\b|\bno (?:checkout|purchase|order)\b|\bnot (?:yet|now|ready)\b/i;
+
+/** A buy request: a buy word that isn't negated. */
+export const wantsToBuy = (text: string) => BUY.test(text) && !NOT_BUYING.test(text);
+
+/** Plural-insensitive words of an offer's title ("Race-Day Pack" → race, day, pack). */
+const titleWords = (o: Offer) => new Set(words(o.title).map((w) => w.replace(/s$/, "")));
+/** Words that say what kind of thing, not which one ("the coaching plan"). */
+const GENERIC = new Set(["plan", "offer", "product", "item", "package", "subscription", "program", "programme", "course", "deal"]);
+/** The words a buy message uses to say which thing it wants (plural-insensitive, no filler or generic nouns). */
+const described = (text: string) =>
+  words(text.replace(BUY, " "))
+    .map((w) => w.replace(/s$/, ""))
+    .filter((w) => !GENERIC.has(w));
+
+/**
+ * The offers a buy message names, by title only (never a fuzzy description match): every word it uses to describe
+ * the thing must be in the offer's title. "buy race day pack" → Race-Day Pack; "buy plan_free_everything" → none.
+ */
+function namedOffers(text: string, offers: Offer[]): Offer[] {
+  const q = described(text);
+  if (!q.length) return [];
+  return offers.filter((o) => {
+    const t = titleWords(o);
+    return q.every((w) => t.has(w));
+  });
+}
+
+/** What a buy message asks for, in its own words, when it names something ("plan_free_everything", "yoga mat"). */
+function namedThing(text: string): string | undefined {
+  const idLike = text.match(/\b(?:plan|prod|pass)_[\w-]+/i)?.[0];
+  if (idLike) return idLike;
+  return described(text).length ? "that" : undefined;
+}
 const ORDINALS: [RegExp, number][] = [
   [/\b(first|1st|#1|number one|option 1)\b/i, 0],
   [/\b(second|2nd|#2|option 2)\b/i, 1],
   [/\b(third|3rd|#3|option 3)\b/i, 2],
 ];
 
-/** Which offer a "buy …" message means: an ordinal of what was shown, the cheapest, a named one, or the only one shown. */
+/**
+ * Which offer a "buy …" message means: its exact id, an ordinal of what was shown, the cheapest, the one offer its
+ * title names, or the only one shown. Never a guess: an unknown id or a name matching no title (or several) is
+ * undefined, and the agent says what it sells instead.
+ */
 export function pickOffer(text: string, offers: Offer[], shown: string[]): Offer | undefined {
-  const byId = offers.find((o) => text.includes(o.id));
+  const tokens = new Set(text.match(/[\w-]+/g) ?? []);
+  const byId = offers.find((o) => tokens.has(o.id));
   if (byId) return byId;
+  if (/\b(?:plan|prod|pass)_[\w-]+/i.test(text)) return undefined; // an id we don't sell
   const shownOffers = shown.map((s) => offers.find((o) => o.id === s)).filter((o): o is Offer => !!o);
   const ord = ORDINALS.find(([re]) => re.test(text));
   if (ord && shownOffers[ord[1]]) return shownOffers[ord[1]];
   if (/\bcheapest\b/i.test(text)) return [...(shownOffers.length ? shownOffers : offers)].sort((a, b) => a.price - b.price)[0];
-  const named = rankOffers(offers, text.replace(BUY, " "))[0];
-  if (named && words(text.replace(BUY, " ")).length) return named;
+  if (described(text).length) {
+    const named = namedOffers(text, offers);
+    return named.length === 1 ? named[0] : undefined;
+  }
   if (shownOffers.length === 1 || /\b(it|that|this)\b/i.test(text)) return shownOffers[0];
   return undefined;
 }
@@ -142,10 +188,21 @@ export async function replyTo(
   events.push(event("agent_message", contextId, conv, { length: text.length }));
 
   let turn: AgentTurn;
-  if (BUY.test(text)) {
+  if (wantsToBuy(text)) {
     const offer = pickOffer(text, catalog.offers, conv.shown);
-    if (!offer) {
-      turn = { contextId, text: `Which one? Tell me the name, or ask me what's available first.`, data: { intent: "none", ...base } };
+    const several = offer ? [] : namedOffers(text, catalog.offers);
+    const thing = offer || several.length > 1 ? undefined : namedThing(text);
+    if (!offer && thing) {
+      // It named something we don't sell (an unknown id, or words no title has): say so, and what we do sell.
+      const list = catalog.offers.map((o) => `${o.title} (${o.id}): ${formatPrice(o)}`).join("; ");
+      turn = {
+        contextId,
+        text: `We don't sell ${thing === "that" ? "that" : thing}. Here's what we have: ${list}. Say "buy" and the name or id of one of these.`,
+        data: { intent: "none", ...base, offers: catalog.offers.map(offerData) },
+      };
+    } else if (!offer) {
+      const which = several.length > 1 ? ` ${several.map((o) => `${o.title} (${o.id})`).join(" or ")}?` : " Tell me the name, or ask me what's available first.";
+      turn = { contextId, text: `Which one?${which}`, data: { intent: "none", ...base } };
     } else {
       const checkout = await createCheckout(offer, catalog, { ref: contextId, agentName: conv.agentName, synthetic: conv.synthetic }, opts.origin);
       events.push(event("checkout_started", contextId, conv, { product_id: offer.id, price: offer.price, currency: offer.currency, value: offer.price, checkout_tagged: checkout.tagged }));
@@ -178,8 +235,8 @@ export async function replyTo(
     const exact = ranked.length > 0;
     const facts = L.has("facts") ? ["Instant access as soon as the payment goes through.", "Memberships cancel any time from your Whop account.", "Payment is handled by Whop's checkout."] : undefined;
     const lines = L.has("one-pick")
-      ? [`My pick for you: ${top[0].title}, ${formatPrice(top[0])}.${top[0].description ? ` ${top[0].description}` : ""}`, `${exact ? "It's the closest match to what you asked for" : "Nothing matches exactly; it's our most popular starting point"}${others > 0 ? ` (${others} other option${others === 1 ? "" : "s"}: ask to see them)` : ""}.`]
-      : [`${exact ? "Here's what fits" : "Nothing matches that exactly; here's what we have"} at ${catalog.business}:`, ...top.map((o, i) => `${i + 1}. ${L.has("upsell") && i === 0 ? "Best value: " : ""}${o.title}: ${formatPrice(o)}${o.description ? `. ${o.description}` : ""}`)];
+      ? [`My pick for you: ${top[0].title}, ${formatPrice(top[0])}.${top[0].description ? ` ${top[0].description}` : ""}`, `${exact ? "It's the closest match to what you asked for" : "We don't sell anything that matches exactly; it's our most popular starting point"}${others > 0 ? ` (${others} other option${others === 1 ? "" : "s"}: ask to see them)` : ""}.`]
+      : [`${exact ? "Here's what fits" : "We don't sell anything that matches that exactly; here's what we have"} at ${catalog.business}:`, ...top.map((o, i) => `${i + 1}. ${L.has("upsell") && i === 0 ? "Best value: " : ""}${o.title}: ${formatPrice(o)}${o.description ? `. ${o.description}` : ""}`)];
     if (facts) lines.push(`Good to know: ${facts.join(" ")}`);
     lines.push(L.has("structured") ? `To buy, reply: buy ${top[0].id}${top.length > 1 ? ` (or the id of another offer: ${top.slice(1).map((o) => o.id).join(", ")})` : ""}.` : `Say "buy the first one" (or its name) and I'll send a checkout link.`);
     turn = {

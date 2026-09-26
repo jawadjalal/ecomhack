@@ -8,6 +8,7 @@ import { useExperiments, useGithubStatus, useLoop, useNow } from "@/lib/console/
 import { BrandGlyph } from "../brand-logos";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
+import { StartDemo } from "../first-run";
 import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing } from "../ui";
 import { Timeline, UpliftCards } from "../experiments/changes-parts";
 import { appHref, buildChanges, githubLive, indexLog, uplift, type ChangeEntry } from "../experiments/model";
@@ -20,7 +21,7 @@ import { setHash, useHash } from "../experiments/use-hash";
  * is connected.
  */
 export function ChangesScreen() {
-  const { api, loop, mock, autopilot, setAutopilot, notify } = useDarwin();
+  const { api, loop, mock, autopilot, notify } = useDarwin();
   const { mutate: mutateLoop } = useLoop();
   const { mutate } = useSWRConfig();
   const experiments = useExperiments();
@@ -98,7 +99,7 @@ export function ChangesScreen() {
                   <LiveDot /> Darwin is testing fixes <Typing />
                 </span>
               ) : (
-                <PillButton onClick={() => void setAutopilot(true)}>Let Darwin run</PillButton>
+                <StartDemo />
               )
             }
           >

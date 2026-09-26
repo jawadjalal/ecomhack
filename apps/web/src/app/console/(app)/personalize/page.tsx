@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { PersonalizeApp } from "@/components/web/personalize-app";
+import { PersonalizeForStore } from "@/components/dw/site-default";
 import { DEMO_SITE, SiteSchema } from "@/lib/web";
 
 export const metadata: Metadata = {
@@ -15,5 +15,6 @@ export default async function PersonalizePage({ searchParams }: PageProps<"/cons
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto")?.split(",")[0]?.trim() ?? (host.startsWith("localhost") ? "http" : "https");
-  return <PersonalizeApp initialSite={parsed.success ? parsed.data : DEMO_SITE} origin={`${proto}://${host}`} />;
+  // Without ?site=: the site onboarding set up in this tab, else the demo site.
+  return <PersonalizeForStore urlSite={parsed.success ? parsed.data : undefined} fallback={DEMO_SITE} origin={`${proto}://${host}`} />;
 }

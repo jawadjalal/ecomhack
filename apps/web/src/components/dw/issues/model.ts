@@ -7,6 +7,7 @@
  * aged out of the capped log.
  */
 import type { AgentSessionSummary, ChangeProposal, Experiment, Insight, LoopState } from "@/lib/contracts";
+import { humanizeInsightText } from "@/lib/optimizer/humanize";
 
 /* ------------------------------------------------------------------ numbers */
 
@@ -108,7 +109,7 @@ export function rankIssues(loop: LoopState | undefined, experiments: Experiment[
   return [...loop.insights]
     .sort((a, b) => b.impactScore - a.impactScore)
     .map((insight, i) => ({
-      insight,
+      insight: readable(insight),
       n: i + 1,
       status: covered.has(insight.id) ? (testing ? "test" : "drafted") : "queued",
       who: whoOf(insight.audience),
@@ -310,10 +311,60 @@ export function insightArchive(loop: LoopState | undefined): Map<string, Insight
   if (!loop) return out;
   for (const e of loop.log) {
     const d = e.data as { insights?: unknown } | undefined;
-    if (d && isInsightList(d.insights)) for (const i of d.insights) out.set(i.id, i);
+    if (d && isInsightList(d.insights)) for (const i of d.insights) out.set(i.id, readable(i));
   }
-  for (const i of loop.insights) out.set(i.id, i);
+  for (const i of loop.insights) out.set(i.id, readable(i));
   return out;
+}
+
+/** Insights written before titles were humanised name raw CSS selectors; show plain words instead. */
+export function readable(i: Insight): Insight {
+  if (!`${i.title} ${i.detail}`.includes("data-darwin") && !i.evidence.some((e) => e.value.includes("data-darwin"))) return i;
+  return {
+    ...i,
+    title: humanizeInsightText(i.title),
+    detail: humanizeInsightText(i.detail),
+    evidence: i.evidence.map((e) => ({ ...e, value: humanizeInsightText(e.value) })),
+  };
+}
+
+export interface ResolvedIssue {
+  /** Stable key: the shipped experiment id. */
+  id: string;
+  /** What was wrong, from the insight the fix addressed (falls back to the fix itself). */
+  problem: string;
+  fix: string;
+  who: IssueRow["who"];
+  generation: number;
+  lift?: number;
+  /** The measured audience of the lift ("agent" when the change was judged on AI shoppers only). */
+  audience: "all" | "human" | "agent";
+}
+
+/** Issues Darwin already fixed: one per shipped generation, from real loop history + experiments only. */
+export function resolvedIssues(loop: LoopState | undefined, experiments: Experiment[] | undefined): ResolvedIssue[] {
+  if (!loop) return [];
+  const archive = insightArchive(loop);
+  const fixes = buildFixes(loop, experiments);
+  const out: ResolvedIssue[] = [];
+  for (const g of loop.history) {
+    if (g.generation <= 0 || !g.experimentId) continue;
+    const fix = fixes.find((f) => f.experiment?.id === g.experimentId);
+    const exp = fix?.experiment ?? experiments?.find((e) => e.id === g.experimentId);
+    const insight = fix?.insightIds.map((id) => archive.get(id)).find(Boolean);
+    const audience = exp?.result?.audience ?? "all";
+    const fixTitle = fix?.title ?? exp?.name ?? g.label.replace(/^Gen \d+:\s*/, "");
+    out.push({
+      id: g.experimentId,
+      problem: insight?.title ?? fixTitle,
+      fix: fixTitle,
+      who: insight ? whoOf(insight.audience) : whoOf(audience),
+      generation: g.generation,
+      lift: g.lift ?? exp?.result?.lift,
+      audience,
+    });
+  }
+  return out.reverse();
 }
 
 export function buildFixes(loop: LoopState | undefined, experiments: Experiment[] | undefined): FixRow[] {

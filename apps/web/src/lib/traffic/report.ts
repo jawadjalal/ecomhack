@@ -250,7 +250,7 @@ export function computeTrafficReport(events: readonly AnalyticsEvent[], opts: Tr
 }
 
 /** Events scanned between yields to the event loop, so a big store doesn't stall other requests. */
-const CHUNK = 20_000;
+const CHUNK = 5_000;
 
 /**
  * computeTrafficReport over a snapshot of `events`, yielding to the event loop every CHUNK events so

@@ -13,6 +13,7 @@ import { buildFixes, insightArchive, rankIssues } from "../issues/model";
 import { Shimmer } from "../issues/panel";
 import { useUrlSelection } from "../issues/use-selection";
 import { WatchingEmpty } from "../issues/watching";
+import { StartDemo } from "../first-run";
 
 /** Fixes screen: every settings change Darwin has proposed, its diff, and what happened to it. */
 export function FixesScreen() {
@@ -26,7 +27,7 @@ export function FixesScreen() {
 }
 
 function Fixes() {
-  const { loop, autopilot, stepping, step, setAutopilot } = useDarwin();
+  const { loop, autopilot, stepping, step } = useDarwin();
   const experiments = useExperiments();
   const rows = useMemo(() => rankIssues(loop, experiments), [loop, experiments]);
   const fixes = useMemo(() => buildFixes(loop, experiments), [loop, experiments]);
@@ -51,13 +52,7 @@ function Fixes() {
         lede="Darwin drafts a fix as soon as it knows what stops shoppers buying. Each one is a small settings change it can undo."
         line={loop.insights.length ? `Darwin has found ${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"} to work on.` : undefined}
         action={
-          canDraft ? (
-            draftButton
-          ) : (
-            <PillButton size="lg" onClick={() => void setAutopilot(true)} disabled={stepping}>
-              <Play /> Let Darwin run
-            </PillButton>
-          )
+          canDraft ? draftButton : <StartDemo />
         }
       />
     );

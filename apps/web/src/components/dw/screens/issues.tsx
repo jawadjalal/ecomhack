@@ -10,7 +10,8 @@ import { PageHead } from "../ui";
 import { BuyersLostCard, WhereCard, WhoCard, type Focus } from "../issues/issue-cards";
 import { IssueDetail } from "../issues/issue-detail";
 import { IssueList } from "../issues/issue-list";
-import { buildFixes, coverageSentence, rankIssues } from "../issues/model";
+import { buildFixes, coverageSentence, rankIssues, resolvedIssues } from "../issues/model";
+import { ResolvedIssues } from "../issues/resolved";
 import { Shimmer } from "../issues/panel";
 import { WatchingEmpty } from "../issues/watching";
 import { useUrlSelection } from "../issues/use-selection";
@@ -34,6 +35,12 @@ function Issues() {
 
   const rows = useMemo(() => rankIssues(loop, experiments), [loop, experiments]);
   const fixes = useMemo(() => buildFixes(loop, experiments), [loop, experiments]);
+  const resolved = useMemo(() => resolvedIssues(loop, experiments), [loop, experiments]);
+  const fixedBy = useMemo(() => {
+    const out: Partial<Record<(typeof resolved)[number]["who"], number>> = {};
+    for (const r of resolved) out[r.who] = (out[r.who] ?? 0) + 1;
+    return out;
+  }, [resolved]);
   const ids = useMemo(() => rows.map((r) => r.insight.id), [rows]);
   const { selected, select } = useUrlSelection(ids);
   const [focus, setFocus] = useState<Focus>(null);
@@ -69,12 +76,14 @@ function Issues() {
         <div className="min-w-0 md:col-span-2 lg:col-span-1 [&>*]:h-full">
           <BuyersLostCard rows={rows} selected={row?.insight.id} onSelect={select} />
         </div>
-        <WhoCard rows={rows} onFocus={setFocus} onSelect={select} />
+        <WhoCard rows={rows} onFocus={setFocus} onSelect={select} fixed={fixedBy} />
         <WhereCard rows={rows} selected={row?.insight.id} onFocus={setFocus} onSelect={select} />
       </div>
 
       <div className="grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
-        <IssueList rows={rows} selected={row?.insight.id} focus={focus} onSelect={select} panelId="dw-issue-detail" />
+        <IssueList rows={rows} selected={row?.insight.id} focus={focus} onSelect={select} panelId="dw-issue-detail">
+          <ResolvedIssues items={resolved} />
+        </IssueList>
         <IssueDetail id="dw-issue-detail" row={row} fix={fix} past={past} sessions={sessions} nowTesting={nowTesting} />
       </div>
     </>

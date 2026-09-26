@@ -169,12 +169,12 @@ function smooth(pts: [number, number][]): string {
 
 const SLOTS = 12;
 
-function ConversionCard({ demo, compact, width, className }: { demo: LiveDemo; compact?: boolean; width?: number; className?: string }) {
+function ConversionCard({ demo, compact, width, height, className }: { demo: LiveDemo; compact?: boolean; width?: number; height?: number; className?: string }) {
   const o = demo.summary?.overall;
   const agents = demo.summary?.byKind.agent;
   const samples = demo.samples;
   const CW = width ?? (compact ? 470 : 660);
-  const CH = compact ? 96 : 118;
+  const CH = height ?? (compact ? 96 : 118);
   const slotW = CW / SLOTS;
   const offset = SLOTS - samples.length;
   const maxV = Math.max(1, ...samples.map((s) => s.visitors));
@@ -544,7 +544,7 @@ export function LiveStrip({ demo, className }: { demo: LiveDemo; className?: str
         className="-mx-4 mt-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto overscroll-x-contain px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div ref={card} className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
-          <ConversionCard demo={demo} compact width={Math.max(160, box.w - 40)} className="h-full" />
+          <ConversionCard demo={demo} compact width={Math.max(160, box.w - 40)} height={132} className="h-full" />
         </div>
         <div className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
           <AvsBCard demo={demo} compact className="h-full" />
