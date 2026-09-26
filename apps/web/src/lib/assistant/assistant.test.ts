@@ -96,6 +96,8 @@ describe("heuristic intent router", () => {
     ["agent funnel", "agent_funnel"],
     ["suggest personalization ideas", "suggest_web_rules"],
     ["reset everything", "reset_loop"],
+    ["is this the demo store?", "explore_demo_store"],
+    ["how do I connect my site", "explore_demo_store"],
   ])("%s → %s", (message, tool) => {
     expect(routeIntent(message).calls[0]?.tool).toBe(tool);
   });

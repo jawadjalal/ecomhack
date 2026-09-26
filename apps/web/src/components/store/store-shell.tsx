@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { PageSpec } from "@/lib/contracts";
 import type { StoreContext } from "@/lib/storefront/context";
 import { luminance, readableOn, tint } from "@/lib/storefront/art/color";
-import { getWhopShowcase } from "@/lib/whop";
+import { getStoreBranding } from "@/lib/storefront/showcase";
 import { StoreProvider } from "./store-provider";
 import { StoreHeader } from "./header";
 import { StoreFooter } from "./footer";
@@ -49,8 +49,7 @@ export async function StoreShell({
   bottomInset?: boolean;
 }) {
   const { spec } = ctx;
-  const showcase = await getWhopShowcase();
-  const brand = showcase?.title?.trim() || "PACE";
+  const { brand } = await getStoreBranding();
   return (
     <StoreProvider
       value={{ spec, persist: ctx.persist, preview: ctx.preview, variantLabel: ctx.variantLabel, analytics: ctx.analytics }}
