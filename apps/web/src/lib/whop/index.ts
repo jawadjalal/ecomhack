@@ -8,6 +8,8 @@
  * Modes:
  *   offline — no key anywhere: no network; returns a clearly labelled demo business.
  *   live    — key from the request or WHOP_API_KEY: real account lookup.
+ * Which business: WHOP_COMPANY_ID (biz_…) when set, read via /companies/{id}; else /accounts/me.
+ * (A key can often *see* other businesses' products, so we never guess the business from a product list.)
  * The key itself is kept in memory only (never written to .data/, never returned to the browser).
  */
 import { kvGet, kvSet } from "@/lib/db/json-store";
@@ -48,6 +50,10 @@ export class WhopError extends Error {
 
 const KEY = "whop-connection";
 const secret = globalThis as unknown as { __darwinWhopKey?: string };
+
+function companyId(): string | undefined {
+  return process.env.WHOP_COMPANY_ID?.trim() || undefined;
+}
 
 function serverKey(): string | undefined {
   return process.env.WHOP_API_KEY?.trim() || undefined;
@@ -120,27 +126,33 @@ export async function connectWhop(opts: { apiKey?: string } = {}): Promise<WhopC
   let title: string | undefined;
   let raw: RawProduct[];
   const notes: string[] = [];
+  const configuredCompany = companyId();
   try {
-    const me = await whopGet<Record<string, unknown>>("/accounts/me", key);
+    const me = await whopGet<Record<string, unknown>>(
+      configuredCompany ? `/companies/${encodeURIComponent(configuredCompany)}` : "/accounts/me",
+      key,
+    );
     accountId = str(me.id);
     title = str(me.title) ?? str(me.name) ?? str(me.username);
     raw = await listProducts(key, accountId);
   } catch (err) {
     // Scoped keys (e.g. no company:balance:read) can't read /accounts/me but can list products,
-    // and each product carries its business ({ account: { id, title } }).
-    if (!(err instanceof WhopError) || err.status !== 403) throw err;
+    // and each product carries its business ({ account: { id, title } }). Only a guess, so it's
+    // labelled in notes; set WHOP_COMPANY_ID to pin the business.
+    if (!(err instanceof WhopError) || err.status !== 403 || configuredCompany) throw err;
     raw = ((await whopGet<{ data?: unknown[] }>("/products?first=6", key)).data ?? []) as RawProduct[];
     accountId = str(raw[0]?.account?.id);
     title = str(raw[0]?.account?.title);
     raw = raw.filter((p) => !accountId || str(p.account?.id) === accountId);
-    notes.push("Key is scoped: read the business from its products (no account-level access).");
+    notes.push("Key is scoped and WHOP_COMPANY_ID isn't set: business read from the first visible product. Set WHOP_COMPANY_ID to pin it.");
   }
   if (pasted) secret.__darwinWhopKey = pasted;
   return kvSet<WhopConnection>(KEY, {
     mode: "live",
     accountId,
     title: title ?? accountId ?? "Whop business",
-    products: toProducts(raw),
+    // Whop doesn't always honour company_id for every key type: keep only this business's products.
+    products: toProducts(raw.filter((p) => !accountId || !p.account?.id || str(p.account.id) === accountId)),
     connectedAt: now,
     notes,
   });
