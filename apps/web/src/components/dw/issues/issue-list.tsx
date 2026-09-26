@@ -4,12 +4,10 @@ import { motion } from "motion/react";
 import { cn } from "@/components/ui/cn";
 import { Tag } from "../ui";
 import type { Focus } from "./issue-cards";
+import { JoinHighlight } from "./join";
 import { fmtImpact, STATUS_LABEL, type IssueRow } from "./model";
 
 const NUM_BG: Record<IssueRow["who"], string> = { Agents: "#F3B5D5", People: "#B8CAEE", Everyone: "#D5CCF5" };
-
-/** Distance from a row's right edge to the detail panel: list padding (22) + border (1) + grid gap (14) + 1px overlap. */
-export const JOIN = 38;
 
 function inFocus(r: IssueRow, focus: Focus) {
   if (!focus) return true;
@@ -68,25 +66,7 @@ export function IssueList({
                 !on && "dw-row hover:bg-[#F6F0E4]",
               )}
             >
-              {on && (
-                <motion.span
-                  layoutId="dw-issue-sel"
-                  aria-hidden
-                  transition={{ type: "spring", stiffness: 480, damping: 40 }}
-                  className="absolute inset-0 rounded-2xl bg-[#FCE6F0] lg:rounded-r-none lg:bg-dw-pink"
-                  style={{ right: 0 }}
-                >
-                  <span className="absolute inset-y-0 left-full hidden bg-dw-pink lg:block" style={{ width: JOIN }} />
-                  <span
-                    className="absolute hidden lg:block"
-                    style={{ right: -JOIN, top: -14, width: 14, height: 14, background: "radial-gradient(circle at 0 0, transparent 13.5px, #F3B5D5 14px)" }}
-                  />
-                  <span
-                    className="absolute hidden lg:block"
-                    style={{ right: -JOIN, bottom: -14, width: 14, height: 14, background: "radial-gradient(circle at 0 100%, transparent 13.5px, #F3B5D5 14px)" }}
-                  />
-                </motion.span>
-              )}
+              {on && <JoinHighlight layoutId="dw-issue-sel" color="#F3B5D5" soft="#FCE6F0" />}
               <span
                 className={cn("dw-tilt relative grid size-[34px] shrink-0 place-items-center rounded-full text-[14px] font-semibold", on && "lg:bg-white!")}
                 style={{ background: NUM_BG[r.who] }}
@@ -94,7 +74,7 @@ export function IssueList({
                 {r.n}
               </span>
               <span className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-[15px] leading-snug font-semibold">{r.insight.title}</span>
+                <span className="line-clamp-2 text-[15px] leading-snug font-semibold [overflow-wrap:anywhere]" title={r.insight.title}>{r.insight.title}</span>
                 <span className={cn("text-[13px]", on ? "text-[#5A2744]" : "text-[#6B655A]")}>
                   {r.who} · {r.where}
                 </span>

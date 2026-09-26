@@ -409,15 +409,16 @@ export async function getBriefing(opts: { origin: string }): Promise<Briefing> {
   const active = items.filter((i) => ACTIVE.has(i.status));
   const top = asked ?? active[0];
 
-  // The key number: about the same thing as the question when there is one.
+  // The key number: about the same thing as the top item (so it never mixes up two stores), else the first there is.
   const storeNumber = lazy(storeFact);
   const agentNumber = lazy(() => agentFact(events));
-  const siteNumber = top?.kind === "web" ? web.facts.get(top.id.split(":")[1]) : undefined;
-  const fact =
-    (top?.kind === "agent" ? agentNumber() : top?.kind === "web" ? siteNumber : top?.kind === "loop" ? storeNumber() : undefined) ??
-    storeNumber() ??
-    agentNumber() ??
-    [...web.facts.values()][0];
+  const fact = top
+    ? top.kind === "agent"
+      ? agentNumber()
+      : top.kind === "web"
+        ? web.facts.get(top.id.split(":")[1])
+        : storeNumber()
+    : (storeNumber() ?? agentNumber() ?? [...web.facts.values()][0]);
 
   // One sentence: the question, or what's going on. `labelsTop` = it already says where top's numbers came from.
   let main: string;
@@ -557,7 +558,12 @@ export async function actOnBriefing(itemId: string, action: BriefingAction): Pro
   if (kind === "agent" && rest.length === 1) {
     const events = eventStore().all();
     const r = action === "ship" ? shipAgentTest(rest[0], events) : stopAgentTest(rest[0], events);
-    return { ok: r.ok, text: r.text };
+    if (!r.ok || !r.test) return { ok: r.ok, text: r.text };
+    const label = LEVERS[r.test.lever].label;
+    return {
+      ok: true,
+      text: action === "ship" ? `Shipped “${label}”: your store agent now pitches every buyer agent this way.` : `Stopped “${label}”: your store agent's pitch stays as it was.`,
+    };
   }
   if (kind === "web" && rest.length === 2) return actOnWeb(rest[0], rest[1], action);
   if (kind === "loop" && rest.length === 1) return actOnLoop(rest[0], action);

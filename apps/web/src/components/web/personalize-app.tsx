@@ -1,33 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Activity,
-  ArrowLeft,
-  Bot,
-  Check,
-  CircleStop,
-  Copy,
-  Cpu,
-  ExternalLink,
-  Eye,
-  FlaskConical,
-  Globe,
-  Flame,
-  Hourglass,
-  LoaderCircle,
-  Pause,
-  Play,
-  Power,
-  Rocket,
-  Send,
-  Sparkles,
-  Trash,
-  Users,
-  WandSparkles,
-  X,
-} from "lucide-react";
+import { Bot, Check, Copy, ExternalLink, Eye, FlaskConical, Link2, LoaderCircle, Mail, Megaphone, MousePointerClick, Pause, Play, RefreshCw, Rocket, Search, Send, Sparkles, Trash, Users, X } from "lucide-react";
 import type {
   HeatmapElement,
   TrafficSource,
@@ -43,12 +17,11 @@ import type {
   WebSimulateResponse,
 } from "@/lib/contracts";
 import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Toggle } from "@/components/ui/switch";
 import { cn } from "@/components/ui/cn";
-import { DarwinWordmark } from "@/components/console/brand";
+import { Mascot, type MascotKind } from "@/components/dw/mascot";
+import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
+import { Card, CardTitle, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
+import { BrowserFrame, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -120,6 +93,28 @@ function describeChange(c: WebChange): string {
 function audienceLabel(r: Pick<WebRule, "audience">): string {
   const who = r.audience.sources?.length ? r.audience.sources.map((s) => SHORT[s]).join(", ") : "Everyone";
   return r.audience.queryIncludes?.length ? `${who} · searching “${r.audience.queryIncludes.join("”, “")}”` : who;
+}
+
+const SOURCE_ICON: Record<Exclude<TrafficSource, "ai">, React.ReactNode> = {
+  search: <Search aria-hidden />,
+  social: <Users aria-hidden />,
+  paid: <Megaphone aria-hidden />,
+  email: <Mail aria-hidden />,
+  referral: <Link2 aria-hidden />,
+  direct: <MousePointerClick aria-hidden />,
+};
+
+/** The AI assistants behind the "AI assistants" source, shown with their official marks. */
+const AI_BRANDS = ["ChatGPT", "Perplexity", "Claude", "Gemini"].map((n) => agentBrand(n));
+
+function AiStack({ size = 18 }: { size?: number }) {
+  return (
+    <span className="flex shrink-0 -space-x-1">
+      {AI_BRANDS.map((b) => (
+        <AgentTile key={b.key} brand={b} size={size} className="ring-2 ring-white/80" />
+      ))}
+    </span>
+  );
 }
 
 /* ------------------------------------------------------------------ app */
@@ -349,142 +344,146 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   const rules = useMemo(() => [...(data?.rules ?? [])].filter((r) => r.id !== draft?.savedId).reverse(), [data, draft?.savedId]);
   const resultOf = (id: string) => data?.results.find((r) => r.ruleId === id);
 
+  const siteOptions = [...new Set([site, ...(data?.sites ?? []).map((s) => s.site)])].map((s) => ({ value: s, label: s }));
+  const viewOptions = (["original", ...TRAFFIC_SOURCES] as const).map((s) => ({
+    value: s,
+    label: (
+      <span title={s === "original" ? "The page without any Darwin changes" : TRAFFIC_SOURCE_LABEL[s]} className="flex items-center gap-1.5 whitespace-nowrap">
+        {s === "original" ? "Original page" : SHORT[s]}
+      </span>
+    ),
+  }));
+
   return (
-    <div data-darwin-dark className="darwin-bg relative min-h-screen w-full text-white">
-      <div className="darwin-grid pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto flex max-w-[110rem] flex-col gap-4 p-4">
-        {/* header */}
-        <header className="flex flex-wrap items-center gap-3">
-          <Link href="/console" className="flex items-center gap-2 rounded-lg pr-2 text-white/60 hover:text-white" title="Back to mission control">
-            <ArrowLeft className="size-4" />
-            <DarwinWordmark sub="personalize" />
-          </Link>
-          <div className="h-7 w-px bg-white/10" />
-          <label className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-[0.82rem] text-white/60">
-            <Globe className="size-4 text-white/45" />
-            Site
-            <select
-              value={site}
-              onChange={(e) => switchSite(e.target.value)}
-              className="bg-transparent font-medium text-white/90 outline-none [&>option]:bg-[#0b0d12]"
-              aria-label="Site"
-            >
-              {[...new Set([site, ...(data?.sites ?? []).map((s) => s.site)])].map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          {pageUrl && (
-            <a
-              href={pageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-9 items-center gap-1.5 rounded-xl px-2 text-[0.82rem] text-white/50 hover:text-white"
-              title="Open the store"
-            >
-              <ExternalLink className="size-3.5" />
-              <span className="max-w-[22rem] truncate">{pageUrl.replace(/^https?:\/\//, "")}</span>
-            </a>
-          )}
-          <div className="flex-1" />
-          <p className="hidden text-[0.82rem] text-white/45 2xl:block">Change any page with darwin.js, per traffic source and search query. A/B tested.</p>
-          <Button onClick={simulate} disabled={!!busy} size="md" title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
-            {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
-            +500 test visitors
-          </Button>
-          <Toggle
-            on={trafficOn}
-            onChange={setTrafficOn}
-            tone="human"
-            icon={<Activity />}
-            label="Traffic"
-            title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic."
-          />
-          <Toggle
-            on={autopilotOn}
-            onChange={setAutopilot}
-            icon={<Cpu />}
-            label="Autopilot"
-            title="Darwin tests one idea per traffic source (biggest gap first), ships winners, stops losers, and tries the next idea"
-          />
-        </header>
+    <>
+      <PageHead
+        mascot={<Mascot kind="designer" size={50} active />}
+        title="Personalize"
+        lede="Change any store page for each traffic source and search, then let an A/B test decide."
+        right={
+          <div className={HEAD_CONTROLS}>
+            <SiteSelect value={site} options={siteOptions} onChange={switchSite} />
+            <PillButton tone="white" onClick={simulate} disabled={!!busy} title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
+              {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
+              Send 500 test visitors
+            </PillButton>
+            <DwSwitch on={trafficOn} onChange={setTrafficOn} label="Traffic" title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic." />
+            <DwSwitch
+              on={autopilotOn}
+              onChange={setAutopilot}
+              busy={busy === "autopilot"}
+              label="Autopilot"
+              title="Darwin tests one idea per traffic source (biggest gap first), ships winners, stops losers, and tries the next idea"
+            />
+          </div>
+        }
+      />
 
-        {loadError && (
-          <div className="rounded-xl border border-bad/30 bg-bad/[0.08] px-4 py-2 text-[0.85rem] text-[#ffb4b4]">Couldn&apos;t load rules: {loadError}</div>
-        )}
+      {loadError && <div className="rounded-[22px] bg-dw-warn-bg px-5 py-3 text-[14px] text-dw-warn">Couldn&apos;t load rules: {loadError}</div>}
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_30rem]">
-          {/* ---------------- left: preview + traffic */}
-          <div className="flex min-w-0 flex-col gap-4">
-            <Panel>
-              <PanelHeader
-                icon={<Eye />}
-                title="View the page as"
-                right={
-                  <>
-                    {view.previewRuleId ? (
-                      <Badge tone="warn" title="Showing a draft that isn't live yet">
-                        Previewing draft
-                      </Badge>
-                    ) : (
-                      <Badge tone="outline">Previews send no events</Badge>
-                    )}
-                    <Toggle
-                      on={heatOn}
-                      onChange={setHeatOn}
-                      icon={<Flame />}
-                      label="Heatmap"
-                      title="Where visitors click on this page, for the audience you're viewing as (darwin.js autocapture)"
-                    />
-                  </>
-                }
-              />
-              <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
-                {(["original", ...TRAFFIC_SOURCES] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setView((v) => ({ ...v, source: s }))}
-                    title={s === "original" ? "The page without any Darwin changes" : TRAFFIC_SOURCE_LABEL[s]}
-                    className={cn(
-                      "h-8 rounded-lg border px-3 text-[0.8rem] font-medium transition-colors",
-                      view.source === s ? "border-brand/40 bg-brand/15 text-brand" : "border-white/[0.08] bg-white/[0.03] text-white/65 hover:text-white",
-                    )}
-                  >
-                    {s === "original" ? "Original page" : SHORT[s]}
-                  </button>
-                ))}
-                {(view.source === "search" || view.source === "paid") && (
-                  <input
-                    value={view.query}
-                    onChange={(e) => setView((v) => ({ ...v, query: e.target.value }))}
-                    placeholder="their search query"
-                    aria-label="Search query"
-                    className="ml-1 h-8 w-56 rounded-lg border border-white/[0.1] bg-black/30 px-3 text-[0.8rem] text-white outline-none focus:border-brand/40"
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        {/* ---------------- left: preview + traffic */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card tone="white" hover={false} className="p-4 sm:p-6">
+            <CardTitle
+              right={
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {view.previewRuleId ? (
+                    <span title="Showing a draft that isn't live yet">
+                      <Tag tone="yellow">Previewing draft</Tag>
+                    </span>
+                  ) : (
+                    <Tag tone="sand" className="max-sm:hidden">
+                      Previews send no events
+                    </Tag>
+                  )}
+                  <DwSwitch
+                    on={heatOn}
+                    onChange={setHeatOn}
+                    label="Heatmap"
+                    title="Where visitors click on this page, for the audience you're viewing as (darwin.js autocapture)"
+                    className="h-9"
                   />
-                )}
+                </div>
+              }
+            >
+              View the page as
+            </CardTitle>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="-mx-1 max-w-full overflow-x-auto px-1 pb-1">
+                <Segmented value={view.source} options={viewOptions} onChange={(s) => setView((v) => ({ ...v, source: s }))} />
               </div>
-              <div className="relative mx-5 mb-5 h-[min(72vh,52rem)] min-h-[28rem] overflow-hidden rounded-xl border border-white/[0.08] bg-white">
+              {(view.source === "search" || view.source === "paid") && (
+                <input
+                  value={view.query}
+                  onChange={(e) => setView((v) => ({ ...v, query: e.target.value }))}
+                  placeholder="their search query"
+                  aria-label="Search query"
+                  className="h-10 w-full rounded-full border border-dw-hairline bg-white px-4 text-[14px] outline-none placeholder:text-dw-ink/35 focus:border-dw-ink/40 sm:w-64"
+                />
+              )}
+            </div>
+
+            <BrowserFrame
+              className="mt-4"
+              address={pageUrl ? pageUrl.replace(/^https?:\/\//, "") : `${site} · no page yet`}
+              badge={
+                view.source === "original" ? (
+                  <Tag tone="outline" className="h-5 px-2 text-[11px]">
+                    no changes
+                  </Tag>
+                ) : (
+                  <Tag tone="ink" className="h-5 gap-1.5 px-2 text-[11px]">
+                    as {SHORT[view.source]}
+                  </Tag>
+                )
+              }
+              actions={
+                <>
+                  <IconBtn title="Reload the preview" onClick={() => setReload((n) => n + 1)}>
+                    <RefreshCw />
+                  </IconBtn>
+                  {pageUrl && (
+                    <a
+                      href={pageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open the store"
+                      aria-label="Open the store"
+                      className="grid size-9 place-items-center rounded-full text-dw-ink/60 transition-colors hover:bg-white/70 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-dw-ink"
+                    >
+                      <ExternalLink className="size-4" />
+                    </a>
+                  )}
+                </>
+              }
+            >
+              <div className="relative h-[min(72vh,52rem)] min-h-[28rem] bg-white">
                 {src ? (
                   <iframe ref={frame} key={src} src={src} onLoad={paint} title={`${site} preview`} className="absolute inset-0 h-full w-full" />
                 ) : (
-                  <div className="absolute inset-0 grid place-items-center bg-[#0b0d12] p-8 text-center text-[0.9rem] text-white/50">
-                    No page seen for “{site}” yet. Install darwin.js (right) and open the store once.
+                  <div className="absolute inset-0 grid place-items-center bg-dw-bg">
+                    <Empty mascot={<Mascot kind="observer" size={64} frame />}>
+                      No page seen for “{site}” yet. Install darwin.js (below) and open the store once.
+                    </Empty>
                   </div>
                 )}
               </div>
-              {heatOn && <HeatList heat={heat} painted={painted} audience={heatSource ? SHORT[heatSource] : "all visitors"} />}
-            </Panel>
+            </BrowserFrame>
 
-            <TrafficPanel data={data} />
-          </div>
+            {heatOn && <HeatList heat={heat} painted={painted} audience={heatSource ? SHORT[heatSource] : "all visitors"} />}
+          </Card>
 
-          {/* ---------------- right: ask, draft, rules */}
-          <div className="flex min-w-0 flex-col gap-4">
-            <Panel glow={!draft}>
-              <PanelHeader icon={<WandSparkles />} title="Ask Darwin to change the page" />
-              <div className="flex flex-col gap-3 px-5 pb-5">
+          <TrafficPanel data={data} site={site} />
+        </div>
+
+        {/* ---------------- right: ask, draft, rules */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card tone="yellow" shape="designer" corner="tr" hover={false}>
+            <CardTitle>Ask Darwin to change the page</CardTitle>
+            <div className="mt-4 flex flex-col gap-3">
+              <div className="rounded-[20px] bg-white/85 p-1.5 shadow-[0_1px_0_rgba(20,20,19,0.05)] focus-within:ring-2 focus-within:ring-dw-ink/80">
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
@@ -492,117 +491,107 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) draftFromPrompt();
                   }}
                   rows={3}
+                  aria-label="Ask Darwin to change the page"
                   placeholder="e.g. People coming from ChatGPT should see delivery and returns up front"
-                  className="w-full resize-none rounded-xl border border-white/[0.1] bg-black/30 px-3.5 py-3 text-[0.9rem] text-white outline-none placeholder:text-white/30 focus:border-brand/40"
+                  className="block w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[15px] leading-snug outline-none placeholder:text-dw-ink/40"
                 />
-                <div className="flex flex-wrap gap-1.5">
-                  {EXAMPLES.map((ex) => (
-                    <button
-                      key={ex}
-                      onClick={() => {
-                        setPrompt(ex);
-                        draftFromPrompt(ex);
-                      }}
-                      className="max-w-full truncate rounded-lg border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-left text-[0.75rem] text-white/55 hover:border-white/20 hover:text-white"
-                    >
-                      {ex}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="primary" onClick={() => draftFromPrompt()} disabled={!!busy} className="flex-1">
+                <div className="flex items-center justify-between gap-2 px-2 pb-1">
+                  <span className="text-[12px] text-dw-ink/45 max-sm:hidden">Ctrl + Enter to draft</span>
+                  <PillButton size="sm" onClick={() => draftFromPrompt()} disabled={!!busy} className="ml-auto">
                     {busy === "draft" ? <LoaderCircle className="animate-spin" /> : <Send />}
                     Draft change
-                  </Button>
-                  <Button onClick={suggest} disabled={!!busy} title="One idea per traffic source, biggest gap in your data first">
-                    {busy === "suggest" ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-                    Suggest from data
-                  </Button>
+                  </PillButton>
                 </div>
               </div>
-            </Panel>
-
-            {suggestions && !draft && (
-              <Panel>
-                <PanelHeader
-                  icon={<Sparkles />}
-                  title="Ideas for this site"
-                  right={
-                    <button onClick={() => setSuggestions(undefined)} className="text-white/40 hover:text-white" aria-label="Close ideas">
-                      <X className="size-4" />
-                    </button>
-                  }
-                />
-                <ul className="flex flex-col gap-2 px-5 pb-5">
-                  {suggestions.map((s) => (
-                    <li key={s.name} className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[0.88rem] font-medium">{s.name}</div>
-                          <div className="mt-0.5 text-[0.78rem] text-white/50">{s.hypothesis}</div>
-                        </div>
-                        <Button size="sm" onClick={() => setDraft({ rule: s, source: "heuristic" })}>
-                          Use
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
-            )}
-
-            {draft && (
-              <DraftCard
-                draft={draft}
-                busy={busy}
-                onEdit={editDraft}
-                onPreview={previewDraft}
-                onLaunch={launch}
-                onDiscard={discard}
-              />
-            )}
-
-            {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
-
-            <Panel>
-              <PanelHeader icon={<FlaskConical />} title="Live rules & tests" right={<span className="text-[0.75rem] text-white/40">{data?.rules.length ?? 0} rules</span>} />
-              <div className="flex flex-col gap-2 px-5 pb-5">
-                {rules.length === 0 && <p className="text-[0.85rem] text-white/45">Nothing yet. Ask Darwin for a change, or get ideas from your data.</p>}
-                {rules.map((r) => (
-                  <RuleRow
-                    key={r.id}
-                    rule={r}
-                    result={resultOf(r.id)}
-                    busy={busy}
-                    onView={() => setView((v) => ({ ...v, source: r.audience.sources?.[0] ?? "direct", previewRuleId: r.status === "running" || r.status === "shipped" ? undefined : r.id }))}
-                    onPause={() => patch(r, { status: "paused" }, `Paused “${r.name}”.`)}
-                    onResume={() => patch(r, { status: "running" }, `Resumed “${r.name}”.`)}
-                    onShip={() => patch(r, { status: "shipped" }, `Shipped “${r.name}” to everyone in its audience.`)}
-                    onDelete={() => remove(r)}
-                  />
+              <div className="flex flex-col gap-1.5">
+                {EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => {
+                      setPrompt(ex);
+                      draftFromPrompt(ex);
+                    }}
+                    className="dw-row group flex min-h-9 items-center gap-2 rounded-full bg-white/45 px-3.5 py-1.5 text-left text-[13px] text-dw-ink/75 hover:bg-white/80 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-dw-ink"
+                  >
+                    <Sparkles className="dw-tilt size-3.5 shrink-0 text-dw-ink/40 group-hover:text-dw-ink" aria-hidden />
+                    <span className="min-w-0 truncate">{ex}</span>
+                  </button>
                 ))}
               </div>
-            </Panel>
+              <PillButton tone="ink" onClick={suggest} disabled={!!busy} title="One idea per traffic source, biggest gap in your data first" className="self-start">
+                {busy === "suggest" ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+                Suggest from data
+              </PillButton>
+            </div>
+          </Card>
 
-            <InstallPanel site={site} origin={origin} />
-          </div>
+          {suggestions && !draft && (
+            <Card tone="white" hover={false}>
+              <CardTitle
+                right={
+                  <IconBtn title="Close ideas" onClick={() => setSuggestions(undefined)}>
+                    <X />
+                  </IconBtn>
+                }
+              >
+                Ideas for this site
+              </CardTitle>
+              <ul className="mt-4 flex flex-col gap-2">
+                {suggestions.map((s) => (
+                  <li key={s.name} className="dw-row flex items-center gap-3 rounded-[22px] bg-dw-sand p-3.5">
+                    <span className="dw-tilt shrink-0">
+                      <Mascot kind="designer" size={34} active={false} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[15px] leading-snug font-medium">{s.name}</div>
+                      {s.hypothesis && <div className="mt-0.5 text-[13px] leading-snug text-dw-ink/60">{s.hypothesis}</div>}
+                      <div className="mt-1 flex items-center gap-1.5 text-[12px] text-dw-ink/55">
+                        {s.audience.sources?.includes("ai") && <AiStack size={18} />}
+                        {audienceLabel(s)}
+                      </div>
+                    </div>
+                    <PillButton size="sm" tone="white" onClick={() => setDraft({ rule: s, source: "heuristic" })}>
+                      Use
+                    </PillButton>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {draft && <DraftCard draft={draft} busy={busy} onEdit={editDraft} onPreview={previewDraft} onLaunch={launch} onDiscard={discard} />}
+
+          {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
+
+          <Card tone="white" hover={false}>
+            <CardTitle right={<span className="num">{data?.rules.length ?? 0} rules</span>}>Live rules &amp; tests</CardTitle>
+            <div className="mt-4 flex flex-col gap-2.5">
+              {rules.length === 0 && (
+                <Empty mascot={<Mascot kind="experimenter" size={56} frame />}>Nothing yet. Ask Darwin for a change, or get ideas from your data.</Empty>
+              )}
+              {rules.map((r) => (
+                <RuleRow
+                  key={r.id}
+                  rule={r}
+                  result={resultOf(r.id)}
+                  busy={busy}
+                  onView={() => setView((v) => ({ ...v, source: r.audience.sources?.[0] ?? "direct", previewRuleId: r.status === "running" || r.status === "shipped" ? undefined : r.id }))}
+                  onPause={() => patch(r, { status: "paused" }, `Paused “${r.name}”.`)}
+                  onResume={() => patch(r, { status: "running" }, `Resumed “${r.name}”.`)}
+                  onShip={() => patch(r, { status: "shipped" }, `Shipped “${r.name}” to everyone in its audience.`)}
+                  onDelete={() => remove(r)}
+                />
+              ))}
+            </div>
+          </Card>
+
+          <InstallPanel site={site} origin={origin} />
         </div>
       </div>
 
-      {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
-          <div
-            className={cn(
-              "pointer-events-auto flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[0.86rem] shadow-2xl backdrop-blur",
-              toast.tone === "good" ? "border-good/30 bg-[#0d1a12]/95 text-[#a6efbf]" : "border-bad/30 bg-[#1f0d0d]/95 text-[#ffb4b4]",
-            )}
-          >
-            {toast.tone === "good" ? <Check className="size-4" /> : <X className="size-4" />}
-            {toast.text}
-          </div>
-        </div>
-      )}
-    </div>
+      <DwToast toast={toast} />
+    </>
   );
 }
 
@@ -631,95 +620,103 @@ function DraftCard({
       return { ...x, audience: { ...x.audience, sources } };
     });
   return (
-    <Panel glow>
-      <PanelHeader
-        icon={<WandSparkles />}
-        title="Draft"
+    <Card tone="pink" shape="experimenter" corner="br" hover={false}>
+      <CardTitle
         right={
-          <Badge tone={draft.source === "llm" ? "brand" : "neutral"} title={r.author}>
-            {draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Heuristic"}
-          </Badge>
+          <span title={r.author}>
+            <Tag tone={draft.source === "llm" ? "ink" : "white"}>{draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Heuristic"}</Tag>
+          </span>
         }
-      />
-      <div className="flex flex-col gap-3 px-5 pb-5">
-        <input
-          value={r.name}
-          onChange={(e) => onEdit((x) => ({ ...x, name: e.target.value }))}
-          aria-label="Rule name"
-          className="h-9 rounded-lg border border-white/[0.1] bg-black/30 px-3 text-[0.92rem] font-medium text-white outline-none focus:border-brand/40"
-        />
-        {r.hypothesis && <p className="text-[0.8rem] leading-relaxed text-white/55">{r.hypothesis}</p>}
+      >
+        <span className="flex items-center gap-3">
+          <Mascot kind="designer" size={34} active />
+          Draft
+        </span>
+      </CardTitle>
+      <div className="mt-4 flex flex-col gap-4">
+        <div>
+          <input
+            value={r.name}
+            onChange={(e) => onEdit((x) => ({ ...x, name: e.target.value }))}
+            aria-label="Rule name"
+            className="h-11 w-full rounded-full bg-white/90 px-4 text-[15px] font-semibold outline-none focus:ring-2 focus:ring-dw-ink/80"
+          />
+          {r.hypothesis && <p className="mt-2 px-1 text-[14px] leading-snug text-dw-ink/70">{r.hypothesis}</p>}
+        </div>
 
         <div>
-          <div className="mb-1.5 flex items-center gap-1.5 text-[0.7rem] font-medium tracking-[0.12em] text-white/40 uppercase">
-            <Users className="size-3.5" /> Who sees it
-          </div>
+          <FieldLabel>Who sees it</FieldLabel>
           <div className="flex flex-wrap gap-1.5">
             {TRAFFIC_SOURCES.map((s) => {
               const on = r.audience.sources?.includes(s);
               return (
                 <button
                   key={s}
+                  type="button"
+                  aria-pressed={!!on}
                   onClick={() => toggleSource(s)}
                   className={cn(
-                    "h-7 rounded-lg border px-2.5 text-[0.76rem]",
-                    on ? "border-human/40 bg-human/15 text-[#9cc5ff]" : "border-white/[0.07] text-white/45 hover:text-white",
+                    "flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-dw-ink",
+                    on ? "bg-dw-ink text-white" : "bg-white/55 text-dw-ink/65 hover:bg-white/85 hover:text-dw-ink",
                   )}
                 >
+                  {on && <Check className="size-3.5" aria-hidden />}
                   {SHORT[s]}
                 </button>
               );
             })}
           </div>
-          {!r.audience.sources?.length && <p className="mt-1 text-[0.74rem] text-white/40">No source picked: everyone.</p>}
-          {!!r.audience.queryIncludes?.length && <p className="mt-1 text-[0.74rem] text-white/50">Only searches containing “{r.audience.queryIncludes.join("”, “")}”.</p>}
+          {!r.audience.sources?.length && <p className="mt-1.5 text-[12.5px] text-dw-ink/55">No source picked: everyone.</p>}
+          {!!r.audience.queryIncludes?.length && <p className="mt-1.5 text-[12.5px] text-dw-ink/60">Only searches containing “{r.audience.queryIncludes.join("”, “")}”.</p>}
         </div>
 
         <div>
-          <div className="mb-1.5 text-[0.7rem] font-medium tracking-[0.12em] text-white/40 uppercase">What changes</div>
+          <FieldLabel>What changes</FieldLabel>
           <ul className="flex flex-col gap-2">
             {r.changes.map((c, i) => (
-              <li key={i} className="rounded-lg border border-white/[0.07] bg-white/[0.025] p-2.5">
-                <div className="mb-1 flex items-center gap-2 text-[0.72rem] text-white/45">
-                  <span className="font-medium text-white/70 capitalize">{c.action}</span>
-                  {c.selector && <code className="truncate font-mono text-[0.7rem] text-white/40">{c.selector}</code>}
+              <li key={i} className="rounded-[18px] bg-white/80 p-3">
+                <div className="mb-1.5 flex min-w-0 items-center gap-2">
+                  <Tag tone="ink" className="h-5 px-2 text-[11px] capitalize">
+                    {c.action}
+                  </Tag>
+                  {c.selector && <code className="min-w-0 truncate font-dwmono text-[12px] text-dw-ink/55">{c.selector}</code>}
                 </div>
                 {c.action !== "hide" && (
                   <input
                     value={c.value ?? ""}
                     onChange={(e) => onEdit((x) => ({ ...x, changes: x.changes.map((y, j) => (j === i ? { ...y, value: e.target.value } : y)) }))}
                     aria-label={`${c.action} text`}
-                    className="h-8 w-full rounded-md border border-white/[0.08] bg-black/30 px-2.5 text-[0.84rem] text-white outline-none focus:border-brand/40"
+                    className="h-9 w-full rounded-xl border border-dw-hairline bg-white px-3 text-[14px] outline-none focus:border-dw-ink/40"
                   />
                 )}
               </li>
             ))}
           </ul>
           {r.changes.some((c) => c.value?.includes("{query}")) && (
-            <p className="mt-1.5 text-[0.74rem] text-white/45">{"{query}"} becomes the visitor&apos;s search, e.g. “Waterproof Trail Shoes”. Skipped when there&apos;s none.</p>
+            <p className="mt-2 text-[12.5px] text-dw-ink/60">{"{query}"} becomes the visitor&apos;s search, e.g. “Waterproof Trail Shoes”. Skipped when there&apos;s none.</p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <Button onClick={onPreview} disabled={!!busy}>
-            {busy === "preview" ? <LoaderCircle className="animate-spin" /> : <Eye />}
-            Preview
-          </Button>
-          <Button variant="ghost" onClick={onDiscard} disabled={!!busy}>
-            <X />
-            Discard
-          </Button>
-          <Button variant="primary" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it; Darwin measures orders against the unchanged page">
+          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it; Darwin measures orders against the unchanged page">
             {busy === "test" ? <LoaderCircle className="animate-spin" /> : <FlaskConical />}
             Start A/B test
-          </Button>
-          <Button onClick={() => onLaunch("always")} disabled={!!busy} title="Everyone in the audience sees it (no control group)">
+          </PillButton>
+          <PillButton tone="white" onClick={() => onLaunch("always")} disabled={!!busy} title="Everyone in the audience sees it (no control group)">
             {busy === "always" ? <LoaderCircle className="animate-spin" /> : <Rocket />}
             Show to all of them
-          </Button>
+          </PillButton>
+          <PillButton tone="white" onClick={onPreview} disabled={!!busy}>
+            {busy === "preview" ? <LoaderCircle className="animate-spin" /> : <Eye />}
+            Preview
+          </PillButton>
+          <PillButton tone="ghost" onClick={onDiscard} disabled={!!busy}>
+            <X />
+            Discard
+          </PillButton>
         </div>
       </div>
-    </Panel>
+    </Card>
   );
 }
 
@@ -749,102 +746,106 @@ function RuleRow({
   const verdict = !test || p === undefined || !enough ? undefined : p >= 0.95 ? "win" : p <= 0.05 ? "lose" : undefined;
   const status =
     rule.status === "shipped" ? (
-      <Badge tone="good">Shipped</Badge>
+      <Tag tone="win">Shipped</Tag>
     ) : rule.status === "paused" ? (
-      <Badge tone="neutral">Paused</Badge>
+      <Tag tone="white">Paused</Tag>
     ) : rule.status === "draft" ? (
-      <Badge tone="outline">Draft</Badge>
+      <Tag tone="outline">Draft</Tag>
     ) : rule.mode === "test" ? (
-      <Badge tone="info">A/B testing</Badge>
+      <Tag tone="ink">A/B testing</Tag>
     ) : (
-      <Badge tone="brand">Live</Badge>
+      <Tag tone="yellow">Live</Tag>
     );
+  const mascot: MascotKind = rule.status === "shipped" ? "shipper" : rule.status === "draft" ? "designer" : "experimenter";
+  const maxRate = Math.max(result?.control.conversionRate ?? 0, result?.treatment.conversionRate ?? 0, 0.0001);
 
   return (
-    <div className={cn("rounded-xl border bg-white/[0.025] p-3", verdict === "win" ? "border-good/35" : verdict === "lose" ? "border-bad/30" : "border-white/[0.07]")}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+    <div
+      className={cn(
+        "rounded-[22px] p-4 transition-colors",
+        verdict === "win" ? "bg-dw-win-bg" : verdict === "lose" ? "bg-dw-warn-bg" : rule.status === "paused" ? "bg-dw-sand/60" : "bg-dw-sand",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <Mascot kind={mascot} size={40} frame active={rule.status === "running"} className="max-sm:hidden" />
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[0.88rem] font-medium">{rule.name}</span>
+            <span className="mr-0.5 text-[15px] leading-snug font-semibold">{rule.name}</span>
             {status}
             {rule.author === "autopilot" && (
-              <Badge tone="outline" title="Started by autopilot">
-                <Cpu /> autopilot
-              </Badge>
+              <span title="Started by autopilot">
+                <Tag tone="outline">autopilot</Tag>
+              </span>
             )}
             {result?.synthetic && (
-              <Badge tone="warn" title="Every visitor counted in this result was simulated">
-                <Bot /> synthetic
-              </Badge>
+              <span title="Every visitor counted in this result was simulated">
+                <Tag tone="warn">
+                  <Bot className="size-3" aria-hidden /> simulated
+                </Tag>
+              </span>
             )}
           </div>
+          <div className="mt-1 flex items-center gap-1.5 text-[13px] text-dw-ink/60">
+            {rule.audience.sources?.includes("ai") && <AiStack size={18} />}
+            {audienceLabel(rule)}
+          </div>
+          <div className="mt-0.5 truncate text-[13px] text-dw-ink/75" title={rule.changes.map(describeChange).join("\n")}>
+            {rule.changes.map(describeChange).join(" · ")}
+          </div>
           {rule.outcome && (
-            <div className={cn("mt-1 text-[0.76rem]", rule.outcome.decision === "shipped" ? "text-[#7ee2a0]" : "text-white/55")}>
+            <div className={cn("mt-1.5 text-[13px] leading-snug", rule.outcome.decision === "shipped" ? "text-dw-win" : "text-dw-ink/60")}>
               {rule.outcome.decision === "shipped" ? "Shipped" : "Stopped"}
               {rule.outcome.by === "autopilot" ? " by autopilot" : ""}: {rule.outcome.reason}
             </div>
           )}
-          <div className="mt-0.5 text-[0.76rem] text-white/45">{audienceLabel(rule)}</div>
-          <div className="mt-1 truncate text-[0.76rem] text-white/60" title={rule.changes.map(describeChange).join("\n")}>
-            {rule.changes.map(describeChange).join(" · ")}
-          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <IconButton title="View as this audience" onClick={onView}>
+        <div className="-mt-1 -mr-1 flex shrink-0 items-center">
+          <IconBtn title="View as this audience" onClick={onView}>
             <Eye />
-          </IconButton>
+          </IconBtn>
           {rule.status === "running" && (
-            <IconButton title="Pause" onClick={onPause} busy={busy === `${rule.id}:paused`}>
+            <IconBtn title="Pause" onClick={onPause} busy={busy === `${rule.id}:paused`}>
               <Pause />
-            </IconButton>
+            </IconBtn>
           )}
           {(rule.status === "paused" || rule.status === "draft") && (
-            <IconButton title={rule.status === "draft" ? "Start" : "Resume"} onClick={onResume} busy={busy === `${rule.id}:running`}>
+            <IconBtn title={rule.status === "draft" ? "Start" : "Resume"} onClick={onResume} busy={busy === `${rule.id}:running`}>
               <Play />
-            </IconButton>
+            </IconBtn>
           )}
           {test && rule.status === "running" && (
-            <IconButton title="Ship to everyone in the audience" onClick={onShip} busy={busy === `${rule.id}:shipped`}>
+            <IconBtn title="Ship to everyone in the audience" onClick={onShip} busy={busy === `${rule.id}:shipped`}>
               <Rocket />
-            </IconButton>
+            </IconBtn>
           )}
-          <IconButton title="Delete" onClick={onDelete} busy={busy === `${rule.id}:delete`}>
+          <IconBtn title="Delete" onClick={onDelete} busy={busy === `${rule.id}:delete`}>
             <Trash />
-          </IconButton>
+          </IconBtn>
         </div>
       </div>
 
       {result && n > 0 && (
-        <div className="mt-2.5 rounded-lg bg-black/25 p-2.5">
+        <div className="mt-3 rounded-[18px] bg-white/75 p-3.5">
           {test ? (
             <>
-              <div className="grid grid-cols-2 gap-2 text-[0.76rem]">
-                <div>
-                  <div className="text-white/40">Original</div>
-                  <div className="font-mono text-white/80 tabular">
-                    {pct(result.control.conversionRate)} <span className="text-white/35">of {result.control.visitors}</span>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-white/40">With change</div>
-                  <div className="font-mono text-white/90 tabular">
-                    {pct(result.treatment.conversionRate)} <span className="text-white/35">of {result.treatment.visitors}</span>
-                  </div>
-                </div>
+              <div className="flex flex-col gap-2">
+                <ArmBar label="Original" rate={result.control.conversionRate} visitors={result.control.visitors} max={maxRate} dashed />
+                <ArmBar label="With change" rate={result.treatment.conversionRate} visitors={result.treatment.visitors} max={maxRate} />
               </div>
               {p !== undefined && (
-                <div className="mt-2">
-                  <div className="flex items-center justify-between text-[0.72rem] text-white/50">
-                    <span>Chance the change is better</span>
-                    <span className={cn("font-mono tabular", verdict === "win" ? "text-[#7ee2a0]" : verdict === "lose" ? "text-[#ff9b9b]" : "text-white/80")}>
-                      {pct(p, 0)}
-                      {result.lift !== undefined && ` · ${result.lift >= 0 ? "+" : ""}${pct(result.lift, 0)} lift`}
+                <div className="mt-3.5">
+                  <div className="flex items-end justify-between gap-2">
+                    <span className="text-[13px] text-dw-ink/65">Chance the change is better</span>
+                    <span className="num text-[13px]">
+                      <span className="text-[20px] leading-none font-semibold tracking-[-0.02em]">{pct(p, 0)}</span>
+                      {result.lift !== undefined && <span className="ml-1.5 text-dw-ink/60">{`${result.lift >= 0 ? "+" : ""}${pct(result.lift, 0)} lift`}</span>}
                     </span>
                   </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
-                    <div className={cn("h-full rounded-full", verdict === "win" ? "bg-good" : verdict === "lose" ? "bg-bad" : "bg-human")} style={{ width: `${Math.round(p * 100)}%` }} />
+                  <div className="relative mt-2 h-2.5 rounded-full bg-dw-ink/10" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)} aria-label="Chance the change is better">
+                    <div className="h-full rounded-full bg-dw-ink transition-[width] duration-700" style={{ width: `${Math.max(2, Math.round(p * 100))}%` }} />
+                    <span className="absolute -top-1 h-[18px] w-[2px] rounded-full bg-dw-ink" style={{ left: "95%" }} title="Winning at 95%" />
                   </div>
-                  <div className="mt-1.5 text-[0.72rem] text-white/45">
+                  <div className={cn("mt-2 text-[12.5px]", verdict === "win" ? "font-medium text-dw-win" : verdict === "lose" ? "font-medium text-dw-warn" : "text-dw-ink/55")}>
                     {verdict === "win"
                       ? "Winning. Ship it to everyone in this audience."
                       : verdict === "lose"
@@ -857,13 +858,34 @@ function RuleRow({
               )}
             </>
           ) : (
-            <div className="text-[0.76rem] text-white/60">
-              Reached <span className="font-mono text-white/85 tabular">{result.treatment.visitors}</span> visitors ·{" "}
-              <span className="font-mono text-white/85 tabular">{pct(result.treatment.conversionRate)}</span> ordered
+            <div className="text-[13px] text-dw-ink/65">
+              Reached <span className="num font-semibold text-dw-ink">{result.treatment.visitors}</span> visitors ·{" "}
+              <span className="num font-semibold text-dw-ink">{pct(result.treatment.conversionRate)}</span> ordered
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** One arm of a test: a horizontal pill (dashed = original, solid = with the change). */
+function ArmBar({ label, rate, visitors, max, dashed }: { label: string; rate: number; visitors: number; max: number; dashed?: boolean }) {
+  return (
+    <div className="grid grid-cols-[5.5rem_minmax(0,1fr)_6.5rem] items-center gap-3 text-[13px]">
+      <span className="flex items-center gap-1.5 text-dw-ink/70">
+        <span className={cn("size-2.5 shrink-0 rounded-[3px]", dashed ? "border border-dashed border-dw-ink" : "bg-dw-ink")} aria-hidden />
+        {label}
+      </span>
+      <span className="relative block h-3">
+        <span
+          className={cn("absolute inset-y-0 left-0 rounded-full transition-[width] duration-700", dashed ? "border-[1.5px] border-dashed border-dw-ink/80" : "bg-dw-ink")}
+          style={{ width: `${Math.max(4, (rate / max) * 100)}%` }}
+        />
+      </span>
+      <span className="num text-right">
+        <span className="font-semibold">{pct(rate)}</span> <span className="text-dw-ink/50">of {visitors}</span>
+      </span>
     </div>
   );
 }
@@ -929,35 +951,36 @@ function paintHeatmap(iframe: HTMLIFrameElement | null, elements: HeatmapElement
 
 function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: boolean; audience: string }) {
   return (
-    <div className="mx-5 mb-5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-[0.76rem] text-white/50">
-        <Flame className="size-3.5 text-[#ffb37a]" />
-        <span className="font-medium text-white/75">Most clicked</span>
-        <span>
-          · {audience} · {heat?.clicks ?? 0} clicks from {heat?.visitors ?? 0} visitors
+    <div className="mt-4 rounded-[22px] bg-dw-sand p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-[13px] text-dw-ink/60">
+        <span className="text-[15px] font-semibold text-dw-ink">Most clicked</span>
+        <span className="num">
+          {audience} · {heat?.clicks ?? 0} clicks from {heat?.visitors ?? 0} visitors
         </span>
-        {!!heat?.rageClicks && <Badge tone="bad">{heat.rageClicks} rage clicks</Badge>}
+        {!!heat?.rageClicks && <Tag tone="warn">{heat.rageClicks} rage clicks</Tag>}
         {!!heat?.syntheticClicks && (
-          <Badge tone="warn" title="Clicks generated by Darwin's simulator (properties.synthetic = true)">
-            <Bot /> {heat.syntheticClicks} simulated
-          </Badge>
+          <span title="Clicks generated by Darwin's simulator (properties.synthetic = true)">
+            <Tag tone="white">
+              <Bot className="size-3" aria-hidden /> {heat.syntheticClicks} simulated
+            </Tag>
+          </span>
         )}
-        {painted === false && <span className="text-white/35">(this store can&apos;t be drawn on from here: list only)</span>}
+        {painted === false && <span className="text-dw-ink/45">(this store can&apos;t be drawn on from here: list only)</span>}
       </div>
       {!heat?.elements.length ? (
-        <p className="text-[0.8rem] text-white/40">No clicks yet for this audience. Turn on Traffic, or click around the store.</p>
+        <p className="text-[14px] text-dw-ink/55">No clicks yet for this audience. Turn on Traffic, or click around the store.</p>
       ) : (
-        <ul className="grid grid-cols-1 gap-x-6 gap-y-1.5 md:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-x-8 gap-y-2.5 md:grid-cols-2">
           {heat.elements.slice(0, 8).map((e) => (
-            <li key={e.selector} className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-3 text-[0.78rem]" title={e.selector}>
+            <li key={e.selector} className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-3 text-[13px]" title={e.selector}>
               <div className="min-w-0">
-                <div className="truncate text-white/80">{e.text || e.selector.split(" > ").pop()}</div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-[#4c94f0] to-[#f05252]" style={{ width: `${Math.max(3, e.share * 100)}%` }} />
-                </div>
+                <div className="truncate text-dw-ink/85">{e.text || e.selector.split(" > ").pop()}</div>
+                <span className="relative mt-1 block h-2">
+                  <span className="absolute inset-y-0 left-0 rounded-full bg-dw-ink" style={{ width: `${Math.max(3, e.share * 100)}%` }} />
+                </span>
               </div>
-              <span className={cn("text-right font-mono tabular", e.rageClicks ? "text-[#ff9b9b]" : "text-white/55")}>
-                {Math.round(e.share * 100)}%{e.rageClicks ? ` · ${e.rageClicks}⚡` : ""}
+              <span className={cn("num text-right", e.rageClicks ? "font-medium text-dw-warn" : "text-dw-ink/60")}>
+                {Math.round(e.share * 100)}%{e.rageClicks ? ` · ${e.rageClicks} rage` : ""}
               </span>
             </li>
           ))}
@@ -967,94 +990,137 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
   );
 }
 
-const LOG_ICON: Record<WebAutopilotEntry["kind"], React.ReactNode> = {
-  on: <Power className="text-brand" />,
-  off: <Power className="text-white/40" />,
-  started: <FlaskConical className="text-[#9cc5ff]" />,
-  shipped: <Rocket className="text-[#7ee2a0]" />,
-  stopped: <CircleStop className="text-[#ff9b9b]" />,
-  waiting: <Hourglass className="text-white/40" />,
+/** Which crew member speaks for each autopilot decision. */
+const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: string }> = {
+  on: { mascot: "analyst", who: "Darwin" },
+  off: { mascot: "analyst", who: "Darwin" },
+  started: { mascot: "experimenter", who: "Experimenter" },
+  shipped: { mascot: "shipper", who: "Shipper" },
+  stopped: { mascot: "experimenter", who: "Experimenter" },
+  waiting: { mascot: "observer", who: "Observer" },
 };
 
 function DecisionLog({ state }: { state: WebAutopilotState }) {
+  const entries = state.log.slice(0, 25);
   return (
-    <Panel glow={state.on}>
-      <PanelHeader
-        icon={<Cpu />}
-        title="Darwin's decisions"
-        right={state.on ? <Badge tone="brand">Autopilot on</Badge> : <Badge tone="outline">Autopilot off</Badge>}
-      />
-      <ol className="flex max-h-[18rem] flex-col gap-2 overflow-y-auto px-5 pb-5">
-        {state.log.slice(0, 25).map((e, i) => (
-          <li key={`${e.at}-${i}`} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-2.5 text-[0.78rem] leading-snug [&_svg]:mt-0.5 [&_svg]:size-[0.9rem]">
-            {LOG_ICON[e.kind]}
-            <div className="min-w-0">
-              <span className="mr-1.5 font-mono text-[0.7rem] text-white/35 tabular">{new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-              <span className="text-white/75">{e.message}</span>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </Panel>
-  );
-}
-
-function IconButton({ children, title, onClick, busy }: { children: React.ReactNode; title: string; onClick: () => void; busy?: boolean }) {
-  return (
-    <button
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className="grid size-8 place-items-center rounded-lg text-white/45 transition-colors hover:bg-white/[0.07] hover:text-white [&_svg]:size-[0.95rem]"
-    >
-      {busy ? <LoaderCircle className="animate-spin" /> : children}
-    </button>
-  );
-}
-
-function TrafficPanel({ data }: { data?: WebRulesResponse }) {
-  const o = data?.overview;
-  const rows = o ? TRAFFIC_SOURCES.map((s) => ({ s, ...o.bySource[s] })).sort((a, b) => b.visitors - a.visitors) : [];
-  const max = Math.max(1, ...rows.map((r) => r.visitors));
-  return (
-    <Panel>
-      <PanelHeader
-        icon={<Users />}
-        title="Visitors by traffic source"
+    <Card tone="lilac" shape="analyst" corner="tr" hover={false}>
+      <CardTitle
         right={
-          o && (
-            <>
-              <span className="text-[0.75rem] text-white/45">
-                {o.visitors} visitors · {pct(o.conversionRate)} ordered
-              </span>
-              {o.syntheticVisitors > 0 && (
-                <Badge tone="warn" title="Visitors generated by Darwin's simulator (properties.synthetic = true)">
-                  <Bot /> {o.syntheticVisitors} simulated
-                </Badge>
-              )}
-            </>
+          state.on ? (
+            <Tag tone="ink">
+              <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" aria-hidden /> Autopilot on
+            </Tag>
+          ) : (
+            <Tag tone="outline">Autopilot off</Tag>
           )
         }
-      />
-      <div className="grid grid-cols-1 gap-x-8 gap-y-1.5 px-5 pb-5 md:grid-cols-2">
-        {!o?.visitors && <p className="text-[0.85rem] text-white/45">No visitors yet. Open the store, or send test visitors.</p>}
-        {!!o?.visitors &&
-          rows.map((r) => {
-            const below = r.visitors >= 20 && r.conversionRate < o.conversionRate * 0.75;
-            return (
-              <div key={r.s} className="grid grid-cols-[6.5rem_minmax(0,1fr)_6.5rem] items-center gap-3 text-[0.8rem]">
-                <span className="text-white/70">{SHORT[r.s]}</span>
-                <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-human/70" style={{ width: `${(r.visitors / max) * 100}%` }} />
+      >
+        Darwin&apos;s decisions
+      </CardTitle>
+      <ol className="mt-4 flex max-h-[22rem] flex-col overflow-y-auto pr-1">
+        {entries.map((e, i) => {
+          const actor = LOG_ACTOR[e.kind];
+          return (
+            <li key={`${e.at}-${i}`} className="relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-3.5 last:pb-0">
+              {i < entries.length - 1 && <span className="absolute top-9 bottom-0 left-[1.1rem] w-px bg-dw-ink/15" aria-hidden />}
+              <Mascot kind={actor.mascot} size={36} frame active={i === 0 && state.on} title={actor.who} />
+              <div className="min-w-0 pt-0.5">
+                <div className="flex items-baseline gap-2 text-[12.5px]">
+                  <span className="font-semibold">{actor.who}</span>
+                  <span className="font-dwmono text-[11.5px] text-dw-ink/50 tabular-nums">
+                    {new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                  {e.source && <span className="text-dw-ink/55">· {SHORT[e.source]}</span>}
                 </div>
-                <span className={cn("text-right font-mono tabular", below ? "text-[#ffb37a]" : "text-white/60")} title={below ? "Converts well below the site average" : undefined}>
-                  {r.visitors} · {pct(r.conversionRate)}
-                </span>
+                <p className={cn("mt-0.5 text-[13.5px] leading-snug", e.kind === "shipped" ? "font-medium text-dw-win" : "text-dw-ink/80")}>{e.message}</p>
               </div>
-            );
-          })}
-      </div>
-    </Panel>
+            </li>
+          );
+        })}
+      </ol>
+    </Card>
+  );
+}
+
+function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string }) {
+  const o = data?.overview;
+  const rows = o ? TRAFFIC_SOURCES.map((s) => ({ s, ...o.bySource[s] })).sort((a, b) => b.visitors - a.visitors) : [];
+  const maxRate = Math.max(0.0001, ...rows.map((r) => r.conversionRate), o?.conversionRate ?? 0);
+  const H = 120;
+  const avgY = o ? Math.round((o.conversionRate / maxRate) * H) : 0;
+  return (
+    <Card tone="olive" shape="observer" corner="br" hover={false}>
+      <CardTitle
+        right={
+          o && (
+            <span className="flex flex-wrap items-center justify-end gap-2">
+              <span className="num">
+                {o.visitors.toLocaleString()} visitors · {pct(o.conversionRate)} ordered
+              </span>
+              {o.syntheticVisitors > 0 && (
+                <span title="Visitors generated by Darwin's simulator (properties.synthetic = true)">
+                  <Tag tone="white">
+                    <Bot className="size-3" aria-hidden /> {o.syntheticVisitors.toLocaleString()} simulated
+                  </Tag>
+                </span>
+              )}
+            </span>
+          )
+        }
+      >
+        Who orders, by where they came from
+      </CardTitle>
+      {!o?.visitors ? (
+        <Empty mascot={<Mascot kind="observer" size={56} frame />}>No visitors on {site} yet. Open the store, or send test visitors.</Empty>
+      ) : (
+        <>
+          <div className="mt-2 flex items-center gap-4">
+            <LegendKey>Share who ordered</LegendKey>
+            <LegendKey dashed>Site average</LegendKey>
+          </div>
+          <div className="-mx-2 overflow-x-auto px-2">
+            <div className="mt-3 min-w-[34rem]">
+              <div className="relative grid grid-cols-7 gap-2">
+                <span className="pointer-events-none absolute inset-x-0 border-t-[1.5px] border-dashed border-dw-ink/55" style={{ bottom: avgY }} aria-hidden />
+                {rows.map((r) => (
+                  <PillBar
+                    key={r.s}
+                    value={r.conversionRate}
+                    max={maxRate}
+                    height={H}
+                    width={26}
+                    dashed={r.visitors === 0}
+                    label={r.visitors ? pct(r.conversionRate) : "–"}
+                    title={`${TRAFFIC_SOURCE_LABEL[r.s]}: ${r.visitors} visitors, ${r.conversions} orders`}
+                    className="relative [&>span:first-child]:rounded-full [&>span:first-child]:bg-dw-olive [&>span:first-child]:px-1.5"
+                  />
+                ))}
+              </div>
+              <div className="mt-2 grid grid-cols-7 gap-2">
+                {rows.map((r) => {
+                  const below = r.visitors >= 20 && r.conversionRate < o.conversionRate * 0.75;
+                  return (
+                    <div key={r.s} className="flex flex-col items-center text-center" title={below ? "Converts well below the site average" : undefined}>
+                      <div className="mb-1 flex h-6 items-center">
+                        {r.s === "ai" ? (
+                          <AiStack size={20} />
+                        ) : (
+                          <span className="grid size-6 place-items-center rounded-full bg-white/55 text-dw-ink/75 [&>svg]:size-3.5">{SOURCE_ICON[r.s]}</span>
+                        )}
+                      </div>
+                      <div className="text-[13px] leading-tight font-medium whitespace-nowrap">{SHORT[r.s]}</div>
+                      <div className={cn("num text-[12px]", below ? "font-semibold text-dw-ink" : "text-dw-ink/60")}>
+                        {r.visitors.toLocaleString()} {below ? "· below avg" : "visitors"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 
@@ -1062,14 +1128,12 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
   const [copied, setCopied] = useState(false);
   const snippet = `<script src="${origin}/api/web/runtime.js?site=${site}"></script>\n<script async src="${origin}/darwin.js" data-darwin-site="${site}"></script>`;
   return (
-    <Panel>
-      <PanelHeader
-        icon={<Globe />}
-        title="Install on any store"
+    <Card tone="white" hover={false}>
+      <CardTitle
         right={
-          <Button
+          <PillButton
             size="sm"
-            variant="ghost"
+            tone="sand"
             onClick={() => {
               navigator.clipboard?.writeText(snippet).then(() => {
                 setCopied(true);
@@ -1079,16 +1143,16 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
           >
             {copied ? <Check /> : <Copy />}
             {copied ? "Copied" : "Copy"}
-          </Button>
+          </PillButton>
         }
-      />
-      <div className="px-5 pb-5">
-        <pre className="overflow-x-auto rounded-lg border border-white/[0.07] bg-black/40 p-3 font-mono text-[0.72rem] leading-relaxed whitespace-pre text-white/75">{snippet}</pre>
-        <p className="mt-2 text-[0.75rem] text-white/45">
-          Paste both in <code className="font-mono">&lt;head&gt;</code>. darwin.js alone works too (it loads the rules itself); the first line stops the page flickering.
-          Changes are text and styles only, never scripts.
-        </p>
-      </div>
-    </Panel>
+      >
+        Install on any store
+      </CardTitle>
+      <pre className="mt-4 overflow-x-auto rounded-[18px] bg-dw-ink p-4 font-dwmono text-[12px] leading-relaxed whitespace-pre text-[#EDE6D6]">{snippet}</pre>
+      <p className="mt-3 text-[13px] leading-snug text-dw-ink/60">
+        Paste both in <code className="font-dwmono">&lt;head&gt;</code>. darwin.js alone works too (it loads the rules itself); the first line stops the page flickering. Changes are
+        text and styles only, never scripts.
+      </p>
+    </Card>
   );
 }

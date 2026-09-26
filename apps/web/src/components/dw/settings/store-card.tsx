@@ -14,6 +14,7 @@ import { brainOf, scriptTagFor, useSession, useWhop, type GithubStatusFull } fro
 import { Snippet } from "./snippet";
 
 type Dot = "on" | "demo" | "off" | "agent";
+const DOT_TITLE: Record<Dot, string> = { on: "Connected", demo: "Demo or dry run", off: "Not connected", agent: "Always on for AI shoppers" };
 const DOT: Record<Dot, string> = {
   on: "bg-dw-live",
   demo: "bg-[#E8A33D]",
@@ -230,8 +231,10 @@ function Row({
           <span className="grid size-10 place-items-center overflow-hidden rounded-[13px] bg-white text-dw-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_0_0_1px_rgba(20,20,19,0.08),0_3px_8px_rgba(20,20,19,0.07)]">
             {icon}
           </span>
-          {badge && <span className="absolute -bottom-1 -left-1 grid size-[18px] place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(20,20,19,0.1)]">{badge}</span>}
-          <span aria-hidden className={cn("absolute -top-0.5 -right-0.5 size-3 rounded-full ring-[2.5px] ring-dw-surface", DOT[dot], dot === "on" && "dw-live-dot")} />
+          {badge && <span className="absolute -right-1.5 -bottom-1.5 grid size-[20px] place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(20,20,19,0.1),0_2px_4px_rgba(20,20,19,0.08)]">{badge}</span>}
+          <span title={DOT_TITLE[dot]} className={cn("absolute -top-0.5 -right-0.5 size-3 rounded-full ring-[2.5px] ring-dw-surface", DOT[dot], dot === "on" && "dw-live-dot")}>
+            <span className="sr-only">{DOT_TITLE[dot]}</span>
+          </span>
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[15px] leading-tight font-semibold">{name}</div>

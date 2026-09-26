@@ -31,7 +31,7 @@ export function BuyersLostCard({ rows, selected, onSelect }: { rows: IssueRow[];
         <span className="num text-[40px] leading-none font-semibold tracking-[-0.02em]">{fmtImpact(total)}</span>
         <span className="text-[14px] text-[#4F4417]">
           {inTest.length
-            ? `${fmtImpact(fixed)} of them fixed by test B`
+            ? `${fmtImpact(fixed)} of them tackled by test B`
             : drafted.length
               ? `${fmtImpact(draftedLost)} of them covered by the drafted fix`
               : "none being fixed yet"}
@@ -94,15 +94,19 @@ export function WhoCard({ rows, onFocus, onSelect }: { rows: IssueRow[]; onFocus
     })
     .filter((g) => g.who !== "Everyone" || g.list.length > 0);
   const total = groups.reduce((n, g) => n + g.lost, 0) || 1;
-  const top = [...groups].sort((a, b) => b.lost - a.lost)[0];
+  const sorted = [...groups].sort((a, b) => b.lost - a.lost);
+  const top = sorted[0];
   const share = top ? Math.round((top.lost / total) * 100) : 0;
+  const tie = sorted.length > 1 && Math.abs(sorted[0].lost - sorted[1].lost) / total < 0.06;
 
   return (
     <Panel tone="blue" shape="observer" corner="br" silhouette={220} label="Who is affected">
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Who is affected</h2>
       {top && top.lost > 0 && (
         <p className="mt-1.5 text-[14px] leading-snug text-[#2E3A55]">
-          {top.who === "Everyone" ? "Issues that hit everyone" : top.who} account for {share}% of lost buyers.
+          {tie
+            ? `${sorted[0].who} and ${sorted[1].who.toLowerCase()} lose about as many buyers.`
+            : `${top.who === "Everyone" ? "Issues that hit everyone" : top.who} account for ${share}% of lost buyers.`}
         </p>
       )}
       <div className="mt-auto flex flex-col gap-3.5 pt-5" onMouseLeave={() => onFocus(null)}>
@@ -152,7 +156,7 @@ export function WhoCard({ rows, onFocus, onSelect }: { rows: IssueRow[]; onFocus
 /* ------------------------------------------------------------------ where they happen */
 
 export function WhereCard({ rows, selected, onFocus, onSelect }: { rows: IssueRow[]; selected?: string; onFocus: (f: Focus) => void; onSelect: (id: string) => void }) {
-  const MAX_DOTS = 5;
+  const MAX_DOTS = 4;
   const cols = STAGES.map((s) => {
     const list = rows.filter((r) => r.stage === s.key);
     return { ...s, list, lost: list.reduce((n, r) => n + r.insight.impactScore, 0) };

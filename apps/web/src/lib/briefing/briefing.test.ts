@@ -69,7 +69,7 @@ describe("merchant briefing", () => {
     const { test } = await winningAgentTest();
     const res = await actOnBriefing(`agent:${test.id}`, "ship");
     expect(res.ok).toBe(true);
-    expect(res.text).toMatch(/^Shipped “Facts up front” \(approved by the merchant\)/);
+    expect(res.text).toBe("Shipped “Facts up front”: your store agent now pitches every buyer agent this way.");
     const s = getAgentTests();
     expect(s.levers).toContain("facts");
     expect(s.tests[0]).toMatchObject({ status: "shipped", reason: expect.stringMatching(/^Approved by the merchant/) });

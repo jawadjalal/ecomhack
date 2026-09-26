@@ -64,7 +64,7 @@ export function AutopilotCard({ className }: { className?: string }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.22 }}
-          className="mt-5 max-w-[40rem] text-[16px] leading-snug"
+          className="mt-5 max-w-[50rem] text-[16px] leading-snug text-balance"
         >
           {autopilot
             ? "Darwin runs the loop by itself: it watches shoppers, finds what's costing you sales, tests a fix and opens a pull request for every winner."

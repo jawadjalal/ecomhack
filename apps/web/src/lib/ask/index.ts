@@ -171,9 +171,10 @@ export function buildContext(input: {
     };
   }
 
+  // Numbered the way the Issues page numbers them: biggest impact first.
   const issues = [...loop.insights]
-    .map((i, idx) => ({ n: idx + 1, title: i.title, stage: i.stage, audience: i.audience, detail: i.detail, impact: i.impactScore }))
-    .sort((x, y) => y.impact - x.impact);
+    .sort((x, y) => y.impactScore - x.impactScore)
+    .map((i, idx) => ({ n: idx + 1, title: i.title, stage: i.stage, audience: i.audience, detail: i.detail, impact: i.impactScore }));
 
   // Most recent leaver per agent name (sessions are newest first).
   const leavers: AskContext["leavers"] = [];

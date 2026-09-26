@@ -43,7 +43,7 @@ function Mark({ on, arm, children, className, pad = true }: { on: boolean; arm: 
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 380, damping: 26, delay: 0.25 }}
-      className={cn("rounded-[8px] bg-dw-ink text-white shadow-[0_6px_16px_-8px_rgba(20,20,19,0.6)]", pad ? "px-2 py-1" : "", className)}
+      className={cn("rounded-[8px] bg-dw-ink text-white shadow-[0_6px_16px_-8px_rgba(20,20,19,0.6)] [&_.mk-tint]:text-white", pad ? "px-2 py-1" : "", className)}
     >
       {children}
     </motion.div>
@@ -167,10 +167,10 @@ function ProductMock({ spec, other, arm }: MockProps) {
       </Button>
     </Mark>
   );
-  const row = (path: string, show: boolean, node: ReactNode) =>
+  const row = (path: string, show: boolean, node: ReactNode, empty: string) =>
     (show || changed(path)) && (
       <Mark on={changed(path)} arm={arm} className="text-[12.5px]">
-        {show ? node : <span className="block py-0.5 opacity-55">Nothing shown</span>}
+        {show ? node : <span className="block py-0.5 opacity-55">{empty}</span>}
       </Mark>
     );
   return (
@@ -193,6 +193,7 @@ function ProductMock({ spec, other, arm }: MockProps) {
             <span className="flex items-center gap-1 py-0.5">
               <Star className="size-3.5 fill-current" aria-hidden /> {p.rating} · {p.reviewCount.toLocaleString("en-GB")} reviews
             </span>,
+            "No reviews",
           )}
           {pp.ctaPosition === "above-fold" && cta}
           <div className="flex flex-wrap items-center gap-1 px-2">
@@ -205,7 +206,8 @@ function ProductMock({ spec, other, arm }: MockProps) {
           {row(
             "productPage.urgency",
             pp.urgency === "low-stock" && Boolean(low),
-            <span className="block py-0.5 font-semibold text-[#c2410c]">{low ? `Only ${low[1]} left in UK ${low[0]}` : ""}</span>,
+            <span className="mk-tint block py-0.5 font-semibold text-[#c2410c]">{low ? `Only ${low[1]} left in UK ${low[0]}` : ""}</span>,
+            "No stock message",
           )}
           {row(
             "productPage.showSizeGuide",
@@ -213,6 +215,7 @@ function ProductMock({ spec, other, arm }: MockProps) {
             <span className="flex items-center gap-1 py-0.5 underline underline-offset-2">
               <Ruler className="size-3.5" aria-hidden /> Size guide
             </span>,
+            "No size guide",
           )}
           {pp.ctaPosition !== "above-fold" && (
             <div className="space-y-1 px-2" aria-hidden>
@@ -228,6 +231,7 @@ function ProductMock({ spec, other, arm }: MockProps) {
             <span className="flex items-center gap-1 py-0.5">
               <Truck className="size-3.5" aria-hidden /> Arrives in {p.deliveryDays} days
             </span>,
+            "No delivery date",
           )}
           {row(
             "productPage.showReturnsPolicy",
@@ -235,6 +239,7 @@ function ProductMock({ spec, other, arm }: MockProps) {
             <span className="flex items-center gap-1 py-0.5">
               <RotateCcw className="size-3.5" aria-hidden /> Free {p.returnDays}-day returns
             </span>,
+            "No returns info",
           )}
           {row(
             "productPage.trustBadges",
@@ -242,6 +247,7 @@ function ProductMock({ spec, other, arm }: MockProps) {
             <span className="flex items-center gap-1 py-0.5">
               <ShieldCheck className="size-3.5" aria-hidden /> Secure checkout · 2-year warranty
             </span>,
+            "No trust badges",
           )}
         </div>
         {pp.ctaPosition === "sticky" && <div className="absolute inset-x-3 bottom-3 rounded-[10px] bg-white/90 p-1 backdrop-blur">{cta}</div>}

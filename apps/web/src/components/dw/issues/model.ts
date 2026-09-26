@@ -168,6 +168,21 @@ const FIELD_MATCH: Record<string, RegExp> = {
   agent_missing_structured_data: /.+/,
 };
 
+const FIELD_NAMES: Record<string, string> = {
+  deliveryEtaDays: "a delivery date",
+  deliveryEta: "a delivery date",
+  landedPrice: "the total incl. delivery",
+  returnPolicy: "the returns policy",
+  negotiation: "a better price",
+  sizes: "stock by size",
+  stock: "stock by size",
+};
+
+/** "deliveryEtaDays" → "a delivery date"; unknown fields are split into words. */
+export function fieldName(f: string): string {
+  return FIELD_NAMES[f] ?? f.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+}
+
 function shortReason(reason: string | undefined): string {
   if (!reason) return "";
   const after = reason.includes("—") ? reason.split("—").slice(1).join("—").trim() : reason.trim();
@@ -175,7 +190,7 @@ function shortReason(reason: string | undefined): string {
 }
 
 function outcomeText(s: AgentSessionSummary, field?: string): string {
-  const asked = field ? `asked for ${field}` : "";
+  const asked = field ? `asked for ${fieldName(field)}` : "";
   if (s.outcome === "purchased") return [asked, "bought anyway"].filter(Boolean).join(", ").replace(/^bought anyway$/, "bought");
   if (s.outcome === "abandoned") {
     const why = shortReason(s.reason);
@@ -185,7 +200,7 @@ function outcomeText(s: AgentSessionSummary, field?: string): string {
 }
 
 /** Agent sessions whose tool calls (or abandon reason) show this issue. Human issues have none. */
-export function sessionsFor(insight: Insight, sessions: AgentSessionSummary[] | undefined): { rows: SeenSession[]; matched: number; scanned: number } {
+export function sessionsFor(insight: Insight, sessions: AgentSessionSummary[] | undefined, limit = 4): { rows: SeenSession[]; matched: number; scanned: number } {
   if (!sessions?.length || insight.audience === "human") return { rows: [], matched: 0, scanned: sessions?.length ?? 0 };
   const kind = insight.id.replace(/^ins_/, "");
   const re = FIELD_MATCH[kind];
@@ -202,11 +217,21 @@ export function sessionsFor(insight: Insight, sessions: AgentSessionSummary[] | 
       hits.push({ s });
     }
   }
-  // Walk-aways first (they are the issue), then B-arm buyers (the fix at work).
+  // Walk-aways first (they are the issue), then B-arm buyers (the fix at work); one per agent before repeats.
   const rank = (h: (typeof hits)[number]) => (h.s.outcome === "abandoned" ? 0 : h.s.variant === "treatment" ? 1 : 2);
-  const rows = [...hits]
-    .sort((a, b) => rank(a) - rank(b) || Date.parse(b.s.startedAt) - Date.parse(a.s.startedAt))
-    .slice(0, 4)
+  const sorted = [...hits].sort((a, b) => rank(a) - rank(b) || Date.parse(b.s.startedAt) - Date.parse(a.s.startedAt));
+  const firsts: typeof hits = [];
+  const repeats: typeof hits = [];
+  const agents = new Set<string>();
+  for (const h of sorted) {
+    if (agents.has(h.s.agentName)) repeats.push(h);
+    else {
+      agents.add(h.s.agentName);
+      firsts.push(h);
+    }
+  }
+  const rows = [...firsts, ...repeats]
+    .slice(0, limit)
     .map(({ s, field }) => ({
       id: s.sessionId,
       name: s.agentName,
