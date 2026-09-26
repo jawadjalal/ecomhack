@@ -176,6 +176,14 @@ export function normalizeHost(host: string): string {
 export function publicOrigin(req: Request): string {
   const configured = process.env.DARWIN_PUBLIC_URL?.trim();
   if (configured) return normalizeHost(configured);
+  return requestOrigin(req);
+}
+
+/**
+ * The origin this request actually arrived on (proxy headers first). Round trips that rely on a cookie set on this
+ * host, like GitHub sign-in, must come back here, not to DARWIN_PUBLIC_URL.
+ */
+export function requestOrigin(req: Request): string {
   const url = new URL(req.url);
   const host = req.headers.get("x-forwarded-host")?.split(",")[0].trim() || req.headers.get("host") || url.host;
   const proto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim() || url.protocol.replace(/:$/, "");
