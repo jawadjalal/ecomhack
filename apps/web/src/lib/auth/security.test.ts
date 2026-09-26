@@ -22,10 +22,12 @@ describe("admin gate", () => {
     }
   });
 
-  it("is open locally without a token, locked on Vercel, and token-checked when set", () => {
+  it("is open without a token (Vercel too), locked by DARWIN_REQUIRE_ADMIN, and token-checked when set", () => {
     delete process.env.DARWIN_ADMIN_TOKEN;
     expect(isAdminCredential(undefined)).toBe(true);
     process.env.VERCEL = "1";
+    expect(isAdminCredential(undefined)).toBe(true);
+    process.env.DARWIN_REQUIRE_ADMIN = "1";
     expect(isAdminCredential(undefined)).toBe(false);
     process.env.DARWIN_ADMIN_TOKEN = "s3cret";
     expect(isAdminCredential("s3cret")).toBe(true);
@@ -97,5 +99,6 @@ describe("untrusted events", () => {
 
 beforeEach(() => {
   delete process.env.DARWIN_ADMIN_TOKEN;
+  delete process.env.DARWIN_REQUIRE_ADMIN;
   delete process.env.VERCEL;
 });

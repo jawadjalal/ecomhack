@@ -2,10 +2,10 @@
  * Admin gate for mission control and the endpoints that change state or spend the server's credentials
  * (the loop, GitHub PRs, the simulator, LLM shoppers, raw analytics).
  *
- * - Set DARWIN_ADMIN_TOKEN on any public deploy. Sign in once with /console?key=<token> (sets an
+ * - Optional. Set DARWIN_ADMIN_TOKEN to lock mission control. Sign in once with /console?key=<token> (sets an
  *   httpOnly cookie), or send `Authorization: Bearer <token>` from scripts.
- * - Without a token the gate is open for local demos, except on Vercel (or with DARWIN_REQUIRE_ADMIN=1),
- *   where protected routes answer 503 until a token is configured.
+ * - Without a token the gate is open everywhere, Vercel included (the demo deploy is public on purpose).
+ *   DARWIN_REQUIRE_ADMIN=1 locks it instead: protected routes answer 503 until a token is configured.
  *
  * Web-standard APIs only: this runs in the proxy as well as in server components.
  */
@@ -32,9 +32,9 @@ export function adminToken(): string | undefined {
   return process.env.DARWIN_ADMIN_TOKEN?.trim() || undefined;
 }
 
-/** True when no token is configured and we're not somewhere that must be locked down. */
+/** True when no token is configured and nobody asked for a locked deploy. */
 export function gateOpenWithoutToken(): boolean {
-  return !process.env.VERCEL && process.env.DARWIN_REQUIRE_ADMIN !== "1";
+  return process.env.DARWIN_REQUIRE_ADMIN !== "1";
 }
 
 /** Constant-time string comparison (no early exit on the first differing character). */
