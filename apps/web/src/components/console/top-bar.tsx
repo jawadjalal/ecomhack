@@ -134,13 +134,15 @@ export function TopBar({
           Store agent
         </Link>
 
-        <Chip onClick={onConnect} title={github?.repo ? "Connected repository (click for details)" : "Connect a GitHub repo"}>
+        <Chip onClick={onConnect} title={github?.repo ? (github.error ? `${github.repo}: ${github.error}, so pull requests are previews` : "Connected repository (click for details)") : "Connect a GitHub repo"}>
           <GithubMark className="text-white/70" />
           {github?.repo ? (
             <>
               <span className="max-w-[14rem] truncate text-white/85">{github.repo}</span>
-              {((github as { dryRun?: boolean }).dryRun ?? !github.configured) && (
-                <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[0.65rem] tracking-wide text-white/50 uppercase">dry run</span>
+              {((github as { dryRun?: boolean }).dryRun ?? (!github.configured || github.valid === false)) && (
+                <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[0.65rem] tracking-wide text-white/50 uppercase">
+                  {github.configured && (github as { mode?: string }).mode === "offline" ? "token rejected" : "dry run"}
+                </span>
               )}
             </>
           ) : (

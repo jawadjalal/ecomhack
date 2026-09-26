@@ -2,11 +2,13 @@
 
 /**
  * "Ask Darwin about your shoppers": a bottom-centred prompt bar that becomes a chat sheet. Drag the grip
- * to snap between the bar (100px), a quarter (340px) and half (620px); clicking the grip cycles them.
- * Answers come from POST /api/ask (LLM when configured, else a heuristic) with inline result cards.
+ * to snap between the bar, a middle and a tall sheet; clicking the grip cycles them. Desktop snaps at
+ * 100 / 340 / 620px; phones at 88px / 50% / 88% of the visible viewport, above the on-screen keyboard
+ * and the safe area. Answers come from POST /api/ask (LLM when configured, else a heuristic) with inline
+ * result cards.
  */
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUp, ChevronDown, Maximize2 } from "lucide-react";
 import { cn } from "@/components/ui/cn";
@@ -14,8 +16,51 @@ import { Mascot, type MascotKind } from "../mascot";
 import { Typing } from "../ui";
 import { EASE } from "./fx";
 
-type Mode = "bar" | "quarter" | "half";
-const HEIGHT: Record<Mode, number> = { bar: 100, quarter: 340, half: 620 };
+type Mode = "bar" | "mid" | "full";
+const MODES: Mode[] = ["bar", "mid", "full"];
+
+/* ------------------------------------------------------------------ visible viewport */
+
+interface Viewport {
+  w: number;
+  /** Height of the visible viewport (shrinks when the on-screen keyboard opens). */
+  h: number;
+  /** How far the keyboard pushes up from the layout viewport's bottom. */
+  kb: number;
+}
+const SERVER_VIEWPORT = "1600|1000|0";
+let vpCache = SERVER_VIEWPORT;
+function readViewport(): string {
+  const vv = window.visualViewport;
+  const h = Math.round(vv?.height ?? window.innerHeight);
+  const kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+  const next = `${window.innerWidth}|${h}|${kb}`;
+  if (next !== vpCache) vpCache = next;
+  return vpCache;
+}
+function subscribeViewport(cb: () => void) {
+  const vv = window.visualViewport;
+  window.addEventListener("resize", cb);
+  vv?.addEventListener("resize", cb);
+  vv?.addEventListener("scroll", cb);
+  return () => {
+    window.removeEventListener("resize", cb);
+    vv?.removeEventListener("resize", cb);
+    vv?.removeEventListener("scroll", cb);
+  };
+}
+function useViewport(): Viewport {
+  const raw = useSyncExternalStore(subscribeViewport, readViewport, () => SERVER_VIEWPORT);
+  const [w, h, kb] = raw.split("|").map(Number);
+  return { w, h, kb };
+}
+
+/** Snap heights for this viewport. */
+function snapHeights({ w, h }: Viewport): Record<Mode, number> {
+  if (w < 640) return { bar: 88, mid: Math.round(h * 0.5), full: Math.round(h * 0.88) };
+  const cap = Math.max(260, h - 88);
+  return { bar: 100, mid: Math.min(340, cap), full: Math.min(620, cap) };
+}
 
 interface AskCard {
   label: string;
@@ -44,7 +89,6 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
   const [q, setQ] = useState("");
   const [draft, setDraft] = useState("");
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [maxH, setMaxH] = useState(() => (typeof window === "undefined" ? 900 : Math.max(260, window.innerHeight - 88)));
   const drag = useRef<{ y: number; h: number; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
   const nextId = useRef(1);
@@ -53,16 +97,11 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
   const barInput = useRef<HTMLInputElement>(null);
   const busy = msgs.some((m) => m.pending);
 
-  // Keep the sheet inside the viewport.
-  useEffect(() => {
-    const fit = () => setMaxH(Math.max(260, window.innerHeight - 88));
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, []);
-
-  const heightFor = useCallback((m: Mode) => Math.min(HEIGHT[m], maxH), [maxH]);
+  const vp = useViewport();
+  const snaps = snapHeights(vp);
+  const maxH = Math.max(snaps.full, vp.h - 12);
   const inSheet = mode !== "bar" || dragH !== null;
-  const h = dragH ?? heightFor(mode);
+  const h = Math.min(dragH ?? snaps[mode], vp.h - 8);
 
   // Newest message in view.
   useEffect(() => {
@@ -99,17 +138,17 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
 
   const submitBar = (e: FormEvent) => {
     e.preventDefault();
-    if (!q.trim()) return open("quarter");
+    if (!q.trim()) return open("mid");
     void send(q);
     setQ("");
-    open("half");
+    open("full");
   };
   const submitSheet = (e: FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
     void send(draft);
     setDraft("");
-    if (mode !== "half") open("half");
+    if (mode === "bar") open("full");
   };
 
   /* grip: drag to resize, click (or Enter/Space) to cycle, arrows to step */
@@ -119,7 +158,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
     } catch {
       /* not capturable */
     }
-    drag.current = { y: e.clientY, h: inSheet ? h : HEIGHT.bar, moved: false };
+    drag.current = { y: e.clientY, h: inSheet ? h : snaps.bar, moved: false };
   };
   const gripMove = (e: PointerEvent<HTMLButtonElement>) => {
     const d = drag.current;
@@ -134,23 +173,24 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
     if (!d) return;
     suppressClick.current = d.moved;
     if (!d.moved) return;
+    // Snap to the nearest height.
     const hh = dragH ?? d.h;
-    open(hh < 200 ? "bar" : hh < 480 ? "quarter" : "half");
+    open(MODES.reduce((best, m) => (Math.abs(snaps[m] - hh) < Math.abs(snaps[best] - hh) ? m : best), "bar" as Mode));
   };
   const gripClick = () => {
     if (suppressClick.current) {
       suppressClick.current = false;
       return;
     }
-    open(mode === "bar" ? "quarter" : mode === "quarter" ? "half" : "bar");
+    open(mode === "bar" ? "mid" : mode === "mid" ? "full" : "bar");
   };
   const gripKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      open(mode === "bar" ? "quarter" : "half");
+      open(mode === "bar" ? "mid" : "full");
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      open(mode === "half" ? "quarter" : "bar");
+      open(mode === "full" ? "mid" : "bar");
     }
   };
   const grip = { onPointerDown: gripDown, onPointerMove: gripMove, onPointerUp: gripUp, onPointerCancel: gripUp, onClick: gripClick, onKeyDown: gripKey };
@@ -160,12 +200,12 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
   return (
     <>
       {!inSheet && <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[110px] bg-[linear-gradient(to_top,#F7F1E5_50%,rgba(247,241,229,0))]" />}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[1600px] px-4 sm:px-7">
+      <div className="pointer-events-none fixed inset-x-0 z-40 mx-auto w-full max-w-[1600px] px-3 sm:px-7" style={{ bottom: vp.kb }}>
         <AnimatePresence initial={false} mode="popLayout">
           {!inSheet ? (
             <motion.div
               key="bar"
-              className="pointer-events-auto mx-auto mb-[22px] flex w-full max-w-[760px] flex-col items-center gap-1.5"
+              className="pointer-events-auto mx-auto mb-[max(12px,env(safe-area-inset-bottom))] flex w-full max-w-[760px] flex-col items-center gap-1.5 sm:mb-[22px]"
               initial={reduce ? false : { opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12, transition: { duration: 0.12 } }}
@@ -190,7 +230,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                   className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-dw-ink outline-none placeholder:text-[#8A8478]"
                 />
                 {lastDarwin && (
-                  <button type="button" onClick={() => open("half")} className="hidden h-9 shrink-0 items-center rounded-full bg-dw-sand px-3.5 text-[13px] font-medium transition-colors hover:bg-[#e4dccb] sm:flex">
+                  <button type="button" onClick={() => open("full")} className="hidden h-9 shrink-0 items-center rounded-full bg-dw-sand px-3.5 text-[13px] font-medium transition-colors hover:bg-[#e4dccb] sm:flex">
                     Show chat
                   </button>
                 )}
@@ -206,8 +246,8 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
               onKeyDown={(e) => {
                 if (e.key === "Escape") open("bar");
               }}
-              className="pointer-events-auto flex flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_0_0_1px_#EDE4D2,0_-24px_60px_rgba(20,20,19,0.10)]"
-              style={{ height: Math.max(100, h), transition: dragH !== null || reduce ? "none" : "height 0.35s cubic-bezier(0.2,0.8,0.2,1)" }}
+              className="pointer-events-auto flex flex-col overflow-hidden rounded-t-[24px] bg-white shadow-[0_0_0_1px_#EDE4D2,0_-24px_60px_rgba(20,20,19,0.10)] sm:rounded-t-[28px]"
+              style={{ height: Math.max(80, h), transition: dragH !== null || reduce ? "none" : "height 0.35s cubic-bezier(0.2,0.8,0.2,1)" }}
               initial={reduce ? false : { y: 60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0, transition: { duration: 0.18 } }}
@@ -216,16 +256,16 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
               <button type="button" aria-label="Resize Darwin chat: drag, or click to change size" className="flex h-6 shrink-0 cursor-grab touch-none items-center justify-center outline-none focus-visible:bg-dw-sand active:cursor-grabbing" {...grip}>
                 <span className="h-[5px] w-12 rounded-full bg-[#DDD5C4]" />
               </button>
-              <div className="flex h-[50px] shrink-0 items-center justify-between pr-5 pl-5 sm:pl-7">
+              <div className="flex h-[50px] shrink-0 items-center justify-between pr-3 pl-4 sm:pr-5 sm:pl-7">
                 <div className="flex items-center gap-3">
                   <Mascot kind="analyst" size={38} frame active={busy} title="Darwin" />
                   <span className="text-[18px] font-semibold">Darwin</span>
                   {lastDarwin?.source && !lastDarwin.pending && (
-                    <span className="rounded-full bg-dw-sand px-2 py-0.5 text-[11.5px] text-dw-ink/60">{lastDarwin.source === "llm" ? "AI answer" : "Answered from your numbers"}</span>
+                    <span className="hidden rounded-full bg-dw-sand px-2 py-0.5 text-[11.5px] text-dw-ink/60 sm:inline">{lastDarwin.source === "llm" ? "AI answer" : "Answered from your numbers"}</span>
                   )}
                 </div>
                 <div className="flex gap-1.5">
-                  <button type="button" aria-label="Expand" onClick={() => open("half")} className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-dw-sand">
+                  <button type="button" aria-label="Expand" onClick={() => open("full")} className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-dw-sand">
                     <Maximize2 className="size-[15px]" />
                   </button>
                   <button type="button" aria-label="Collapse to the prompt bar" onClick={() => open("bar")} className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-dw-sand">
@@ -234,7 +274,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                 </div>
               </div>
 
-              <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-5 pt-3.5 pb-3 sm:px-7">
+              <div ref={scroller} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-4 pt-3.5 pb-3 sm:px-7">
                 <div className="mx-auto flex w-full max-w-[980px] flex-col gap-4" aria-live="polite">
                   {msgs.length === 0 ? (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.2fr_1fr]">
@@ -244,7 +284,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                           type="button"
                           onClick={() => {
                             void send(s.text);
-                            open("half");
+                            open("full");
                           }}
                           initial={reduce ? false : { opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -265,7 +305,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                 </div>
               </div>
 
-              <form onSubmit={submitSheet} className="flex shrink-0 justify-center px-5 pt-2.5 pb-5 sm:px-7">
+              <form onSubmit={submitSheet} className="flex shrink-0 justify-center px-3 pt-2.5 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-7 sm:pb-5">
                 <div className="flex h-[54px] w-full max-w-[980px] items-center gap-3 rounded-full bg-[#F3EDE0] pr-[7px] pl-[18px] transition-shadow focus-within:shadow-[0_0_0_1.5px_#141413]">
                   <label htmlFor="dw-ask-sheet" className="sr-only">
                     Ask Darwin

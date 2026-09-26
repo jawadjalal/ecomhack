@@ -112,7 +112,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
           <span className={cn("size-2 shrink-0 rounded-full", loop.autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
           {loop.autopilot ? phase.verb : "Paused"}
         </span>
-        <span className="text-[13px] leading-snug text-dw-ink/65">{loop.autopilot ? `${phase.blurb}.` : `Last step: ${phase.blurb.toLowerCase()}.`}</span>
+        <span className="text-[13px] leading-snug text-dw-ink/65">{loop.autopilot ? `${phase.blurb}.` : loop.phase === "idle" ? "Let Darwin run to start improving your store." : `Stopped while ${phase.verb.toLowerCase()}. Let it run to carry on.`}</span>
       </div>
     </section>
   );

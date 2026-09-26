@@ -14,6 +14,7 @@ import { AbCard, AgentsCard, ConversionCard, FunnelCard } from "../overview/card
 import { DarwinChat, type Suggestion } from "../overview/chat";
 import { EASE, Rise } from "../overview/fx";
 import { useFirstName, usePeopleEvents } from "../overview/hooks";
+import { ImpactStrip } from "../overview/impact";
 import { agentBoard, agentShopper, chartPoints, pctSmart, peopleFromEvents, projectIfShipped, testView, type Shopper } from "../overview/model";
 import { LiveShoppers } from "../overview/shoppers";
 
@@ -112,25 +113,28 @@ export function OverviewScreen() {
       </header>
 
       <div className="flex flex-col gap-3.5">
+        <Rise i={0}>
+          <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
+        </Rise>
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-          <Rise i={0}>
+          <Rise i={1}>
             <ConversionCard points={points} summary={summary} simulated={simulated} onRun={autopilot ? undefined : run} />
           </Rise>
-          <Rise i={1}>
+          <Rise i={2}>
             <AbCard test={test} autopilot={autopilot} onRun={points.length ? run : undefined} />
           </Rise>
         </div>
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
-          <Rise i={2}>
+          <Rise i={3}>
             <AgentsCard board={board} peopleRate={summary?.byKind.human.visitors ? summary.byKind.human.conversionRate : undefined} sample={finished} simulated={simulated} />
           </Rise>
-          <Rise i={3}>
+          <Rise i={4}>
             <FunnelCard summary={summary} />
           </Rise>
         </div>
       </div>
 
-      <Rise i={4}>
+      <Rise i={5}>
         <LiveShoppers agents={agents} people={people} loop={loop} test={test} board={board} summary={summary} onSendShoppers={() => setTrafficOn(true)} />
       </Rise>
 

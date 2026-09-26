@@ -163,7 +163,9 @@ export function ConnectRepoModal({
           {status?.repo && (
             <div className="flex items-center gap-2 rounded-xl border border-brand/25 bg-brand/[0.05] px-3 py-2 text-[0.85rem] text-white/75">
               <Check className="size-4 text-brand" /> Connected to <b>{status.repo}</b>
-              {((status as { dryRun?: boolean }).dryRun ?? !status.configured) && <span className="text-white/40">(dry run)</span>}
+              {((status as { dryRun?: boolean }).dryRun ?? (!status.configured || status.valid === false)) && (
+                <span className="text-white/40">{status.configured && status.error ? `(${status.error}: pull requests are previews)` : "(dry run)"}</span>
+              )}
             </div>
           )}
           <label className="flex flex-col gap-2">
@@ -200,7 +202,7 @@ export function ConnectRepoModal({
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[0.78rem] text-white/35">Without a GITHUB_TOKEN this runs as a dry run and shows the would-be PR.</span>
+            <span className="text-[0.78rem] text-white/35">Without a working GITHUB_TOKEN this runs as a dry run and shows the would-be PR.</span>
             <Button type="submit" variant="primary" size="lg" disabled={busy || !url.trim()}>
               {busy ? <LoaderCircle className="animate-spin" /> : <GitPullRequest />}
               Connect & open PR

@@ -6,7 +6,7 @@
  * the first row is selected.
  */
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AnalyticsSummary, LoopState } from "@/lib/contracts";
 import { timeAgo } from "@/lib/console/format";
@@ -21,6 +21,17 @@ import { FUNNEL, darwinNote, linkFor, type BoardRow, type KeyTone, type Shopper,
 type Filter = "all" | "people" | "agents";
 const ROWS = 6;
 const PINK = "#F3B5D5";
+
+const WIDE = "(min-width: 1024px)";
+const subscribeWide = (cb: () => void) => {
+  const mq = window.matchMedia(WIDE);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+};
+/** Side-by-side list + panel (lg and up); below that the journey opens under the selected row. */
+function useWide(): boolean {
+  return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => true);
+}
 
 function byRecent(a: Shopper, b: Shopper) {
   return Date.parse(b.lastAt) - Date.parse(a.lastAt);
@@ -78,6 +89,41 @@ export function LiveShoppers({
   const liveCount = everyone.filter((s) => s.status === "live").length;
   const lastMinute = now ? everyone.filter((s) => now - Date.parse(s.lastAt) < 60_000).length : 0;
   const simulated = everyone.some((s) => s.synthetic);
+  const wide = useWide();
+
+  const panel = (
+    <div
+      id="dw-journey"
+      aria-label={wide ? undefined : "Journey"}
+      role={wide ? undefined : "region"}
+      className={cn(
+        "relative flex flex-1 flex-col overflow-hidden rounded-[26px] px-5 py-6 sm:px-7",
+        wide ? selIdx === 0 && rows.length > 0 && "rounded-tl-none" : "-mt-2 rounded-t-none px-4 pt-3 pb-5",
+      )}
+      style={{ background: PINK }}
+    >
+      <Silhouette kind="experimenter" color="#EDA5C9" size={260} style={{ right: -90, top: -110 }} />
+      <AnimatePresence mode="wait" initial={false}>
+        {sel ? (
+          <motion.div
+            key={sel.id}
+            className="relative flex flex-1 flex-col gap-[22px]"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.22, ease: EASE }}
+          >
+            <Journey s={sel} loop={loop} test={test} board={board} summary={summary} />
+          </motion.div>
+        ) : (
+          <div className="relative flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center text-[15px] text-[#5A2744]">
+            <Mascot kind="experimenter" size={58} frame active />
+            <p className="max-w-[24rem]">{rows.length ? "Pick a shopper to follow their path through the store, step by step." : "When shoppers arrive, pick one to follow their path through the store, step by step."}</p>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 
   return (
     <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
@@ -117,60 +163,38 @@ export function LiveShoppers({
         ) : (
           <LayoutGroup>
             <div
-              role="listbox"
               aria-label="Shoppers"
+              role="group"
               className="flex flex-col gap-2 lg:pb-6"
               onPointerEnter={() => setFrozen(rows.map((s) => s.id))}
               onPointerLeave={() => setFrozen(null)}
             >
               {rows.map((s, i) => (
-                <ShopperRow key={s.id} s={s} on={i === selIdx} first={i === 0} now={now} onPick={() => setPicked(s.id)} />
+                <Fragment key={s.id}>
+                  <ShopperRow s={s} on={i === selIdx} first={i === 0} now={now} onPick={() => setPicked(s.id)} />
+                  {!wide && i === selIdx && panel}
+                </Fragment>
               ))}
             </div>
           </LayoutGroup>
         )}
       </section>
 
-      <section aria-label="Journey" className="flex min-w-0 flex-col gap-3">
-        <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 px-1">
-          <h2 className="text-[22px] font-semibold tracking-[-0.02em]">Journey</h2>
-          {sel && (
-            <span className="truncate text-[14px] text-[#6B655A]">
-              {[sel.kind === "agent" ? "Agent" : "Person", sel.model, sel.arm ? `test ${sel.arm}` : undefined, humanDuration(Date.parse(sel.lastAt) - Date.parse(sel.startedAt)), sel.synthetic ? "simulated" : undefined]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-          )}
-        </div>
-        <div
-          className={cn(
-            "relative flex flex-1 flex-col overflow-hidden rounded-[26px] px-5 py-6 sm:px-7",
-            selIdx === 0 && rows.length > 0 && "lg:rounded-tl-none",
-          )}
-          style={{ background: PINK }}
-        >
-          <Silhouette kind="experimenter" color="#EDA5C9" size={260} style={{ right: -90, top: -110 }} />
-          <AnimatePresence mode="wait" initial={false}>
-            {sel ? (
-              <motion.div
-                key={sel.id}
-                className="relative flex flex-1 flex-col gap-[22px]"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.22, ease: EASE }}
-              >
-                <Journey s={sel} loop={loop} test={test} board={board} summary={summary} />
-              </motion.div>
-            ) : (
-              <div className="relative flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center text-[15px] text-[#5A2744]">
-                <Mascot kind="experimenter" size={58} frame active />
-                <p className="max-w-[24rem]">{rows.length ? "Pick a shopper to follow their path through the store, step by step." : "When shoppers arrive, pick one to follow their path through the store, step by step."}</p>
-              </div>
+      {wide && (
+        <section aria-label="Journey" className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 px-1">
+            <h2 className="text-[22px] font-semibold tracking-[-0.02em]">Journey</h2>
+            {sel && (
+              <span className="truncate text-[14px] text-[#6B655A]">
+                {[sel.kind === "agent" ? "Agent" : "Person", sel.model, sel.arm ? `test ${sel.arm}` : undefined, humanDuration(Date.parse(sel.lastAt) - Date.parse(sel.startedAt)), sel.synthetic ? "simulated" : undefined]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
             )}
-          </AnimatePresence>
-        </div>
-      </section>
+          </div>
+          {panel}
+        </section>
+      )}
     </div>
   );
 }
@@ -185,12 +209,12 @@ function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; fi
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: EASE }}
       type="button"
-      role="option"
-      aria-selected={on}
+      aria-pressed={on}
+      aria-controls="dw-journey"
       onClick={onPick}
       className={cn(
         "relative flex h-[90px] shrink-0 items-center gap-3.5 px-4 text-left text-dw-ink outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:ring-offset-dw-bg",
-        on ? "rounded-[22px] bg-dw-pink lg:-mr-[18px] lg:rounded-r-none lg:pr-[34px]" : "dw-row rounded-[22px] bg-dw-sand hover:bg-[#e8e0cd]",
+        on ? "rounded-[22px] bg-dw-pink max-lg:rounded-b-none lg:-mr-[18px] lg:rounded-r-none lg:pr-[34px]" : "dw-row rounded-[22px] bg-dw-sand hover:bg-[#e8e0cd]",
       )}
     >
       {on && !first && (

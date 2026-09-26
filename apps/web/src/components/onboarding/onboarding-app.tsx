@@ -478,7 +478,7 @@ export function OnboardingApp() {
                         rows={3}
                         placeholder="What do you sell, and what worries you? e.g. “trail running shoes; checkout feels slow on mobile and people ask about sizing”"
                         aria-label="Tell Darwin about your store"
-                        className="min-h-[5.6rem] w-full resize-none bg-transparent pt-2.5 text-[16.5px] leading-relaxed text-dw-ink outline-none placeholder:text-dw-ink/35"
+                        className="min-h-[7.4rem] w-full resize-none sm:min-h-[5.6rem] bg-transparent pt-2.5 text-[16.5px] leading-relaxed text-dw-ink outline-none placeholder:text-dw-ink/35"
                       />
                     </div>
 
@@ -1530,7 +1530,8 @@ function GithubConnect({
 
   useEffect(() => input.current?.focus(), [paste, signedIn]);
 
-  const dryRun = !signedIn && (status ? (status.dryRun ?? !status.configured) : false);
+  // Preview unless the server really can open PRs: a token GitHub rejected (valid: false) counts as none.
+  const dryRun = !signedIn && (status ? (status.dryRun ?? (!status.configured || status.valid === false)) : false);
 
   if (noGithub) return <WebsiteConnect onWebsite={onWebsite} onGithub={() => setNoGithub(false)} />;
   const other = <NoGithub onChoose={() => setNoGithub(true)} />;
