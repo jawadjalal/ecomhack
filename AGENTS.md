@@ -21,7 +21,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/analytics/           Event store, summary/funnels, human-vs-agent classification.
   src/lib/simulator/           Synthetic humans + AI shoppers that react to the PageSpec.
   src/lib/optimizer/           The loop: insights → proposals → experiments → decisions → ship.
-  src/lib/agent-commerce/      Agent-facing store: REST tools, MCP server, negotiation, llms.txt.
+  src/lib/agent-commerce/      Agent-facing store: REST tools, MCP server, A2A merchant agent, negotiation, llms.txt.
   src/lib/github/              Connect repo, open analytics-install PR, open "ship winner" PR.
   src/lib/llm/                 Grok (xAI) / Claude / heuristic fallback.
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
@@ -37,7 +37,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | scaffold | contracts, spec, experiments store, db, llm, proxy, `/api/capture`, `/api/spec` | everything in `contracts/` |
 | analytics | `lib/analytics/**`, `/api/analytics/**`, `/ingest/**` | `getAnalyticsSummary`, `track`, `eventStore`, `classifyVisitor` |
 | storefront | `app/store/**`, `components/store/**`, `public/products/**` | renders from `getVisitor().spec` |
-| agent-commerce | `lib/agent-commerce/**`, `/api/agent/**`, `/api/mcp`, `/llms.txt`, `/.well-known/**` | `callAgentTool` |
+| agent-commerce | `lib/agent-commerce/**`, `/api/agent/**`, `/api/mcp`, `/api/a2a`, `/llms.txt`, `/.well-known/**` | `callAgentTool`, `a2aSend`, `runA2aBuyer` |
 | simulator | `lib/simulator/**`, `/api/simulate` | `simulateTraffic` |
 | optimizer | `lib/optimizer/**`, `/api/loop/**`, `/api/experiments/**` | `getLoopState`, `stepLoop`, `setAutopilot`, `resetLoop` |
 | github | `lib/github/**`, `/api/github/**` | `openAnalyticsInstallPR`, `openSpecPR` |
