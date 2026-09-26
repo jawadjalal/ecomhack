@@ -2,6 +2,9 @@
 
 Read this before changing code (humans, Cursor, Claude — everyone).
 
+> **Demo laptop (Jawad): before judging, run [`docs/DEMO-LAPTOP.md`](docs/DEMO-LAPTOP.md) step by step.** It sets up keys,
+> a production build, demo traffic and a page-by-page check. The live Vercel site is not reliable for the demo.
+
 ## What we're building
 
 **Darwin: the storefront that improves itself.** Connect a store's git repo → Darwin opens a PR installing
