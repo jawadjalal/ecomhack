@@ -137,9 +137,9 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
   switch (d.kind) {
     case "kpis":
       return (
-        <div className="flex flex-wrap gap-x-10 gap-y-5">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-5 @xl:flex @xl:flex-wrap @xl:gap-x-10">
           {d.kpis?.map((k, i) => (
-            <div key={k.label} className="min-w-[6.5rem]">
+            <div key={k.label} className="min-w-0 @xl:min-w-[6.5rem]">
               <div className={cn("num leading-none font-semibold tracking-[-0.03em]", compact ? "text-[28px]" : "text-[38px]")}>{k.value}</div>
               <div className={cn("mt-1.5 text-[12px] tracking-[0.02em] text-dw-ink/70 uppercase", i === 0 && "w-fit border-b-2 border-dw-ink pb-1 text-dw-ink")}>{k.label}</div>
               {k.hint && <div className="mt-1 text-[12.5px] text-dw-ink/60">{k.hint}</div>}
