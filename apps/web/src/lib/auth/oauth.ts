@@ -3,19 +3,17 @@
  * install PR with *their* token, not the server's GITHUB_TOKEN.
  *
  *   /api/auth/github/start → github.com/login/oauth/authorize (state in an httpOnly cookie)
- *   /api/auth/github/callback → code exchanged for a token → encrypted into the session (darwin_session cookie)
+ *   /api/auth/github/callback → code exchanged for a token → sealed into the darwin_session cookie
  *
- * Tokens never reach the browser. They're encrypted (AES-256-GCM) with DARWIN_SESSION_SECRET (or
- * DARWIN_ADMIN_TOKEN); without either, a per-process key, so sessions end when the server restarts.
+ * The session lives in the cookie itself, encrypted (AES-256-GCM) and httpOnly, so it works on any server
+ * instance (Vercel runs several) and the browser can't read the token. The key comes from
+ * DARWIN_SESSION_SECRET, else DARWIN_ADMIN_TOKEN, else GITHUB_OAUTH_CLIENT_SECRET (always set when sign-in is on).
  * Configure with GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET (a GitHub OAuth App whose callback
  * URL is <origin>/api/auth/github/callback).
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { kvGet, kvUpdate } from "@/lib/db/json-store";
-
 export const SESSION_COOKIE = "darwin_session";
 export const STATE_COOKIE = "darwin_oauth_state";
-const KEY = "auth-sessions";
 const SESSION_DAYS = 30;
 
 export interface GithubIdentity {
@@ -26,7 +24,7 @@ export interface GithubIdentity {
 
 interface StoredSession {
   createdAt: string;
-  github?: GithubIdentity & { token: string /* encrypted */ };
+  github?: GithubIdentity & { token: string };
 }
 
 export function githubOAuth(): { clientId: string; clientSecret: string } | undefined {
@@ -39,7 +37,7 @@ export function githubOAuth(): { clientId: string; clientSecret: string } | unde
 
 const g = globalThis as unknown as { __darwinSessionKey?: Buffer };
 function key(): Buffer {
-  const secret = process.env.DARWIN_SESSION_SECRET?.trim() || process.env.DARWIN_ADMIN_TOKEN?.trim();
+  const secret = process.env.DARWIN_SESSION_SECRET?.trim() || process.env.DARWIN_ADMIN_TOKEN?.trim() || process.env.GITHUB_OAUTH_CLIENT_SECRET?.trim();
   if (secret) return createHash("sha256").update(`darwin-session:${secret}`).digest();
   return (g.__darwinSessionKey ??= randomBytes(32));
 }
@@ -62,26 +60,24 @@ export function unseal(sealed: string): string | undefined {
   }
 }
 
-/* ------------------------------------------------------------------ sessions */
-
-const sessions = () => kvGet<Record<string, StoredSession>>(KEY, () => ({}));
+/* ------------------------------------------------------------------ sessions (sealed in the cookie) */
 
 function cookie(req: Request, name: string): string | undefined {
   const m = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   return m ? decodeURIComponent(m[1]) : undefined;
 }
 
-export function sessionId(req: Request): string | undefined {
-  const sid = cookie(req, SESSION_COOKIE);
-  return sid && /^[A-Za-z0-9_-]{32,64}$/.test(sid) ? sid : undefined;
-}
-
 function load(req: Request): StoredSession | undefined {
-  const sid = sessionId(req);
-  const s = sid ? sessions()[sid] : undefined;
-  if (!s) return undefined;
-  if (Date.now() - Date.parse(s.createdAt) > SESSION_DAYS * 86_400_000) return undefined;
-  return s;
+  const sealed = cookie(req, SESSION_COOKIE);
+  const plain = sealed && sealed.length < 4000 ? unseal(sealed) : undefined;
+  if (!plain) return undefined;
+  try {
+    const s = JSON.parse(plain) as StoredSession;
+    if (!s.createdAt || Date.now() - Date.parse(s.createdAt) > SESSION_DAYS * 86_400_000) return undefined;
+    return s;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Who's signed in (no tokens). */
@@ -92,30 +88,13 @@ export function sessionInfo(req: Request): { github?: GithubIdentity } {
 
 /** The signed-in merchant's GitHub token, for GitHub API calls made on their behalf. */
 export function githubTokenFor(req: Request): string | undefined {
-  const sealed = load(req)?.github?.token;
-  return sealed ? unseal(sealed) : undefined;
+  return load(req)?.github?.token;
 }
 
-/** Store a GitHub sign-in; returns the session id to set as the cookie (reusing the current one). */
-export function saveGithubSession(req: Request, identity: GithubIdentity, token: string): string {
-  const sid = sessionId(req) ?? randomBytes(24).toString("base64url");
-  kvUpdate<Record<string, StoredSession>>(KEY, () => ({}), (all) => {
-    const next = { ...all, [sid]: { createdAt: all[sid]?.createdAt ?? new Date().toISOString(), github: { ...identity, token: seal(token) } } };
-    // Keep the store bounded: drop the oldest sessions past 5,000.
-    const ids = Object.keys(next);
-    if (ids.length > 5000) for (const id of ids.sort((a, b) => next[a].createdAt.localeCompare(next[b].createdAt)).slice(0, ids.length - 5000)) delete next[id];
-    return next;
-  });
-  return sid;
-}
-
-export function signOut(req: Request) {
-  const sid = sessionId(req);
-  if (!sid) return;
-  kvUpdate<Record<string, StoredSession>>(KEY, () => ({}), (all) => {
-    const { [sid]: _gone, ...rest } = all; // eslint-disable-line @typescript-eslint/no-unused-vars
-    return rest;
-  });
+/** The darwin_session cookie value for a GitHub sign-in: the identity and token, encrypted. */
+export function githubSessionCookie(identity: GithubIdentity, token: string): string {
+  const session: StoredSession = { createdAt: new Date().toISOString(), github: { login: identity.login, name: identity.name, avatarUrl: identity.avatarUrl, token } };
+  return seal(JSON.stringify(session));
 }
 
 export const sessionCookieOptions = (secure: boolean) => ({ httpOnly: true, sameSite: "lax" as const, secure, path: "/", maxAge: SESSION_DAYS * 86_400 });

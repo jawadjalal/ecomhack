@@ -3,7 +3,7 @@ import { GET as start } from "@/app/api/auth/github/start/route";
 import { GET as callback } from "@/app/api/auth/github/callback/route";
 import { GET as session } from "@/app/api/auth/session/route";
 import { githubMode } from "@/lib/github";
-import { githubTokenFor, safeReturnPath, seal, unseal } from "./oauth";
+import { githubSessionCookie, githubTokenFor, safeReturnPath, seal, sessionInfo, unseal } from "./oauth";
 
 const env = { ...process.env };
 beforeEach(() => {
@@ -67,6 +67,21 @@ describe("GitHub sign-in", () => {
     delete process.env.GITHUB_TOKEN;
     expect(githubMode()).toBe("offline");
     expect(githubMode("gho_merchant")).toBe("live");
+  });
+
+  it("keeps the session in the sealed cookie, so any server instance can read it (Vercel)", () => {
+    // No DARWIN_SESSION_SECRET / DARWIN_ADMIN_TOKEN: the key comes from the OAuth client secret, shared by every instance.
+    delete process.env.DARWIN_SESSION_SECRET;
+    delete process.env.DARWIN_ADMIN_TOKEN;
+    const value = githubSessionCookie({ login: "octo" }, "gho_merchant");
+    expect(value).not.toContain("gho_");
+    (globalThis as { __darwinSessionKey?: Buffer }).__darwinSessionKey = undefined; // a fresh instance
+    const req = (v: string) => new Request("https://darwin.example/api/auth/session", { headers: { cookie: `darwin_session=${v}` } });
+    expect(githubTokenFor(req(value))).toBe("gho_merchant");
+    expect(sessionInfo(req(value))).toEqual({ github: { login: "octo" } });
+    const [iv, tag, body] = value.split(".");
+    expect(sessionInfo(req([iv, tag, (body[0] === "A" ? "B" : "A") + body.slice(1)].join(".")))).toEqual({});
+    expect(githubTokenFor(req("not-a-session"))).toBeUndefined();
   });
 
   it("says when sign-in isn't configured", () => {
