@@ -30,6 +30,8 @@ npm run build && npm start     # or: npm run dev
 | http://localhost:3000/console | **Mission control**: the loop, live traffic, experiments, PRs |
 | http://localhost:3000/console?mock=1 | Same UI, fully simulated in the browser (offline fallback) |
 | http://localhost:3000/store | The demo store (PACE running shoes) |
+| http://localhost:3000/console/personalize | **Personalize any store**: change a page per traffic source (ChatGPT, Google, Instagram, ads) and search query, A/B tested |
+| http://localhost:3000/demo/north-trail | A plain-HTML store Darwin didn't build (only the darwin.js tag), used to show personalization on "any store" |
 | http://localhost:3000/llms.txt | What AI agents read about the store |
 | `POST /api/mcp` | MCP server for AI shoppers (search, availability, cart, negotiate, checkout) |
 | `POST /api/a2a` | A2A merchant agent (v1.0 and v0.3): buyer agents shop and haggle in plain English |
@@ -49,6 +51,7 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 | **Simulator** | `src/lib/simulator/**` | Synthetic shoppers (5 personas) and AI agents whose behaviour depends only on the page they're served. Labelled `synthetic`. |
 | **Optimizer** | `src/lib/optimizer/**` | The loop: diagnose → propose → Bayesian A/B test → decide → ship. LLM (Grok/Claude/OpenRouter) or heuristic playbook. |
 | **GitHub** | `src/lib/github/**` | Connect a repo → PR installing `darwin.js`; each winner → PR editing `storefront.config.json`. |
+| **Web personalization** | `src/lib/web/**` | Rules that change any page running darwin.js (text, banner, badge, hide, style) per traffic source and search query. Drafted from plain English (LLM or heuristic), A/B tested with arms recomputed server-side. |
 | **Console** | `src/app/console/**` | Mission control for the demo. |
 
 ### Example run (heuristic mode, synthetic traffic; exact results vary run to run)
@@ -68,6 +71,21 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 
 Overall conversion (at the Gen 0 traffic mix) goes 4.5% → 10.4%: humans about 2.1% → 4.4%, agents 35% → 87%. Shipping needs ≥97.5% posterior probability (99.5% to stop early), and bad ideas are
 rejected and never retried.
+
+### Personalize any store
+
+The loop above optimizes a store built on a PageSpec. Web personalization works on **any** store with the darwin.js tag:
+
+1. Tell Darwin what to change: *"Visitors from ChatGPT: banner with delivery and returns"*, *"Google searchers: put their
+   search in the headline"*. It drafts a rule against the page's real elements (or suggests one per traffic source,
+   biggest conversion gap first).
+2. Preview it as each audience, then start an A/B test (or show it to everyone in that audience).
+3. darwin.js loads `/api/web/runtime.js?site=…`, which sorts each visitor by source (AI assistant, search, social,
+   paid, email, referral, direct) and search query, assigns a sticky arm, and applies the change with `textContent` and
+   styles only (never HTML or scripts), without flicker.
+4. Results count orders after exposure, with each visitor's arm recomputed on the server.
+
+![Personalize: preview as an audience, draft from a prompt, live A/B results](apps/web/docs/screenshots/personalize/personalize-desktop.jpg)
 
 ### Talk to the store's agents
 

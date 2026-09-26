@@ -1,7 +1,7 @@
 /**
  * Source of `GET /darwin.js` — the tag Darwin's install PR adds to a merchant's storefront.
  *
- * Tiny (< 4 KB, hand-minified), dependency-free, ES5. Posts batches of PostHog-shaped events
+ * Tiny (< 4.5 KB, ~2 KB gzipped, hand-minified), dependency-free, ES5. Posts batches of PostHog-shaped events
  * to `{script origin}/api/collect`:
  *   - `$pageview` on load and client-side navigations (pushState / popstate)
  *   - `$pageleave` on client-side navigation away (for the previous path) and on tab close
@@ -15,7 +15,8 @@
  * Batches go out as `text/plain` so cross-origin posts need no CORS preflight, and via
  * `sendBeacon` when the page is hidden.
  *
- * <script> attributes: `data-darwin-site` (site id), `data-darwin-endpoint` (collect URL override).
+ * <script> attributes: `data-darwin-site` (site id), `data-darwin-endpoint` (collect URL override),
+ * `data-darwin-web="false"` (don't load the personalization runtime, /api/web/runtime.js?site=…).
  *
  * Readable names: w=window d=document n=navigator L=location s=script tag, q=queue,
  * T=flush timer, P=current path, H=current href, X=last clicked element, C=click times.
@@ -25,7 +26,7 @@ export const TRACKER_JS = `/*! Darwin analytics */
 if(w.darwin&&w.darwin.v)return;
 var n=navigator,L=location,s=d.currentScript||d.querySelector('script[src*="/darwin.js"]'),
 at=function(k){return s?s.getAttribute(k):null},
-url=at("data-darwin-endpoint")||(s&&s.src?new URL(s.src,L.href).origin:L.origin)+"/api/collect",
+o=s&&s.src?new URL(s.src,L.href).origin:L.origin,url=at("data-darwin-endpoint")||o+"/api/collect",
 site=at("data-darwin-site")||"",pre=Array.isArray(w.darwin)?w.darwin:[],noop=function(){};
 if((n.globalPrivacyControl||n.doNotTrack=="1")&&at("data-darwin-respect-dnt")!="false"){w.darwin={v:1,capture:noop,flush:noop,optedOut:!0};return}
 function rid(){try{return crypto.randomUUID()}catch(e){return Date.now().toString(36)+Math.random().toString(36).slice(2)}}
@@ -75,5 +76,6 @@ w.addEventListener("pageshow",function(e){if(e.persisted){left=0;view()}});
 d.addEventListener("visibilitychange",function(){if(d.visibilityState=="hidden")flush(!0)});
 w.darwin={v:1,capture:capture,flush:flush,site:site,distinctId:function(){return id}};
 for(var i=0;i<pre.length;i++)capture(pre[i][0],pre[i][1]);
+if(site&&at("data-darwin-web")!="false"&&!w.darwinWeb){var e=d.createElement("script");e.async=!0;var pv=/darwin_preview=[\\w-]+/.exec(L.search);e.src=o+"/api/web/runtime.js?site="+encodeURIComponent(site)+(pv?"&"+pv[0]:"");d.head.appendChild(e)}
 view()})(window,document);
 `;

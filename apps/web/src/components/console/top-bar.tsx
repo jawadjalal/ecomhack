@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, Bot, Cpu, FlaskRound, LoaderCircle, Maximize, RotateCcw, Sparkles, StepForward, Store } from "lucide-react";
+import { Activity, Bot, Cpu, FlaskRound, LoaderCircle, Maximize, RotateCcw, Sparkles, StepForward, Store, WandSparkles } from "lucide-react";
 import type { GithubStatusResponse } from "@/lib/contracts";
 import type { ApiGroup } from "@/lib/console/api";
 import { API_GROUP_ROUTES } from "@/lib/console/api";
@@ -95,6 +95,15 @@ export function TopBar({
           /store
         </Link>
       </Chip>
+
+      <Link
+        href="/console/personalize"
+        title="Personalize any store with darwin.js: per traffic source and search query, A/B tested"
+        className="flex h-9 items-center gap-2 rounded-xl border border-brand/25 bg-brand/[0.07] px-3 text-[0.82rem] font-medium whitespace-nowrap text-brand transition-colors hover:bg-brand/[0.14] [&_svg]:size-[0.95rem]"
+      >
+        <WandSparkles />
+        Personalize
+      </Link>
 
       <Chip onClick={onConnect} title={github?.repo ? "Connected repository (click for details)" : "Connect a GitHub repo"}>
         <GithubMark className="text-white/70" />

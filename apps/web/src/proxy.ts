@@ -85,5 +85,11 @@ export const config = {
     "/api/experiments/:path*",
     "/api/experiments",
     "/api/analytics/:path*",
+    // Not /api/web/runtime.js: that's public and shouldn't set cookies on merchants' visitors.
+    "/api/web/rules/:path*",
+    "/api/web/rules",
+    "/api/web/draft",
+    "/api/web/suggest",
+    "/api/web/simulate",
   ],
 };

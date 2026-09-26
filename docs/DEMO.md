@@ -84,6 +84,18 @@ pointed at `http://localhost:3000` (it reads the agent card) shows as REAL.
 
 **Closing line:** "Darwin is CRO for the agentic web: it experiments on humans and AI shoppers, and ships the winners as code."
 
+### Personalize any store (45 s)
+
+Open `/console/personalize` (top bar → **Personalize**). The preview is `/demo/north-trail`, a plain-HTML store with
+only the darwin.js tag.
+
+1. Click the example **"Visitors from ChatGPT: banner…"** → Darwin drafts it → **Preview** shows the banner as an AI
+   visitor → **Start A/B test**.
+2. Click **"Google searchers: put their search in the headline"** → **Start A/B test**. Switch "View the page as" to
+   **Search**: the headline reads "Waterproof Trail Shoes: in stock, ships today". **Original page** shows it unchanged.
+3. **Send 500 test visitors** two or three times (labelled synthetic) → the tests fill with results and a chance-to-beat.
+4. Line: *"Same loop, but on any store: one script tag, and the page adapts to where each shopper came from."*
+
 ## What typically happens (heuristic mode)
 
 - **Gen 1 (usually an agent-surface fix):** exposing stock or delivery ETA takes agent conversion from about 40% to 60–70%.

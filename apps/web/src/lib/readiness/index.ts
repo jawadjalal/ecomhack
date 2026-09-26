@@ -11,7 +11,7 @@ import { evaluate, pickProductUrl, type Artifacts, type Fetched } from "./checks
 import { assertPublicUrl, BlockedUrlError, safeFetch } from "./fetcher";
 import { parseRobots } from "./robots";
 
-export { BlockedUrlError } from "./fetcher";
+export { BlockedUrlError, safeFetch } from "./fetcher";
 export { evaluate, score, draftLlmsTxt, type Artifacts, type Fetched } from "./checks";
 
 /** Normalise user input ("shop.com", "https://shop.com/store/") to a URL. Throws BlockedUrlError. */
