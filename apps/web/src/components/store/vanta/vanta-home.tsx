@@ -13,9 +13,10 @@ import "./vanta.css";
  * which PageSpec fields are on. No second "after" implementation.
  *
  *   productGrid.showRatings            star ratings + review counts
+ *   productPage.showReviews            same (each tile is its product's page)
  *   hero.showSocialProof               review quotes
  *   productPage.trustBadges            4-icon trust strip
- *   productPage.showDeliveryEstimate   stock / delivery line
+ *   productPage.showDeliveryEstimate   stock / delivery line (states the cost, replacing the +£9.95 line)
  *   productPage.showReturnsPolicy      60-day guarantee band
  *   productPage.urgency                "Only N left" when stock is actually low
  *   cart.showShippingUpfront           hides the +£9.95 line that contradicts the promo
@@ -155,6 +156,10 @@ function altText(spec: PageSpec, descriptive: string): string {
   return spec.agentSurface.structuredData ? descriptive : "";
 }
 
+function showRatings(spec: PageSpec): boolean {
+  return spec.productGrid.showRatings || spec.productPage.showReviews;
+}
+
 function productGraph(spec: PageSpec) {
   return {
     "@context": "https://schema.org",
@@ -170,7 +175,7 @@ function productGraph(spec: PageSpec) {
         description: tile.tagline,
         image: tile.image,
         brand: { "@type": "Brand", name: BRAND },
-        ...(spec.productGrid.showRatings
+        ...(showRatings(spec)
           ? {
               aggregateRating: {
                 "@type": "AggregateRating",
@@ -242,7 +247,7 @@ function ProductMeta({ tile, spec, hero = false }: { tile: Tile; spec: PageSpec;
   const stock = spec.agentSurface.exposeStock && !low ? `${tile.left.toLocaleString("en-GB")} in stock` : undefined;
   return (
     <>
-      {spec.productGrid.showRatings && <Rating rating={tile.rating} reviews={tile.reviews} />}
+      {showRatings(spec) && <Rating rating={tile.rating} reviews={tile.reviews} />}
       <div className="v-links">
         <a className="v-link" href={`#${tile.id}`}>
           Learn more <ChevronRight size={hero ? 14 : 13} strokeWidth={2.6} />
@@ -250,7 +255,7 @@ function ProductMeta({ tile, spec, hero = false }: { tile: Tile; spec: PageSpec;
         <BuyCta spec={spec} href={`#${tile.id}`} darwin={hero ? "hero-cta" : "cta-add-to-cart"} large={hero} />
         <span className="v-from">From {formatGBP(tile.pence)}</span>
       </div>
-      {!spec.cart.showShippingUpfront && (
+      {!spec.cart.showShippingUpfront && !spec.productPage.showDeliveryEstimate && (
         <p className="v-delivery">+{formatGBP(DELIVERY_PENCE)} delivery</p>
       )}
       {spec.productPage.showDeliveryEstimate ? (
