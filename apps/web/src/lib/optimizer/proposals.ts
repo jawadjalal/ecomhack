@@ -384,6 +384,16 @@ export interface TriedIdea {
  * Ask the LLM for one proposal. Returns `{ proposal: null, reason }` whenever the model is unavailable,
  * times out, or suggests something invalid / no-op / already tried; the caller then uses `propose()`.
  */
+/** WCAG contrast ratio of a #rrggbb colour against white (buttons and badges need 3:1). */
+export function contrastOnWhite(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return 1.05 / (luminance + 0.05);
+}
+
 export async function proposeWithLlm(
   insights: Insight[],
   spec: PageSpec,
@@ -435,6 +445,10 @@ export async function proposeWithLlm(
     if (triedKeys.has(canonicalKey(norm.patch))) return { proposal: null, reason: "patch was already tried" };
     const diff = describeDiff(spec, norm.next);
     if (diff.length > 6) return { proposal: null, reason: `patch touched ${diff.length} knobs (max 6)` };
+    const accent = norm.next.theme.accent;
+    if (accent !== spec.theme.accent && contrastOnWhite(accent) < 3) {
+      return { proposal: null, reason: `accent ${accent} is too light for buttons on a white page (contrast ${contrastOnWhite(accent).toFixed(1)}:1, need 3:1)` };
+    }
 
     const known = new Set(insights.map((i) => i.id));
     const insightIds = (res.insightIds ?? []).filter((i) => known.has(i));

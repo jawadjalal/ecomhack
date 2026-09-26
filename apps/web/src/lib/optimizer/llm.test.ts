@@ -89,6 +89,13 @@ describe("proposeWithLlm", () => {
     expect((await proposeWithLlm([insight()], DEFAULT_SPEC, tried)).reason).toMatch(/already tried/);
   });
 
+  it("rejects an accent colour too light to see on the white store", async () => {
+    llm.responses.push({ title: "Airy", hypothesis: "A lighter accent feels premium.", patch: { theme: { accent: "#f5f5f4" } }, expectedLift: 0.05 });
+    expect((await proposeWithLlm([insight()], DEFAULT_SPEC, [])).reason).toMatch(/too light.*contrast 1\.\d:1/);
+    llm.responses.push({ title: "Warm", hypothesis: "A warmer accent pops.", patch: { theme: { accent: "#ea580c" } }, expectedLift: 0.05 });
+    expect((await proposeWithLlm([insight()], DEFAULT_SPEC, [])).proposal).not.toBeNull();
+  });
+
   it("returns a reason instead of throwing when the model call fails", async () => {
     llm.responses.push(new Error("403 Host not in allowlist"));
     const res = await proposeWithLlm([insight()], DEFAULT_SPEC, []);
