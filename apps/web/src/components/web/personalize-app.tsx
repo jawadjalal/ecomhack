@@ -20,8 +20,8 @@ import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
-import { Card, CardTitle, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
-import { BrowserFrame, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
+import { Card, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
+import { BrowserFrame, CardHead, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -385,7 +385,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         {/* ---------------- left: preview + traffic */}
         <div className="flex min-w-0 flex-col gap-4">
           <Card tone="white" hover={false} className="p-4 sm:p-6">
-            <CardTitle
+            <CardHead
               right={
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {view.previewRuleId ? (
@@ -408,7 +408,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
               }
             >
               View the page as
-            </CardTitle>
+            </CardHead>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <div className="-mx-1 max-w-full overflow-x-auto px-1 pb-1">
@@ -481,7 +481,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         {/* ---------------- right: ask, draft, rules */}
         <div className="flex min-w-0 flex-col gap-4">
           <Card tone="yellow" shape="designer" corner="tr" hover={false}>
-            <CardTitle>Ask Darwin to change the page</CardTitle>
+            <CardHead>Ask Darwin to change the page</CardHead>
             <div className="mt-4 flex flex-col gap-3">
               <div className="rounded-[20px] bg-white/85 p-1.5 shadow-[0_1px_0_rgba(20,20,19,0.05)] focus-within:ring-2 focus-within:ring-dw-ink/80">
                 <textarea
@@ -528,7 +528,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
 
           {suggestions && !draft && (
             <Card tone="white" hover={false}>
-              <CardTitle
+              <CardHead
                 right={
                   <IconBtn title="Close ideas" onClick={() => setSuggestions(undefined)}>
                     <X />
@@ -536,7 +536,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                 }
               >
                 Ideas for this site
-              </CardTitle>
+              </CardHead>
               <ul className="mt-4 flex flex-col gap-2">
                 {suggestions.map((s) => (
                   <li key={s.name} className="dw-row flex items-center gap-3 rounded-[22px] bg-dw-sand p-3.5">
@@ -568,7 +568,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
       </div>
 
       <Card tone="white" hover={false}>
-        <CardTitle
+        <CardHead
           right={
             <span className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
               <LegendKey dashed>Original</LegendKey>
@@ -578,7 +578,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
           }
         >
           Live rules &amp; tests
-        </CardTitle>
+        </CardHead>
         <div className="mt-4 grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
           {rules.length === 0 && (
             <div className="lg:col-span-2 2xl:col-span-3">
@@ -632,7 +632,7 @@ function DraftCard({
     });
   return (
     <Card tone="pink" shape="experimenter" corner="br" hover={false}>
-      <CardTitle
+      <CardHead
         right={
           <span title={r.author}>
             <Tag tone={draft.source === "llm" ? "ink" : "white"}>{draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Heuristic"}</Tag>
@@ -643,7 +643,7 @@ function DraftCard({
           <Mascot kind="designer" size={34} active />
           Draft
         </span>
-      </CardTitle>
+      </CardHead>
       <div className="mt-4 flex flex-col gap-4">
         <div>
           <input
@@ -788,7 +788,7 @@ function RuleRow({
         verdict === "win" ? "bg-dw-win-bg" : verdict === "lose" ? "bg-dw-warn-bg" : rule.status === "paused" ? "bg-dw-sand/60" : "bg-dw-sand",
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
         <Mascot kind={mascot} size={40} frame active={rule.status === "running"} className="max-sm:hidden" />
         <div className="min-w-0 flex-1">
           <div className="text-[15px] leading-snug font-semibold">{rule.name}</div>
@@ -823,7 +823,7 @@ function RuleRow({
             </div>
           )}
         </div>
-        <div className="-mt-1 -mr-1 flex shrink-0 items-center">
+        <div className="-mt-1 -mr-1 flex shrink-0 items-center max-sm:order-last max-sm:-ml-2 max-sm:basis-full">
           <IconBtn title="View as this audience" onClick={onView}>
             <Eye />
           </IconBtn>
@@ -896,7 +896,7 @@ function RuleRow({
 /** One arm of a test: a horizontal pill (dashed = original, solid = with the change). */
 function ArmBar({ label, rate, visitors, max, dashed }: { label: string; rate: number; visitors: number; max: number; dashed?: boolean }) {
   return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_7rem] items-center gap-3 text-[13px]">
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_7rem] items-center gap-3 text-[13px] max-sm:grid-cols-[5.75rem_minmax(0,1fr)_5.5rem] max-sm:gap-2">
       <span className="flex items-center gap-1.5 whitespace-nowrap text-dw-ink/70">
         <span className={cn("size-2.5 shrink-0 rounded-[3px]", dashed ? "border border-dashed border-dw-ink" : "bg-dw-ink")} aria-hidden />
         {label}
@@ -908,7 +908,7 @@ function ArmBar({ label, rate, visitors, max, dashed }: { label: string; rate: n
         />
       </span>
       <span className="num text-right">
-        <span className="font-semibold">{pct(rate)}</span> <span className="text-dw-ink/50">of {visitors}</span>
+        <span className="font-semibold">{pct(rate)}</span> <span className="text-dw-ink/50">of {visitors.toLocaleString()}</span>
       </span>
     </div>
   );
@@ -1028,7 +1028,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
   const entries = state.log.slice(0, 25);
   return (
     <Card tone="lilac" shape="analyst" corner="tr" hover={false}>
-      <CardTitle
+      <CardHead
         right={
           state.on ? (
             <Tag tone="ink">
@@ -1040,7 +1040,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
         }
       >
         Darwin&apos;s decisions
-      </CardTitle>
+      </CardHead>
       <ol className="mt-4 flex max-h-[22rem] flex-col overflow-y-auto pr-1">
         {entries.map((e, i) => {
           const actor = LOG_ACTOR[e.kind];
@@ -1074,7 +1074,7 @@ function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string })
   const avgY = o ? Math.round((o.conversionRate / maxRate) * H) : 0;
   return (
     <Card tone="olive" shape="observer" corner="br" hover={false}>
-      <CardTitle
+      <CardHead
         right={
           o && (
             <span className="flex flex-wrap items-center justify-end gap-2">
@@ -1093,7 +1093,7 @@ function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string })
         }
       >
         Who orders, by where they came from
-      </CardTitle>
+      </CardHead>
       {!o?.visitors ? (
         <Empty mascot={<Mascot kind="observer" size={56} frame />}>No visitors on {site} yet. Open the store, or send test visitors.</Empty>
       ) : (
@@ -1153,7 +1153,7 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
   const snippet = `<script src="${origin}/api/web/runtime.js?site=${site}"></script>\n<script async src="${origin}/darwin.js" data-darwin-site="${site}"></script>`;
   return (
     <Card tone="white" hover={false}>
-      <CardTitle
+      <CardHead
         right={
           <PillButton
             size="sm"
@@ -1171,7 +1171,7 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
         }
       >
         Install on any store
-      </CardTitle>
+      </CardHead>
       <pre className="mt-4 overflow-x-auto rounded-[18px] bg-dw-ink p-4 font-dwmono text-[12px] leading-relaxed whitespace-pre text-[#EDE6D6]">{snippet}</pre>
       <p className="mt-3 text-[13px] leading-snug text-dw-ink/60">
         Paste both in <code className="font-dwmono">&lt;head&gt;</code>. darwin.js alone works too (it loads the rules itself); the first line stops the page flickering. Changes are

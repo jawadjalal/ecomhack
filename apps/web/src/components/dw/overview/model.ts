@@ -3,6 +3,7 @@
  * sessions, analytics events) to what the Overview cards and the Live shoppers / Journey panel show.
  */
 import type { AgentSessionSummary, AnalyticsEvent, AnalyticsSummary, Experiment, GenerationRecord, Insight, LoopState } from "@/lib/contracts";
+import { getProduct } from "@/lib/catalog/products";
 import { describeEvent, money, productName } from "@/lib/console/format";
 import { agentBrand, type AgentBrand } from "../agent-tile";
 import type { MascotKind } from "../mascot";
@@ -452,7 +453,7 @@ function personName(e: AnalyticsEvent): string {
 function landedText(path: unknown): string {
   const p = typeof path === "string" ? path.replace(/\/+$/, "") : "";
   const product = /\/products\/([^/?#]+)/.exec(p)?.[1];
-  if (product) return `Opened ${productName(product) ?? capitalise(product.replace(/-/g, " "))}`;
+  if (product) return `Opened ${getProduct(product)?.name ?? capitalise(product.replace(/-/g, " "))}`;
   if (/\/(cart|bag)$/.test(p)) return "Opened the bag";
   if (/\/checkout/.test(p)) return "Reached checkout";
   if (/\/store$/.test(p) || !p) return "Landed on the home page";

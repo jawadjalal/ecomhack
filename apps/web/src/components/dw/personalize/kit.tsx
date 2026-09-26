@@ -126,7 +126,7 @@ export function BrowserFrame({ address, badge, actions, children, className }: {
   return (
     <div className={cn("overflow-hidden rounded-[20px] border border-dw-ink/10 bg-white shadow-[0_24px_50px_-28px_rgba(20,20,19,0.45)]", className)}>
       <div className="flex h-12 items-center gap-3 border-b border-dw-hairline bg-[#FBF7EE] px-4">
-        <span className="flex shrink-0 gap-1.5" aria-hidden>
+        <span className="flex shrink-0 gap-1.5 max-sm:hidden" aria-hidden>
           <span className="size-2.5 rounded-full bg-[#F0A59A]" />
           <span className="size-2.5 rounded-full bg-[#F2D27A]" />
           <span className="size-2.5 rounded-full bg-[#9FD3A8]" />
@@ -177,3 +177,16 @@ export function FieldLabel({ children, className }: { children: ReactNode; class
 
 /** Keeps a PageHead right slot from overflowing narrow screens: wraps controls instead. */
 export const HEAD_CONTROLS = "flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-start gap-2 sm:max-w-[calc(100vw-3.5rem)] lg:justify-end";
+
+/**
+ * A card heading whose right side wraps under the title on narrow screens (CardTitle keeps both on
+ * one line, which squeezes long titles on phones).
+ */
+export function CardHead({ children, right, className }: { children: ReactNode; right?: ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex flex-wrap items-center justify-between gap-x-4 gap-y-2", className)}>
+      <h2 className="min-w-0 text-[22px] leading-tight font-semibold tracking-[-0.02em]">{children}</h2>
+      {right && <div className="flex flex-wrap items-center gap-2 text-[13px] text-dw-ink/70">{right}</div>}
+    </div>
+  );
+}

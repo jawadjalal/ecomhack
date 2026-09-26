@@ -167,7 +167,7 @@ export function LiveShoppers({
             ) : (
               <div className="relative flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center text-[15px] text-[#5A2744]">
                 <Mascot kind="experimenter" size={58} frame active />
-                <p className="max-w-[24rem]">Pick a shopper to follow their path through the store, step by step.</p>
+                <p className="max-w-[24rem]">{rows.length ? "Pick a shopper to follow their path through the store, step by step." : "When shoppers arrive, pick one to follow their path through the store, step by step."}</p>
               </div>
             )}
           </AnimatePresence>

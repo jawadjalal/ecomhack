@@ -117,7 +117,7 @@ export function OverviewScreen() {
             <ConversionCard points={points} summary={summary} simulated={simulated} onRun={autopilot ? undefined : run} />
           </Rise>
           <Rise i={1}>
-            <AbCard test={test} autopilot={autopilot} onRun={run} />
+            <AbCard test={test} autopilot={autopilot} onRun={points.length ? run : undefined} />
           </Rise>
         </div>
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
