@@ -26,4 +26,15 @@ describe("assignment", () => {
     expect(n).toBeGreaterThan(1800);
     expect(n).toBeLessThan(2200);
   });
+
+  it("does not cluster sequential ids into long runs", () => {
+    const arms = Array.from({ length: 2000 }, (_, i) => assignVariant(`sim_h_${i}`, "exp_a"));
+    let longest = 1;
+    let run = 1;
+    for (let i = 1; i < arms.length; i++) {
+      run = arms[i] === arms[i - 1] ? run + 1 : 1;
+      longest = Math.max(longest, run);
+    }
+    expect(longest).toBeLessThan(16);
+  });
 });
