@@ -222,7 +222,7 @@ function Console({ mock }: { mock: boolean }) {
   return (
     <div data-console-root data-darwin-dark className="darwin-bg relative min-h-screen w-full text-white xl:h-screen xl:overflow-hidden">
       <div className="darwin-grid pointer-events-none absolute inset-0" />
-      <div className="relative flex h-full flex-col gap-4 p-4">
+      <div className="relative flex h-full flex-col gap-4 p-4 pb-28">
         <TopBar
           github={github}
           source={sourceBadge(curSource ?? lastSource ?? loop?.designer)}
@@ -321,7 +321,7 @@ function Console({ mock }: { mock: boolean }) {
       </div>
 
       {/* toasts */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex flex-col items-center gap-2">
+      <div className="pointer-events-none fixed inset-x-0 bottom-28 z-40 flex flex-col items-center gap-2">
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div

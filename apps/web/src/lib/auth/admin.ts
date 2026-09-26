@@ -29,6 +29,8 @@ export const PROTECTED_PREFIXES = [
   "/api/dashboards",
   "/api/store-agent/stats",
   "/api/store-agent/buyer",
+  "/api/assistant",
+  "/api/research",
   "/api/store-agent/tests",
   "/api/briefing",
   "/api/ask",

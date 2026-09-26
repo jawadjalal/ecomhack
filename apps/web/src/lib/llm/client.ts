@@ -33,12 +33,35 @@ export function llmProvider(): LlmProvider {
   return "none";
 }
 
-export function llmAvailable() {
-  return llmProvider() !== "none";
+function hasKey(provider: LlmProvider): boolean {
+  switch (provider) {
+    case "xai":
+      return Boolean(process.env.XAI_API_KEY);
+    case "anthropic":
+      return Boolean(process.env.ANTHROPIC_API_KEY);
+    case "openrouter":
+      return Boolean(process.env.OPENROUTER_API_KEY);
+    default:
+      return false;
+  }
 }
 
-export function llmModel(): string {
-  return modelFor(llmProvider());
+/**
+ * The provider a request will actually use: `preferred` when it has a key (and LLM_PROVIDER isn't
+ * "none"), otherwise the default from `llmProvider()`. Lets one feature (e.g. Grok certificates)
+ * pin a provider without changing the rest of the app.
+ */
+export function resolveProvider(preferred?: LlmProvider): LlmProvider {
+  if (preferred && preferred !== "none" && process.env.LLM_PROVIDER !== "none" && hasKey(preferred)) return preferred;
+  return llmProvider();
+}
+
+export function llmAvailable(preferred?: LlmProvider) {
+  return resolveProvider(preferred) !== "none";
+}
+
+export function llmModel(preferred?: LlmProvider): string {
+  return modelFor(resolveProvider(preferred));
 }
 
 function modelFor(provider: LlmProvider): string {
@@ -55,14 +78,16 @@ function modelFor(provider: LlmProvider): string {
 }
 
 /** Label for UI/PRs, e.g. "llm:grok-4". */
-export function llmLabel() {
-  return llmAvailable() ? `llm:${llmModel()}` : "heuristic";
+export function llmLabel(preferred?: LlmProvider) {
+  return llmAvailable(preferred) ? `llm:${llmModel(preferred)}` : "heuristic";
 }
 
 export interface TextRequest {
   system: string;
   prompt: string;
   maxTokens?: number;
+  /** Use this provider when it has a key (see `resolveProvider`). */
+  provider?: LlmProvider;
 }
 
 /** One line per answered call: which provider and model answered, and how long it took. Never the prompt. */
@@ -99,7 +124,7 @@ async function openAiCompatible(provider: "xai" | "openrouter", { system, prompt
 
 /** Plain text completion. Throws if no provider is configured. */
 export async function generateText(req: TextRequest): Promise<string> {
-  const provider = llmProvider();
+  const provider = resolveProvider(req.provider);
   const startedAt = Date.now();
   if (provider === "xai") {
     try {
@@ -123,7 +148,7 @@ export async function generateText(req: TextRequest): Promise<string> {
   if (provider === "anthropic") {
     const client = new Anthropic();
     const res = await client.beta.messages.create({
-      model: llmModel(),
+      model: modelFor("anthropic"),
       max_tokens: req.maxTokens ?? 4000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
@@ -132,7 +157,7 @@ export async function generateText(req: TextRequest): Promise<string> {
       messages: [{ role: "user", content: req.prompt }],
     });
     if (res.stop_reason === "refusal") throw new Error("LLM refused the request");
-    logAnswer("anthropic", res.model || llmModel(), startedAt);
+    logAnswer("anthropic", res.model || modelFor("anthropic"), startedAt);
     return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   }
   throw new Error("No LLM provider configured (set XAI_API_KEY, ANTHROPIC_API_KEY or OPENROUTER_API_KEY)");

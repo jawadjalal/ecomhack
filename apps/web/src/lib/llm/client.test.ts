@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractJson, generateText, llmLabel, llmProvider } from "./client";
+import { extractJson, generateText, llmLabel, llmProvider, resolveProvider } from "./client";
 
 describe("extractJson", () => {
   it("reads bare, fenced and prose-wrapped JSON", () => {
@@ -47,6 +47,20 @@ describe("provider selection", () => {
     expect(llmProvider()).toBe("openrouter");
     vi.stubEnv("LLM_PROVIDER", "none");
     expect(llmProvider()).toBe("none");
+  });
+
+  it("uses a per-request provider override only when that provider has a key", () => {
+    clear();
+    vi.stubEnv("ANTHROPIC_API_KEY", "k");
+    vi.stubEnv("LLM_PROVIDER", "anthropic");
+    expect(resolveProvider("xai")).toBe("anthropic");
+    expect(llmLabel("xai")).toBe("llm:claude-opus-5");
+    vi.stubEnv("XAI_API_KEY", "k");
+    expect(llmProvider()).toBe("anthropic");
+    expect(resolveProvider("xai")).toBe("xai");
+    expect(llmLabel("xai")).toBe("llm:grok-4");
+    vi.stubEnv("LLM_PROVIDER", "none");
+    expect(resolveProvider("xai")).toBe("none");
   });
 });
 

@@ -30,7 +30,10 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/web/                 Web personalization for ANY store with darwin.js: rules, runtime.js, results, drafts.
   src/lib/store-agent/         The Whop store's own AI agent (A2A): catalog from Whop plans, tagged checkout links, agent funnel, A/B tests on the pitch.
   src/lib/tracking/            Tracking plans (what to record, from the merchant's words) and the dashboards built from them.
-  src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher.
+  src/lib/research/            Market & competitor research (Tavily + LLM, sourced claims, A/B test ideas).
+  src/lib/assistant/           "Ask Darwin": the merchant's managing assistant (tool registry over public APIs + LLM loop).
+  src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher,
+                               Grok certificate (agent trial over MCP or page reading → Gold/Silver/Bronze + badge).
   src/lib/llm/                 Grok (xAI) / Claude / heuristic fallback.
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
   src/app/store/**             The demo storefront (what shoppers see).
@@ -51,12 +54,14 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | optimizer | `lib/optimizer/**`, `/api/loop/**`, `/api/experiments/**` | `getLoopState`, `stepLoop`, `setAutopilot`, `resetLoop` |
 | github | `lib/github/**`, `/api/github/**` | `openAnalyticsInstallPR`, `openSpecPR` |
 | web | `lib/web/**`, `/api/web/**`, `/demo/**`, `app/console/personalize`, `components/web/**` | `webState`, `buildRuntime`, `createRule`, `updateRule`, `draftRule`, `suggestRules`, `simulateWebTraffic` |
-| readiness | `lib/readiness/**`, `/api/readiness`, `/api/leads`, `app/readiness/**`, `components/readiness/**` | `auditStore`, `evaluate` |
+| readiness | `lib/readiness/**`, `/api/readiness/**`, `/api/leads`, `app/readiness/**`, `components/readiness/**` | `auditStore`, `evaluate`, `certifyStore`, `getCertificate` |
 | console | `app/page.tsx`, `app/console/**`, `components/console/**` | — |
 | onboarding | `app/onboarding/**`, `components/onboarding/**`, `lib/whop/**`, `/api/whop/**`, `public/onboarding/**` | `connectWhop`, `getWhopStatus` |
 | store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel`, `stepAgentTests`, `agentTestsView` |
 | tracking | `lib/tracking/**`, `/api/onboarding/**`, `/api/dashboards`, `app/console/dashboards`, `components/dashboards/**` | `heuristicPlan`, `amendPlan`, `getPlan`, `savePlan`, `computeDashboards`, `trackingDoc` |
 | briefing | `lib/briefing/**`, `/api/briefing/**` | `getBriefing`, `actOnBriefing` |
+| research | `lib/research/**`, `/api/research/**`, `app/console/research`, `components/research/**`, `contracts/research.ts` | `researchCompetitors`, `askResearch`, `listReports`, `getReport` |
+| assistant | `lib/assistant/**`, `/api/assistant`, `components/console/assistant-panel.tsx`, `components/console/mascot.tsx`, `app/console/layout.tsx` | `runAssistant`, `TOOLS`, `runTool` (add a tool: one entry in `lib/assistant/tools.ts`, wrapping another area's public API) |
 
 Cross-module calls go through the public API above, never deep imports into another area.
 

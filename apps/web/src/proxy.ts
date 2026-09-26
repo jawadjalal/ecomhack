@@ -101,6 +101,9 @@ export const config = {
     // Not /a2a/* or /api/store-agent/demo-pay: buyer agents and the demo checkout are public.
     "/api/store-agent/stats",
     "/api/store-agent/buyer",
+    "/api/assistant",
+    "/api/research",
+    "/api/research/:path*",
     "/api/store-agent/tests",
     // The merchant briefing (read by the team's chat bot with a bearer token) and its ship / stop action.
     "/api/briefing",
