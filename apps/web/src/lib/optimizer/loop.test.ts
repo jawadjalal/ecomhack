@@ -94,6 +94,25 @@ describe("self-improvement loop", () => {
     for (const a of ["observer", "analyst", "designer", "experimenter"]) expect(actors.has(a as never)).toBe(true);
   });
 
+  it("ships winners to the merchant's repo (never a hard-coded one), or a demo preview repo when none is connected", async () => {
+    const saved = process.env.DARWIN_TARGET_REPO;
+    try {
+      process.env.DARWIN_TARGET_REPO = "merchant-co/shop";
+      const connected = makeDeps({ config: { targetRepo: undefined } });
+      await runUntil(connected.deps, (s) => s.generation >= 1);
+      expect(connected.prs[0].repo).toMatchObject({ owner: "merchant-co", repo: "shop" });
+
+      await resetLoop();
+      delete process.env.DARWIN_TARGET_REPO;
+      const none = makeDeps({ config: { targetRepo: undefined } });
+      await runUntil(none.deps, (s) => s.generation >= 1);
+      expect(none.prs[0].repo).toMatchObject({ owner: "pace-running", repo: "storefront" });
+    } finally {
+      if (saved === undefined) delete process.env.DARWIN_TARGET_REPO;
+      else process.env.DARWIN_TARGET_REPO = saved;
+    }
+  });
+
   it("evolves the store over several generations, ships PRs and never retries a loser", async () => {
     const { deps, prs } = makeDeps();
     const { state } = await runUntil(deps, (s) => s.generation >= 4);
