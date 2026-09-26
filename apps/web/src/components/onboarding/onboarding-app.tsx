@@ -59,7 +59,7 @@ import {
 import { AskChat, answerChips, composePrompt, type Answers } from "@/components/dw/onboarding/ask";
 import { PrCard } from "@/components/dw/onboarding/pr-card";
 import { RepoPicker } from "@/components/dw/onboarding/repo-picker";
-import { clearProgress, loadProgress, saveProgress, stageIndex, type SavedProgress, type SavedStage } from "@/components/dw/onboarding/persist";
+import { clearProgress, loadProgress, saveProgress, stageIndex, type SavedAccount, type SavedProgress, type SavedStage } from "@/components/dw/onboarding/persist";
 import { recallPlan, rememberPlan } from "@/lib/tracking/remember";
 
 /* ------------------------------------------------------------------ data */
@@ -157,6 +157,8 @@ export function OnboardingApp() {
   const [chat, setChat] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [pr, setPr] = useState<PullRequestResult | null>(null);
+  /** "Save your setup": the email and the link back from any device (POST /api/account). Nothing is emailed. */
+  const [account, setAccount] = useState<SavedAccount | null>(null);
 
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -182,6 +184,7 @@ export function OnboardingApp() {
     setSnippet(saved.snippet);
     setPr(saved.pr);
     setChat(saved.chat);
+    setAccount(saved.account ?? null);
     setFurthest(saved.furthest ?? saved.stage);
     const reconnected = !!saved.repo || !!saved.website;
     if (!reconnected || saved.stage === "connect") return setStage("connect");
@@ -250,6 +253,7 @@ export function OnboardingApp() {
       site: plan?.site ?? savedSite,
       snippet,
       pr,
+      account,
       chat: chat
         .filter((m) => !m.pending)
         .map(({ from, text, chips }) => ({
@@ -258,7 +262,7 @@ export function OnboardingApp() {
           ...(chips ? { chips } : {}),
         })),
     });
-  }, [hydrated, welcome, stage, furthest, prompt, answers, repo, website, whop, plan?.site, savedSite, snippet, pr, chat]);
+  }, [hydrated, welcome, stage, furthest, prompt, answers, repo, website, whop, plan?.site, savedSite, snippet, pr, account, chat]);
 
   const startOver = () => {
     clearProgress(DRAFT_KEY);
@@ -278,6 +282,7 @@ export function OnboardingApp() {
     setChat([]);
     setSnippet(null);
     setPr(null);
+    setAccount(null);
     track("onboarding_restarted");
   };
 
@@ -879,8 +884,10 @@ export function OnboardingApp() {
                         <InstallSnippet
                           plan={plan}
                           snippet={snippet ?? `<script src="${window.location.origin}/darwin.js" data-darwin-site="${plan.site}" defer></script>`}
-                          onDone={() => {
-                            track("script_tag_installed");
+                          saved={account}
+                          onDone={(acc) => {
+                            if (acc) setAccount(acc);
+                            track("script_tag_installed", { saved: !!acc });
                             setStage("live");
                           }}
                         />
@@ -917,11 +924,14 @@ export function OnboardingApp() {
                         ) : (
                           <>
                             <PrCard pr={pr} />
-                            <div className="flex justify-end">
-                              <Gel h={52} onClick={() => setStage("live")} className="max-sm:w-full">
-                                <Radio /> Start recording
-                              </Gel>
-                            </div>
+                            <SaveAndRecord
+                              site={plan.site}
+                              saved={account}
+                              onDone={(acc) => {
+                                if (acc) setAccount(acc);
+                                setStage("live");
+                              }}
+                            />
                           </>
                         )}
                       </div>
@@ -941,6 +951,7 @@ export function OnboardingApp() {
                   <motion.section key="live" {...fade} className="flex flex-col gap-7">
                     <Live
                       plan={plan}
+                      account={account}
                       onOpen={() => {
                         track("dashboards_opened", { site: plan.site });
                         router.push(`/console/dashboards?site=${encodeURIComponent(plan.site)}`);
@@ -1482,7 +1493,7 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
 }
 
 /** The install step without GitHub: copy one script tag, then start recording. */
-function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet: string; onDone: () => void }) {
+function InstallSnippet({ plan, snippet, saved, onDone }: { plan: TrackingPlan; snippet: string; saved: SavedAccount | null; onDone: (account: SavedAccount | null) => void }) {
   const [copied, setCopied] = useState(false);
   const verify = useVerify(plan.site, plan.siteUrl);
   const custom = plan.events.filter((e) => e.enabled && !e.automatic).length;
@@ -1521,12 +1532,134 @@ function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet
         </div>
       </Card>
       <VerifyRow host={hostOf(plan.siteUrl ?? "")} verify={verify} />
-      <div className="flex justify-end">
-        <Gel h={52} onClick={onDone} className="max-sm:w-full">
+      <SaveAndRecord site={plan.site} saved={saved} onDone={onDone} />
+    </>
+  );
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/**
+ * "Start recording", the moment of highest motivation, asks for one thing: an email to save the setup.
+ * POST /api/account → a link back from any device (shown on Live; nothing is emailed). Skipping is allowed.
+ */
+function SaveAndRecord({ site, saved, onDone }: { site: string; saved: SavedAccount | null; onDone: (account: SavedAccount | null) => void }) {
+  const [email, setEmail] = useState(saved?.email ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const valid = EMAIL_RE.test(email.trim());
+
+  if (saved) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <span className="mr-auto text-[13.5px] text-dw-ink/60">
+          Saved to <b className="font-semibold text-dw-ink">{saved.email}</b>
+        </span>
+        <Gel h={52} onClick={() => onDone(null)} className="max-sm:w-full">
           <Radio /> Start recording
         </Gel>
       </div>
-    </>
+    );
+  }
+
+  const save = async () => {
+    if (!valid) return setError(email.trim() ? "That doesn't look like an email address." : "Add your email to save your setup, or skip for now.");
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await http<{ email: string; initials: string; resumeUrl: string }>("POST", "/api/account", { email: email.trim(), site });
+      track("setup_saved", { site });
+      onDone({ email: r.email, resumeUrl: r.resumeUrl });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+      className="rounded-[24px] border border-dw-hairline bg-dw-surface p-4 max-sm:border-0 max-sm:bg-dw-sand sm:p-5"
+      aria-label="Save your setup"
+    >
+      <label htmlFor="dwo-email" className="block text-[15px] font-semibold">
+        Save your setup
+      </label>
+      <p className="mt-0.5 text-[13.5px] leading-snug text-dw-ink/60">Your email, and Darwin gives you a link to come back from any device.</p>
+      <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+        <input
+          id="dwo-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setError(null);
+          }}
+          placeholder="you@yourstore.com"
+          aria-invalid={!!error}
+          className="h-[52px] w-full min-w-0 rounded-full border border-dw-hairline bg-white px-5 text-[16px] text-dw-ink outline-none placeholder:text-dw-ink/35 focus:border-dw-ink/40 focus-visible:ring-2 focus-visible:ring-dw-ink/15 sm:flex-1"
+        />
+        <Gel type="submit" h={52} disabled={busy} tone={valid ? "pink" : "ghost"} className="max-sm:w-full">
+          {busy ? <LoaderCircle className="animate-spin" /> : <Radio />} Save &amp; start recording
+        </Gel>
+      </div>
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+        {error ? (
+          <span role="alert" id="dwo-email-error" className="text-[13px] text-dw-warn">
+            {error}
+          </span>
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            track("setup_save_skipped", { site });
+            onDone(null);
+          }}
+          className={linkCls}
+        >
+          Skip for now
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** On Live, once saved: the link back (the resume link restores this setup on any browser). */
+function SavedLink({ account }: { account: SavedAccount }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] bg-dw-sand/80 px-4 py-3" aria-live="polite">
+      <CheckPop size={20} tone="live" />
+      <span className="min-w-0 flex-1 basis-60 text-[14px] leading-snug">
+        <b className="font-semibold">Saved.</b> Your link to come back from any device:{" "}
+        <span className="block truncate font-dwmono text-[12.5px] text-dw-ink/60" title={account.resumeUrl}>
+          {account.resumeUrl}
+        </span>
+      </span>
+      <PillButton
+        tone="white"
+        size="sm"
+        onClick={() => {
+          navigator.clipboard?.writeText(account.resumeUrl).then(
+            () => setCopied(true),
+            () => setCopied(false),
+          );
+          track("resume_link_copied");
+        }}
+        className="max-sm:w-full"
+      >
+        {copied ? <CheckPop size={16} tone="live" /> : <Copy />} {copied ? "Copied" : "Copy"}
+      </PillButton>
+    </div>
   );
 }
 
@@ -1593,7 +1726,7 @@ function VerifyRow({ host, verify, className }: { host: string; verify: Verify; 
 
 const fmt = (v: number) => Math.round(v).toLocaleString("en-GB");
 
-function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
+function Live({ plan, account, onOpen }: { plan: TrackingPlan; account: SavedAccount | null; onOpen: () => void }) {
   const [data, setData] = useState<DashboardsResponse>();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(0);
@@ -1664,7 +1797,12 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
         </div>
       </header>
 
-      {plan.siteUrl && <VerifyRow host={hostOf(plan.siteUrl)} verify={verify} className="-mt-2" />}
+      {(plan.siteUrl || account) && (
+        <div className="-mt-2 flex flex-col gap-2.5">
+          {plan.siteUrl && <VerifyRow host={hostOf(plan.siteUrl)} verify={verify} />}
+          {account && <SavedLink account={account} />}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[21rem_minmax(0,1fr)]">
         <Card tone="yellow" shape="experimenter" corner="br" hover={false} className="self-start p-5 sm:p-6">

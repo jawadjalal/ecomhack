@@ -20,6 +20,12 @@ export interface SavedMessage {
   chips?: string[];
 }
 
+/** "Save your setup" (POST /api/account): the email and the link back from any device. */
+export interface SavedAccount {
+  email: string;
+  resumeUrl: string;
+}
+
 export interface SavedProgress {
   v: 2;
   stage: SavedStage;
@@ -34,6 +40,7 @@ export interface SavedProgress {
   snippet: string | null;
   pr: PullRequestResult | null;
   chat: SavedMessage[];
+  account?: SavedAccount | null;
   /** The furthest stage reached (going back to edit answers doesn't lose it). */
   furthest?: SavedStage;
   savedAt?: string;
@@ -86,6 +93,7 @@ function parse(raw: string | null | undefined): SavedProgress | null {
       snippet: typeof p.snippet === "string" ? p.snippet : null,
       pr: p.pr && typeof p.pr === "object" ? p.pr : null,
       chat: Array.isArray(p.chat) ? p.chat.filter((m) => m && (m.from === "you" || m.from === "darwin") && typeof m.text === "string").slice(-30) : [],
+      account: p.account && typeof p.account.email === "string" && typeof p.account.resumeUrl === "string" ? { email: p.account.email, resumeUrl: p.account.resumeUrl } : null,
       savedAt: typeof p.savedAt === "string" ? p.savedAt : undefined,
     };
   } catch {
