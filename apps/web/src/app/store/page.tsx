@@ -1,20 +1,14 @@
-import { Leaf, MapPin, RotateCcw } from "lucide-react";
-import { Hero, SocialProof } from "@/components/store/hero";
-import { ProductGrid } from "@/components/store/product-grid";
+import { EditorialHome } from "@/components/store/editorial-home";
 import { PageView } from "@/components/store/store-provider";
 import { StoreShell } from "@/components/store/store-shell";
-import { Container } from "@/components/store/ui";
 import { getStoreContext } from "@/lib/storefront/context";
-
-const VALUES = [
-  { icon: MapPin, title: "Designed in Shoreditch", body: "Every PACE shoe is prototyped in our East London studio and tested on Regent's Canal towpaths." },
-  { icon: RotateCcw, title: "Run in them for 60 days", body: "Not your shoe? Send them back — worn, muddy, whatever. We'll recycle them through our take-back scheme." },
-  { icon: Leaf, title: "Lighter on the planet", body: "Recycled knit uppers, bio-based foams and carbon-neutral delivery across the UK." },
-];
+import { getWhopShowcase } from "@/lib/whop";
 
 export default async function StoreHome(props: PageProps<"/store">) {
   const ctx = await getStoreContext(props.searchParams);
+  const showcase = await getWhopShowcase();
   const { spec } = ctx;
+  const brand = showcase?.title?.trim() || "PACE";
   return (
     <StoreShell ctx={ctx}>
       {spec.agentSurface.structuredData && (
@@ -22,33 +16,30 @@ export default async function StoreHome(props: PageProps<"/store">) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify([
-              { "@context": "https://schema.org", "@type": "OnlineStore", name: "PACE Running", url: "/store", description: "Performance running shoes designed in London." },
+              {
+                "@context": "https://schema.org",
+                "@type": "OnlineStore",
+                name: brand,
+                url: "/store",
+                description: spec.hero.subheadline || "Performance running shoes designed in London.",
+              },
               {
                 "@context": "https://schema.org",
                 "@type": "WebSite",
-                name: "PACE Running",
+                name: brand,
                 url: "/store",
-                potentialAction: { "@type": "SearchAction", target: "/store?q={search_term_string}", "query-input": "required name=search_term_string" },
+                potentialAction: {
+                  "@type": "SearchAction",
+                  target: "/store?q={search_term_string}",
+                  "query-input": "required name=search_term_string",
+                },
               },
             ]).replace(/</g, "\\u003c"),
           }}
         />
       )}
       <PageView page="home" />
-      <Hero spec={spec} />
-      {spec.hero.showSocialProof && <SocialProof />}
-      <ProductGrid spec={spec} category={ctx.query.category} />
-      <section className="border-t border-(--line) bg-(--surface-2)">
-        <Container className="grid gap-10 py-16 sm:grid-cols-3 sm:py-20">
-          {VALUES.map((v) => (
-            <div key={v.title}>
-              <v.icon className="size-6" strokeWidth={1.6} aria-hidden />
-              <h3 className="mt-4 text-lg font-semibold">{v.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-(--muted)">{v.body}</p>
-            </div>
-          ))}
-        </Container>
-      </section>
+      <EditorialHome spec={spec} brand={brand} category={ctx.query.category} showcase={showcase} />
     </StoreShell>
   );
 }

@@ -1,8 +1,20 @@
 import type { Metadata } from "next";
-import { Archivo } from "next/font/google";
+import localFont from "next/font/local";
 import "./store.css";
 
-const display = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-pace-display" });
+/** Satoshi (Fontshare), self-hosted. Weights 300–900. */
+const satoshi = localFont({
+  src: [
+    { path: "./fonts/Satoshi-Light.woff2", weight: "300", style: "normal" },
+    { path: "./fonts/Satoshi-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/Satoshi-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/Satoshi-Bold.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/Satoshi-Black.woff2", weight: "900", style: "normal" },
+  ],
+  variable: "--font-satoshi",
+  display: "swap",
+  fallback: ["Arial", "Helvetica Neue", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   title: { default: "PACE — Running shoes designed in London", template: "%s | PACE" },
@@ -14,5 +26,5 @@ export const metadata: Metadata = {
  * lives in <StoreShell>, which every store page renders with its resolved StoreContext.
  */
 export default function StoreLayout({ children }: LayoutProps<"/store">) {
-  return <div className={`${display.variable} flex min-h-full flex-1 flex-col`}>{children}</div>;
+  return <div className={`${satoshi.variable} flex min-h-full flex-1 flex-col`}>{children}</div>;
 }
