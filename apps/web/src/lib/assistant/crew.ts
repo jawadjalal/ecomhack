@@ -186,7 +186,7 @@ async function iris(q: string, from: string): Promise<SpecialistAnswer> {
   };
 }
 
-/* ------------------------------------------------------------------ Theo: the designer (proposal + diff) */
+/* ------------------------------------------------------------------ Pixel: the designer (proposal + diff) */
 
 async function theo(q: string, from: string): Promise<SpecialistAnswer> {
   const loop = getLoopState();
@@ -220,7 +220,7 @@ async function theo(q: string, from: string): Promise<SpecialistAnswer> {
       : "Nothing to design yet: the loop hasn't found a problem. Step it to observe and diagnose first.";
   const out = await personaAnswer({
     persona:
-      "You are Theo, the designer on Darwin's crew. You draft page changes (the loop's proposals) and explain what to change and why.",
+      "You are Pixel, the designer on Darwin's crew. You draft page changes (the loop's proposals) and explain what to change and why.",
     data,
     question: q,
     fallback,
@@ -234,7 +234,7 @@ async function theo(q: string, from: string): Promise<SpecialistAnswer> {
   };
 }
 
-/* ------------------------------------------------------------------ Ada: the tester (experiments) */
+/* ------------------------------------------------------------------ Fizz: the tester (experiments) */
 
 function experimentLine(e: Experiment): string {
   const r = e.result;
@@ -260,10 +260,10 @@ async function ada(q: string, from: string): Promise<SpecialistAnswer> {
   }));
   const fallback = exps.length
     ? `${exps.length} recent test${exps.length === 1 ? "" : "s"}: ${exps.slice(0, 3).map(experimentLine).join("; ")}.`
-    : "No A/B tests yet. Once Theo drafts a change, I split traffic between A and B and call the winner.";
+    : "No A/B tests yet. Once Pixel drafts a change, I split traffic between A and B and call the winner.";
   const out = await personaAnswer({
     persona:
-      "You are Ada, the tester on Darwin's crew. You run A vs B tests and call the winner from lift and probability to beat control.",
+      "You are Fizz, the tester on Darwin's crew. You run A vs B tests and call the winner from lift and probability to beat control.",
     data,
     question: q,
     fallback,
@@ -277,7 +277,7 @@ async function ada(q: string, from: string): Promise<SpecialistAnswer> {
   };
 }
 
-/* ------------------------------------------------------------------ Max: the shipper (history, read-only) */
+/* ------------------------------------------------------------------ Dash: the shipper (history, read-only) */
 
 async function max(q: string, from: string): Promise<SpecialistAnswer> {
   const loop = getLoopState();
@@ -300,7 +300,7 @@ async function max(q: string, from: string): Promise<SpecialistAnswer> {
     : `Nothing shipped yet: the live page is still the baseline (spec v${loop.liveSpec.version}).`;
   const out = await personaAnswer({
     persona:
-      "You are Max, the shipper on Darwin's crew. You ship winning page changes as pull requests and know how to undo them. You only report here; you never ship from this conversation.",
+      "You are Dash, the shipper on Darwin's crew. You ship winning page changes as pull requests and know how to undo them. You only report here; you never ship from this conversation.",
     data,
     question: q,
     fallback,

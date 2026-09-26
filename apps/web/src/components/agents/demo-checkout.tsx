@@ -20,7 +20,7 @@ export function DemoCheckout({ offer, refId, alreadyPaid = false }: { offer?: { 
     <main data-dw className="grid min-h-screen w-full place-items-center bg-dw-bg px-4 py-10 font-dw text-dw-ink">
       <div className="flex w-full max-w-[440px] flex-col gap-4">
         <Link href="/console/agents" className="flex items-center gap-2.5 self-start rounded-full text-[15px] font-semibold tracking-[-0.01em]">
-          <Mascot kind="analyst" size={30} frame active={false} />
+          <Mascot kind="leader" size={30} frame active={false} />
           darwin
         </Link>
 

@@ -111,7 +111,7 @@ export function rowLine(s: Shopper): string {
 /** Plain words for Darwin's notes: no "test B", and the list belongs to Iris. */
 export function plain(t: string): string {
   return t
-    .replace(/\bTest B fixes this step\b/g, "The new version in Ada’s test fixes this step")
+    .replace(/\bTest B fixes this step\b/g, "The new version in Fizz’s test fixes this step")
     .replace(/\bin test B\b/g, "on the new version")
     .replace(/\bA, the current store\b/g, "your current page")
     .replace(/Darwin’s list/g, "Iris’s list")
@@ -296,7 +296,7 @@ export function JourneyNotes({
             className="inline-flex max-w-full items-center gap-1.5 self-start truncate text-[12.5px] font-medium underline decoration-dw-ink/25 underline-offset-[3px] hover:decoration-dw-ink"
           >
             <span className="size-[7px] shrink-0 rounded-full bg-dw-hot" />
-            <span className="truncate">{link.label.replace(/^Test B · /, "Ada’s test · ")}</span>
+            <span className="truncate">{link.label.replace(/^Test B · /, "Fizz’s test · ")}</span>
           </Link>
         )}
       </div>
@@ -305,7 +305,7 @@ export function JourneyNotes({
         <div className="flex items-start gap-3 rounded-[20px] bg-dw-pink px-4 py-3">
           <Mascot kind="experimenter" size={30} frame active />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[14px] font-semibold">Saw the new version in Ada’s test</span>
+            <span className="text-[14px] font-semibold">Saw the new version in Fizz’s test</span>
             <span className="text-[13px] leading-snug text-[#5A2744]">{test?.experiment.name}</span>
           </div>
         </div>
@@ -313,7 +313,7 @@ export function JourneyNotes({
         <div className="flex items-start gap-3 rounded-[20px] border border-dw-ink/10 bg-dw-surface/70 px-4 py-3">
           <Mascot kind="experimenter" size={30} frame active={false} />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[14px] font-semibold">Saw your current page in Ada’s test</span>
+            <span className="text-[14px] font-semibold">Saw your current page in Fizz’s test</span>
             <span className="text-[13px] leading-snug text-dw-muted">{test?.experiment.name}</span>
           </div>
         </div>
@@ -325,7 +325,7 @@ export function JourneyNotes({
               {s.kind === "human" && /\b(ai|agents?)\b/i.test(seen.label) ? "Shopped on" : "Saw"} version {seen.generation}
             </span>
             <span className="text-[13px] leading-snug text-[#2F3515]">
-              {seen.label.replace(/^(gen|version)\s*\d+\s*[:·-]\s*/i, "")}. Max shipped it {timeAgo(seen.shippedAt, now) ? `${timeAgo(seen.shippedAt, now)} ago` : "just now"}.
+              {seen.label.replace(/^(gen|version)\s*\d+\s*[:·-]\s*/i, "")}. Dash shipped it {timeAgo(seen.shippedAt, now) ? `${timeAgo(seen.shippedAt, now)} ago` : "just now"}.
             </span>
           </div>
         </div>

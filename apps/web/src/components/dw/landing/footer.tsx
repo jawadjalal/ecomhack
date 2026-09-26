@@ -1,7 +1,7 @@
 /**
  * The footer (Wayari's, as Darwin's): a night sheet laid over the closing painting, its top corners
  * lapping it. The links in plain columns beside the name and one line of what Darwin is; then the
- * name as wide as the page, with the crew on its letters (Iris, Ada and Max sitting on theirs, Theo
+ * name as wide as the page, with the crew on its letters (Iris, Fizz and Dash sitting on theirs, Pixel
  * peeking from behind, Darwin as the dot of the i); then the base line. Every link goes somewhere that
  * answers. No signup form: there is no mailing list behind it yet.
  */
@@ -55,7 +55,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-[1320px] gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(260px,1fr)_minmax(0,2fr)] lg:gap-20">
         <div className="grid max-w-[360px] justify-items-start gap-4">
           <Link href="/" className="flex items-center gap-2.5 rounded-full text-[22px] font-semibold tracking-[-0.03em] text-white focus-visible:outline-2 focus-visible:outline-white">
-            <Mascot kind="analyst" size={28} active={false} />
+            <Mascot kind="leader" size={28} active={false} />
             darwin
           </Link>
           <p className="text-[15.5px] leading-relaxed text-white/65">A crew of agents that makes your store better, for people and for AI shoppers.</p>

@@ -26,7 +26,7 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 
 /**
  * The steps to buy, clickable. A step (or the drop into it) opens a drill-down in the card: people vs AI agents
- * who left there, what they did last, three recent journeys, and "Ask Theo to fix this" (saved as a draft only).
+ * who left there, what they did last, three recent journeys, and "Ask Pixel to fix this" (saved as a draft only).
  */
 export function FunnelSteps({ d, compact, site }: { d: DashboardData; compact?: boolean; site?: string }) {
   const steps = d.steps ?? [];
@@ -206,7 +206,7 @@ function DrillPanel({ site, dashboardId, step, stamp, onClose }: { site: string;
                 className="inline-flex h-10 items-center gap-2 rounded-full bg-dw-ink px-4 text-[14px] font-medium text-white transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-50"
               >
                 {drafting ? <LoaderCircle className="size-4 animate-spin" /> : <Mascot kind="designer" size={20} active={false} />}
-                Ask Theo to fix this
+                Ask Pixel to fix this
               </button>
               {draft && "name" in draft && (
                 <p className="flex items-center gap-1.5 text-[13.5px]" data-testid="draft-saved">

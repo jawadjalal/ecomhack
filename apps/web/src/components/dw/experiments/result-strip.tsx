@@ -23,8 +23,8 @@ function Stat({ label, children, tone }: { label: string; children: ReactNode; t
 }
 
 const DECISION: Record<Outcome, { label: string; className: string }> = {
-  running: { label: "Ada is testing", className: "bg-dw-pink text-dw-ink" },
-  shipped: { label: "Won, Max shipped it", className: "bg-dw-olive text-dw-ink" },
+  running: { label: "Fizz is testing", className: "bg-dw-pink text-dw-ink" },
+  shipped: { label: "Won, Dash shipped it", className: "bg-dw-olive text-dw-ink" },
   lost: { label: "The new version lost", className: "bg-dw-sand text-dw-ink/75" },
   unclear: { label: "No clear winner", className: "bg-dw-sand text-dw-ink/75" },
   stopped: { label: "Stopped", className: "bg-dw-sand text-dw-ink/75" },
@@ -32,7 +32,7 @@ const DECISION: Record<Outcome, { label: string; className: string }> = {
 
 /**
  * The verdict at the top of the detail column: the test's name, what happened, the chance the new
- * version is better against Ada's ship bar, and the numbers behind it. Everything here is the
+ * version is better against Fizz's ship bar, and the numbers behind it. Everything here is the
  * experiment's own result.
  */
 export function ResultStrip({
@@ -84,20 +84,20 @@ export function ResultStrip({
             <span className="num text-[28px] leading-none font-semibold tracking-[-0.03em] tabular-nums">{chance(p)}</span>
             <span className="text-[13px] text-dw-ink/75">chance the new version is better</span>
           </span>
-          <span className="text-[12.5px] text-dw-ink/65">Ada ships it once she&apos;s {shipPct(rules.ship)} sure</span>
+          <span className="text-[12.5px] text-dw-ink/65">Fizz ships it once it&apos;s {shipPct(rules.ship)} sure</span>
         </div>
         <Tip
           wide
           className="block w-full"
           tip={
             rules.early > rules.ship
-              ? `Ada ships the new version once she's ${shipPct(rules.ship)} sure on the final look (${shipPct(rules.early)} on earlier looks) and drops it under ${Math.round(rules.drop * 100)}%.`
-              : `Ada ships the new version once she's ${shipPct(rules.ship)} sure and drops it under ${Math.round(rules.drop * 100)}%.`
+              ? `Fizz ships the new version once it's ${shipPct(rules.ship)} sure on the final look (${shipPct(rules.early)} on earlier looks) and drops it under ${Math.round(rules.drop * 100)}%.`
+              : `Fizz ships the new version once it's ${shipPct(rules.ship)} sure and drops it under ${Math.round(rules.drop * 100)}%.`
           }
         >
           <span
             tabIndex={0}
-            aria-label={`Chance the new version is better: ${chance(p)}. Ada ships it at ${shipPct(rules.ship)}.`}
+            aria-label={`Chance the new version is better: ${chance(p)}. Fizz ships it at ${shipPct(rules.ship)}.`}
             className="relative block h-3 w-full rounded-full bg-dw-pink-shape outline-none focus-visible:ring-2 focus-visible:ring-dw-ink"
           >
             <span className="absolute inset-y-0 rounded-l-full border-r border-dashed border-dw-ink/35" style={{ left: 0, width: `${rules.drop * 100}%` }} aria-hidden />

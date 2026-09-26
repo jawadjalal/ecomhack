@@ -28,7 +28,7 @@ export function WhatChangesCard({ rows, source }: { rows: ChangeRow[]; source?: 
         {source && <span className="ml-auto text-[13px] text-dw-ink/55">{source}</span>}
       </div>
       {rows.length === 0 ? (
-        <p className="px-2 py-4 text-[14px] text-dw-ink/60">Theo didn&apos;t log the page settings for this test, so there&apos;s nothing to compare.</p>
+        <p className="px-2 py-4 text-[14px] text-dw-ink/60">Pixel didn&apos;t log the page settings for this test, so there&apos;s nothing to compare.</p>
       ) : (
         <div role="table" aria-label="Settings the new version changes">
           <div role="row" className="grid grid-cols-[1.5fr_1.2fr_0.7fr_1.5fr] px-3.5 pb-2 text-[13px] text-[#8A8478] max-md:hidden">

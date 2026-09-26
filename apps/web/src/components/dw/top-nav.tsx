@@ -24,7 +24,7 @@ export const NAV = [
 
 /** Each section is run by one agent of the crew; its mascot stands in for a step number. */
 const NAV_AGENT: Record<(typeof NAV)[number]["key"], MascotKind> = {
-  overview: "analyst",
+  overview: "leader",
   issues: "observer",
   fixes: "designer",
   experiments: "experimenter",
@@ -59,7 +59,7 @@ export function TopNav() {
   return (
     <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-2xl:gap-2.5 max-xl:grid-cols-[auto_1fr] max-xl:gap-y-3 max-sm:min-h-12 max-sm:gap-2">
       <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
-        <Mascot kind="analyst" size={34} active />
+        <Mascot kind="leader" size={34} active title="Darwin" />
         <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>
       </Link>
 
@@ -98,7 +98,7 @@ export function TopNav() {
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
           title={autopilot ? "Darwin's crew is improving the store on its own. Click to pause." : "Paused. Click to let Darwin's crew improve the store on its own."}
-          className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb] max-2xl:px-3.5 max-sm:h-9 max-sm:px-3"
+          className="flex h-11 items-center gap-2 rounded-full bg-dw-yellow px-4 text-[15px] whitespace-nowrap text-dw-ink transition-colors hover:bg-dw-yellow-shape max-2xl:px-3.5 max-sm:h-9 max-sm:px-3"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
           <span className="max-sm:text-[13.5px] max-sm:font-medium">

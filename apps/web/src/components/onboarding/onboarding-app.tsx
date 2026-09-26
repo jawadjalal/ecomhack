@@ -570,7 +570,7 @@ export function OnboardingApp() {
                   aria-label="Darwin console"
                   className="flex h-11 items-center gap-2 justify-self-start rounded-full bg-dw-bg pr-4 pl-1.5 focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
                 >
-                  <Mascot kind="analyst" size={32} active />
+                  <Mascot kind="leader" size={32} active />
                   <span className="text-[20px] font-semibold tracking-[-0.02em]">darwin</span>
                 </Link>
                 <Stepper
@@ -614,7 +614,7 @@ export function OnboardingApp() {
                     {/* phones: a slim bar on the painting */}
                     <div className="flex h-14 items-center justify-between sm:hidden">
                       <Link href="/" aria-label="Darwin home" className="flex items-center gap-2 rounded-full focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none">
-                        <Mascot kind="analyst" size={30} active />
+                        <Mascot kind="leader" size={30} active />
                         <span className="text-[20px] font-semibold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(20,20,19,0.35)]">darwin</span>
                       </Link>
                       {canStartOver && !welcome && <StartOver onConfirm={startOver} label="Start over" onPainting />}
@@ -706,7 +706,7 @@ export function OnboardingApp() {
                           animate={connected ? { y: [0, -12, 0, -4, 0], rotate: [0, -10, 6, 0, 0] } : undefined}
                           transition={{ duration: 0.8 }}
                         >
-                          <Mascot kind="analyst" frame size={44} active title="Darwin" />
+                          <Mascot kind="leader" frame size={44} active title="Darwin" />
                         </motion.span>
                         <PromptField
                           value={prompt}
@@ -950,7 +950,7 @@ export function OnboardingApp() {
                   <motion.section key="plan" {...fade} className="mx-auto flex w-full flex-col gap-4">
                     {/* A conversation with Darwin: the merchant's words, Darwin's steps one by one, then the plan as its reply. */}
                     <div className="flex items-center gap-3 pb-1">
-                      <Mascot kind="analyst" frame size={52} active={busy} title="Darwin" />
+                      <Mascot kind="leader" frame size={52} active={busy} title="Darwin" />
                       <div>
                         <div className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Darwin</div>
                         <div className="text-[13.5px] text-dw-ink/60">{plan ? "Here's what I'll record. Turn anything off, or tell me what else to track." : "Your store's analyst"}</div>
@@ -1082,7 +1082,7 @@ export function OnboardingApp() {
 
                 {restoring && !plan && (stage === "install" || stage === "live") && (
                   <motion.section key="restoring" {...fade} className="flex flex-col items-center gap-4 py-24 text-center">
-                    <Mascot kind="analyst" frame size={64} active />
+                    <Mascot kind="leader" frame size={64} active />
                     <p className="text-[17px] text-dw-ink/70">Picking up where you left off…</p>
                   </motion.section>
                 )}
@@ -1169,7 +1169,7 @@ function WelcomeBack({ host, site, onContinue, onAnother }: { host: string; site
       aria-label="Welcome back"
     >
       <div className="flex items-center gap-4">
-        <Mascot kind="analyst" frame size={52} active title="Darwin" />
+        <Mascot kind="leader" frame size={52} active title="Darwin" />
         <div className="min-w-0">
           <h2 className="text-[24px] leading-tight font-semibold tracking-[-0.02em]">Welcome back</h2>
           <p className="mt-0.5 text-[15px] leading-snug text-dw-ink/65">
@@ -1274,7 +1274,7 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => v
         }}
         className="dw-bevel flex items-center gap-2 rounded-full py-1.5 pr-1.5 pl-2 max-sm:bg-dw-ink max-sm:bg-none max-sm:shadow-none"
       >
-        <Mascot kind="analyst" size={30} active={busy} />
+        <Mascot kind="leader" size={30} active={busy} />
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}

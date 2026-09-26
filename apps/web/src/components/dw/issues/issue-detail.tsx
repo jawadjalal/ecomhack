@@ -27,21 +27,21 @@ function fixCopy(
 ) {
   if (row.status === "test" && fix) {
     return {
-      text: `${fix.title}. Ada is testing the new version against your current page right now.`,
+      text: `${fix.title}. Fizz is testing the new version against your current page right now.`,
       cta: "See the test",
       href: "/console/experiments",
     };
   }
   if (row.status === "drafted" && fix) {
     return {
-      text: `${fix.title}. Theo drafted it. Ada starts an A vs B test next: half your shoppers see the new version.`,
+      text: `${fix.title}. Pixel drafted it. Fizz starts an A vs B test next: half your shoppers see the new version.`,
       cta: "See the fix",
       href: `/console/fixes?id=${encodeURIComponent(fix.id)}`,
     };
   }
   if (past && (past.status === "rejected" || past.status === "shelved")) {
     return {
-      text: `Theo tried “${past.title}” and it ${past.status === "rejected" ? "lost its test" : "made no clear difference"}. His next idea will be a different one.`,
+      text: `Pixel tried “${past.title}” and it ${past.status === "rejected" ? "lost its test" : "made no clear difference"}. Pixel's next idea will be a different one.`,
       cta: "See that fix",
       href: `/console/fixes?id=${encodeURIComponent(past.id)}`,
     };
@@ -49,8 +49,8 @@ function fixCopy(
   return {
     text:
       rest.n === 1
-        ? "No fix yet. This is the biggest one, so Theo will likely take it on next."
-        : "No fix yet. Ada runs one test at a time, so Theo starts with the biggest issues.",
+        ? "No fix yet. This is the biggest one, so Pixel will likely take it on next."
+        : "No fix yet. Fizz runs one test at a time, so Pixel starts with the biggest issues.",
     cta: "See all fixes",
     href: "/console/fixes",
   };
@@ -251,7 +251,7 @@ function DetailBody({
               frame
               active={row.status !== "queued"}
             />
-            <span className="text-[14px] font-semibold">Theo&apos;s fix</span>
+            <span className="text-[14px] font-semibold">Pixel&apos;s fix</span>
             {row.status === "test" && (
               <span className="inline-flex items-center gap-1.5 text-[12px] text-dw-ink/60">
                 <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" />{" "}
@@ -278,7 +278,7 @@ function DetailBody({
           </p>
           {row.status === "queued" && nowTesting && (
             <p className="rounded-2xl bg-dw-bg px-3.5 py-2.5 text-[13px] leading-snug text-dw-ink/75">
-              {nowTesting.drafted ? "Theo just drafted" : "Ada is testing"}:{" "}
+              {nowTesting.drafted ? "Pixel just drafted" : "Fizz is testing"}:{" "}
               <span className="font-semibold text-dw-ink">
                 {nowTesting.title}
               </span>

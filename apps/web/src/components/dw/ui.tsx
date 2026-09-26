@@ -170,9 +170,11 @@ export function Segmented<T extends string>({ value, options, onChange, classNam
   );
 }
 
-type ButtonTone = "ink" | "sand" | "white" | "ghost";
+/** `yellow` is Darwin's own colour: his actions (let Darwin run, autopilot) use it. */
+type ButtonTone = "ink" | "yellow" | "sand" | "white" | "ghost";
 const BUTTON: Record<ButtonTone, string> = {
   ink: "bg-dw-ink text-white hover:bg-black",
+  yellow: "bg-dw-yellow text-dw-ink hover:bg-dw-yellow-shape",
   sand: "bg-dw-sand text-dw-ink hover:bg-[#e4dccb]",
   white: "bg-white text-dw-ink shadow-[0_1px_0_rgba(20,20,19,0.06)] hover:bg-[#fffaf0]",
   ghost: "text-dw-ink/70 hover:text-dw-ink hover:bg-dw-sand",

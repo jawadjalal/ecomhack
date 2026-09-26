@@ -138,7 +138,7 @@ function Waiting({ kind, note }: { kind: DashboardKind; note?: string }) {
       <Mascot kind={look.shape} size={44} frame active />
       <p className="flex items-center gap-2 text-[14px] text-dw-ink/70">
         <LiveDot />
-        {note ?? (kind === "experiments" ? "No tests yet. Ada starts them once visitors arrive." : "Listening for the first events…")}
+        {note ?? (kind === "experiments" ? "No tests yet. Fizz starts them once visitors arrive." : "Listening for the first events…")}
       </p>
     </div>
   );

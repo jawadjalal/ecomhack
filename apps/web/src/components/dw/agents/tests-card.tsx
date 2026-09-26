@@ -79,7 +79,8 @@ export function TestsCard({
             Tests on Mika&apos;s pitch
           </CardTitle>
           <p className="mt-1.5 max-w-[46rem] text-[14px] leading-snug text-dw-ink/75">
-            Ada changes one thing about how Mika pitches at a time. She keeps it only if more chats end in a payment. The pitch today: <b className="font-semibold text-dw-ink">{pitch}</b>.
+            Fizz changes one thing about how Mika pitches at a time, and keeps it only if more chats end in a payment. The pitch today:{" "}
+            <b className="font-semibold text-dw-ink">{pitch}</b>.
           </p>
         </div>
         <div className="grid w-full gap-2 sm:grid-cols-2 xl:w-[42rem]">
@@ -145,7 +146,7 @@ export function TestsCard({
           {!!s?.log.length && (
             <div className="rounded-[22px] bg-white/55 p-4">
               <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[14px] font-semibold">What Ada decided</span>
+                <span className="text-[14px] font-semibold">What Fizz decided</span>
                 <span className="font-dwmono text-[12px] text-dw-ink/55">{s.log.length} notes</span>
               </div>
               <ol className="flex max-h-40 flex-col gap-0.5 overflow-y-auto pr-1">
@@ -171,7 +172,7 @@ export function TestsCard({
             </div>
           )}
           <div className="rounded-[22px] bg-white/45 p-4">
-            <div className="text-[14px] font-semibold">How Ada calls a test</div>
+            <div className="text-[14px] font-semibold">How Fizz calls a test</div>
             <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
               {RULES.map((r) => (
                 <div key={r.label}>
@@ -215,9 +216,9 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
   if (!label) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[22px] bg-white/55 px-5 py-8 text-center">
-        <Mascot kind="experimenter" size={52} frame active={autopilot} title="Ada, the tester" />
+        <Mascot kind="experimenter" size={52} frame active={autopilot} title="Fizz, the tester" />
         <p className="max-w-[22rem] text-[14px] text-dw-ink/70">
-          {autopilot ? "Ada starts the next test as soon as buyer agents arrive." : "No test running. Turn on Autopilot, or press Test it on a lever to start one."}
+          {autopilot ? "Fizz starts the next test as soon as buyer agents arrive." : "No test running. Turn on Autopilot, or press Test it on a lever to start one."}
         </p>
       </div>
     );
