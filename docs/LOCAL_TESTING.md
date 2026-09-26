@@ -21,7 +21,11 @@ ever called. The LLM code paths are covered by tests with a **mocked model** (`s
 - **Simulator:** calibration of human and agent conversion.
 - **GitHub PRs in dry-run mode:** title, body and diff are generated and nothing is sent. They also fall back to a
   preview when GitHub rejects the token.
-- **CI:** 286 unit tests, typecheck, lint and `next build`.
+- **End-to-end QA sweep** (`apps/web/scripts/qa-sweep.mjs`, about 10 minutes): 54 store configurations × 4 pages at
+  1440/390/320 px, real UI checkout in all 12 checkout variants, sticky experiment arms, odd input to the agent APIs,
+  and the console under API failures. Last run: 792 checks, 0 failures. Rerun it after big changes:
+  `npm run build && npx next start -p 3300 & node scripts/qa-sweep.mjs --base http://localhost:3300`.
+- **CI:** 304 unit tests, typecheck, lint and `next build`.
 
 ## Setup
 
