@@ -2,7 +2,7 @@
  * A buyer agent that shops by talking to the merchant agent over A2A (in process, same path as
  * POST /api/a2a). Used by the console's "send a shopper → Chat (A2A)" button.
  *
- * The first message is always the principal's brief. After that, an LLM (Grok / Claude / OpenRouter)
+ * The first message is always the principal's brief. After that, an LLM (OpenRouter / Grok / Claude)
  * writes each reply when one is configured, so two AI agents negotiate in plain English. Without one,
  * or if the model fails mid-conversation, a scripted policy takes over. Either way the buyer walks
  * away when the merchant can't confirm what the brief needs (delivery by a date, free returns), so

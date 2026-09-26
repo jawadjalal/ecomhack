@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import type { AnalyticsEvent, AnalyticsEventsResponse } from "@/lib/contracts";
 import { useApi } from "@/lib/console/hooks";
+import { useLiveInterval } from "@/lib/console/live";
 
 const OPTS = { keepPreviousData: true, revalidateOnFocus: false, dedupingInterval: 500, errorRetryInterval: 5000 } as const;
 
@@ -13,6 +14,7 @@ const OPTS = { keepPreviousData: true, revalidateOnFocus: false, dedupingInterva
  */
 export function usePeopleEvents(): AnalyticsEvent[] | undefined {
   const api = useApi();
+  const refreshInterval = useLiveInterval(5000);
   const { data } = useSWR(
     [api.mode, "overview-people"],
     async () => {
@@ -26,7 +28,7 @@ export function usePeopleEvents(): AnalyticsEvent[] | undefined {
       }
       return (await api.getEvents(undefined, 1000)).events;
     },
-    { ...OPTS, refreshInterval: 3000 },
+    { ...OPTS, refreshInterval },
   );
   return data;
 }
@@ -50,4 +52,31 @@ export function useFirstName(): string | undefined {
   if (!name) return undefined;
   const first = name.split(/\s+/)[0];
   return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+/** One row of the store agent's "Just now" feed (same public route as the Agents screen's sales card). */
+export interface StoreAgentSale {
+  at: string;
+  agent: string;
+  ref: string;
+  step: string;
+  title?: string;
+  price?: number;
+}
+
+/** The store agent's latest checkout links and payments (live mode only; the mock engine has none). */
+export function useStoreAgentSales(): StoreAgentSale[] | undefined {
+  const api = useApi();
+  const refreshInterval = useLiveInterval(10_000);
+  const { data } = useSWR(
+    api.mode === "mock" ? null : "overview-store-agent-sales",
+    async () => {
+      const res = await fetch("/api/store-agent/stats", { cache: "no-store" });
+      if (!res.ok) return [];
+      const body = (await res.json()) as { funnel?: { recent?: StoreAgentSale[] } };
+      return body.funnel?.recent ?? [];
+    },
+    { ...OPTS, refreshInterval },
+  );
+  return data;
 }

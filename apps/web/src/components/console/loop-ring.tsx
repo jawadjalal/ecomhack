@@ -174,7 +174,6 @@ export function LoopRing({
               <Mascot
                 kind={role}
                 size={36}
-                interactive={false}
                 state={!autopilot && !pending ? "sleeping" : state === "current" ? moodForPhase(p) : isNext ? "thinking" : "idle"}
               />
             </span>

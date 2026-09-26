@@ -1220,6 +1220,15 @@ export class MockEngine {
 
   /* ---------------------------------------------------------------- public API (mirrors HTTP) */
 
+  /**
+   * Run the loop instantly (no latency) until it has shipped `generations` versions and has the next test running,
+   * so the console's sample data opens on a store with issues, fixes, a live test and shipped changes.
+   */
+  warmUp(generations = 3): this {
+    for (let i = 0; i < 300 && !(this.generation >= generations && this.phase === "experiment"); i++) this.doStep();
+    return this;
+  }
+
   async getLoop(): Promise<LoopState> {
     await this.wait(20);
     return this.snapshot();
@@ -1509,4 +1518,12 @@ let engine: MockEngine | undefined;
 export function mockEngine(): MockEngine {
   engine ??= new MockEngine();
   return engine;
+}
+
+let sample: MockEngine | undefined;
+
+/** The console's sample data (one per tab): the same engine, already a few versions in, labelled "demo data". */
+export function sampleEngine(): MockEngine {
+  sample ??= new MockEngine().warmUp(3);
+  return sample;
 }

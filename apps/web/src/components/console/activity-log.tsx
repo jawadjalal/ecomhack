@@ -6,18 +6,19 @@ import { MessagesSquare } from "lucide-react";
 import type { LoopLogEntry } from "@/lib/contracts";
 import { timeAgo } from "@/lib/console/format";
 import { useNow } from "@/lib/console/hooks";
-import { activityMascotState, mascotForActor } from "@/lib/mascot/state";
+import { activityMascotState } from "@/lib/mascot/state";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { cn } from "@/components/ui/cn";
-import { Mascot } from "./mascot";
+import { Mascot, type MascotKind } from "./mascot";
 
-export const ACTORS: Record<LoopLogEntry["actor"], { name: string }> = {
-  observer: { name: "Observer" },
-  analyst: { name: "Analyst" },
-  designer: { name: "Designer" },
-  experimenter: { name: "Experimenter" },
-  shipper: { name: "Shipper" },
-  system: { name: "Darwin" },
+/** Who speaks each log line, and the crew mascot that stands for them (its pose follows the line). */
+export const ACTORS: Record<LoopLogEntry["actor"], { name: string; mascot: MascotKind }> = {
+  observer: { name: "Iris", mascot: "observer" },
+  analyst: { name: "Darwin", mascot: "leader" },
+  designer: { name: "Pixel", mascot: "designer" },
+  experimenter: { name: "Fizz", mascot: "experimenter" },
+  shipper: { name: "Dash", mascot: "shipper" },
+  system: { name: "Darwin", mascot: "leader" },
 };
 
 /** Highlight numbers and percentages in a log message. */
@@ -74,7 +75,8 @@ export function ActivityLog({ log, autopilot = true, stepping = false }: { log: 
             const a = ACTORS[e.actor] ?? ACTORS.system;
             const prev = entries[i - 1];
             const grouped = prev && prev.actor === e.actor;
-            const pose = activityMascotState(e, { isLatest: i === entries.length - 1, now, autopilot, stepping });
+            const isLatest = i === entries.length - 1;
+            const pose = activityMascotState(e, { isLatest, now, autopilot, stepping });
             return (
               <motion.li
                 key={`${log.length - entries.length + i}-${e.at}`}
@@ -83,8 +85,8 @@ export function ActivityLog({ log, autopilot = true, stepping = false }: { log: 
                 transition={{ type: "spring", stiffness: 300, damping: 26 }}
                 className={cn("flex gap-2.5", grouped && "-mt-1")}
               >
-                <span className={cn("flex size-8 shrink-0 items-center justify-center", grouped && "opacity-0")}>
-                  <Mascot kind={mascotForActor(e.actor)} size={32} state={pose} />
+                <span className={cn("flex size-8 shrink-0 items-center justify-center", grouped && !isLatest && "opacity-0")}>
+                  <Mascot kind={a.mascot} size={32} state={pose} label={a.name} />
                 </span>
                 <div className="min-w-0 flex-1">
                   {!grouped && (

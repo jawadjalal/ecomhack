@@ -12,10 +12,10 @@ import type { AgentSessionSummary, Experiment, LoopPhase } from "@/lib/contracts
 import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { moodForPhase } from "@/lib/mascot/state";
-import { DarwinLogo, Mascot } from "@/components/dw/mascot";
+import { Mascot } from "@/components/dw/mascot";
 import { AgentTile, agentBrand, type AgentBrand } from "@/components/dw/agent-tile";
-import { ArmChip, Card, HBar, LegendKey, LiveDot, PillBar, PlainSurface, Typing } from "@/components/dw/ui";
-import { useLiveDemo, type LiveDemo } from "./use-live-demo";
+import { ArmChip, Card, HBar, LegendKey, LiveDot, PillBar, Typing } from "@/components/dw/ui";
+import type { LiveDemo } from "./use-live-demo";
 
 const pct = (x: number, d = 1) => `${(x * 100).toFixed(d)}%`;
 
@@ -48,9 +48,8 @@ function useBox<T extends HTMLElement>() {
  * The tilted, floating dashboard. `fit="both"` scales to the container's width and height (desktop:
  * it fills whatever the hero leaves); `fit="width"` scales to width and sets its own height (phones).
  */
-export function LiveDashboard({ className, embed = false }: { className?: string; embed?: boolean }) {
+export function LiveDashboard({ demo, className }: { demo: LiveDemo; className?: string }) {
   const reduce = useReducedMotion() ?? false;
-  const demo = useLiveDemo({ slow: reduce });
   const [ref, box] = useBox<HTMLDivElement>();
   const compact = box.w > 0 && box.w < 720;
   const W = compact ? 560 : 1200;
@@ -69,14 +68,14 @@ export function LiveDashboard({ className, embed = false }: { className?: string
             aria-hidden
             className="relative h-full w-full"
             style={{ transformStyle: "preserve-3d", transformOrigin: "50% 0%" }}
-            initial={reduce || embed ? { rotateX: 0 } : { rotateX: 24, y: 40, opacity: 0 }}
+            initial={reduce ? { rotateX: compact ? 8 : 16 } : { rotateX: 24, y: 40, opacity: 0 }}
             animate={
-              reduce || embed
-                ? { rotateX: 0, y: 0, opacity: 1 }
+              reduce
+                ? { rotateX: compact ? 8 : 16 }
                 : { rotateX: compact ? [8, 6, 8] : [16, 13.5, 16], rotateY: compact ? 0 : [-1.2, 1.2, -1.2], y: 0, opacity: 1 }
             }
             transition={
-              reduce || embed
+              reduce
                 ? { duration: 0 }
                 : {
                     opacity: { duration: 0.8, ease: [0.2, 0.8, 0.2, 1] },
@@ -86,7 +85,7 @@ export function LiveDashboard({ className, embed = false }: { className?: string
                   }
             }
           >
-            <Frame demo={demo} compact={compact} embed={embed} />
+            <Frame demo={demo} compact={compact} />
           </motion.div>
         </div>
       )}
@@ -96,52 +95,44 @@ export function LiveDashboard({ className, embed = false }: { className?: string
 
 /* ------------------------------------------------------------------ frame */
 
-function Frame({ demo, compact, embed }: { demo: LiveDemo; compact: boolean; embed?: boolean }) {
+function Frame({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
   return (
     <div
-      className={cn("relative flex h-full w-full flex-col bg-dw-bg p-5", embed ? "rounded-none shadow-none" : "rounded-[30px] border border-white/80")}
-      style={
-        embed
-          ? { transformStyle: "preserve-3d" }
-          : {
-              transformStyle: "preserve-3d",
-              boxShadow: "0 60px 120px -40px rgba(20,20,19,0.35), 0 30px 60px -30px rgba(20,20,19,0.25), inset 0 1px 0 rgba(255,255,255,0.9)",
-            }
-      }
+      className="relative flex h-full w-full flex-col rounded-[30px] border border-white/80 bg-dw-bg p-5"
+      style={{
+        transformStyle: "preserve-3d",
+        boxShadow: "0 60px 120px -40px rgba(20,20,19,0.35), 0 30px 60px -30px rgba(20,20,19,0.25), inset 0 1px 0 rgba(255,255,255,0.9)",
+      }}
     >
       <MiniNav demo={demo} compact={compact} />
-      <PlainSurface>
-        {compact ? (
-          <div className="mt-4 flex flex-col gap-4">
-            <ConversionCard demo={demo} compact />
-            <AvsBCard demo={demo} compact />
+      {compact ? (
+        <div className="mt-4 flex flex-col gap-3">
+          <ConversionCard demo={demo} compact />
+          <AvsBCard demo={demo} compact />
+        </div>
+      ) : (
+        <div className="mt-4 grid flex-1 grid-cols-[1.7fr_1fr] grid-rows-[268px_1fr] gap-3">
+          <ConversionCard demo={demo} />
+          <AvsBCard demo={demo} />
+          <div className="col-span-2 grid grid-cols-[1fr_1.7fr] gap-3">
+            <AgentsCard demo={demo} />
+            <ShoppersCard sessions={demo.sessions} />
           </div>
-        ) : (
-          <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
-            <ConversionCard demo={demo} />
-            <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] gap-5 border-t border-dw-ink/10 pt-4">
-              <AvsBCard demo={demo} />
-              <div className="grid min-h-0 grid-rows-2 gap-4">
-                <AgentsCard demo={demo} />
-                <ShoppersCard sessions={demo.sessions} />
-              </div>
-            </div>
-          </div>
-        )}
-      </PlainSurface>
+        </div>
+      )}
 
       {/* a floating layer: the newest AI shopper, lifted off the page */}
-      <FloatingShopper session={demo.sessions[0]} compact={compact} embed={embed} />
+      <FloatingShopper session={demo.sessions[0]} compact={compact} />
     </div>
   );
 }
 
 function MiniNav({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
-  const steps = ["Overview", "Issues", "Fixes", "Experiments", "Pull requests"];
+  const steps = ["Overview", "Issues", "Fixes", "Experiments", "Changes"];
   return (
     <div className="flex h-11 items-center justify-between gap-3">
       <span className="flex items-center gap-2">
-        <DarwinLogo size={26} />
+        <Mascot kind="leader" size={26} active={false} />
         <span className="text-[18px] font-semibold tracking-[-0.02em]">darwin</span>
       </span>
       {!compact && (
@@ -157,7 +148,7 @@ function MiniNav({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
       <span className="flex h-9 items-center gap-2 rounded-full bg-dw-sand px-3.5 text-[12.5px] font-medium">
         <LiveDot />
         Live demo · simulated
-        {demo.generation > 0 && <span className="text-dw-ink/55">· Gen {demo.generation} live</span>}
+        {demo.generation > 0 && <span className="text-dw-ink/55">· version {demo.generation} live</span>}
       </span>
     </div>
   );
@@ -179,12 +170,12 @@ function smooth(pts: [number, number][]): string {
 
 const SLOTS = 12;
 
-function ConversionCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
+function ConversionCard({ demo, compact, width, height, className }: { demo: LiveDemo; compact?: boolean; width?: number; height?: number; className?: string }) {
   const o = demo.summary?.overall;
   const agents = demo.summary?.byKind.agent;
   const samples = demo.samples;
-  const CW = compact ? 470 : 660;
-  const CH = compact ? 96 : 118;
+  const CW = width ?? (compact ? 470 : 660);
+  const CH = height ?? (compact ? 96 : 118);
   const slotW = CW / SLOTS;
   const offset = SLOTS - samples.length;
   const maxV = Math.max(1, ...samples.map((s) => s.visitors));
@@ -199,11 +190,11 @@ function ConversionCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }
   const lastRate = samples.at(-1)?.rate;
 
   return (
-    <Card tone="yellow" shape="designer" corner="tr" className="flex flex-col p-5">
+    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col p-5", className)}>
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[19px] font-semibold tracking-[-0.02em]">Conversion</h3>
+        <h3 className="text-[19px] font-semibold tracking-[-0.02em]">Who buys</h3>
         <span className="flex items-center gap-3">
-          <LegendKey>Converts</LegendKey>
+          <LegendKey>% who buy</LegendKey>
           <span className="inline-flex items-center gap-1.5 text-[12px] text-dw-ink/75">
             <span className="size-2.5 rounded-[3px] bg-dw-yellow-shape" />
             Shoppers
@@ -211,10 +202,10 @@ function ConversionCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }
         </span>
       </div>
       <div className="mt-2 flex gap-7">
-        <MiniStat value={o?.conversionRate} format={(v) => pct(v)} label="converts" active />
+        <MiniStat value={o?.conversionRate} format={(v) => pct(v)} label="buy" active />
         <MiniStat value={o?.visitors} format={(v) => Math.round(v).toLocaleString("en-GB")} label="shoppers" />
         <MiniStat value={o?.orders} format={(v) => Math.round(v).toLocaleString("en-GB")} label="bought" />
-        {!compact && <MiniStat value={agents?.conversionRate} format={(v) => pct(v, 0)} label="agents convert" />}
+        {!compact && <MiniStat value={agents?.conversionRate} format={(v) => pct(v, 0)} label="agents buy" />}
       </div>
       <div className="relative mt-auto" style={{ height: CH, width: CW }}>
         {/* shopper columns */}
@@ -285,7 +276,7 @@ function MiniStat({ value, format, label, active }: { value?: number; format: (v
   );
 }
 
-function AvsBCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
+function AvsBCard({ demo, compact, className }: { demo: LiveDemo; compact?: boolean; className?: string }) {
   const exp: Experiment | undefined = demo.experiment;
   const r = exp?.result;
   const a = r?.control.conversionRate ?? 0;
@@ -297,19 +288,14 @@ function AvsBCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
   const agentB = r?.treatment.byKind.agent.conversionRate;
 
   return (
-    <Card tone="pink" shape="experimenter" corner="br" className="flex flex-col p-5">
+    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col p-5", className)}>
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-[19px] font-semibold tracking-[-0.02em]">A vs B</h3>
         {exp && <span className="min-w-0 truncate text-[12px] underline decoration-dw-ink/40 underline-offset-4">{exp.name}</span>}
       </div>
       {!r ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
-          <Mascot
-            kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "analyst" : demo.phase === "experiment" || demo.phase === "decide" ? "experimenter" : demo.phase === "ship" ? "shipper" : "observer"}
-            size={52}
-            frame
-            state={moodForPhase(demo.phase)}
-          />
+          <Mascot kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "leader" : "observer"} size={52} frame state={moodForPhase(demo.phase)} />
           <span className="flex items-center gap-2 text-[14px] font-medium">
             {PHASE_LINE[demo.phase]} <Typing />
           </span>
@@ -487,16 +473,14 @@ function Row({ s }: { s: AgentSessionSummary }) {
   );
 }
 
-function FloatingShopper({ session, compact, embed }: { session?: AgentSessionSummary; compact: boolean; embed?: boolean }) {
+function FloatingShopper({ session, compact }: { session?: AgentSessionSummary; compact: boolean }) {
   return (
     <div
       className="absolute"
       style={
         compact
           ? { left: 36, right: 36, bottom: 18, transform: "translateZ(70px)" }
-          : embed
-            ? { right: 28, bottom: 20, width: 420, transform: "translateZ(44px)" }
-            : { left: 452, right: 38, top: 418, transform: "translateZ(44px)" }
+          : { left: 452, right: 38, top: 418, transform: "translateZ(44px)" }
       }
     >
       <AnimatePresence mode="popLayout" initial={false}>
@@ -529,3 +513,101 @@ function Outcome({ s }: { s: AgentSessionSummary }): ReactNode {
   );
 }
 
+/* ------------------------------------------------------------------ phones */
+
+const STRIP = ["Who buys", "A vs B", "Live shoppers"] as const;
+
+/**
+ * Phones: the same live demo as a swipeable strip of three cards (Conversion, A vs B, the latest AI
+ * shoppers) with page dots. Flat on the cream page: no frame, no tilt.
+ */
+export function LiveStrip({ demo, className }: { demo: LiveDemo; className?: string }) {
+  const reduce = useReducedMotion() ?? false;
+  const scroller = useRef<HTMLDivElement>(null);
+  const [card, box] = useBox<HTMLDivElement>();
+  const [idx, setIdx] = useState(0);
+  const step = box.w + 12;
+  const go = (i: number) => scroller.current?.scrollTo({ left: i * step, behavior: reduce ? "auto" : "smooth" });
+
+  return (
+    <section aria-label="Live demo of the Darwin dashboard, with simulated shoppers" className={cn("w-full", className)}>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-[13.5px] font-medium">
+          <LiveDot /> Live demo <span className="text-dw-ink/55">· simulated shoppers</span>
+        </span>
+        <span className="num font-dwmono text-[12px] text-dw-ink/55" aria-hidden>
+          {idx + 1}/{STRIP.length}
+        </span>
+      </div>
+      <div
+        ref={scroller}
+        onScroll={(e) => step > 12 && setIdx(Math.max(0, Math.min(STRIP.length - 1, Math.round(e.currentTarget.scrollLeft / step))))}
+        className="-mx-4 mt-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto overscroll-x-contain px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div ref={card} className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
+          <ConversionCard demo={demo} compact width={Math.max(160, box.w - 40)} height={132} className="h-full" />
+        </div>
+        <div className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
+          <AvsBCard demo={demo} compact className="h-full" />
+        </div>
+        <div className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
+          <StripShoppers sessions={demo.sessions} />
+        </div>
+      </div>
+      <div className="mt-3.5 flex items-center justify-center gap-1" role="group" aria-label="Demo cards">
+        {STRIP.map((name, i) => (
+          <button
+            key={name}
+            type="button"
+            aria-label={`Show ${name}`}
+            aria-current={i === idx ? "true" : undefined}
+            onClick={() => go(i)}
+            className="grid h-6 place-items-center px-1 focus-visible:outline-2 focus-visible:outline-dw-ink"
+          >
+            <span className={cn("block h-1.5 rounded-full transition-all duration-300", i === idx ? "w-5 bg-dw-ink" : "w-1.5 bg-dw-ink/25")} />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StripShoppers({ sessions }: { sessions: AgentSessionSummary[] }) {
+  return (
+    <Card tone="blue" shape="observer" corner="br" className="flex h-full flex-col p-5">
+      <div className="flex items-baseline justify-between">
+        <h3 className="flex items-center gap-2 text-[19px] font-semibold tracking-[-0.02em]">
+          Live shoppers <LiveDot />
+        </h3>
+        <span className="text-[11.5px] text-dw-ink/70">AI agents, simulated</span>
+      </div>
+      <ul className="mt-3 flex flex-col gap-2">
+        <AnimatePresence initial={false}>
+          {sessions.slice(0, 3).map((s) => (
+            <motion.li
+              key={s.sessionId}
+              layout
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              className="flex h-[62px] items-center gap-3 rounded-[18px] bg-white/60 px-3"
+            >
+              <ShopperMark name={s.agentName} size={38} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[13.5px] font-semibold">{s.agentName}</span>
+                <span className="truncate text-[12px] text-dw-ink/70">{statusLine(s)}</span>
+              </span>
+              <Outcome s={s} />
+            </motion.li>
+          ))}
+        </AnimatePresence>
+        {!sessions.length && (
+          <li className="flex items-center gap-2 py-2 text-[13px] text-dw-ink/65">
+            Waiting for the first AI shoppers <Typing />
+          </li>
+        )}
+      </ul>
+    </Card>
+  );
+}

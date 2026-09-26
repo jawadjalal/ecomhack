@@ -185,9 +185,11 @@ export function Segmented<T extends string>({ value, options, onChange, classNam
   );
 }
 
-type ButtonTone = "ink" | "sand" | "white" | "ghost";
+/** `yellow` is Darwin's own colour: his actions (let Darwin run, autopilot) use it. */
+type ButtonTone = "ink" | "yellow" | "sand" | "white" | "ghost";
 const BUTTON: Record<ButtonTone, string> = {
   ink: "bg-dw-ink text-white hover:bg-black",
+  yellow: "bg-dw-yellow text-dw-ink hover:bg-dw-yellow-shape",
   sand: "bg-dw-sand text-dw-ink hover:bg-[#e4dccb]",
   white: "bg-white text-dw-ink shadow-[0_1px_0_rgba(20,20,19,0.06)] hover:bg-[#fffaf0]",
   ghost: "text-dw-ink/70 hover:text-dw-ink hover:bg-dw-sand",
@@ -299,3 +301,76 @@ export function humanDuration(ms: number): string {
 export const pct1 = (x: number | undefined | null) => (x === undefined || x === null || !Number.isFinite(x) ? "–" : `${(x * 100).toFixed(x < 0.1 ? 1 : x < 1 ? 1 : 0)}%`);
 export const pct0 = (x: number | undefined | null) => (x === undefined || x === null || !Number.isFinite(x) ? "–" : `${Math.round(x * 100)}%`);
 export const signed0 = (x: number | undefined | null) => (x === undefined || x === null || !Number.isFinite(x) ? "–" : `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))}%`);
+
+/* ------------------------------------------------------------------ loop-page frame (brief v2) */
+
+/**
+ * Depth without gradients or glows: a crisp top highlight plus a soft contact shadow.
+ * Use on cards (`DEPTH`) and on small raised chips inside them (`DEPTH_SM`).
+ */
+export const DEPTH = "shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_1px_2px_rgba(20,20,19,0.06),0_14px_30px_-20px_rgba(20,20,19,0.35)]";
+export const DEPTH_SM = "shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(20,20,19,0.08),0_6px_14px_-10px_rgba(20,20,19,0.3)]";
+
+/** The loop pages' two columns: list on the left, detail on the right. Same widths and gap on every page. */
+export const LOOP_SPLIT = "grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]";
+
+/** One number in the summary strip. Pastel fill carries meaning (yellow money, pink tests, blue agents, olive wins, lilac crew). */
+export interface SummaryItem {
+  key: string;
+  tone: Tone;
+  value: ReactNode;
+  label: ReactNode;
+  /** A silhouette, mascot or brand tiles shown on the right. */
+  art?: ReactNode;
+  href?: string;
+  onClick?: () => void;
+  onHover?: (on: boolean) => void;
+  /** Accessible name when the tile is a link or button. */
+  ariaLabel?: string;
+  title?: string;
+}
+
+/** The slim summary strip under PageHead: one row of 3 or 4 numbers, the same height on every loop page. */
+export function SummaryStrip({ items, className }: { items: SummaryItem[]; className?: string }) {
+  return (
+    <div className={cn("grid grid-cols-2 gap-3 sm:gap-4", items.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4", className)}>
+      {items.map((it) => {
+        const cls = cn(
+          "relative isolate flex h-[92px] min-w-0 items-center gap-3 overflow-hidden rounded-[22px] px-4 text-left text-dw-ink outline-none sm:h-[100px] sm:px-[22px]",
+          DEPTH,
+          (it.href || it.onClick) && "dw-card focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:ring-offset-dw-bg",
+        );
+        const body = (
+          <>
+            <span className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="num truncate text-[26px] leading-none font-semibold tracking-[-0.02em] sm:text-[30px]">{it.value}</span>
+              <span className="line-clamp-2 text-[12.5px] leading-snug text-dw-ink/70">{it.label}</span>
+            </span>
+            {it.art && <span className="relative hidden shrink-0 items-center sm:flex" aria-hidden>{it.art}</span>}
+          </>
+        );
+        const style = { background: TONE[it.tone].bg };
+        const hover = it.onHover ? { onMouseEnter: () => it.onHover?.(true), onMouseLeave: () => it.onHover?.(false), onFocus: () => it.onHover?.(true), onBlur: () => it.onHover?.(false) } : {};
+        if (it.href) {
+          return (
+            <Link key={it.key} href={it.href} aria-label={it.ariaLabel} title={it.title} className={cls} style={style} {...hover}>
+              {body}
+            </Link>
+          );
+        }
+        if (it.onClick) {
+          return (
+            <button key={it.key} type="button" onClick={it.onClick} aria-label={it.ariaLabel} title={it.title} className={cls} style={style} {...hover}>
+              {body}
+            </button>
+          );
+        }
+        return (
+          <div key={it.key} title={it.title} className={cls} style={style}>
+            {body}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

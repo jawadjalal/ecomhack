@@ -171,7 +171,7 @@ export function StagePanel({
               peeking ? "border-white/15 bg-white/[0.05] text-white/70" : "border-brand/30 bg-brand/10 text-brand",
             )}
           >
-            <Mascot kind={role} size={36} state={pose} interactive={false} />
+            <Mascot kind={role} size={36} state={pose} />
           </span>
           <div>
             <div className="flex items-center gap-2">

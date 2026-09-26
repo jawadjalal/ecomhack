@@ -1,25 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-22 -26 144 144" width="288" height="288" role="img" aria-label="Designer: idle">
-<title>Designer: idle</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-22 -26 144 144" width="288" height="288" role="img" aria-label="Designer: resting">
+<title>Designer: resting</title>
 <style>
-.dmd-id-hi{animation:dmd-id-hi 4s ease-in-out infinite}
-@keyframes dmd-id-hi{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12,1.06) translate(1px,-.5px);opacity:1}}
-.dmd-id-gl{animation:dmd-id-gl 4s ease-in-out infinite -2.2s}
+.dmd-id-hi{animation:dmd-id-hi 9.4s ease-in-out infinite}
+@keyframes dmd-id-hi{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.036,1.018) translate(.3px,-.15px);opacity:1}}
+.dmd-id-gl{animation:dmd-id-gl 9.4s ease-in-out infinite -5.17s}
 @keyframes dmd-id-gl{0%{transform:translateX(-10px)}28%,100%{transform:translateX(125px)}}
-.dmd-id-bl{animation:dmd-id-bl 4s linear infinite -2.1s}
+.dmd-id-bl{animation:dmd-id-bl 9.4s linear infinite -4.935s}
 @keyframes dmd-id-bl{0%,22%,28%,70%,76%,82%,100%{transform:scaleY(1)}25%,73%,79%{transform:scaleY(.1)}}
-.dmd-id-bob{animation:dmd-id-bob 2s ease-in-out infinite}
-@keyframes dmd-id-bob{0%,100%{transform:translateY(0)}45%{transform:translateY(-6px)}}
-.dmd-id-sq{animation:dmd-id-sq 2s cubic-bezier(.45,0,.55,1) infinite}
-@keyframes dmd-id-sq{0%,100%{transform:scale(1.05,.95)}12%{transform:scale(.97,1.03)}45%{transform:scale(1,1)}85%{transform:scale(.99,1.01)}}
-.dmd-id-sh{animation:dmd-id-sh 2s ease-in-out infinite}
-@keyframes dmd-id-sh{0%,100%{transform:scale(1);opacity:1}45%{transform:scale(.86);opacity:.65}}
-.dmd-id-face{animation:dmd-id-face 1s ease-in-out infinite}
-@keyframes dmd-id-face{0%,100%{transform:translateY(.6px)}50%{transform:translateY(-.8px)}}
-.dmd-id-sm{animation:dmd-id-sm 2s ease-in-out infinite}
-@keyframes dmd-id-sm{0%,100%{transform:scale(1.06,.92)}45%{transform:scale(.96,1.08)}}
-.dmd-id-rot{animation:dmd-id-rot 4s infinite}.dmd-id-crot{animation:dmd-id-crot 4s infinite}
+.dmd-id-bob{animation:dmd-id-bob 4.7s ease-in-out infinite}
+@keyframes dmd-id-bob{0%,100%{transform:translateY(0)}45%{transform:translateY(-1.8px)}}
+.dmd-id-sq{animation:dmd-id-sq 4.7s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes dmd-id-sq{0%,100%{transform:scale(1.015,.985)}12%{transform:scale(.991,1.009)}45%{transform:scale(1,1)}85%{transform:scale(.997,1.003)}}
+.dmd-id-sh{animation:dmd-id-sh 4.7s ease-in-out infinite}
+@keyframes dmd-id-sh{0%,100%{transform:scale(1);opacity:1}45%{transform:scale(.958);opacity:.65}}
+.dmd-id-face{animation:dmd-id-face 2.35s ease-in-out infinite}
+@keyframes dmd-id-face{0%,100%{transform:translateY(.18px)}50%{transform:translateY(-.24px)}}
+.dmd-id-sm{animation:dmd-id-sm 4.7s ease-in-out infinite}
+@keyframes dmd-id-sm{0%,100%{transform:scale(1.018,.976)}45%{transform:scale(.988,1.024)}}
+.dmd-id-rot{animation:dmd-id-rot 9.4s infinite}.dmd-id-crot{animation:dmd-id-crot 9.4s infinite}
 @keyframes dmd-id-rot{0%{transform:rotate(0deg);animation-timing-function:cubic-bezier(.5,0,.2,1)}30%{transform:rotate(22.5deg);animation-timing-function:linear}50%{transform:rotate(22.5deg);animation-timing-function:cubic-bezier(.5,0,.2,1)}80%{transform:rotate(45deg);animation-timing-function:linear}100%{transform:rotate(45deg)}}
-@keyframes dmd-id-crot{0%{transform:rotate(0deg);animation-timing-function:cubic-bezier(.5,0,.2,1)}30%{transform:rotate(-22.5deg);animation-timing-function:linear}50%{transform:rotate(-22.5deg);animation-timing-function:cubic-bezier(.5,0,.2,1)}80%{transform:rotate(-45deg);animation-timing-function:linear}100%{transform:rotate(-45deg)}}
+@keyframes dmd-id-crot{0%{transform:rotate(0deg);animation-timing-function:cubic-bezier(.5,0,.2,1)}30%{transform:rotate(-6.75deg);animation-timing-function:linear}50%{transform:rotate(-6.75deg);animation-timing-function:cubic-bezier(.5,0,.2,1)}80%{transform:rotate(-13.5deg);animation-timing-function:linear}100%{transform:rotate(-13.5deg)}}
+.dmd-id-gl{animation:none!important;opacity:0!important}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 <defs><radialGradient id="dmd-id-b" cx=".36" cy=".28" r=".8"><stop offset="0" stop-color="#ff9a3d"/><stop offset=".6" stop-color="#ff7a1c"/><stop offset="1" stop-color="#ec5f00"/></radialGradient><linearGradient id="dmd-id-s" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="#0B0F3A" stop-opacity="0"/><stop offset="1" stop-color="#0B0F3A" stop-opacity=".28"/></linearGradient><radialGradient id="dmd-id-h" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><radialGradient id="dmd-id-g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#1B2150" stop-opacity=".26"/><stop offset=".6" stop-color="#1B2150" stop-opacity=".12"/><stop offset="1" stop-color="#1B2150" stop-opacity="0"/></radialGradient><linearGradient id="dmd-id-w" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="dmd-id-f" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.4" flood-color="#141A4A" flood-opacity=".2"/></filter></defs>

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnalyticsEvent, EventProperties, FrictionSignal } from "@/lib/contracts";
-import { compareVariants, getAnalyticsSummary, normalizePath, summarize } from "./summary";
+import { compareVariants, getAnalyticsSummary, getAnalyticsSummaryShared, normalizePath, SHARED_SUMMARY_MAX_AGE_MS, summarize } from "./summary";
 import { eventStore, track } from "./store";
 
 let seq = 0;
@@ -248,6 +248,32 @@ describe("store + getAnalyticsSummary", () => {
     expect(eventStore().since(last.uuid, 10)).toEqual(next);
     // Unknown (evicted / reset) cursor → latest events instead of the whole history.
     expect(eventStore().since("gone", 2).map((e) => e.distinct_id)).toEqual(["a3", "h99"]);
+  });
+
+  it("shares the summary between polls: unchanged store, or briefly while events arrive; never across a reset", () => {
+    let now = 1_000_000;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      track(dataset());
+      const first = getAnalyticsSummaryShared();
+      expect(getAnalyticsSummaryShared({ visitorKind: "agent" })).not.toBe(first);
+
+      track({ event: "$pageview", distinct_id: "h99", properties: { visitor_kind: "human" } });
+      now += 1;
+      expect(getAnalyticsSummaryShared()).toBe(first); // polled again straight away: still shared
+      now += SHARED_SUMMARY_MAX_AGE_MS;
+      const afterEvent = getAnalyticsSummaryShared();
+      expect(afterEvent).not.toBe(first);
+      expect(afterEvent.totalEvents).toBe(first.totalEvents + 1);
+      expect(afterEvent).toEqual(getAnalyticsSummary());
+      now += 60_000;
+      expect(getAnalyticsSummaryShared()).toBe(afterEvent); // nothing new since: reused however old
+
+      eventStore().clear();
+      expect(getAnalyticsSummaryShared().totalEvents).toBe(0);
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
 
