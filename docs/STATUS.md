@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 17:40 UTC (merge #65 console header into main)
+Last updated: 2026-09-26 17:55 UTC (merge main into #68 mascot pack)
 
 ---
 
@@ -139,6 +139,12 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ---
 
+### Crew mascots  ✅
+- **Done:** six animated characters from the final pack (`public/mascots/{kind}-{state}.svg`). Darwin (leader, red crowned squircle) is the logo, favicon, and Ask Darwin avatar. Observer, analyst, designer, experimenter and shipper show on the loop, activity feed, page heads, autopilot, onboarding, readiness loading, personalize decisions and the store-agent chat. Pose: working / thinking / brief success / error / sleeping / idle, from `crewMascotState` and `useChatMascot`. Tap restarts the 1.4s one-shot (`stopPropagation`, so a parent card link does not fire). `prefers-reduced-motion` is inside each SVG.
+- **Left to do:** `src/lib/status/roadmap.ts` is still not in the tree, so the in-app "what's left" answer does not mention this.
+- **Limitations:** card-corner silhouettes stay flat vectors. ChatGPT / Claude / Gemini / etc. keep their official glyphs. Purple and penguin leader alternates were not copied into `public`. A failed chat *message* stays on the error pose; the header avatar returns to idle. Starter chips pass `interactive={false}` so the chip's own click still sends.
+- **Next-run ideas:** flash success on the shipper the moment a change lands, even after you open that change later; offer the penguin leader as a setting.
+
 ## Platform limitations (fix before real merchants)
 
 - **State lives in memory + `.data/`**: on Vercel each instance has its own state → demo from one process (`npm run build && npm start`) or move to Supabase (`lib/analytics/supabase.ts` mirror exists).
@@ -151,6 +157,8 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 17:55 UTC — merge main into #68 (mascot pack).** Main already renders the same `public/mascots` pack through `components/mascots` + `components/dw/mascot` (API `kind`/`size`/`frame`/`active`/`state`/`flash`), so every conflicted screen keeps main's version (redesigned pages, live shoppers, crew names, sample-data switch, ModeSwitch, polling gates, #65 top bar, Inbox/watch strip) and main's calmer idle SVGs. Kept from #68: the pose logic `lib/mascot/state.ts` (+ tests), `CrewFace`, `DarwinLogo`, the favicon/apple-touch logo marks, and phase-driven poses in the classic console's loop ring and stage panel (now on main's Mascot). Dropped #68's second `components/mascot/mascot.tsx`. Open: wire `crewMascotState` into the cream screens' crew faces.
+- **2026-09-26 15:56 UTC — animated mascots.** Final pack in `public/mascots` (not in the JS bundle). Darwin is the red crowned leader; observer / analyst / designer / experimenter / shipper keep their shapes. Poses follow the loop, autopilot, and Ask Darwin (thinking → brief success or error → idle). Tap plays the 1.4s reaction and does not follow a parent link. Header chrome untouched (logo mark only). Still open: flat card silhouettes, official buyer-brand glyphs, purple/penguin leader alternates not shipped, `src/lib/status/roadmap.ts` still not in the tree.
 - **2026-09-26 17:40 UTC — merge #65 (console header) into main.** Kept main's bar (crew-mascot nav pill, StoreChip, Darwin's yellow Running/Paused, Live switch, ⌘K pill) and took #65's one account menu: the ⋯ More button is gone, the avatar opens a menu with the account email, demo-store status, the in-browser demo switch (?mock=1, kept across console links), Demo store, Inbox, the other tools and Settings; "(demo data)" left the autopilot button. Dropped from #65: moving Personalize/Traffic simulators and toggles into a page ⋯ menu (main's page headers kept, `dw/overflow.tsx` removed) and the Dashboards header change. Kept: classic mission control's trimmed bar, no Tavily chip on Research, `DemoBadge` reduced to `useDemoStatus()`.
 - **2026-09-26 15:40 UTC — console header.** Removed the top demo-store strip and the chip rows. Console pages now have one bar (mark, primary nav, Running/Paused, account menu). Classic keeps Autopilot + Step; links, mock/synthetic notes, traffic, reset and fullscreen are in More. Personalize/Traffic site pickers stay; their extra toggles moved into a page menu. `src/lib/status/roadmap.ts` is still not in the tree. Open: screenshots of the bar, and grouping the account menu. (Partly superseded; see the merge entry above.)
 - **2026-09-26 17:20 UTC — merge #53 (always-on watch) into main.** Watch strip sits under the impact strip on main's Overview deck and only polls while Live is on (like every other console poll); Autonomy card heads the one-column Settings; Inbox is in the More menu and a page in the command registry (`inbox` in `lib/commands/specs.ts`). #53's own server-side command list moved to `lib/commands/team.ts` (main's `index.ts` is the isomorphic ⌘K/WebMCP registry); watch.run / autonomy.set / policy.* are not yet specs in that registry. Boot: demo seeding and the `DARWIN_WATCH=1` heartbeat both run from `instrumentation.ts`.

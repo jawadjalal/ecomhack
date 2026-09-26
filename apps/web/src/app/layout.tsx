@@ -11,6 +11,13 @@ const dmMono = DM_Mono({ variable: "--font-dm-mono", subsets: ["latin"], weight:
 export const metadata: Metadata = {
   title: "Darwin — the storefront that improves itself",
   description: "Analytics for humans and AI agents → insights → page changes → A/B tests → better conversion. On a loop.",
+  icons: {
+    icon: [
+      { url: "/mascots/leader-logo-mark-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/mascots/leader-logo.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/mascots/leader-logo-mark-512.png", sizes: "512x512" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
