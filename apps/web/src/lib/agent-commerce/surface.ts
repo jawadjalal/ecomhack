@@ -167,16 +167,21 @@ function haystack(p: Product): string {
     .toLowerCase();
 }
 
-const CATEGORY_ALIASES: Record<string, string> = {
-  road: "road",
-  trail: "trail",
-  racing: "racing",
-  race: "racing",
-  accessories: "accessories",
-  accessory: "accessories",
-  socks: "accessories",
-  vest: "accessories",
-};
+const CATEGORY_ALIASES: [RegExp, Product["category"]][] = [
+  [/trail|fell|off.?road/, "trail"],
+  [/racing|race|carbon|super.?shoe/, "racing"],
+  [/accessor|sock|vest|hydration/, "accessories"],
+  [/road|daily|recovery/, "road"],
+];
+
+/** Map free text ("trail running shoes", "Racing") to a catalog category; "footwear" for generic shoes. */
+export function normaliseCategory(category: string): Product["category"] | "footwear" | undefined {
+  const c = category.toLowerCase().trim();
+  if (!c) return undefined;
+  for (const [re, cat] of CATEGORY_ALIASES) if (re.test(c)) return cat;
+  if (/shoe|trainer|footwear|sneaker|running/.test(c)) return "footwear";
+  return undefined;
+}
 
 /**
  * Keyword search over the catalog. Structured filters are hard constraints; the free-text
@@ -186,9 +191,9 @@ const CATEGORY_ALIASES: Record<string, string> = {
 export function searchCatalog(q: SearchQuery): Product[] {
   let list = PRODUCTS.slice();
   if (q.category) {
-    const c = q.category.toLowerCase().trim();
-    if (c === "shoes" || c === "shoe" || c === "running shoes") list = list.filter((p) => p.category !== "accessories");
-    else list = list.filter((p) => p.category === (CATEGORY_ALIASES[c] ?? c));
+    const c = normaliseCategory(q.category);
+    if (c === "footwear") list = list.filter((p) => p.category !== "accessories");
+    else list = list.filter((p) => p.category === c);
   }
   if (q.terrain) list = list.filter((p) => String(p.attributes.terrain ?? "").toLowerCase() === q.terrain!.toLowerCase().trim());
   if (q.maxPrice !== undefined) list = list.filter((p) => p.price <= q.maxPrice!);

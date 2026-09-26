@@ -50,6 +50,10 @@ describe("agent surface gating", () => {
     const pounds = await callAgentTool("search_products", { category: "shoes", maxPrice: 100, size: "12" }, ctx(4));
     expect((pence.data as AgentProduct[]).map((p) => p.id).sort()).toEqual(["p_city", "p_tempo"]);
     expect(pounds.data).toEqual(pence.data);
+    const fuzzy = await callAgentTool("search_products", { category: "Trail running shoes" }, ctx(4));
+    expect((fuzzy.data as AgentProduct[]).map((p) => p.id)).toEqual(["p_ridge", "p_summit"]);
+    const byName = await callAgentTool("get_product", { id: "Ridge Trail Pro" }, ctx(4));
+    expect((byName.data as AgentProduct).id).toBe("p_ridge");
   });
 
   it("check_availability needs exposeStock", async () => {

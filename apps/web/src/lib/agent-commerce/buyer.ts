@@ -48,13 +48,18 @@ export interface BuyerHooks {
 
 /* ------------------------------------------------------------------ goal helpers */
 
-/** FNV-1a → [0, 1). */
+/** FNV-1a + murmur3 fmix32 finalizer → [0, 1). The finalizer keeps near-identical seeds uncorrelated. */
 export function unitHash(input: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
     h ^= input.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
   return (h >>> 0) / 0x100000000;
 }
 
@@ -113,6 +118,58 @@ export function parseGoalBrief(brief: string, today: Date = new Date()): Shoppin
   if (/free returns?/.test(text)) goal.requiresFreeReturns = true;
   if (/negotiat|haggle|best (price|deal)|discount|bargain/.test(text)) goal.negotiates = true;
   return goal;
+}
+
+/**
+ * Buyer-agent personas, each stressing one agent-surface lever. Weights sum to 1.
+ * The simulator can use `sampleShoppingGoal` so agent traffic reacts to every flag.
+ */
+export const BUYER_PERSONAS = [
+  { persona: "deadline-driven", weight: 0.35 }, // needs delivery by a date → exposeDeliveryEta
+  { persona: "budget-negotiator", weight: 0.2 }, // tight budget, haggles → negotiation, exposeLandedPrice
+  { persona: "returns-cautious", weight: 0.15 }, // requires free returns → exposeReturnPolicy
+  { persona: "size-checker", weight: 0.2 }, // exact size, budget → exposeStock, exposeLandedPrice
+  { persona: "easy-going", weight: 0.1 }, // just buys → baseline
+] as const;
+export type BuyerPersona = (typeof BUYER_PERSONAS)[number]["persona"];
+
+/** Deterministic goal for a seed (e.g. the session id). */
+export function sampleShoppingGoal(seed: string): { goal: ShoppingGoal; persona: BuyerPersona } {
+  const r = (k: string) => unitHash(`${seed}:goal:${k}`);
+  const pick = <T,>(k: string, xs: readonly T[]) => xs[Math.floor(r(k) * xs.length)];
+  let acc = 0;
+  const roll = r("persona");
+  const persona = BUYER_PERSONAS.find((p) => (acc += p.weight) > roll)?.persona ?? "easy-going";
+  const size = pick("size", ["7", "8", "9", "9", "10", "10", "11", "12"]);
+  const category = pick("category", ["road", "road", "trail", "trail", "racing"] as const);
+  const label = { road: "Road running shoes", trail: "Trail shoes", racing: "Carbon racing shoes" }[category];
+  const budgetFor = { road: [10000, 12000, 13000], trail: [14000, 15000, 16000], racing: [22000, 23000, 25000] }[category];
+
+  switch (persona) {
+    case "deadline-driven": {
+      const [day, days] = pick("deadline", [["Friday", 3], ["Thursday", 2], ["the weekend", 5], ["Wednesday", 4]] as const);
+      const budget = pick("budget", budgetFor);
+      return {
+        persona,
+        goal: { brief: `${label}, UK ${size}, under ${formatGBP(budget)}, delivered by ${day}`, category, size, maxBudget: budget, deadlineDays: days },
+      };
+    }
+    case "budget-negotiator": {
+      const budget = Math.round((pick("budget", budgetFor) * 0.85) / 500) * 500;
+      return {
+        persona,
+        goal: { brief: `${label}, UK ${size}, best price, max ${formatGBP(budget)}`, category, size, maxBudget: budget, negotiates: true },
+      };
+    }
+    case "returns-cautious":
+      return { persona, goal: { brief: `${label}, UK ${size}, must have free returns`, category, size, requiresFreeReturns: true } };
+    case "size-checker": {
+      const budget = pick("budget", budgetFor);
+      return { persona, goal: { brief: `${label} in UK ${size}, under ${formatGBP(budget)}`, category, size, maxBudget: budget } };
+    }
+    default:
+      return { persona: "easy-going", goal: { brief: `${label}, UK ${size}`, category, size } };
+  }
 }
 
 function describeGoal(goal: ShoppingGoal): string {

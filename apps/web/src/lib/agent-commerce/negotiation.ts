@@ -126,6 +126,7 @@ export async function phraseMerchantMessage(outcome: NegotiationOutcome, product
   if (!merchantLlmEnabled()) return outcome.message;
   const price = outcome.agreedPrice ?? outcome.counterOffer;
   const mustInclude = price !== undefined ? formatGBP(price) : undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const text = await Promise.race([
       generateText({
@@ -135,7 +136,9 @@ export async function phraseMerchantMessage(outcome: NegotiationOutcome, product
         prompt: `Product: ${product.name}\nBuyer said: ${buyerMessage ?? "(an offer)"}\nMerchant reply to rewrite: ${outcome.message}`,
         maxTokens: 200,
       }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 4000)),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timeout")), 4000);
+      }),
     ]);
     const clean = text.trim().replace(/^"|"$/g, "");
     if (!clean || clean.length > 400) return outcome.message;
@@ -143,5 +146,7 @@ export async function phraseMerchantMessage(outcome: NegotiationOutcome, product
     return clean;
   } catch {
     return outcome.message;
+  } finally {
+    clearTimeout(timer);
   }
 }

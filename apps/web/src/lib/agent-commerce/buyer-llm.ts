@@ -12,6 +12,8 @@ import { toolInputSchema, TOOL_META } from "./tools";
 import { AGENT_TOOL_NAMES, type AgentOrder, type AgentToolName, type ToolCaller } from "./types";
 
 export const MAX_LLM_STEPS = 8;
+/** Per-decision timeout; on expiry the caller falls back to the scripted policy. */
+const DECISION_TIMEOUT_MS = 25_000;
 
 export const BuyerActionSchema = z.object({
   thought: z.string().max(600).optional(),
@@ -79,7 +81,17 @@ export function buyerPrompt(goal: ShoppingGoal, tools: ToolDescriptor[], history
 
 /** Ask the LLM for the next action. Throws when no provider is configured or output never validates. */
 export async function decideNextAction(goal: ShoppingGoal, tools: ToolDescriptor[], history: BuyerStep[], stepsLeft: number): Promise<BuyerAction> {
-  return generateJson({ system: SYSTEM, prompt: buyerPrompt(goal, tools, history, stepsLeft), schema: BuyerActionSchema, maxTokens: 800 });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      generateJson({ system: SYSTEM, prompt: buyerPrompt(goal, tools, history, stepsLeft), schema: BuyerActionSchema, maxTokens: 800 }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`LLM decision timed out after ${DECISION_TIMEOUT_MS / 1000}s`)), DECISION_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

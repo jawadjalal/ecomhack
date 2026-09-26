@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ShoppingGoal } from "@/lib/contracts";
-import { callAgentTool, listAgentSessions, parseGoalBrief, runBuyerAgent, PROCEED_ANYWAY } from "./index";
+import { callAgentTool, listAgentSessions, parseGoalBrief, runBuyerAgent, sampleShoppingGoal, PROCEED_ANYWAY } from "./index";
 import { runLlmBuyer, type BuyerAction } from "./buyer-llm";
 import { unitHash } from "./buyer";
 import { ctx, eventsNamed, OPEN_SURFACE, resetWorld, useSpec } from "./test-utils";
@@ -135,6 +135,30 @@ describe("buyer agent (scripted)", () => {
     const replay: string[] = [];
     for (let i = 0; i < 300; i++) replay.push((await runBuyerAgent(FRIDAY_GOAL, ctx(`perf${i}`))).outcome);
     expect(replay).toEqual(outcomes);
+  });
+});
+
+describe("sampled agent population", () => {
+  async function conversion(tag: string, n = 300) {
+    const reasons = new Map<string, number>();
+    let bought = 0;
+    for (let i = 0; i < n; i++) {
+      const { goal, persona } = sampleShoppingGoal(`ses_pop${i}`);
+      const s = await runBuyerAgent(goal, ctx(`${tag}${i}`, { sessionId: `ses_pop${i}`, persona }));
+      if (s.outcome === "purchased") bought++;
+      else reasons.set(s.reason!.split(" — ")[0], (reasons.get(s.reason!.split(" — ")[0]) ?? 0) + 1);
+    }
+    return { rate: bought / n, reasons };
+  }
+
+  it("converts far better once the agent surface is open", async () => {
+    const gen0 = await conversion("g0");
+    resetWorld();
+    useSpec(OPEN_SURFACE);
+    const open = await conversion("g1");
+    expect(gen0.reasons.get("no delivery ETA exposed")).toBeGreaterThan(20);
+    expect(open.reasons.get("no delivery ETA exposed")).toBeUndefined();
+    expect(open.rate).toBeGreaterThan(gen0.rate + 0.25);
   });
 });
 

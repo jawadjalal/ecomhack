@@ -40,8 +40,16 @@ export type {
 } from "./types";
 export { AGENT_TOOL_NAMES, MISSING_FIELD_SURFACE, WANTABLE_FIELDS } from "./types";
 export { AGENT_KV_KEYS, getAgentSession, listAgentSessions };
-export { parseGoalBrief, wantFromGoal, deadlineLabel, PROCEED_ANYWAY, BUNDLE_TAKE_RATE } from "./buyer";
-export type { BuyerRunResult, BuyerStep } from "./buyer";
+export {
+  parseGoalBrief,
+  sampleShoppingGoal,
+  wantFromGoal,
+  deadlineLabel,
+  BUYER_PERSONAS,
+  PROCEED_ANYWAY,
+  BUNDLE_TAKE_RATE,
+} from "./buyer";
+export type { BuyerPersona, BuyerRunResult, BuyerStep } from "./buyer";
 export { merchantFloor } from "./negotiation";
 export { TOOL_META, toolInputSchema } from "./tools";
 
