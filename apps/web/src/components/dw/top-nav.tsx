@@ -32,6 +32,7 @@ const NAV_AGENT: Record<(typeof NAV)[number]["key"], MascotKind> = {
 };
 
 const MORE = [
+  { label: "Inbox", hint: "What Darwin noticed, and the tap to do it", href: "/console/inbox" },
   { label: "Store agent", hint: "Mika sells to AI shoppers", href: "/console/agents" },
   { label: "Dashboards", hint: "What you asked Darwin to track", href: "/console/dashboards" },
   { label: "Personalize", hint: "Change pages for each traffic source", href: "/console/personalize" },

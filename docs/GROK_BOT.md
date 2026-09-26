@@ -13,7 +13,10 @@ Everywhere below, `DARWIN_URL` is the Darwin deployment, for example `https://da
 | Variable | What it's for |
 |---|---|
 | `XAI_API_KEY` | Grok for Darwin's own LLM calls (insights, proposals, drafts). Optional `XAI_MODEL` (default `grok-4`). |
-| `DARWIN_ADMIN_TOKEN` | Locks mission control and the admin APIs. The bot sends it as `Authorization: Bearer …` to read the briefing and act on it. |
+| `DARWIN_ADMIN_TOKEN` | Locks mission control and the admin APIs. The bot sends it as `Authorization: Bearer …` to read the briefing, the Inbox, and to act. |
+| `CRON_SECRET` | Vercel Cron sends this as `Authorization: Bearer …` on `GET /api/team/watch` every 15 minutes. The route accepts it or the admin token. |
+| `DARWIN_GROK_BOT` | Set to `1` so Darwin treats the Grok bot as a configured pull channel. The bot still has to call the Inbox itself; Darwin does not push. |
+| `DARWIN_WATCH` | Set to `1` in a single dev process so the 15-minute heartbeat runs in-process. Production uses the cron instead. |
 | `WHOP_API_KEY` | Reads the Whop store's plans (the store agent's catalog) and creates tagged checkout links. |
 | `WHOP_COMPANY_ID` | The Whop business (`biz_…`) whose plans the store agent sells. |
 
@@ -352,3 +355,94 @@ What shipping does:
 - Forward numbers exactly as Darwin wrote them; never round them further or remove the simulated-traffic label.
 - Only ever act on the item you asked about, and only after the merchant clearly said so.
 - One briefing message an hour at most, and none when nothing changed.
+
+---
+
+## Job 3: Darwin's watch (prefer this over polling the briefing)
+
+Darwin already decides when something is worth a message. Every 15 minutes he looks (tests that reached a
+decision, real-traffic conversion, the AI-shopper funnel, pull requests, readiness, research, a stuck loop,
+and how a change is doing a week after it shipped) and writes **at most one** line into the Inbox. Pull that,
+forward it, and when the merchant taps yes, send the action token back. Do not invent a second opinion from
+the briefing while an Inbox message is still open.
+
+The hourly briefing (job 2) still works. Use it when the Inbox is empty and the merchant asks "what's going on?".
+
+### Read the Inbox
+
+```bash
+curl -s "$DARWIN_URL/api/team/inbox" -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN"
+```
+
+Forward the newest message's `text` as-is. If `synthetic` is true, the sentence already says "simulated";
+keep that word. If `messages` is empty, or the newest `id` is one you already forwarded, stay quiet.
+
+Each message may include `actions`. An action is a single-use token that expires in 24 hours and can only
+do the exact thing Darwin proposed (Ship it, Keep testing, Stop the test, Show me).
+
+```json
+{
+  "chatId": "chat_inbox",
+  "unread": 1,
+  "autonomy": "suggest",
+  "messages": [
+    {
+      "id": "msg_…",
+      "text": "On north-trail, 8% of visitors bought with “Bigger size guide” vs 5% without: 91% chance it's better after 1,240 visitors (simulated traffic). Want me to ship it?",
+      "synthetic": true,
+      "severity": "normal",
+      "actions": [
+        { "token": "act_…", "label": "Ship it", "risk": "drastic", "kind": "briefing" },
+        { "token": "act_…", "label": "Keep testing", "risk": "safe", "kind": "dismiss" }
+      ]
+    }
+  ]
+}
+```
+
+### When the merchant answers an Inbox message
+
+Send the token, not a briefing id. `POST /api/team/chat` returns NDJSON (`application/x-ndjson`): one JSON
+object per line, ending with `{ "type": "done" }`. Forward the last Darwin `report` (or `text`) line.
+
+| Merchant says | Body |
+|---|---|
+| "yes", "ship it", "do it" | `{ "confirm": { "id": "<Ship it token>", "approved": true }, "text": "" }` |
+| "stop it", "kill it" (the button was Stop the test) | `{ "confirm": { "id": "<Stop the test token>", "approved": true }, "text": "" }` |
+| "no", "not now", "keep testing" | `{ "confirm": { "id": "<Keep testing or Not now token>", "approved": true }, "text": "" }` |
+
+```bash
+curl -s -X POST "$DARWIN_URL/api/team/chat" \
+  -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"confirm":{"id":"act_…","approved":true},"text":""}'
+```
+
+A second tap of the same token comes back as "Already done." An expired token comes back as expired. Never
+put the admin token, a webhook URL, or any other secret in the message you forward.
+
+There is also `POST /api/team/channels/reply` with `{ "token": "act_…", "text": "ship it" }` (or
+`{ "text": "yes" }` against the latest open action). Same confirm gate. Prefer `/api/team/chat` so the
+console shows the team working.
+
+### Asking Darwin, and deciding, from MCP or A2A
+
+Both sit behind the admin token. They are not on the public shopper MCP (`/api/mcp`).
+
+- `POST /api/team/mcp` — JSON-RPC tools `team_ask`, `team_inbox`, `team_decide`.
+- `GET /a2a/team/agent-card.json` then `POST /a2a/team` with `Authorization: Bearer $DARWIN_ADMIN_TOKEN`.
+
+### How loud Darwin is
+
+Settings → "How much Darwin may do alone", or `POST /api/team/autonomy`:
+
+| Level | What he does |
+|---|---|
+| `off` | Watches and logs. Never messages. |
+| `suggest` (default) | Messages. Nothing runs until a tap. |
+| `auto-safe` | Reversible things (a draft, a dry-run PR, pausing a losing test) happen, then he tells you. |
+| `autopilot` | The same, plus anything a standing policy you confirmed allows. |
+
+Shipping, merging, a real pull request, publishing to real traffic, and anything near payments, auth or CI
+still need a tap, or a policy you wrote in a sentence, read back, and confirmed. Quiet hours default to
+22:00–07:00 Europe/London; urgent signals can still come through. At most one message an hour and six a
+day, unless something is urgent.

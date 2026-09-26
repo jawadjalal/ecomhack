@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { MotionConfig, motion } from "motion/react";
 import { AudienceCard } from "../settings/audience-card";
+import { AutonomyCard } from "../settings/autonomy-card";
 import { AutopilotCard } from "../settings/autopilot-card";
 import { GrokCard } from "../settings/grok-card";
 import { DemoCard, ResetCard } from "../settings/reset-card";
@@ -20,6 +21,9 @@ export function SettingsScreen() {
       <PageHead title="Settings" lede="How much the crew may do on its own, what Darwin is plugged into, and where Grok reports back." />
 
       <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4">
+        <Rise i={0}>
+          <AutonomyCard />
+        </Rise>
         <Rise i={0}>
           <AutopilotCard />
         </Rise>

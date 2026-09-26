@@ -11,6 +11,7 @@ import type { AgentId, Chat, CreateChatRequest, TeamChatResponse, TeamStateRespo
 import { routeLabel } from "@/lib/llm/team";
 import { TEAM, TEAM_BY_ID } from "./roster";
 import { createChat, ensureDirectChat, getChat, listChatSummaries, listMessages, markRead, resetTeamStore } from "./store";
+import { resetWatchStore } from "./watch-store";
 
 export { runTeamTurn, teamIntro, TeamError, MAX_PARALLEL, type Emit, type TeamTurnInput } from "./orchestrator";
 export { TEAM, TEAM_BY_ID, getAgent, SPECIALISTS, DEFAULT_MODEL_LABEL, EDITOR_MODEL_LABEL } from "./roster";
@@ -38,4 +39,23 @@ export function createUserChat(input: CreateChatRequest): Chat {
 
 export function resetTeam() {
   resetTeamStore();
+  resetWatchStore();
 }
+
+export {
+  runWatch,
+  watchState,
+  inboxView,
+  updateAutonomy,
+  startWatchLoop,
+  stopWatchLoop,
+  subscribeTeamEvents,
+  WATCH_INTERVAL_MS,
+  WATCH_BUDGET,
+} from "./watch";
+export { receive, deliver, configuredChannels, resolveReply, renderOutbound, CHANNELS } from "./channels";
+export { CHECKS } from "./signals";
+export { gate, notability, isQuietHour, digestDue } from "./notability";
+export { canRunUnattended, compilePolicy, compileGuardHeuristic, describeGuard, actionRisk } from "./autonomy";
+export { performActionToken, executeWatchAction, isActionToken } from "./actions";
+export { resetWatchStore, getWatchSettings, setWatchSettings, mintToken, getToken, consumeToken, hashAction } from "./watch-store";

@@ -31,6 +31,8 @@ export const TEAM: TeamAgent[] = [
       { name: "get_kpis", label: "Read conversion, revenue and AOV" },
       { name: "loop_status", label: "Check where the optimisation loop is" },
       { name: "step_loop", label: "Advance the loop one step" },
+      { name: "set_autonomy", label: "Set how much Darwin may do alone", confirm: true },
+      { name: "add_policy", label: "Add a standing policy", confirm: true },
     ],
   },
   {

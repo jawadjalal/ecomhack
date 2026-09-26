@@ -10,6 +10,8 @@
  *                                always ending with { type: "done" }.
  */
 
+import type { ProactiveAction } from "./watch";
+
 export type AgentId = "darwin" | "iris" | "pixel" | "fizz" | "dash";
 
 export const AGENT_IDS: AgentId[] = ["darwin", "iris", "pixel", "fizz", "dash"];
@@ -58,6 +60,8 @@ export interface Chat {
   createdBy: "user" | AgentId;
   createdAt: string;
   status: ChatStatus;
+  /** Stays at the top of the list (the Inbox Darwin writes into). */
+  pinned?: boolean;
 }
 
 export type ChatMessageKind = "text" | "progress" | "tool" | "report" | "confirm" | "navigate";
@@ -88,6 +92,10 @@ export interface ChatMessage {
   synthetic?: boolean;
   /** Kind "confirm": the side-effecting action waiting for the user. Cleared once answered. */
   pendingConfirm?: TeamPendingConfirm;
+  /** Proactive message (Darwin's watch): one-tap actions, each a single-use token (see contracts/watch.ts). */
+  actions?: ProactiveAction[];
+  /** The watch signal this message came from. */
+  signalId?: string;
   at: string;
 }
 

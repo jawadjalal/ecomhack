@@ -561,6 +561,7 @@ const PAGE_PURPOSE: Record<PageKey, string> = {
   experiments: "A/B tests: running, decided and shipped, with probability to beat.",
   changes: "Shipped generations of the store, with rollback.",
   settings: "Connections (GitHub, Whop), keys, shipping rules.",
+  inbox: "What Darwin's 15-minute watch noticed, with one-tap actions (ship, dismiss).",
   agents: "The store's own AI agent (A2A): its funnel and pitch A/B tests.",
   dashboards: "Dashboards built from a site's tracking plan.",
   personalize: "darwin.js personalization rules for any store: drafts, tests, results.",
