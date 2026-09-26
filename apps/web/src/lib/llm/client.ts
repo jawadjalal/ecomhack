@@ -107,15 +107,20 @@ const errorLine = (err: unknown) => (err instanceof Error ? err.message : String
 
 /** xAI, Apinex and OpenRouter all speak the OpenAI chat completions API. */
 async function openAiCompatible(provider: "xai" | "apinex" | "openrouter", { system, prompt, maxTokens = 4000 }: TextRequest): Promise<{ text: string; model: string }> {
+  // A primary provider with an OpenRouter fallback must fail fast: the SDK's own retries honour Retry-After
+  // (Apinex answers 429 "retry in 60s"), which stalled every step for a minute or more.
+  const failFast = provider !== "openrouter" && Boolean(process.env.OPENROUTER_API_KEY);
+  const limits = failFast ? { maxRetries: 0, timeout: 20_000 } : { maxRetries: 1, timeout: 45_000 };
   const client =
     provider === "xai"
-      ? new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1" })
+      ? new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1", ...limits })
       : provider === "apinex"
-        ? new OpenAI({ apiKey: process.env.APINEX_API_KEY, baseURL: process.env.APINEX_BASE_URL || "https://api.apinex.bond/v1" })
+        ? new OpenAI({ apiKey: process.env.APINEX_API_KEY, baseURL: process.env.APINEX_BASE_URL || "https://api.apinex.bond/v1", ...limits })
         : new OpenAI({
           apiKey: process.env.OPENROUTER_API_KEY,
           baseURL: "https://openrouter.ai/api/v1",
           defaultHeaders: { "X-Title": "Darwin" },
+          ...limits,
         });
   const model = modelFor(provider);
   const reasoningOff = provider === "openrouter" && process.env.OPENROUTER_REASONING === "off";
@@ -132,18 +137,43 @@ async function openAiCompatible(provider: "xai" | "apinex" | "openrouter", { sys
   return { text: res.choices[0]?.message?.content ?? "", model: res.model || model };
 }
 
+/** After a 429, skip that provider until its Retry-After passes and go straight to the fallback. */
+const coolingUntil = new Map<LlmProvider, number>();
+
+function isRateLimit(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  return status === 429 || /rate limit|too many requests/i.test(errorLine(err));
+}
+
+function retryAfterMs(err: unknown): number {
+  const headers = (err as { headers?: Headers | Record<string, string> })?.headers;
+  const raw = headers instanceof Headers ? headers.get("retry-after") : headers?.["retry-after"];
+  const fromHeader = Number(raw);
+  const fromText = Number(/retry in (\d+)\s*s/i.exec(errorLine(err))?.[1]);
+  const seconds = Number.isFinite(fromHeader) && fromHeader > 0 ? fromHeader : Number.isFinite(fromText) && fromText > 0 ? fromText : 60;
+  return Math.min(seconds, 300) * 1000;
+}
+
+/** Test hook: forget rate-limit cooldowns. */
+export function resetLlmCooldowns() {
+  coolingUntil.clear();
+}
+
 /** Plain text completion. Throws if no provider is configured. */
 export async function generateText(req: TextRequest): Promise<string> {
   const provider = resolveProvider(req.provider);
   const startedAt = Date.now();
   if (provider === "xai" || provider === "apinex") {
+    const cooling = process.env.OPENROUTER_API_KEY && (coolingUntil.get(provider) ?? 0) > Date.now();
     try {
+      if (cooling) throw new Error("rate-limited recently; skipping until the cooldown ends");
       const res = await openAiCompatible(provider, req);
       logAnswer(provider, res.model, startedAt);
       return res.text;
     } catch (err) {
       if (!process.env.OPENROUTER_API_KEY) throw err;
-      console.warn(`[llm] ${provider} ${modelFor(provider)} failed (${errorLine(err)}); retrying once via OpenRouter`);
+      if (!cooling && isRateLimit(err)) coolingUntil.set(provider, Date.now() + retryAfterMs(err));
+      if (!cooling) console.warn(`[llm] ${provider} ${modelFor(provider)} failed (${errorLine(err)}); retrying once via OpenRouter`);
       const retryAt = Date.now();
       const res = await openAiCompatible("openrouter", req);
       logAnswer("openrouter", res.model, retryAt, ` (fallback after ${provider} failed)`);
