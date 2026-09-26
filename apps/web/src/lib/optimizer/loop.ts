@@ -258,7 +258,8 @@ function say(ctx: Persisted, actor: Actor, message: string, data?: unknown) {
 
 async function runTraffic(ctx: Persisted, deps: LoopDeps, humans: number, agents: number): Promise<SimulationResult> {
   ctx.memory.simRuns += 1;
-  return deps.simulate({ humans, agents, seed: deps.config.seed + ctx.memory.simRuns * 7919 });
+  // Sessions end within the last few minutes, so the console's live feed reads as "now".
+  return deps.simulate({ humans, agents, seed: deps.config.seed + ctx.memory.simRuns * 7919, spreadMinutes: 3 });
 }
 
 /** Stop any experiment still marked running (defensive: observation must see the live spec only). */
