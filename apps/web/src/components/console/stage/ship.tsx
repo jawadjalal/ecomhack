@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { ArrowRight, ArrowUpRight, FileCode, GitBranch, GitPullRequest, PartyPopper } from "lucide-react";
-import type { GenerationRecord } from "@/lib/contracts";
+import type { Audience, GenerationRecord } from "@/lib/contracts";
 import { pct, prNumberFromUrl, signedPct, type PrInfo } from "@/lib/console/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,12 +126,15 @@ export function ShipStage({
   record,
   baseline,
   previous,
+  audience,
   onOpenPr,
 }: {
   pr?: PrInfo;
   record?: GenerationRecord;
   baseline?: GenerationRecord;
   previous?: GenerationRecord;
+  /** Segment the winning test was judged on; the other segment's movement is sampling noise. */
+  audience?: Audience;
   onOpenPr: () => void;
 }) {
   return (
@@ -158,28 +161,42 @@ export function ShipStage({
           <div className="mt-2 grid grid-cols-2 gap-3">
             {(
               [
-                ["🧑 Humans", previous.humanConversionRate, record.humanConversionRate, 1, baseline?.humanConversionRate],
-                ["🤖 Agents", previous.agentConversionRate, record.agentConversionRate, 0, baseline?.agentConversionRate],
+                ["human", "🧑 Humans", previous.humanConversionRate, record.humanConversionRate, 1, baseline?.humanConversionRate],
+                ["agent", "🤖 Agents", previous.agentConversionRate, record.agentConversionRate, 0, baseline?.agentConversionRate],
               ] as const
-            ).map(([label, before, after, digits, base]) => (
-              <motion.div
-                key={label}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
-                className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3"
-              >
-                <div className="text-[0.8rem] text-white/50">{label}</div>
-                <div className="mt-1 flex items-baseline gap-2 tabular">
-                  <span className="text-[1rem] text-white/40">{pct(before, digits)}</span>
-                  <ArrowRight className="size-4 self-center text-white/30" />
-                  <span className="text-[1.8rem] leading-none font-semibold text-white">{pct(after, digits)}</span>
-                </div>
-                {base !== undefined && base > 0 && (
-                  <div className="mt-1 text-[0.75rem] font-medium text-[#7ee2a0] tabular">{signedPct((after - base) / base)} since Gen 0</div>
-                )}
-              </motion.div>
-            ))}
+            ).map(([kind, label, before, after, digits, base]) => {
+              const counted = !audience || audience === "all" || audience === kind;
+              const since = base !== undefined && base > 0 ? (after - base) / base : undefined;
+              return (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                  className={cn("rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3", !counted && "opacity-60")}
+                >
+                  <div className="text-[0.8rem] text-white/50">{label}</div>
+                  {counted ? (
+                    <>
+                      <div className="mt-1 flex items-baseline gap-2 tabular">
+                        <span className="text-[1rem] text-white/40">{pct(before, digits)}</span>
+                        <ArrowRight className="size-4 self-center text-white/30" />
+                        <span className="text-[1.8rem] leading-none font-semibold text-white">{pct(after, digits)}</span>
+                      </div>
+                      {since !== undefined && (
+                        <div className={cn("mt-1 text-[0.75rem] font-medium tabular", since >= 0 ? "text-[#7ee2a0]" : "text-[#ff9b9b]")}>
+                          {signedPct(since)} since Gen 0
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="mt-1.5 text-[0.85rem] leading-snug text-white/45">
+                      Not counted: judged on {audience === "agent" ? "AI shoppers" : "human shoppers"}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>

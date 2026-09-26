@@ -68,7 +68,7 @@ function IdleStage({
           The storefront that improves itself.
         </h2>
         <p className="mt-2 max-w-[44rem] text-[1rem] text-white/50">
-          Darwin watches how humans and AI shopping agents move through PACE, finds where they drop, changes the page,
+          Darwin watches how humans and AI shopping agents move through the store, finds where they drop, changes the page,
           proves it with an A/B test and ships the winner as a pull request.
         </p>
       </div>
@@ -157,7 +157,16 @@ export function StagePanel({
   else if (phase === "experiment") body = <ExperimentStage experiment={experiment} />;
   else if (phase === "decide") body = <DecideStage experiment={experiment} />;
   else if (phase === "ship")
-    body = <ShipStage pr={pr} record={current} previous={previous} baseline={history[0]} onOpenPr={onOpenPr} />;
+    body = (
+      <ShipStage
+        pr={pr}
+        record={current}
+        previous={previous}
+        baseline={history[0]}
+        audience={experiment && experiment.id === current?.experimentId ? experiment.result?.audience : undefined}
+        onOpenPr={onOpenPr}
+      />
+    );
 
   return (
     <Panel glow={live === "ship" && !peeking} className="h-full">
