@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { ArrowUpRight, GitPullRequest, TrendingUp } from "lucide-react";
+import { ArrowUpRight, GitCompareArrows, GitPullRequest, TrendingUp } from "lucide-react";
 import type { Experiment, ExperimentResult, GenerationRecord } from "@/lib/contracts";
 import { pct, prNumberFromUrl, signedPct, type PrInfo } from "@/lib/console/format";
 import { useMeasure } from "@/lib/console/hooks";
 import { Panel, PanelHeader } from "@/components/ui/panel";
+import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/components/ui/cn";
 
 type Kind = "human" | "agent";
@@ -160,11 +161,14 @@ export function EvolutionChart({
   experiment,
   prs,
   onOpenPr,
+  onCompare,
 }: {
   history: GenerationRecord[];
   experiment?: Experiment;
   prs: Map<number, PrInfo>;
   onOpenPr: (generation: number) => void;
+  /** Open the Gen 0 vs live comparison. */
+  onCompare?: () => void;
 }) {
   const [ref, size] = useMeasure<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -216,6 +220,15 @@ export function EvolutionChart({
               <span className="flex items-center gap-1.5">
                 <span className="size-2 rounded-full bg-agent" /> Agents <b className="font-semibold text-white tabular">{multiple("agentConversionRate")}</b>
               </span>
+              {onCompare && (
+                <button
+                  onClick={onCompare}
+                  title="Gen 0 vs the live store (B)"
+                  className="flex h-7 items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 text-[0.74rem] font-medium text-white/75 hover:bg-white/[0.08] hover:text-white"
+                >
+                  <GitCompareArrows className="size-3.5 text-brand" /> Before / after <Kbd>B</Kbd>
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-3 text-[0.8rem] text-white/45">

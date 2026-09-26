@@ -31,6 +31,7 @@ import { LiveFeed } from "./live-feed";
 import { ActivityLog } from "./activity-log";
 import { AgentPanel } from "./agent-panel";
 import { ConfirmResetModal, ConnectRepoModal, PrModal } from "./modals";
+import { BeforeAfterModal } from "./before-after";
 
 const FIRST_RUN_KEY = "darwin.console.connect-dismissed";
 const TRAFFIC_KEY = "darwin.console.traffic";
@@ -144,6 +145,7 @@ function Console({ mock }: { mock: boolean }) {
   const [connectOpen, setConnectOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [prModal, setPrModal] = useState<PrInfo | undefined>(undefined);
+  const [compareOpen, setCompareOpen] = useState(false);
   const firstRunChecked = useRef(false);
   useEffect(() => {
     if (!github || firstRunChecked.current) return;
@@ -196,6 +198,7 @@ function Console({ mock }: { mock: boolean }) {
     t: () => setTrafficOn((on) => !on),
     r: () => setResetOpen(true),
     f: toggleFullscreen,
+    b: () => setCompareOpen((v) => !v),
     escape: () => setPeek(null),
   });
 
@@ -295,7 +298,13 @@ function Console({ mock }: { mock: boolean }) {
               />
             </div>
             <div className="h-[18.5rem] shrink-0">
-              <EvolutionChart history={loop?.history ?? []} experiment={experiment} prs={prs} onOpenPr={openPrForGeneration} />
+              <EvolutionChart
+                history={loop?.history ?? []}
+                experiment={experiment}
+                prs={prs}
+                onOpenPr={openPrForGeneration}
+                onCompare={() => setCompareOpen(true)}
+              />
             </div>
           </div>
 
@@ -346,6 +355,17 @@ function Console({ mock }: { mock: boolean }) {
         }}
       />
       <ConfirmResetModal open={resetOpen} onClose={() => setResetOpen(false)} onConfirm={() => void doReset()} />
+      <BeforeAfterModal
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        history={loop?.history ?? []}
+        liveSpec={loop?.liveSpec}
+        prs={prs}
+        onOpenPr={(g) => {
+          setCompareOpen(false);
+          openPrForGeneration(g);
+        }}
+      />
       <PrModal pr={prModal} onClose={() => setPrModal(undefined)} />
     </div>
   );

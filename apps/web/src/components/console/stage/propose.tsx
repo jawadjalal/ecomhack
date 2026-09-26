@@ -71,7 +71,7 @@ export function DiffBlock({ lines, className }: { lines: string[]; className?: s
   );
 }
 
-const PAGE_LABEL: Record<PreviewPage, string> = { home: "Home", product: "Product", cart: "Bag" };
+const PAGE_LABEL: Record<PreviewPage, string> = { home: "Home", product: "Product", cart: "Bag", checkout: "Checkout" };
 
 export function ProposeStage({
   proposal,
@@ -123,7 +123,7 @@ export function ProposeStage({
         <div className="flex items-center justify-between">
           <div className="text-[0.72rem] font-medium tracking-[0.14em] text-white/40 uppercase">Before / after · live previews</div>
           <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
-            {(["home", "product", "cart"] as const).map((p) => (
+            {(["home", "product", "cart", "checkout"] as const).map((p) => (
               <button
                 key={p}
                 onClick={() => setPicked({ id: proposal.id, page: p })}

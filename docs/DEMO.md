@@ -18,7 +18,7 @@ npm run build && npm start          # production build; never demo on `next dev`
 - [ ] Press `f` for fullscreen and check the evolution chart is readable from the back
 - [ ] **Offline fallback:** http://localhost:3000/console?mock=1 runs the whole loop in the browser
 
-Keys: `space` step · `a` autopilot · `t` traffic · `s` send a shopper · `r` reset · `f` fullscreen
+Keys: `space` step · `a` autopilot · `t` traffic · `s` send a shopper · `b` before/after · `r` reset · `f` fullscreen
 
 ## The script
 
@@ -31,7 +31,8 @@ Keys: `space` step · `a` autopilot · `t` traffic · `s` send a shopper · `r` 
 | 1:20–1:45 | "Its designer proposes a change as a safe, reviewable config diff. Here's the before and after, live." | `space` → **Propose**: config diff + the two live store previews side by side. |
 | 1:45–2:15 | "It proves it with an A/B test, on the audience that can actually see the change." | `space` → **Experiment**: A vs B bars, P(beat) gauge climbing past the 97.5% ship line → **Decide: SHIP**. |
 | 2:15–2:35 | "And it ships like an engineer would: a pull request, with the evidence." | `space` → **Ship**: PR card (title with lift and P). |
-| 2:35–3:00 | "Then it does it again. Autopilot. Humans get a better page, agents get a better API, and every change is a PR you review." | Press `a`. Point at the evolution chart: both lines climb, with one PR per generation, and rejected ideas are never retried. |
+| 2:35–2:50 | "Then it does it again. Autopilot. Every change is a PR you review, and rejected ideas are never retried." | Press `a`. Point at the evolution chart: both lines climb, with one PR per generation. |
+| 2:50–3:00 | "Here's the store you connected, and the store Darwin built: humans get a better page, agents get a better API." | Press `b`: **Before / after**. Gen 0 vs live side by side (opens on the page that changed most), the conversion multiples and the list of shipped PRs. |
 
 **Optional wow moment (+20s): a judge buys on their phone.** Before the demo, run the server on the LAN
 (`npm start -- -H 0.0.0.0`) and put a QR code for `http://<laptop-ip>:3000/store` on a slide (same Wi-Fi).

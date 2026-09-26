@@ -12,6 +12,10 @@ ships the winner as a new PR. Then it starts again.
      └──────────────────────── next generation ◄───────────────────┘
 ```
 
+![Mission control after a few generations of autopilot](apps/web/docs/screenshots/demo/demo-7-autopilot-late-gen.jpg)
+
+![Before / after: the store you connected vs the store Darwin built](apps/web/docs/screenshots/demo/demo-8-before-after.jpg)
+
 ## Run it (2 minutes)
 
 ```bash

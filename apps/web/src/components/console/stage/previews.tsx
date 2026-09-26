@@ -7,12 +7,13 @@ import type { PageSpec } from "@/lib/contracts";
 import { PRODUCTS, SHIPPING_FEE } from "@/lib/catalog/products";
 import { base64UrlEncode, money } from "@/lib/console/format";
 import { useMeasure } from "@/lib/console/hooks";
+import { describeDiff } from "@/lib/spec/patch";
 import { cn } from "@/components/ui/cn";
 
 const FRAME_W = 1280;
 const FRAME_H = 820;
 
-export type PreviewPage = "home" | "product" | "cart";
+export type PreviewPage = "home" | "product" | "cart" | "checkout";
 
 /** Candidate storefront routes per page; the first that answers 200 is used. */
 const PAGE_PATHS: Record<PreviewPage, string[]> = {
@@ -26,6 +27,18 @@ const PAGE_PATHS: Record<PreviewPage, string[]> = {
     "/store",
   ],
   cart: ["/store/cart", "/store/bag", "/store/checkout", "/store"],
+  checkout: ["/store/checkout", "/store/cart", "/store"],
+};
+
+/** Which storefront page shows each PageSpec section (agentSurface has no page). */
+const SECTION_PAGE: Record<string, PreviewPage> = {
+  hero: "home",
+  announcement: "home",
+  productGrid: "home",
+  theme: "home",
+  productPage: "product",
+  cart: "cart",
+  checkout: "checkout",
 };
 
 export function specQuery(spec: PageSpec) {
@@ -48,8 +61,21 @@ async function firstReachable(candidates: string[]): Promise<string | null> {
 export function pageForPatch(patch: object | undefined): PreviewPage {
   const keys = Object.keys(patch ?? {});
   if (keys.includes("productPage")) return "product";
-  if (keys.includes("cart") || keys.includes("checkout")) return "cart";
+  if (keys.includes("cart")) return "cart";
+  if (keys.includes("checkout")) return "checkout";
   return "home";
+}
+
+/** The page with the most visible differences between two specs (home when nothing a human sees changed). */
+export function pageForSpecs(before: PageSpec, after: PageSpec): PreviewPage {
+  const counts: Partial<Record<PreviewPage, number>> = {};
+  for (const line of describeDiff(before, after)) {
+    const page = SECTION_PAGE[line.split(".")[0]];
+    if (page) counts[page] = (counts[page] ?? 0) + 1;
+  }
+  let best: PreviewPage = "home";
+  for (const page of ["product", "cart", "checkout"] as const) if ((counts[page] ?? 0) > (counts[best] ?? 0)) best = page;
+  return best;
 }
 
 export function StoreFrame({
@@ -59,6 +85,7 @@ export function StoreFrame({
   tone,
   className,
   tall,
+  badge,
 }: {
   /** Show more of the page (used when there is no agent-API diff below). */
   tall?: boolean;
@@ -68,6 +95,8 @@ export function StoreFrame({
   label: React.ReactNode;
   tone: "control" | "treatment";
   className?: string;
+  /** Letter in the corner chip (defaults to A / B). */
+  badge?: string;
 }) {
   const [ref, size] = useMeasure<HTMLDivElement>();
   // probe which storefront route exists once per page type, then add the spec query
@@ -87,11 +116,11 @@ export function StoreFrame({
         <div className="flex min-w-0 items-center gap-1.5 font-medium text-white/70">
           <span
             className={cn(
-              "flex size-[1.15rem] items-center justify-center rounded-[0.3rem] text-[0.66rem] font-bold",
+              "flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-[0.3rem] px-1 text-[0.66rem] font-bold",
               tone === "control" ? "bg-control/25 text-white/80" : "bg-brand text-[#0b1200]",
             )}
           >
-            {tone === "control" ? "A" : "B"}
+            {badge ?? (tone === "control" ? "A" : "B")}
           </span>
           <span className="truncate">{label}</span>
         </div>
