@@ -96,7 +96,7 @@ function Fixes() {
 
       <div className="mt-3 grid gap-[14px] md:grid-cols-2 lg:h-[240px] lg:grid-cols-[1.5fr_1fr_1fr]">
         <div className="min-w-0 md:col-span-2 lg:col-span-1 [&>*]:h-full">
-          <InTestCard fix={inTest} rows={rows} />
+          <InTestCard fix={inTest} rows={rows} hasDraft={Boolean(drafted)} />
         </div>
         <UpNextCard drafted={inTest ? undefined : drafted} next={next} testing={Boolean(inTest)} />
         <ThrownAwayCard thrown={thrown} shipped={shipped} />

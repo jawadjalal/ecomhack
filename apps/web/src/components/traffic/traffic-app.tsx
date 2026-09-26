@@ -63,9 +63,9 @@ const PANELS: { dim: TrafficDimension; title: string; empty: string; note?: stri
 
 /** Card rows, 1.7fr / 1fr alternating (never four equal boxes). Each cell is one panel or a stack of two. */
 const LAYOUT: { cols: string; cells: TrafficDimension[][] }[] = [
-  { cols: "lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]", cells: [["source"], ["device", "campaign"]] },
-  { cols: "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]", cells: [["referrer"], ["query"]] },
-  { cols: "lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]", cells: [["landing"], ["country"]] },
+  { cols: "lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]", cells: [["source"], ["device"]] },
+  { cols: "lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]", cells: [["referrer"], ["query", "campaign"]] },
+  { cols: "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]", cells: [["landing"], ["country"]] },
 ];
 
 /* ------------------------------------------------------------------ app */
@@ -172,7 +172,7 @@ export function TrafficApp() {
       </div>
 
       {/* what to do (1.7fr) and try it (1fr) */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <InsightsPanel site={site} synthetic={synthetic} visitors={t?.visitors ?? 0} />
 
         <Card tone="blue" shape="observer" corner="br">
@@ -207,9 +207,9 @@ export function TrafficApp() {
 
       {/* dimensions */}
       {LAYOUT.map((row, i) => (
-        <div key={i} className={cn("grid grid-cols-1 items-start gap-4", row.cols)}>
+        <div key={i} className={cn("grid grid-cols-1 gap-4", row.cols)}>
           {row.cells.map((cell) => (
-            <div key={cell.join("+")} className="flex min-w-0 flex-col gap-4">
+            <div key={cell.join("+")} className="flex min-w-0 flex-col gap-4 [&>section:last-child]:flex-1">
               {cell.map(panel)}
             </div>
           ))}
@@ -350,6 +350,10 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
   }, [ask, hasTraffic]);
 
   const total = (res?.insights ?? []).reduce((n, i) => n + (i.impact?.orders ?? 0), 0);
+  const [all, setAll] = useState(false);
+  const FIRST = 4;
+  const shown = all ? (res?.insights ?? []) : (res?.insights ?? []).slice(0, FIRST);
+  const more = (res?.insights.length ?? 0) - FIRST;
 
   return (
     <Card tone="white" hover={false}>
@@ -382,8 +386,15 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
         )}
         {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="analyst" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
         <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-2">
-          {res?.insights.map((i) => <InsightCard key={i.id} insight={i} site={site} />)}
+          {shown.map((i) => (
+            <InsightCard key={i.id} insight={i} site={site} />
+          ))}
         </div>
+        {more > 0 && (
+          <PillButton tone="sand" size="sm" className="mt-3" onClick={() => setAll((a) => !a)} aria-expanded={all}>
+            {all ? "Show fewer" : `Show ${more} more`}
+          </PillButton>
+        )}
       </div>
     </Card>
   );

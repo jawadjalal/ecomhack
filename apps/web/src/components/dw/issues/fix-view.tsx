@@ -45,7 +45,7 @@ export function FixList({ fixes, rows, selected, onSelect, panelId }: { fixes: F
               {on && <JoinHighlight layoutId="dw-fix-sel" color={TONE.blue.bg} soft="#E6EDFB" />}
               <FixMark status={f.status} />
               <span className="relative flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-[15px] font-semibold" title={f.title}>
+                <span className="line-clamp-2 text-[15px] leading-snug font-semibold" title={f.title}>
                   {f.title}
                 </span>
                 <span className={cn("truncate text-[13px]", on ? "text-[#2E3A55]" : "text-[#6B655A]")}>{fixSub(f, rows)}</span>
@@ -63,6 +63,10 @@ export function FixList({ fixes, rows, selected, onSelect, panelId }: { fixes: F
           );
         })}
       </div>
+      <p className="mt-auto flex items-center gap-2 px-1 pt-4 text-[13px] text-[#8A8478]">
+        <Mascot kind="shipper" size={20} active={false} />
+        Darwin keeps every fix it tried, winners and losers, so it never repeats a loser.
+      </p>
     </section>
   );
 }

@@ -23,7 +23,7 @@ function Big({ value, label, color }: { value: string; label: string; color: str
   );
 }
 
-export function InTestCard({ fix, rows }: { fix?: FixRow; rows: IssueRow[] }) {
+export function InTestCard({ fix, rows, hasDraft }: { fix?: FixRow; rows: IssueRow[]; hasDraft?: boolean }) {
   const testing = fix?.status === "test";
   const refs = fix ? issueRefs(fix, rows) : undefined;
   const p = fix?.probability;
@@ -37,7 +37,7 @@ export function InTestCard({ fix, rows }: { fix?: FixRow; rows: IssueRow[] }) {
         {refs?.text && <span className="shrink-0 text-[14px] text-[#5A2744]">fixes {refs.text}</span>}
       </div>
       <p className="mt-2.5 max-w-[30rem] text-[20px] leading-[1.3] font-medium text-balance">
-        {testing ? fix.title : fix?.status === "drafted" ? `Nothing yet. “${fix.title}” is drafted and ready to test.` : "Nothing right now. Darwin starts a test as soon as it has a fix."}
+        {testing ? fix.title : hasDraft ? "Nothing yet. The fix Darwin just drafted goes into test B next." : "Nothing right now. Darwin starts a test as soon as it has a fix."}
       </p>
       {testing && (
         <div className="mt-auto flex items-end gap-7 pt-4">
@@ -97,9 +97,9 @@ export function ThrownAwayCard({ thrown, shipped }: { thrown?: FixRow; shipped: 
       <div className="mt-auto pt-4">
         {thrown ? (
           <Big value={liftText(thrown)} label={thrown.status === "rejected" ? "lost its test · never retried" : "no clear signal · shelved"} color="#2F3517" />
-        ) : (
+        ) : shipped > 0 ? (
           <Big value={String(shipped)} label={`${plural(shipped, "fix", "fixes").replace(/^\d+ /, "")} shipped, none lost`} color="#2F3517" />
-        )}
+        ) : null}
       </div>
     </Panel>
   );
