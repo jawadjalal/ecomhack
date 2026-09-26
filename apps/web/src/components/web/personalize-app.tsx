@@ -23,6 +23,7 @@ import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { Card, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
 import { BrowserFrame, CardHead, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
+import { useLiveInterval } from "@/lib/console/live";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -142,14 +143,16 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
     }
   }, [site]);
 
+  const every = useLiveInterval(4000);
   useEffect(() => {
     const first = setTimeout(load, 0);
-    const t = setInterval(load, 4000);
+    // Static unless the Live switch is on: on a multi-server host each poll can land on a server with other numbers.
+    const t = every ? setInterval(load, every) : undefined;
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      if (t) clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   useEffect(() => {
     if (!toast) return;
