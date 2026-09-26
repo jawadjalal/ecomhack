@@ -139,26 +139,33 @@ function Chip({ variant }: { variant: "pill" | "bar" }) {
 
   let label: string;
   let short: string;
+  // What the pill says below 1536px, where the header has no room for the full label.
+  let compact: string;
   let icon = <Store className="size-4 shrink-0" aria-hidden />;
   if (!perSite && !loopPage) {
     // Traffic, Store agent, Settings: name the merchant's store if there is one, else say it's a demo.
     label = store.host ?? store.repo ?? "Demo mode";
     short = store.connected ? label : "Demo";
+    compact = short;
     if (store.connected) icon = <Globe className="size-4 shrink-0" aria-hidden />;
   } else if (shownSite && mine) {
     label = store.host ?? store.repo ?? shownSite;
     short = label;
+    compact = label;
     icon = <Globe className="size-4 shrink-0" aria-hidden />;
   } else if (shownSite && shownSite !== DEMO_WEB_SITE) {
     label = shownSite;
     short = shownSite;
+    compact = shownSite;
     icon = <Globe className="size-4 shrink-0" aria-hidden />;
   } else if (shownSite) {
     label = `Demo site · ${siteName(DEMO_WEB_SITE)}`;
     short = "Demo";
+    compact = "Demo site";
   } else {
     label = "Demo store · PACE";
     short = "Demo";
+    compact = "Demo store";
   }
   const isDemo = short === "Demo";
   const aria = `Store: ${label}. ${isDemo ? "Connect your store" : "Store details"}`;
@@ -196,12 +203,13 @@ function Chip({ variant }: { variant: "pill" | "bar" }) {
         aria-label={aria}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex h-11 max-w-[16rem] min-w-0 items-center gap-2 rounded-full px-4 text-[14.5px] font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink max-lg:max-w-[12rem]",
+          "flex h-11 max-w-[16rem] min-w-0 items-center gap-2 rounded-full px-4 text-[14.5px] font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink max-2xl:px-3.5 max-lg:max-w-[12rem]",
           isDemo ? "border border-dashed border-dw-ink/35 text-dw-ink/80 hover:border-dw-ink/60 hover:text-dw-ink" : "bg-dw-sand text-dw-ink hover:bg-[#e4dccb]",
         )}
       >
         {icon}
-        <span className="truncate">{label}</span>
+        <span className="truncate 2xl:hidden">{compact}</span>
+        <span className="truncate max-2xl:hidden">{label}</span>
         <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       {panel}

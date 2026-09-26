@@ -205,8 +205,8 @@ function LoopPicture() {
             <motion.span
               key={k}
               className={cn(RIM, "inline-grid")}
-              initial={{ y: 14, opacity: 0 }}
-              whileInView={{ y: 0, opacity: 1 }}
+              initial={{ y: 14 }}
+              whileInView={{ y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 + i * 0.08, duration: 0.5, ease: EASE }}
             >

@@ -53,3 +53,30 @@ export function useFirstName(): string | undefined {
   const first = name.split(/\s+/)[0];
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
+
+/** One row of the store agent's "Just now" feed (same public route as the Agents screen's sales card). */
+export interface StoreAgentSale {
+  at: string;
+  agent: string;
+  ref: string;
+  step: string;
+  title?: string;
+  price?: number;
+}
+
+/** The store agent's latest checkout links and payments (live mode only; the mock engine has none). */
+export function useStoreAgentSales(): StoreAgentSale[] | undefined {
+  const api = useApi();
+  const refreshInterval = useLiveInterval(10_000);
+  const { data } = useSWR(
+    api.mode === "mock" ? null : "overview-store-agent-sales",
+    async () => {
+      const res = await fetch("/api/store-agent/stats", { cache: "no-store" });
+      if (!res.ok) return [];
+      const body = (await res.json()) as { funnel?: { recent?: StoreAgentSale[] } };
+      return body.funnel?.recent ?? [];
+    },
+    { ...OPTS, refreshInterval },
+  );
+  return data;
+}

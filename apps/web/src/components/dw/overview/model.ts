@@ -251,6 +251,10 @@ export interface Shopper {
   orderTotal?: number;
   /** Where a person entered (for insight matching). */
   path?: string;
+  /** The last store page a person was on (where they left or paid), e.g. "/store/checkout". */
+  lastPath?: string;
+  /** Page settings version they were served (spec_version on their last event). */
+  specVersion?: number;
 }
 
 const LIVE_MS = 45_000;
@@ -593,7 +597,18 @@ export function personShopper(id: string, events: AnalyticsEvent[], now: number)
     missing: [],
     orderTotal: revenue,
     path: typeof p0.$pathname === "string" ? p0.$pathname : undefined,
+    lastPath: lastPathOf(events),
+    specVersion: typeof last.properties.spec_version === "number" ? last.properties.spec_version : undefined,
   };
+}
+
+/** The last page path any of these events was on (oldest first in, so we scan from the end). */
+function lastPathOf(events: AnalyticsEvent[]): string | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const p = events[i].properties.$pathname;
+    if (typeof p === "string" && p.startsWith("/")) return p;
+  }
+  return undefined;
 }
 
 export function peopleFromEvents(events: AnalyticsEvent[] | undefined, now: number, max = 60): Shopper[] {

@@ -39,9 +39,10 @@ const SPOTS: Spot[] = [
   // very wide: beside the dashboard preview
   { key: "perplexity", brand: "perplexity", face: "#d5ccf5", tilt: 6, size: 50, pos: { left: "3.4%", top: 540 }, show: WIDE },
   { key: "mascot", face: "#f3b5d5", tilt: -6, size: 56, pos: { right: "3.2%", top: 470 }, show: WIDE },
-  // phones: two, small, clear of the left-aligned headline
+  // phones: two, small, clear of the left-aligned headline and the buttons
   { key: "claude-m", brand: "claude", face: "#fbe7d3", tilt: 9, size: 42, pos: { right: 18, top: 100 }, show: PHONE },
-  { key: "openai-m", brand: "openai", face: "#ddf3e8", tilt: -10, size: 40, pos: { right: 28, top: 350 }, show: PHONE },
+  // up in the sky between the logo and the header buttons, clear of the "Open Darwin" pill
+  { key: "openai-m", brand: "openai", face: "#ddf3e8", tilt: -10, size: 36, pos: { left: "46%", top: 24 }, show: PHONE },
 ];
 
 export function AgentStickers({ className }: { className?: string }) {
