@@ -58,11 +58,25 @@ function StripPlaceholder() {
   );
 }
 
-export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState; experiments?: Experiment[]; simulated: boolean }) {
+export function ImpactStrip({
+  loop,
+  experiments,
+  simulated,
+  nowRates,
+}: {
+  loop?: LoopState;
+  experiments?: Experiment[];
+  simulated: boolean;
+  /** Live rates from the same snapshot as the chat. Generation history stays the "before". */
+  nowRates?: { overall: number; human: number; agent: number };
+}) {
   if (!loop) return <StripPlaceholder />;
   const history = loop.history;
   const before = history[0];
-  const now = history.at(-1);
+  const recorded = history.at(-1);
+  const now = nowRates && recorded
+    ? { ...recorded, overallConversionRate: nowRates.overall, humanConversionRate: nowRates.human, agentConversionRate: nowRates.agent }
+    : recorded;
   const shipped = history.filter((g) => g.generation > 0).length;
   const running = experiments?.filter((e) => e.status === "running").length ?? 0;
   const phase = PHASE_META[loop.phase];

@@ -17,7 +17,27 @@ import { useSWRConfig } from "swr";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowUp, ChevronDown, Maximize2, Minimize2, RotateCcw, Store, X } from "lucide-react";
 import type { AgentThread, AssistantAction, AssistantMessage, AssistantPendingConfirm, AssistantResponse, CrewId } from "@/lib/contracts";
-import { CREW, crewMember, SIMULATED_SHOPPER, type CrewMember } from "@/lib/crew";
+import { CREW, crewMember, isCrewId, SIMULATED_SHOPPER, type CrewMember } from "@/lib/crew";
+import {
+  ACTIVE_TAB_KEY,
+  crewIdFrom,
+  fetchReply,
+  groupTitle,
+  jobFrom,
+  mentionTarget,
+  newGroupId,
+  nextGroupTab,
+  readGroups,
+  readThread,
+  removeThread,
+  REPLY_RETRIES,
+  REPLY_TIMEOUT_MS,
+  sameMembers,
+  writeGroups,
+  writeThread,
+  type GroupChat,
+  type TabStore,
+} from "@/lib/assistant/tabs";
 import { BrandGlyph } from "@/components/dw/brand-logos";
 import { cn } from "@/components/ui/cn";
 import { useChatMascot } from "@/components/mascots/use-chat-mascot";
@@ -38,7 +58,11 @@ const SPRING = { type: "spring", stiffness: 420, damping: 40, mass: 0.9 } as con
 const ASK_CSS = `[data-ask-root]{--ask-gap:16px}
 @media (max-width:639px){[data-ask-root]{--ask-gap:max(8px,calc(env(safe-area-inset-bottom,0px) - var(--dw-tabbar-h,0px)))}}
 [data-assistant-spacer]{height:calc(var(--dw-tabbar-h,0px) + 104px)}
-:root:has([data-dw]) [data-assistant-spacer]{height:var(--dw-tabbar-h,0px)}`;
+:root:has([data-dw]) [data-assistant-spacer]{height:var(--dw-tabbar-h,0px)}
+@keyframes dw-unread-pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.45);opacity:.55}}
+[data-unread-dot]{animation:dw-unread-pulse 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){[data-unread-dot]{animation:none}}
+[data-crew-tabs]{scroll-behavior:smooth}`;
 
 type Mode = "bar" | "half" | "full";
 
@@ -99,7 +123,33 @@ function ThreadFace({ name, size = 22, thinking }: { name: string; size?: number
   return <CrewAvatar member={w.member ?? CREW[0]} size={size} thinking={thinking} />;
 }
 
+function bubbleSpeaker(m: ChatItem, fallback: CrewMember): CrewMember {
+  return m.speaker && isCrewId(m.speaker) ? crewById(m.speaker) : fallback;
+}
+
+/** A console page for this reply, when the speaker owns one and the result cards don't already link there. */
+function pageChip(m: ChatItem): { href: string; label: string } | null {
+  if (!m.speaker) return null;
+  const link = CREW_LINK[m.speaker];
+  if (!link) return null;
+  if (m.actions?.some((a) => a.link?.href === link.href)) return null;
+  return link;
+}
+
+function GroupFaces({ members, thinking }: { members: CrewId[]; thinking?: boolean }) {
+  return (
+    <span className="flex shrink-0 -space-x-2">
+      {members.slice(0, 3).map((id) => (
+        <span key={id} className="rounded-full ring-2 ring-[#FFFDF8]">
+          <CrewAvatar member={crewById(id)} size={22} thinking={thinking && id === "darwin"} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
 interface ChatItem {
+  id?: string;
   role: "user" | "assistant";
   content: string;
   actions?: AssistantAction[];
@@ -112,6 +162,36 @@ interface ChatItem {
   voice?: boolean;
   /** Arrived this session: play its agent threads message by message. */
   fresh?: boolean;
+  /** ISO time the message was sent. */
+  at?: string;
+  /** Who spoke, when a group tab holds more than one agent. */
+  speaker?: CrewId;
+}
+
+const CREW_LINK: Partial<Record<CrewId, { href: string; label: string }>> = {
+  iris: { href: "/console/issues", label: "Open issues" },
+  theo: { href: "/console/fixes", label: "Open fixes" },
+  ada: { href: "/console/experiments", label: "Open experiments" },
+  max: { href: "/console/changes", label: "Open changes" },
+  mika: { href: "/console/agents", label: "Open store agent" },
+  grok: { href: "/console/settings", label: "Open briefing" },
+};
+
+const msgId = () => `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+const stamp = () => new Date().toISOString();
+function clock(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+function sessionStore(): TabStore {
+  return {
+    getItem: (k) => sessionStorage.getItem(k),
+    setItem: (k, v) => sessionStorage.setItem(k, v),
+    removeItem: (k) => sessionStorage.removeItem(k),
+  };
 }
 
 /** How each tool's result card looks. Unknown tools (new ones added to the registry) get the sand default. */
@@ -207,29 +287,7 @@ export function AssistantSuggestions({ suggestions }: { suggestions: Starter[] }
 const MASCOTS: MascotKind[] = ["observer", "analyst", "designer", "experimenter", "shipper"];
 const asMascot = (k?: string): MascotKind => (MASCOTS.includes(k as MascotKind) ? (k as MascotKind) : "analyst");
 
-/* ------------------------------------------------------------------ thread persistence */
-
-const STORAGE_KEY = "darwin.assistant.thread";
-/** Darwin keeps the original key; each crew member has its own conversation. */
-const threadKey = (agent: CrewId) => (agent === "darwin" ? STORAGE_KEY : `${STORAGE_KEY}.${agent}`);
-
-function loadThread(agent: CrewId): ChatItem[] {
-  try {
-    const raw = sessionStorage.getItem(threadKey(agent));
-    const parsed = raw ? (JSON.parse(raw) as ChatItem[]) : [];
-    return Array.isArray(parsed) ? parsed.slice(-40) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveThread(agent: CrewId, items: ChatItem[]) {
-  try {
-    sessionStorage.setItem(threadKey(agent), JSON.stringify(items.slice(-40).map((m) => ({ ...m, fresh: undefined }))));
-  } catch {
-    /* storage blocked: the thread lives for this page only */
-  }
-}
+/* ------------------------------------------------------------------ thread persistence (see lib/assistant/tabs) */
 
 /** Where the merchant is asking from: the console path and the darwin.js site (?site=) it shows. */
 function pageContext(): { path?: string; site?: string } {
@@ -277,17 +335,29 @@ export function AssistantPanel() {
   const reduce = useReducedMotion();
   const [mode, setMode] = useState<Mode>("bar");
   const [dragH, setDragH] = useState<number | null>(null);
-  const [agent, setAgent] = useState<CrewId>("darwin");
-  const [byAgent, setByAgent] = useState<Partial<Record<CrewId, ChatItem[]>>>({});
-  /** Which crew member is working on a reply (one at a time). */
-  const [working, setWorking] = useState<CrewId | null>(null);
+  const [agent, setAgent] = useState<string>("darwin");
+  const [groups, setGroups] = useState<GroupChat[]>([]);
+  const [unread, setUnread] = useState<Record<string, boolean>>({});
+  const [byAgent, setByAgent] = useState<Record<string, ChatItem[]>>({});
+  /** Which tab is working on a reply (one at a time). */
+  const [working, setWorking] = useState<string | null>(null);
   const busy = working !== null;
   const items = useMemo(() => byAgent[agent] ?? [], [byAgent, agent]);
-  const setItemsFor = useCallback((who: CrewId, fn: (all: ChatItem[]) => ChatItem[]) => setByAgent((m) => ({ ...m, [who]: fn(m[who] ?? []) })), []);
-  const member = crewById(agent);
+  const setItemsFor = useCallback((who: string, fn: (all: ChatItem[]) => ChatItem[]) => setByAgent((m) => ({ ...m, [who]: fn(m[who] ?? []) })), []);
+  const groupsRef = useRef<GroupChat[]>([]);
+  const activeRef = useRef(agent);
+  useEffect(() => {
+    groupsRef.current = groups;
+  }, [groups]);
+  useEffect(() => {
+    activeRef.current = agent;
+  }, [agent]);
+  const turn = useRef(0);
+  const group = groups.find((g) => g.id === agent);
+  const member = group ? crewById("darwin") : crewById(isCrewId(agent) ? agent : "darwin");
   const lastItem = items.at(-1);
   /** The bar's face follows the reply: thinking while it's in flight, then a short success or error. */
-  const mood = useChatMascot(busy, !!lastItem && lastItem.role === "assistant" && !!lastItem.error);
+  const mood = useChatMascot(working === agent, !!lastItem && lastItem.role === "assistant" && !!lastItem.error);
   const [followUps, setFollowUps] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const { mutate } = useSWRConfig();
@@ -313,23 +383,35 @@ export function AssistantPanel() {
   const bodyH = Math.max(0, Math.min(avail, dragH ?? snaps[mode]));
   const recording = rec.phase === "recording" || rec.phase === "starting";
 
-  const starters: Starter[] =
-    agent !== "darwin"
+  const starters: Starter[] = group
+    ? group.members
+        .filter((id) => id !== "darwin")
+        .slice(0, 3)
+        .map((id) => ({ text: `@${crewById(id).name}, what do you think?`, tone: CREW_TONE[id].bg }))
+    : isCrewId(agent) && agent !== "darwin"
       ? CREW_STARTERS[agent].map((text) => ({ text, tone: CREW_TONE[agent].bg }))
       : (pathname === "/console" && given) || PAGE_STARTERS.find(([re]) => re.test(pathname ?? ""))?.[1] || given || DEFAULT_STARTERS;
 
-  /* conversations (one per crew member) survive page navigation within the console (per browser tab) */
+  /* conversations survive a reload: one thread per crew member, plus each group tab */
   useEffect(() => {
     const t = setTimeout(() => {
-      const all: Partial<Record<CrewId, ChatItem[]>> = {};
-      for (const c of CREW) {
-        const saved = loadThread(c.id);
-        if (saved.length) all[c.id] = saved;
-      }
-      setByAgent(all);
       try {
-        const a = sessionStorage.getItem(AGENT_KEY);
-        if (a && CREW.some((c) => c.id === a)) setAgent(a as CrewId);
+        const store = sessionStore();
+        const savedGroups = readGroups(store);
+        setGroups(savedGroups);
+        groupsRef.current = savedGroups;
+        const all: Record<string, ChatItem[]> = {};
+        for (const c of CREW) {
+          const saved = readThread<ChatItem>(store, c.id);
+          if (saved.length) all[c.id] = saved;
+        }
+        for (const g of savedGroups) {
+          const saved = readThread<ChatItem>(store, g.id);
+          if (saved.length) all[g.id] = saved;
+        }
+        setByAgent(all);
+        const a = store.getItem(ACTIVE_TAB_KEY) ?? store.getItem(AGENT_KEY);
+        if (a && (CREW.some((c) => c.id === a) || savedGroups.some((g) => g.id === a))) setAgent(a);
       } catch {
         /* storage blocked */
       }
@@ -339,17 +421,56 @@ export function AssistantPanel() {
   }, []);
   useEffect(() => {
     if (!hydrated.current) return;
-    for (const [who, list] of Object.entries(byAgent)) saveThread(who as CrewId, list ?? []);
-  }, [byAgent]);
-  const pickAgent = useCallback((id: CrewId) => {
+    try {
+      const store = sessionStore();
+      writeGroups(store, groups);
+      for (const [who, list] of Object.entries(byAgent)) {
+        writeThread(store, who, (list ?? []).map((m) => ({ ...m, fresh: undefined })));
+      }
+      store.setItem(ACTIVE_TAB_KEY, agent);
+    } catch {
+      /* storage blocked: the thread lives for this page only */
+    }
+  }, [byAgent, groups, agent]);
+  const pickAgent = useCallback((id: string) => {
+    activeRef.current = id;
     setAgent(id);
     setFollowUps([]);
+    setUnread((u) => ({ ...u, [id]: false }));
     try {
-      sessionStorage.setItem(AGENT_KEY, id);
+      sessionStorage.setItem(ACTIVE_TAB_KEY, id);
+      if (isCrewId(id)) sessionStorage.setItem(AGENT_KEY, id);
     } catch {
       /* storage blocked */
     }
   }, []);
+
+  const ensureGroup = useCallback((members: CrewId[], job: string) => {
+    const existing = groupsRef.current.find((g) => sameMembers(g.members, members));
+    if (existing) return existing;
+    const created: GroupChat = { id: newGroupId(), job, title: groupTitle(job, members), members, createdAt: stamp() };
+    const next = [...groupsRef.current, created].slice(-12);
+    groupsRef.current = next;
+    setGroups(next);
+    return created;
+  }, []);
+
+  const closeGroup = useCallback((id: string) => {
+    const next = groupsRef.current.filter((g) => g.id !== id);
+    groupsRef.current = next;
+    setGroups(next);
+    setByAgent((m) => {
+      const copy = { ...m };
+      delete copy[id];
+      return copy;
+    });
+    try {
+      removeThread(sessionStore(), id);
+    } catch {
+      /* storage blocked */
+    }
+    if (activeRef.current === id) pickAgent("darwin");
+  }, [pickAgent]);
 
   useEffect(() => {
     const el = scroller.current;
@@ -415,17 +536,19 @@ export function AssistantPanel() {
   );
 
   const call = useCallback(
-    async (who: CrewId, history: ChatItem[], confirm?: { tool: string; args: Record<string, unknown>; approved: boolean }) => {
+    async (who: string, history: ChatItem[], confirm?: { tool: string; args: Record<string, unknown>; approved: boolean }, addressed?: CrewId) => {
+      const my = ++turn.current;
       setWorking(who);
       speaker.hush();
       const setItems = (fn: (all: ChatItem[]) => ChatItem[]) => setItemsFor(who, fn);
+      const direct = addressed ?? (isCrewId(who) && who !== "darwin" ? who : undefined);
       try {
-        const res = await fetch("/api/assistant", {
+        const res = await fetchReply("/api/assistant", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages: toHistory(history), confirm, context: pageContext(), ...(who === "darwin" ? {} : { agent: who }) }),
-          cache: "no-store",
+          body: JSON.stringify({ messages: toHistory(history), confirm, context: pageContext(), ...(direct ? { agent: direct } : {}) }),
         });
+        if (turn.current !== my) return;
         const body = (await res.json().catch(() => ({}))) as Partial<AssistantResponse> & { error?: string; threads?: ThreadView[] };
         if (!res.ok || typeof body.reply !== "string") {
           const why =
@@ -434,39 +557,95 @@ export function AssistantPanel() {
               : res.status >= 500
                 ? "Darwin hit a snag answering that. Try again in a moment."
                 : (body.error ?? `Darwin didn't answer (${res.status}).`);
-          setItems((all) => [...all, { role: "assistant", content: why, error: true }]);
+          setItems((all) => [...all, { id: msgId(), role: "assistant", content: why, error: true, at: stamp(), speaker: direct }]);
+          if (activeRef.current !== who) setUnread((u) => ({ ...u, [who]: true }));
           return;
         }
         const actions = body.actions ?? [];
         const threads = Array.isArray(body.threads) ? body.threads.filter((t) => t && Array.isArray(t.messages) && t.messages.length) : undefined;
-        setItems((all) => [...all, { role: "assistant", content: body.reply!, actions, pendingConfirm: body.pendingConfirm, threads, fresh: true }]);
+        const reply: ChatItem = {
+          id: msgId(),
+          role: "assistant",
+          content: body.reply,
+          actions,
+          pendingConfirm: body.pendingConfirm,
+          threads,
+          fresh: true,
+          at: stamp(),
+          speaker: direct ?? (body.agent && isCrewId(body.agent) ? body.agent : undefined),
+        };
+        const brought = (threads ?? []).flatMap((t) => t.agents.map((n) => crewIdFrom(n)).filter((id): id is CrewId => !!id && id !== "darwin"));
+        const unique = [...new Set(brought)];
+        if (unique.length && isCrewId(who)) {
+          const members: CrewId[] = ["darwin", ...unique];
+          const job = jobFrom(history.at(-1)?.content ?? "");
+          const opened = ensureGroup(members, job);
+          setByAgent((prev) => {
+            const src = prev[who] ?? [];
+            const last = src.at(-1);
+            const userMsg = last?.role === "user" ? last : undefined;
+            return {
+              ...prev,
+              [who]: userMsg ? src.slice(0, -1) : src,
+              [opened.id]: [...(prev[opened.id] ?? []), ...(userMsg ? [userMsg] : []), reply],
+            };
+          });
+          activeRef.current = opened.id;
+          setAgent(opened.id);
+          setUnread((u) => ({ ...u, [opened.id]: false }));
+        } else {
+          setItems((all) => [...all, reply]);
+          if (activeRef.current !== who) setUnread((u) => ({ ...u, [who]: true }));
+        }
         setFollowUps(body.suggestions ?? []);
         refresh(actions);
-        if (speaker.on) speaker.say(replyText({ role: "assistant", content: body.reply!, pendingConfirm: body.pendingConfirm }) || body.reply!);
-        // Darwin opened a page: go there once the reply has rendered.
+        if (speaker.on) speaker.say(replyText({ role: "assistant", content: body.reply, pendingConfirm: body.pendingConfirm }) || body.reply);
         const go = actions.find((a) => a.ok && (a as AssistantAction & { navigate?: boolean }).navigate && a.link?.href.startsWith("/"));
         if (go?.link) window.setTimeout(() => router.push(go.link!.href), 450);
       } catch {
-        setItems((all) => [...all, { role: "assistant", content: "Couldn't reach Darwin. Check your connection and try again.", error: true }]);
+        if (turn.current !== my) return;
+        setItems((all) => [...all, { id: msgId(), role: "assistant", content: "That reply stalled, so I stopped waiting. Send it again.", error: true, at: stamp() }]);
+        if (activeRef.current !== who) setUnread((u) => ({ ...u, [who]: true }));
       } finally {
-        setWorking(null);
+        if (turn.current === my) setWorking(null);
       }
     },
-    [refresh, router, speaker, setItemsFor],
+    [refresh, router, speaker, setItemsFor, ensureGroup],
   );
+
+  /* A hung request is aborted and retried inside fetchReply. This clears "thinking" if that still fails to return. */
+  useEffect(() => {
+    if (!working) return;
+    const my = turn.current;
+    const tab = working;
+    const budget = REPLY_TIMEOUT_MS * (REPLY_RETRIES + 1) + 1500;
+    const t = window.setTimeout(() => {
+      if (turn.current !== my) return;
+      turn.current++;
+      setWorking(null);
+      setItemsFor(tab, (all) => [...all, { id: msgId(), role: "assistant", content: "That reply stalled, so I stopped waiting. Send it again.", error: true, at: stamp() }]);
+      if (activeRef.current !== tab) setUnread((u) => ({ ...u, [tab]: true }));
+    }, budget);
+    return () => window.clearTimeout(t);
+  }, [working, setItemsFor]);
 
   const send = (text: string, fromVoice?: boolean) => {
     const t = text.trim();
     if (!t || working !== null) return;
-    // A new message supersedes an unanswered confirmation.
+    const here = groupsRef.current.find((g) => g.id === agent);
+    const opening = nextGroupTab(here?.members, t);
+    const tab = opening ? ensureGroup(opening.members, opening.job).id : agent;
+    if (opening) pickAgent(tab);
+    const addressed = mentionTarget(t, (opening ? groupsRef.current.find((g) => g.id === tab) : here)?.members);
+    const prior = (opening ? byAgent[tab] : items) ?? [];
     const next: ChatItem[] = [
-      ...items.map((m) => (m.pendingConfirm && !m.resolved ? { ...m, resolved: "cancelled" as const } : m)),
-      { role: "user", content: t.slice(0, 2000), voice: fromVoice || undefined },
+      ...prior.map((m) => (m.pendingConfirm && !m.resolved ? { ...m, resolved: "cancelled" as const } : m)),
+      { id: msgId(), role: "user", content: t.slice(0, 2000), voice: fromVoice || undefined, at: stamp() },
     ];
-    setItemsFor(agent, () => next);
+    setItemsFor(tab, () => next);
     setDraft("");
     if (mode === "bar") openTo("half");
-    void call(agent, next);
+    void call(tab, next, undefined, addressed);
   };
   useEffect(() => {
     sendRef.current = (t, v) => {
@@ -565,14 +744,53 @@ export function AssistantPanel() {
                           aria-selected={on}
                           title={`${c.name} · ${c.role}: ${c.oneLiner}`}
                           onClick={() => pickAgent(c.id)}
-                          className={cn("flex h-9 shrink-0 items-center gap-1.5 rounded-full pr-3 pl-1 text-[14px] font-medium transition-colors", !on && "hover:bg-[#F3EDE0]")}
+                          className={cn("flex h-9 shrink-0 items-center gap-1.5 rounded-full pr-2.5 pl-1 text-[13px] font-medium transition-colors duration-200", !on && "hover:bg-[#F3EDE0]")}
                           style={on ? { background: tone.bg, color: tone.fg } : { color: INK }}
                           data-crew-tab={c.id}
                         >
                           <CrewAvatar member={c} size={26} active={on && !busy} thinking={working === c.id} />
-                          <span className={cn(!on && "hidden sm:inline")}>{c.name}</span>
-                          {on && <span className="hidden text-[12px] opacity-70 lg:inline">{c.role}</span>}
+                          <span className="whitespace-nowrap">{c.name}</span>
+                          <span className="text-[12px] font-normal whitespace-nowrap opacity-80" data-tab-role>
+                            {c.role}
+                          </span>
+                          {unread[c.id] && <span data-unread-dot className="size-2 shrink-0 rounded-full bg-[#E24B4A]" aria-label="New reply" />}
                         </button>
+                      );
+                    })}
+                    {groups.map((g) => {
+                      const on = g.id === agent;
+                      const names = g.members.map((id) => crewById(id).name).join(" + ");
+                      return (
+                        <div
+                          key={g.id}
+                          className={cn("flex h-9 shrink-0 items-center rounded-full pr-1 pl-1 transition-colors duration-200", !on && "hover:bg-[#F3EDE0]")}
+                          style={on ? { background: CREW_TONE.darwin.bg, color: CREW_TONE.darwin.fg } : { color: INK }}
+                          data-group-tab={g.id}
+                        >
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={on}
+                            title={g.title}
+                            onClick={() => pickAgent(g.id)}
+                            className="flex h-full min-w-0 items-center gap-1.5 pr-1 text-[13px] font-medium"
+                          >
+                            <GroupFaces members={g.members} thinking={working === g.id} />
+                            <span className="max-w-[7.5rem] truncate whitespace-nowrap">{g.job}</span>
+                            <span className="max-w-[9rem] truncate text-[12px] font-normal whitespace-nowrap opacity-80" data-tab-role>
+                              {names}
+                            </span>
+                            {unread[g.id] && <span data-unread-dot className="size-2 shrink-0 rounded-full bg-[#E24B4A]" aria-label="New reply" />}
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Close ${g.title}`}
+                            onClick={() => closeGroup(g.id)}
+                            className="grid size-5 shrink-0 place-items-center rounded-full hover:bg-black/10"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -592,14 +810,24 @@ export function AssistantPanel() {
                   </div>
                 </header>
 
-                <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-2 pb-3 sm:px-4" aria-live="polite">
-                  <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4">
+                <div ref={scroller} className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-2 pt-2 pb-3 sm:px-4" aria-live="polite">
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={agent}
+                      className="mx-auto flex w-full max-w-[820px] flex-col gap-4"
+                      initial={reduce ? false : { opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={reduce ? undefined : { opacity: 0, x: -10 }}
+                      transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+                    >
                     {items.length === 0 && (
                       <div className="flex flex-col gap-3">
                         <p className="m-0 text-[15px] leading-[1.5] text-[#4A463D]">
-                          {agent === "darwin"
-                            ? "Ask about your shoppers and agents, or tell Darwin what to do. It runs the loop, sends test shoppers, builds charts and ships winners (it asks first), and asks the crew when it needs them."
-                            : `${member.name}, ${member.role.toLowerCase()}: ${member.oneLiner}. Ask directly; Darwin still asks you before anything changes.`}
+                          {group
+                            ? `${group.title}. Talk to the group, or start with @ and a name to ask one of them.`
+                            : agent === "darwin"
+                              ? "Ask about your shoppers and agents, or tell Darwin what to do. It runs the loop, sends test shoppers, builds charts and ships winners (it asks first), and asks the crew when it needs them."
+                              : `${member.name}, ${member.role.toLowerCase()}: ${member.oneLiner}. Ask directly; Darwin still asks you before anything changes.`}
                         </p>
                         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                           {starters.slice(0, 3).map((s, i) => (
@@ -610,7 +838,7 @@ export function AssistantPanel() {
                               disabled={busy}
                               initial={reduce ? false : { opacity: 0, y: 8 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ ...SPRING, delay: 0.04 * i }}
+                              transition={{ duration: 0.2, delay: 0.04 * i }}
                               className="group flex min-h-[56px] items-center gap-3 rounded-[20px] px-4 py-3 text-left text-[15px] font-medium transition-transform hover:-translate-y-0.5 disabled:opacity-50 sm:min-h-[88px] sm:flex-col sm:items-start sm:justify-between motion-reduce:transition-none"
                               style={{ background: s.tone ?? "#EDE6D6", color: INK }}
                             >
@@ -627,28 +855,29 @@ export function AssistantPanel() {
                     {items.map((m, i) =>
                       m.role === "user" ? (
                         <motion.div
-                          key={i}
-                          initial={reduce ? false : { opacity: 0, y: 8, scale: 0.98 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          transition={SPRING}
-                          className="max-w-[85%] self-end rounded-[20px_20px_6px_20px] px-[18px] py-[11px] text-[16px] leading-[1.4] break-words sm:max-w-[65%]"
-                          style={{ background: INK, color: CREAM }}
+                          key={m.id ?? i}
+                          initial={reduce ? false : { opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex max-w-[85%] items-end justify-end gap-2 self-end sm:max-w-[70%]"
                         >
-                          {m.voice && (
-                            <span className="mb-0.5 block text-[11px] tracking-[0.04em] opacity-60" style={MONO}>
-                              SAID
+                          <div className="flex min-w-0 flex-col items-end gap-1">
+                            <span className="flex items-baseline gap-2 text-[12px] text-[#6B665C]">
+                              <span className="font-semibold text-[#2B2925]">You</span>
+                              {m.at && <span style={MONO}>{clock(m.at)}</span>}
                             </span>
-                          )}
-                          {m.content}
+                            <div className="rounded-[20px_20px_6px_20px] px-[18px] py-[11px] text-[16px] leading-[1.4] break-words" style={{ background: INK, color: CREAM }}>
+                              {m.voice && (
+                                <span className="mb-0.5 block text-[11px] tracking-[0.04em] opacity-60" style={MONO}>
+                                  SAID
+                                </span>
+                              )}
+                              {m.content}
+                            </div>
+                          </div>
                         </motion.div>
                       ) : (
-                        <motion.div key={i} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={SPRING} className="flex flex-col gap-3">
-                          {/* the confirm card carries the question itself */}
-                          {replyText(m) && <Reply text={replyText(m)} error={m.error} />}
-                          {m.threads?.map((t) => <Thread key={t.id} thread={t} play={m.fresh} />)}
-                          {!!m.actions?.length && <ResultCards actions={m.actions} reply={m.content} />}
-                          {m.pendingConfirm && <ConfirmCard pending={m.pendingConfirm} resolved={m.resolved} busy={busy} onAnswer={(ok) => answer(i, ok)} />}
-                        </motion.div>
+                        <AgentBubble key={m.id ?? i} item={m} fallback={member} reduce={!!reduce} busy={busy} onAnswer={(ok) => answer(i, ok)} />
                       ),
                     )}
 
@@ -659,7 +888,8 @@ export function AssistantPanel() {
                         <TypingDots />
                       </div>
                     )}
-                  </div>
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
 
                 {followUps.length > 0 && items.length > 0 && (
@@ -717,7 +947,7 @@ export function AssistantPanel() {
             data-ask-bar
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-full" style={{ background: "rgba(247,241,229,0.10)" }}>
-              <CrewAvatar member={member} size={30} active={!busy} thinking={busy} state={mood} />
+              <CrewAvatar member={member} size={30} active={working !== agent} thinking={working === agent} state={mood} />
             </span>
             <label htmlFor="dw-ask" className="sr-only">
               Ask Darwin
@@ -747,7 +977,17 @@ export function AssistantPanel() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onFocus={() => mode === "bar" && items.length > 0 && openTo("half")}
-                placeholder={items.length ? `Ask ${member.name} a follow-up` : phone ? `Ask ${member.name}…` : `Ask ${member.name} ${ASK_ABOUT[agent]}…`}
+                placeholder={
+                  group
+                    ? items.length
+                      ? "Reply to the group, or @ one agent"
+                      : `Message ${group.job}`
+                    : items.length
+                      ? `Ask ${member.name} a follow-up`
+                      : phone
+                        ? `Ask ${member.name}…`
+                        : `Ask ${member.name} ${ASK_ABOUT[member.id]}…`
+                }
                 maxLength={2000}
                 className="h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[#F7F1E5]/55"
                 style={{ color: CREAM }}
@@ -846,6 +1086,56 @@ function Inline({ text }: { text: string }) {
         <Fragment key={i}>{p}</Fragment>
       ))}
     </>
+  );
+}
+
+/** One agent reply: face, name, role, time, rich cards, and a link to that agent's page. */
+function AgentBubble({
+  item,
+  fallback,
+  reduce,
+  busy,
+  onAnswer,
+}: {
+  item: ChatItem;
+  fallback: CrewMember;
+  reduce: boolean;
+  busy: boolean;
+  onAnswer: (ok: boolean) => void;
+}) {
+  const who = bubbleSpeaker(item, fallback);
+  const chip = pageChip(item);
+  const when = clock(item.at);
+  return (
+    <motion.div
+      initial={reduce ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-start gap-2.5"
+      data-message-from={who.id}
+    >
+      <span className="mt-0.5 shrink-0">
+        <CrewAvatar member={who} size={28} />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className="flex items-baseline gap-2 text-[12px] text-[#6B665C]">
+          <span className="font-semibold text-[#2B2925]">{who.name}</span>
+          <span>{who.role}</span>
+          {when && <span style={MONO}>{when}</span>}
+        </span>
+        {replyText(item) && <Reply text={replyText(item)} error={item.error} />}
+        {item.threads?.map((t) => (
+          <Thread key={t.id} thread={t} play={item.fresh} />
+        ))}
+        {!!item.actions?.length && <ResultCards actions={item.actions} reply={item.content} />}
+        {item.pendingConfirm && <ConfirmCard pending={item.pendingConfirm} resolved={item.resolved} busy={busy} onAnswer={onAnswer} />}
+        {chip && (
+          <a href={chip.href} className="flex h-8 w-fit items-center rounded-full px-3.5 text-[13px] font-medium no-underline" style={{ background: INK, color: CREAM }}>
+            {chip.label}
+          </a>
+        )}
+      </div>
+    </motion.div>
   );
 }
 

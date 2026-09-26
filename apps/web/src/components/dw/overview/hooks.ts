@@ -1,11 +1,34 @@
 "use client";
 
 import useSWR from "swr";
-import type { AnalyticsEvent, AnalyticsEventsResponse } from "@/lib/contracts";
+import type { AnalyticsEvent, AnalyticsEventsResponse, AnalyticsSummary } from "@/lib/contracts";
 import { useApi } from "@/lib/console/hooks";
 import { useLiveInterval } from "@/lib/console/live";
 
 const OPTS = { keepPreviousData: true, revalidateOnFocus: false, dedupingInterval: 500, errorRetryInterval: 5000 } as const;
+
+export interface StoreSnapshotView {
+  kind: "real" | "simulated" | "empty";
+  emptyLine: string;
+  simulated: boolean;
+  summary: AnalyticsSummary;
+  brands: { name: string; shoppers: number; bought: number; rate: number }[];
+}
+
+/** The same numbers the crew cites. Skipped in `?mock=1`, where the in-browser demo is the dataset. */
+export function useStoreSnapshot(enabled: boolean): StoreSnapshotView | undefined {
+  const refreshInterval = useLiveInterval(4000);
+  const { data } = useSWR(
+    enabled ? "store-snapshot" : null,
+    async () => {
+      const res = await fetch("/api/analytics/snapshot", { cache: "no-store" });
+      if (!res.ok) throw new Error("snapshot");
+      return (await res.json()) as StoreSnapshotView;
+    },
+    { ...OPTS, refreshInterval },
+  );
+  return data;
+}
 
 /**
  * Recent people on the demo store: the last human events (page views, bags, checkouts, orders), polled.

@@ -21,7 +21,7 @@ import type {
   SegmentKpis,
 } from "@/lib/contracts";
 import { eventStore } from "@/lib/analytics/store";
-import { getAnalyticsSummary } from "@/lib/analytics/summary";
+import { storeSnapshot } from "@/lib/analytics/snapshot";
 import { listExperiments } from "@/lib/experiments/store";
 import {
   getLoopState,
@@ -52,13 +52,13 @@ import {
 import { simulateTraffic } from "@/lib/simulator";
 import { auditStore, certifyStore } from "@/lib/readiness";
 import { parseGoalBrief, runBuyerAgent } from "@/lib/agent-commerce";
-import { agentFunnel } from "@/lib/store-agent";
+import { citedFunnel } from "@/lib/store-agent";
 import { askResearch, researchCompetitors } from "@/lib/research";
-import { ensureDemoStore } from "@/lib/demo";
+import { demoStatus, ensureDemoStore } from "@/lib/demo";
 import { llmAvailable } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
 import { formatGBP } from "@/lib/money";
-import { resolveSpecialist, specialistName } from "@/lib/crew";
+import { crewBrief, resolveSpecialist, specialistName } from "@/lib/crew";
 import { askAgent } from "./crew";
 
 /* ------------------------------------------------------------------ types */
@@ -179,15 +179,18 @@ export interface StateSnapshot {
     overall: ReturnType<typeof compactKpis>;
     human: ReturnType<typeof compactKpis>;
     agent: ReturnType<typeof compactKpis>;
+    /** Set when there is nothing to cite. */
+    empty?: string;
   };
-  traffic: { events: number; synthetic: number };
+  traffic: { events: number; synthetic: number; kind?: string; simulated?: boolean };
   runningExperiments: ReturnType<typeof compactExperiment>[];
   lastCompleted?: ReturnType<typeof compactExperiment>;
 }
 
 export function stateSnapshot(): StateSnapshot {
   const loop = getLoopState();
-  const s = getAnalyticsSummary();
+  const snap = storeSnapshot();
+  const s = snap.summary;
   const exps = [...listExperiments()].sort(newestFirst);
   const done = exps.find((e) => e.status === "completed");
   return {
@@ -199,12 +202,15 @@ export function stateSnapshot(): StateSnapshot {
       topInsights: loop.insights.slice(0, 3).map((i) => i.title),
       proposal: loop.proposal?.title,
     },
-    kpis: {
-      overall: compactKpis(s.overall),
-      human: compactKpis(s.byKind.human),
-      agent: compactKpis(s.byKind.agent),
-    },
-    traffic: trafficMix(),
+    kpis:
+      snap.kind === "empty"
+        ? { overall: compactKpis(s.overall), human: compactKpis(s.byKind.human), agent: compactKpis(s.byKind.agent), empty: snap.emptyLine }
+        : {
+            overall: compactKpis(s.overall),
+            human: compactKpis(s.byKind.human),
+            agent: compactKpis(s.byKind.agent),
+          },
+    traffic: { ...trafficMix(), kind: snap.kind, simulated: snap.simulated },
     runningExperiments: exps
       .filter((e) => e.status === "running")
       .map(compactExperiment),
@@ -345,20 +351,14 @@ export const TOOLS = {
       realOnly: z.boolean().optional().describe("Exclude simulated traffic"),
     }),
     async run({ realOnly }) {
-      const s: AnalyticsSummary = getAnalyticsSummary(
-        realOnly ? { includeSynthetic: false } : {},
-      );
-      const mix = trafficMix();
-      const synthNote =
-        mix.events === 0
-          ? "No events recorded yet."
-          : realOnly
-            ? "Real visitors only (simulated traffic excluded)."
-            : mix.synthetic === mix.events
-              ? "All of this is simulated traffic (synthetic)."
-              : mix.synthetic > 0
-                ? `${pct(mix.synthetic / mix.events)} of events are simulated (synthetic).`
-                : "All real traffic.";
+      const snap = storeSnapshot(realOnly ? { simulatedOk: false } : undefined);
+      if (snap.kind === "empty") {
+        return { ok: true, summary: snap.emptyLine, data: { empty: true, kind: snap.kind } };
+      }
+      const s: AnalyticsSummary = snap.summary;
+      const synthNote = snap.simulated
+        ? "All of this is simulated traffic (synthetic)."
+        : "All real traffic.";
       const friction = s.friction
         .slice(0, 2)
         .map(
@@ -381,11 +381,12 @@ export const TOOLS = {
       return {
         ok: true,
         summary,
-        synthetic: !realOnly && mix.synthetic > 0,
+        synthetic: snap.simulated || undefined,
         data: {
           overall: compactKpis(s.overall),
           human: compactKpis(s.byKind.human),
           agent: compactKpis(s.byKind.agent),
+          brands: snap.brands.slice(0, 6),
           friction: s.friction.slice(0, 4).map((f) => ({
             kind: f.kind,
             audience: f.audience,
@@ -393,8 +394,7 @@ export const TOOLS = {
             count: f.count,
             share: Number(f.share.toFixed(3)),
           })),
-          events: mix.events,
-          syntheticEvents: mix.synthetic,
+          kind: snap.kind,
           realOnly: !!realOnly,
         },
       };
@@ -933,19 +933,16 @@ export const TOOLS = {
       "The store agent's A2A funnel: buyer-agent conversations → offers → checkout links → payments.",
     args: z.object({}),
     async run() {
-      const f = agentFunnel(eventStore().all());
-      if (!f.conversations && !f.paid)
-        return {
-          ok: true,
-          summary: "No buyer agents have talked to the store agent yet.",
-          data: f,
-        };
+      const cited = citedFunnel(eventStore().all(), demoStatus().mode === "demo");
+      if (cited.emptyLine) return { ok: true, summary: cited.emptyLine, data: cited.funnel };
+      const f = cited.funnel;
+      const label = cited.synthetic ? " These figures are simulated." : "";
       return {
         ok: true,
-        synthetic: f.simulated > 0,
-        summary: `${f.conversations} agent conversations → ${f.offersShown} saw offers → ${f.checkouts} checkout links → ${f.paid} paid (${pct(f.conversion)}), ${formatGBP(f.revenue)}.${f.simulated ? ` ${f.simulated} of the conversations were simulated buyers.` : ""}`,
+        synthetic: cited.synthetic || undefined,
+        summary: `${f.conversations} agent conversations → ${f.offersShown} saw offers → ${f.checkouts} checkout links → ${f.paid} paid (${pct(f.conversion)}), ${formatGBP(f.revenue)}.${label}`,
         link: { label: "Open store agent", href: "/console/agents" },
-        data: { ...f, recent: f.recent.slice(0, 4) },
+        data: { ...f, recent: f.recent.slice(0, 4), synthetic: cited.synthetic },
       };
     },
   }),
@@ -953,14 +950,17 @@ export const TOOLS = {
   ask_agent: tool({
     name: "ask_agent",
     description:
-      "Consult a crew specialist (agent-to-agent) and get their answer plus the conversation. Each knows only its own data: iris (analyst: analytics, where shoppers and AI agents get stuck), theo (designer: the proposed page change and why), ada (tester: A/B results), max (shipper: what shipped, rollback info; read-only), mika (store_agent: the Whop store's own sales agent, a real A2A message; ask what it would say to a buyer), shopper (a simulated buyer agent shops mika for a few turns), grok (the morning briefing). Old names analyst/designer/store_agent also work.",
+      `Consult a crew specialist by their name and get their answer plus the conversation. The crew is ${crewBrief()}. Pass the display name (Iris, Pixel, Fizz, Dash, Mika, Grok). Each knows only its own data: Iris (where shoppers and AI agents get stuck), Pixel (what page change to make and why), Fizz (A/B results), Dash (what shipped; read-only), Mika (the store's own sales agent and real Whop sales), shopper (a simulated buyer that shops Mika; say "simulated"), Grok (the morning briefing). Old names analyst/designer/store_agent also work.`,
     args: z.object({
-      agent: z.enum(ASK_AGENT_NAMES),
+      agent: z.string().trim().min(2).max(40),
       question: z.string().trim().min(2).max(500),
     }),
     untrusted: true,
     async run({ agent, question }, ctx) {
-      const who = resolveSpecialist(agent)!;
+      const who = resolveSpecialist(agent);
+      if (!who) {
+        return { ok: false, summary: `No crew member named “${agent}”. The crew is ${crewBrief()}.` };
+      }
       const r = await askAgent({ agent: who, question, origin: ctx.origin });
       const name = specialistName(who);
       return {

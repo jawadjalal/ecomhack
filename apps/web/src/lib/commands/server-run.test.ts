@@ -235,18 +235,20 @@ describe("setup and demo commands (headless)", () => {
 
 describe("headless views", () => {
   it("darwin_state reads the loop, KPIs (all and real-only) and running tests", async () => {
-    const kpis = (visitors: number) => ({ totalEvents: 1, overall: { visitors, orders: 10, revenue: 100000, conversionRate: 0.1 }, byKind: { human: { visitors, orders: 5, conversionRate: 0.05 }, agent: { visitors: 0, orders: 5, conversionRate: 0.5 } } });
+    const summary = { totalEvents: 1, overall: { visitors: 100, orders: 10, revenue: 100000, conversionRate: 0.1 }, byKind: { human: { visitors: 100, orders: 5, conversionRate: 0.05 }, agent: { visitors: 0, orders: 5, conversionRate: 0.5 } } };
     const { fetch, calls } = mockFetch({
       "GET /api/loop": LOOP,
-      "GET /api/analytics/summary": kpis(100),
+      "GET /api/analytics/snapshot": { kind: "simulated", emptyLine: "", simulated: true, summary },
       "GET /api/briefing": { text: "t", items: [{ id: "agent:1", title: "One best pick", kind: "agent", status: "running", traffic: "simulated", say: "", actions: [] }] },
     });
-    // includeSynthetic=0 answers the same route in this mock; the real API filters.
     const r = await darwinState({ origin: ORIGIN, fetch });
     expect(r.ok).toBe(true);
     expect(r.text).toContain("Gen 3 live");
     expect(r.text).toContain("One best pick [agent, running] (simulated traffic)");
-    expect(calls.map((c) => c.path)).toContain("/api/analytics/summary?includeSynthetic=0");
+    expect(r.text).toMatch(/simulated traffic \(synthetic\)/);
+    expect(r.synthetic).toBe(true);
+    expect(calls.map((c) => c.path)).toContain("/api/analytics/snapshot");
+    expect(calls.map((c) => c.path).some((p) => p.includes("includeSynthetic"))).toBe(false);
   });
 
   it("lists every page with an absolute URL and finds pages by key or label", () => {
