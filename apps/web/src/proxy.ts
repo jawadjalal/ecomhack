@@ -109,5 +109,7 @@ export const config = {
     "/api/briefing",
     "/api/briefing/:path*",
     "/api/ask",
+    // "Ask Darwin" voice: speech-to-text, read-aloud and status (they spend the ElevenLabs key).
+    "/api/voice/:path*",
   ],
 };
