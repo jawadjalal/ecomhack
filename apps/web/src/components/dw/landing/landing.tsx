@@ -39,7 +39,7 @@ export function Landing() {
     <MotionConfig reducedMotion="user">
       <div data-dw className="relative isolate flex min-h-[100svh] w-full flex-col overflow-x-hidden bg-dw-bg font-dw text-dw-ink lg:h-[100svh] lg:overflow-hidden">
         {/* the painting: full-bleed on a computer, the hero's sky on a phone */}
-        <Art id="flowers" position="16% 8%" priority scrim="bg-[#0b2533]/10 max-sm:bg-[#0b2533]/20" className="-z-10 max-sm:bottom-auto max-sm:h-[456px]" />
+        <Art id="marsh" position="50% 0%" priority scrim="bg-[#0b2533]/25 max-sm:bg-[#0b2533]/25" className="-z-10 max-sm:bottom-auto max-sm:h-[456px]" />
 
         {/* quiet nav */}
         <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-4 pt-4 sm:px-7">
