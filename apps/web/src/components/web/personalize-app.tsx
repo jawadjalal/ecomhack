@@ -563,32 +563,43 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
           {draft && <DraftCard draft={draft} busy={busy} onEdit={editDraft} onPreview={previewDraft} onLaunch={launch} onDiscard={discard} />}
 
           {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
-
-          <Card tone="white" hover={false}>
-            <CardTitle right={<span className="num">{data?.rules.length ?? 0} rules</span>}>Live rules &amp; tests</CardTitle>
-            <div className="mt-4 flex flex-col gap-2.5">
-              {rules.length === 0 && (
-                <Empty mascot={<Mascot kind="experimenter" size={56} frame />}>Nothing yet. Ask Darwin for a change, or get ideas from your data.</Empty>
-              )}
-              {rules.map((r) => (
-                <RuleRow
-                  key={r.id}
-                  rule={r}
-                  result={resultOf(r.id)}
-                  busy={busy}
-                  onView={() => setView((v) => ({ ...v, source: r.audience.sources?.[0] ?? "direct", previewRuleId: r.status === "running" || r.status === "shipped" ? undefined : r.id }))}
-                  onPause={() => patch(r, { status: "paused" }, `Paused “${r.name}”.`)}
-                  onResume={() => patch(r, { status: "running" }, `Resumed “${r.name}”.`)}
-                  onShip={() => patch(r, { status: "shipped" }, `Shipped “${r.name}” to everyone in its audience.`)}
-                  onDelete={() => remove(r)}
-                />
-              ))}
-            </div>
-          </Card>
-
           <InstallPanel site={site} origin={origin} />
         </div>
       </div>
+
+      <Card tone="white" hover={false}>
+        <CardTitle
+          right={
+            <span className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+              <LegendKey dashed>Original</LegendKey>
+              <LegendKey>With change</LegendKey>
+              <span className="num">{data?.rules.length ?? 0} rules</span>
+            </span>
+          }
+        >
+          Live rules &amp; tests
+        </CardTitle>
+        <div className="mt-4 grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
+          {rules.length === 0 && (
+            <div className="lg:col-span-2 2xl:col-span-3">
+              <Empty mascot={<Mascot kind="experimenter" size={56} frame />}>Nothing yet. Ask Darwin for a change, or get ideas from your data.</Empty>
+            </div>
+          )}
+          {rules.map((r) => (
+            <RuleRow
+              key={r.id}
+              rule={r}
+              result={resultOf(r.id)}
+              busy={busy}
+              onView={() => setView((v) => ({ ...v, source: r.audience.sources?.[0] ?? "direct", previewRuleId: r.status === "running" || r.status === "shipped" ? undefined : r.id }))}
+              onPause={() => patch(r, { status: "paused" }, `Paused “${r.name}”.`)}
+              onResume={() => patch(r, { status: "running" }, `Resumed “${r.name}”.`)}
+              onShip={() => patch(r, { status: "shipped" }, `Shipped “${r.name}” to everyone in its audience.`)}
+              onDelete={() => remove(r)}
+            />
+          ))}
+        </div>
+      </Card>
 
       <DwToast toast={toast} />
     </>
@@ -744,17 +755,28 @@ function RuleRow({
   const p = result?.probabilityToBeat;
   const enough = (result?.control.visitors ?? 0) >= 100 && (result?.treatment.visitors ?? 0) >= 100;
   const verdict = !test || p === undefined || !enough ? undefined : p >= 0.95 ? "win" : p <= 0.05 ? "lose" : undefined;
+  const T = "h-[22px] px-2 text-[11.5px]";
   const status =
     rule.status === "shipped" ? (
-      <Tag tone="win">Shipped</Tag>
+      <Tag tone="win" className={T}>
+        Shipped
+      </Tag>
     ) : rule.status === "paused" ? (
-      <Tag tone="white">Paused</Tag>
+      <Tag tone="white" className={T}>
+        Paused
+      </Tag>
     ) : rule.status === "draft" ? (
-      <Tag tone="outline">Draft</Tag>
+      <Tag tone="outline" className={T}>
+        Draft
+      </Tag>
     ) : rule.mode === "test" ? (
-      <Tag tone="ink">A/B testing</Tag>
+      <Tag tone="ink" className={T}>
+        A/B testing
+      </Tag>
     ) : (
-      <Tag tone="yellow">Live</Tag>
+      <Tag tone="yellow" className={T}>
+        Live
+      </Tag>
     );
   const mascot: MascotKind = rule.status === "shipped" ? "shipper" : rule.status === "draft" ? "designer" : "experimenter";
   const maxRate = Math.max(result?.control.conversionRate ?? 0, result?.treatment.conversionRate ?? 0, 0.0001);
@@ -769,23 +791,25 @@ function RuleRow({
       <div className="flex items-start gap-3">
         <Mascot kind={mascot} size={40} frame active={rule.status === "running"} className="max-sm:hidden" />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-0.5 text-[15px] leading-snug font-semibold">{rule.name}</span>
+          <div className="text-[15px] leading-snug font-semibold">{rule.name}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             {status}
             {rule.author === "autopilot" && (
               <span title="Started by autopilot">
-                <Tag tone="outline">autopilot</Tag>
+                <Tag tone="outline" className={T}>
+                  autopilot
+                </Tag>
               </span>
             )}
             {result?.synthetic && (
               <span title="Every visitor counted in this result was simulated">
-                <Tag tone="warn">
+                <Tag tone="warn" className={T}>
                   <Bot className="size-3" aria-hidden /> simulated
                 </Tag>
               </span>
             )}
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-[13px] text-dw-ink/60">
+          <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-dw-ink/60">
             {rule.audience.sources?.includes("ai") && <AiStack size={18} />}
             {audienceLabel(rule)}
           </div>
@@ -872,8 +896,8 @@ function RuleRow({
 /** One arm of a test: a horizontal pill (dashed = original, solid = with the change). */
 function ArmBar({ label, rate, visitors, max, dashed }: { label: string; rate: number; visitors: number; max: number; dashed?: boolean }) {
   return (
-    <div className="grid grid-cols-[5.5rem_minmax(0,1fr)_6.5rem] items-center gap-3 text-[13px]">
-      <span className="flex items-center gap-1.5 text-dw-ink/70">
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_7rem] items-center gap-3 text-[13px]">
+      <span className="flex items-center gap-1.5 whitespace-nowrap text-dw-ink/70">
         <span className={cn("size-2.5 shrink-0 rounded-[3px]", dashed ? "border border-dashed border-dw-ink" : "bg-dw-ink")} aria-hidden />
         {label}
       </span>

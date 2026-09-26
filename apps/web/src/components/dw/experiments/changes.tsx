@@ -7,8 +7,8 @@ import type { Experiment, LoopState } from "@/lib/contracts";
 import { signedPct, timeAgo } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "../mascot";
-import { Card, pct0 } from "../ui";
-import { historyFor, outcomeOf, type ChangeRow, type Outcome } from "./model";
+import { Card } from "../ui";
+import { appHref, chance, historyFor, outcomeOf, type ChangeRow, type Outcome } from "./model";
 import { Tip } from "./tip";
 
 const WHO: Record<ChangeRow["seenBy"], { label: string; dot: string; tip: string }> = {
@@ -58,7 +58,7 @@ export function WhatChangesCard({ rows, source }: { rows: ChangeRow[]; source?: 
                 </span>
               </span>
               <span role="cell">
-                <Tip tip={WHO[r.seenBy].tip}>
+                <Tip tip={WHO[r.seenBy].tip} align="start">
                   <span tabIndex={0} className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
                     <span className={cn("size-2.5 rounded-full", WHO[r.seenBy].dot)} />
                     {WHO[r.seenBy].label}
@@ -92,7 +92,9 @@ export function PastExperiments({
   selectedId,
   onSelect,
   now,
+  mock,
 }: {
+  mock: boolean;
   experiments: Experiment[];
   loop: LoopState | undefined;
   selectedId?: string;
@@ -128,22 +130,25 @@ export function PastExperiments({
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
-              <div className={cn("dw-row relative grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 rounded-[16px] px-3.5 py-2.5 md:grid-cols-[132px_1fr_90px_90px_110px]", !on && "hover:bg-[#F6F0E4]")}>
-                <span className={cn("dw-tilt inline-flex h-7 w-fit items-center rounded-full px-2.5 text-[12px] font-semibold", OUTCOME[outcome].className)}>{OUTCOME[outcome].label}</span>
+              <div className={cn("dw-row relative grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 rounded-[16px] px-3.5 py-2.5 md:grid-cols-[132px_1fr_90px_90px_110px]", !on && "hover:bg-[#F6F0E4]")}>
+                <span className="flex items-center gap-2 max-md:col-start-1 max-md:row-start-1">
+                  <span className={cn("dw-tilt inline-flex h-7 w-fit items-center rounded-full px-2.5 text-[12px] font-semibold", OUTCOME[outcome].className)}>{OUTCOME[outcome].label}</span>
+                  {r && <span className="num text-[12px] text-dw-ink/60 md:hidden">{signedPct(r.lift)} · {chance(r.probabilityToBeat)} sure</span>}
+                </span>
                 <button
                   type="button"
                   onClick={() => onSelect(e.id)}
                   aria-pressed={on}
-                  className="min-w-0 truncate rounded-md text-left text-[15px] font-semibold outline-none after:absolute after:inset-0 after:rounded-[16px] focus-visible:after:ring-2 focus-visible:after:ring-dw-ink"
+                  className="min-w-0 truncate rounded-md text-left text-[15px] font-semibold outline-none max-md:col-start-1 max-md:row-start-2 after:absolute after:inset-0 after:rounded-[16px] focus-visible:after:ring-2 focus-visible:after:ring-dw-ink"
                 >
                   {e.name}
                 </button>
                 <span className={cn("num text-[14px] font-semibold max-md:hidden", r && r.lift < 0 && "text-dw-ink/55")}>{r ? signedPct(r.lift) : "–"}</span>
-                <span className="num text-[13px] text-dw-ink/60 max-md:hidden">{r ? `${pct0(r.probabilityToBeat)} sure` : ""}</span>
-                <span className="relative z-10 flex items-center justify-end gap-2 text-[13px] text-dw-ink/55">
+                <span className="num text-[13px] text-dw-ink/60 max-md:hidden">{r ? `${chance(r.probabilityToBeat)} sure` : ""}</span>
+                <span className="relative z-10 flex items-center justify-end gap-2 text-[13px] text-dw-ink/55 max-md:col-start-2 max-md:row-span-2 max-md:row-start-1">
                   {outcome === "shipped" && rec ? (
                     <Link
-                      href={`/console/pulls#gen-${rec.generation}`}
+                      href={appHref(`/console/pulls#gen-${rec.generation}`, mock)}
                       className="inline-flex h-7 items-center gap-1 rounded-full bg-dw-ink px-2.5 text-[12px] font-medium text-white transition-transform hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:outline-none"
                     >
                       Gen {rec.generation} PR <ArrowUpRight className="size-3" aria-hidden />

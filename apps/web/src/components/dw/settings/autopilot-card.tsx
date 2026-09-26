@@ -36,7 +36,7 @@ export function AutopilotCard({ className }: { className?: string }) {
   const phase = loop ? PHASE_META[loop.phase] : undefined;
 
   return (
-    <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col p-6 sm:p-7", className)} aria-label="Autopilot">
+    <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Autopilot">
       <div className="flex items-start gap-4">
         <Mascot kind="shipper" size={60} frame active={autopilot} title="Darwin's shipper" />
         <div className="min-w-0 flex-1">

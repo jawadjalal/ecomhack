@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import type { ExperimentResult } from "@/lib/contracts";
 import { count } from "@/lib/console/format";
 import { Card, CardTitle, pct0 } from "../ui";
-import { CARD_FILL } from "./model";
+import { CARD_FILL, chance } from "./model";
 import { Tip } from "./tip";
 
 /* ------------------------------------------------------------------ chance B wins */
@@ -65,6 +65,7 @@ export function ChanceCard({
         right={
           <Tip
             wide
+            align="end"
             tip={
               early > shipAt
                 ? `Darwin ships B once it's ${pctShip(shipAt)} sure on the final look (${pctShip(early)} on earlier looks, so noise can't sneak a win) and drops it under ${pct0(drop)}.`
@@ -72,7 +73,7 @@ export function ChanceCard({
             }
           >
             <span tabIndex={0} className="rounded-full text-[14px] text-[#5A2744] outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
-              <span className="num text-[22px] font-semibold text-dw-ink">{pct0(now)}</span> · {verdict ? verdict.toLowerCase() : `ships at ${pctShip(shipAt)}`}
+              <span className="num text-[22px] font-semibold text-dw-ink">{chance(now)}</span> · {verdict ? verdict.toLowerCase() : `ships at ${pctShip(shipAt)}`}
             </span>
           </Tip>
         }
@@ -81,7 +82,7 @@ export function ChanceCard({
       </CardTitle>
 
       <div className="relative mt-4 min-h-[120px] flex-1">
-        <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="absolute inset-0 size-full overflow-visible" role="img" aria-label={`Chance B wins: ${points.map((p) => pct0(p.p)).join(", ")}`}>
+        <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="absolute inset-0 size-full overflow-visible" role="img" aria-label={`Chance B wins: ${points.map((p) => chance(p.p)).join(", ")}`}>
           <defs>
             <linearGradient id="dw-exp-fill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#141413" stopOpacity="0.2" />
@@ -115,10 +116,10 @@ export function ChanceCard({
           if (!last && points.length > 8) return null;
           return (
             <span key={i} className="absolute z-10" style={{ left: `${x / 10}%`, top: `${py}%` }}>
-              <Tip tip={`${points[i].label} · ${pct0(points[i].p)}`} className="-translate-x-1/2 -translate-y-1/2">
+              <Tip tip={`${points[i].label} · ${chance(points[i].p)}`} align={i === 0 ? "start" : "center"} className="-translate-x-1/2 -translate-y-1/2">
                 <motion.span
                   tabIndex={0}
-                  aria-label={`${points[i].label}: ${pct0(points[i].p)}`}
+                  aria-label={`${points[i].label}: ${chance(points[i].p)}`}
                   initial={reduce ? false : { scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.25 + (i / Math.max(1, pts.length - 1)) * 0.9, type: "spring", stiffness: 420, damping: 22 }}
@@ -142,7 +143,7 @@ export function ChanceCard({
           if (!last && points.length > 6 && i !== 0) return null;
           return (
             <span key={i} className={last ? "font-semibold text-dw-ink" : i === 0 ? "" : "max-sm:hidden"}>
-              {last ? `${verdict ?? "Now"} · ${pct0(p.p)}` : `${p.label} · ${pct0(p.p)}`}
+              {last ? `${verdict ?? "Now"} · ${chance(p.p)}` : `${p.label} · ${chance(p.p)}`}
             </span>
           );
         })}
@@ -156,12 +157,12 @@ export function ChanceCard({
 
 type Seg = { visitors: number; conversions: number; conversionRate: number };
 
-function Pill({ seg, arm, max, delay, label }: { seg: Seg; arm: "A" | "B"; max: number; delay: number; label: string }) {
+function Pill({ seg, arm, max, delay, label, align }: { seg: Seg; arm: "A" | "B"; max: number; delay: number; label: string; align: "start" | "center" | "end" }) {
   const reduce = useReducedMotion();
   const H = 118;
   const h = seg.visitors ? Math.max(22, Math.round((seg.conversionRate / max) * H)) : 22;
   return (
-    <Tip tip={seg.visitors ? `${label} ${arm}: ${count(seg.conversions)} of ${count(seg.visitors)} bought` : `${label} ${arm}: no shoppers yet`}>
+    <Tip align={align} tip={seg.visitors ? `${label} ${arm}: ${count(seg.conversions)} of ${count(seg.visitors)} bought` : `${label} ${arm}: no shoppers yet`}>
       <span tabIndex={0} className="group/p flex flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
         <span className={arm === "B" ? "num text-[12px] font-semibold" : "num text-[12px] text-dw-ink/80"}>{seg.visitors ? `${(seg.conversionRate * 100).toFixed(seg.conversionRate < 0.1 ? 1 : 0)}%` : "–"}</span>
         <motion.span
@@ -214,8 +215,8 @@ export function WhoBuysCard({ result, audience, synthetic }: { result?: Experime
               return (
                 <div key={g.key} className="flex flex-col items-center gap-2">
                   <div className="flex items-end gap-2.5">
-                    <Pill seg={g.a} arm="A" max={max} delay={0.2 + i * 0.12} label={g.label} />
-                    <Pill seg={g.b} arm="B" max={max} delay={0.28 + i * 0.12} label={g.label} />
+                    <Pill seg={g.a} arm="A" max={max} delay={0.2 + i * 0.12} label={g.label} align={i === 0 ? "start" : i === 2 ? "end" : "center"} />
+                    <Pill seg={g.b} arm="B" max={max} delay={0.28 + i * 0.12} label={g.label} align={i === 0 ? "start" : i === 2 ? "end" : "center"} />
                   </div>
                   <span className={judged ? "text-[13px] font-semibold text-dw-ink" : "text-[13px] text-[#2E3A55]"}>{g.label}</span>
                 </div>

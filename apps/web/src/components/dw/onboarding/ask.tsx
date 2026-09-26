@@ -39,12 +39,17 @@ export const WHERE_OPTIONS = [
 export const Q_TRACK = "What would you like to track in your store?";
 export const Q_WHERE = "Where do you want to track your customers?";
 
-/** What the planner reads: the merchant's words, then the answers. */
+/** POST /api/onboarding/plan accepts up to 1000 characters of prompt. */
+const PROMPT_MAX = 1000;
+
+/** What the planner reads: the merchant's words, then the answers (the words are trimmed if it's too long). */
 export function composePrompt(prompt: string, a: Answers): string {
   const track = TRACK_OPTIONS.filter((o) => a.track.includes(o.id)).map((o) => o.phrase);
   const what = [track.length ? `Track ${track.join(", ")}.` : "", a.note.trim()].filter(Boolean).join(" ");
   const where = WHERE_OPTIONS.filter((o) => a.where.includes(o.id)).map((o) => o.phrase);
-  return [prompt.trim(), what, where.length ? `Customers on: ${where.join(", ")}.` : ""].filter(Boolean).join("\n\n");
+  const tail = [what, where.length ? `Customers on: ${where.join(", ")}.` : ""].filter(Boolean).join("\n\n").slice(0, 600);
+  const words = prompt.trim().slice(0, Math.max(0, PROMPT_MAX - tail.length - 2));
+  return [words, tail].filter(Boolean).join("\n\n");
 }
 
 /** The answers as short chips for the merchant's chat bubble. */
@@ -160,6 +165,7 @@ export function AskChat({
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="Anything else? e.g. wishlist adds, returns"
                       aria-label="Anything else to track"
+                      maxLength={200}
                       className="h-9 min-w-0 flex-1 bg-transparent text-[14.5px] outline-none placeholder:text-dw-ink/35"
                     />
                     <PillButton type="submit" size="sm">

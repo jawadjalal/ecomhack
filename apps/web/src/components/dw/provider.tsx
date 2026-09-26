@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useSWRConfig } from "swr";
 import type { LoopState } from "@/lib/contracts";
@@ -39,9 +39,13 @@ export function useDarwin(): DarwinApp {
   return v;
 }
 
+const noop = () => () => {};
+const readMock = () => /[?&]mock=(1|true)\b/.test(window.location.search);
+
 export function DarwinProvider({ children }: { children: ReactNode }) {
-  const [mock] = useState(() => typeof window !== "undefined" && /[?&]mock=(1|true)\b/.test(window.location.search));
-  const [api] = useState(() => createConsoleApi(mock ? "mock" : "auto"));
+  // ?mock=1 runs the in-browser demo engine. Read after hydration (server snapshot = live) so markup matches.
+  const mock = useSyncExternalStore(noop, readMock, () => false);
+  const api = useMemo(() => createConsoleApi(mock ? "mock" : "auto"), [mock]);
   return (
     <ApiContext.Provider value={api}>
       <Inner api={api} mock={mock}>

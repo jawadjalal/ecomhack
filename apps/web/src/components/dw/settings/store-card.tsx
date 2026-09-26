@@ -64,7 +64,7 @@ export function StoreCard({ className }: { className?: string }) {
   const whopDot: Dot = !wc ? "off" : wc.mode === "live" ? "on" : "demo";
 
   return (
-    <Card tone="white" className={cn("flex flex-col p-6 sm:p-7", className)} aria-label="Your store">
+    <Card tone="white" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Your store">
       <CardTitle
         right={
           <Link href="/onboarding" className="inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium text-dw-ink hover:bg-dw-sand focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:outline-none">

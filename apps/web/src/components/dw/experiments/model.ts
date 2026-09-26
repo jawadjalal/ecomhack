@@ -12,6 +12,13 @@ import { describeDiff } from "@/lib/spec/patch";
  */
 export const CARD_FILL = "flex flex-col [&>.relative]:flex [&>.relative]:min-h-0 [&>.relative]:flex-1 [&>.relative]:flex-col";
 
+/** Keep the in-browser demo engine (?mock=1) when linking between Darwin pages. */
+export function appHref(href: string, mock: boolean): string {
+  if (!mock) return href;
+  const [path, hash] = href.split("#");
+  return `${path}${path.includes("?") ? "&" : "?"}mock=1${hash ? `#${hash}` : ""}`;
+}
+
 /* ------------------------------------------------------------------ decision rules */
 
 /**
@@ -268,6 +275,14 @@ export function measured(result: ExperimentResult) {
   const a = pick(result.control);
   const b = pick(result.treatment);
   return { audience: aud, a, b, visitors: a.visitors + b.visitors };
+}
+
+/** P(beat) for people: never claims certainty ("99%+", "<1%"). */
+export function chance(p: number | undefined): string {
+  if (p === undefined || !Number.isFinite(p)) return "–";
+  if (p >= 0.995) return "99%+";
+  if (p <= 0.005) return "<1%";
+  return `${Math.round(p * 100)}%`;
 }
 
 export function audienceNoun(aud: "all" | "human" | "agent", n = 2): string {

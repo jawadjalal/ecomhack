@@ -6,8 +6,8 @@ import { GitPullRequest } from "lucide-react";
 import { count, signedPct, timeAgo } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { BrandGlyph } from "../brand-logos";
-import { Card, Tag, pct0 } from "../ui";
-import { audienceNoun, CARD_FILL, diffCode, measured, type PrRow } from "./model";
+import { Card, Tag } from "../ui";
+import { audienceNoun, CARD_FILL, chance, diffCode, measured, type PrRow } from "./model";
 import { Tip } from "./tip";
 
 const rate = (x: number) => `${(x * 100).toFixed(x < 0.1 ? 1 : 0)}`;
@@ -86,7 +86,7 @@ function Tile({ value, label, tip, i }: { value: string; label: string; tip?: st
     </motion.div>
   );
   return tip ? (
-    <Tip tip={tip} wide className="flex">
+    <Tip tip={tip} wide align={i % 2 === 0 ? "start" : "end"} className="flex">
       {body}
     </Tip>
   ) : (
@@ -113,7 +113,7 @@ export function ProofCard({ row, synthetic }: { row: PrRow; synthetic: boolean }
           </div>
           {result && m ? (
             <div className="grid grid-cols-2 gap-2.5">
-              <Tile i={0} value={pct0(result.probabilityToBeat)} label="chance it wins" tip="Darwin's Bayesian read of the test: how sure it is that B beats A." />
+              <Tile i={0} value={chance(result.probabilityToBeat)} label="chance it wins" tip="Darwin's Bayesian read of the test: how sure it is that B beats A." />
               <Tile i={1} value={count(m.visitors)} label={`${audienceNoun(m.audience)} tested${synthetic ? " (simulated)" : ""}`} tip={`${count(m.a.visitors)} saw A, ${count(m.b.visitors)} saw B`} />
               <Tile
                 i={2}

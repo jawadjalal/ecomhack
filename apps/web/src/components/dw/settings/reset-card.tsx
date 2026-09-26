@@ -18,7 +18,7 @@ export function ResetCard({ className }: { className?: string }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (confirming) cancelRef.current?.focus();
+    if (confirming) cancelRef.current?.focus({ preventScroll: true });
   }, [confirming]);
 
   const go = async () => {
@@ -40,7 +40,7 @@ export function ResetCard({ className }: { className?: string }) {
   ].filter(Boolean);
 
   return (
-    <Card tone="sand" shape="analyst" corner="br" hover={false} className={cn("flex flex-col p-6 sm:p-7", className)} aria-label="Start over">
+    <Card tone="sand" shape="analyst" corner="br" hover={false} className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Start over">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-[36rem]">
           <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Start over</h2>
@@ -99,7 +99,7 @@ export function ResetCard({ className }: { className?: string }) {
 export function DemoCard({ className }: { className?: string }) {
   const { mock } = useDarwin();
   return (
-    <Card tone="lilac" shape="experimenter" corner="br" className={cn("flex flex-col p-6 sm:p-7", className)} aria-label="Demo mode">
+    <Card tone="lilac" shape="experimenter" corner="br" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Demo mode">
       <div className="flex items-start gap-4">
         <Mascot kind="experimenter" size={48} frame active />
         <div className="min-w-0 flex-1">

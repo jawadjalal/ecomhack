@@ -77,6 +77,7 @@ export function IssueList({
                 <span className="line-clamp-2 text-[15px] leading-snug font-semibold [overflow-wrap:anywhere]" title={r.insight.title}>{r.insight.title}</span>
                 <span className={cn("text-[13px]", on ? "text-[#5A2744]" : "text-[#6B655A]")}>
                   {r.who} · {r.where}
+                  {r.status !== "queued" && <span className="font-medium text-dw-ink sm:hidden"> · {STATUS_LABEL[r.status]}</span>}
                 </span>
               </span>
               <span className="relative hidden sm:inline-flex">

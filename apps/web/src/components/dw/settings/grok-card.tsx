@@ -80,7 +80,7 @@ export function GrokCard({ className }: { className?: string }) {
   const write = `curl -s -X POST ${origin}/api/briefing/act \\\n  -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{"id":"<item id>","action":"ship"}'`;
 
   return (
-    <Card tone="pink" shape="experimenter" corner="tr" className={cn("flex flex-col p-6 sm:p-7", className)} aria-label="Your Grok teammate">
+    <Card tone="pink" shape="experimenter" corner="tr" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Your Grok teammate">
       <div className="flex items-start gap-4">
         <span className="relative flex shrink-0 items-center">
           <span className="grid size-[52px] place-items-center rounded-[18px] bg-dw-ink text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_-6px_rgba(20,20,19,0.45)]">

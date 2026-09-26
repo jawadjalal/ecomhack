@@ -63,11 +63,23 @@ export function stageKey(stage: string): StageKey {
   return "product";
 }
 
+const AGENT_TOOL_WHERE: Record<string, string> = {
+  checkout: "at agent checkout",
+  catalog: "in the agent catalog",
+  search_products: "while searching products",
+  get_product: "while reading a product",
+  check_availability: "while checking stock",
+  add_to_cart: "while adding to the bag",
+  negotiate: "while negotiating",
+};
+
 export function whereText(stage: string): string {
   const s = stage.toLowerCase().trim();
   if (s.startsWith("agent:")) {
     const rest = s.slice(6).trim();
-    return rest === "checkout" ? "at agent checkout" : `in the agent ${rest || "API"}`;
+    if (AGENT_TOOL_WHERE[rest]) return AGENT_TOOL_WHERE[rest];
+    if (/_/.test(rest)) return `when calling ${rest}`;
+    return `in the agent ${rest || "API"}`;
   }
   if (/home|landing/.test(s)) return "on the home page";
   if (/product/.test(s)) return "on product pages";
@@ -140,10 +152,15 @@ export function issueStats(insight: Insight): IssueStat[] {
   const m = SHARE.exec(insight.title);
   const evidence = insight.evidence.filter((e) => !/impact/i.test(e.label));
   if (m) out.push({ value: m[1], label: `of ${m[2]}` });
-  else if (evidence[0]) out.push({ value: evidence[0].value, label: evidence[0].label });
+  else {
+    const lead = evidence.find((e) => /\d/.test(e.value) && e.value.length <= 10);
+    if (lead) out.push({ value: lead.value, label: lead.label });
+  }
   out.push({ value: fmtImpact(insight.impactScore), label: "buyers lost / 1,000" });
   const used = new Set(out.map((s) => s.value));
-  const count = evidence.find((e) => /^[\d,]+$/.test(e.value.trim()) && !used.has(e.value)) ?? evidence.find((e) => !used.has(e.value));
+  const count =
+    evidence.find((e) => /^[\d,]+$/.test(e.value.trim()) && !used.has(e.value)) ??
+    evidence.find((e) => !used.has(e.value) && /\d/.test(e.value) && e.value.length <= 10);
   if (count) out.push({ value: count.value, label: count.label });
   return out.slice(0, 3);
 }
@@ -203,7 +220,9 @@ function outcomeText(s: AgentSessionSummary, field?: string): string {
 export function sessionsFor(insight: Insight, sessions: AgentSessionSummary[] | undefined, limit = 4): { rows: SeenSession[]; matched: number; scanned: number } {
   if (!sessions?.length || insight.audience === "human") return { rows: [], matched: 0, scanned: sessions?.length ?? 0 };
   const kind = insight.id.replace(/^ins_/, "");
-  const re = FIELD_MATCH[kind];
+  // Standard insight kinds map to field patterns; otherwise use a field name the evidence cites.
+  const fieldHint = insight.evidence.map((e) => e.value.trim()).find((v) => /^[a-z]+[A-Z][A-Za-z]+$/.test(v));
+  const re = FIELD_MATCH[kind] ?? (fieldHint ? new RegExp(`^${fieldHint}$`) : undefined);
   const hits: { s: AgentSessionSummary; field?: string }[] = [];
   for (const s of sessions) {
     if (re) {

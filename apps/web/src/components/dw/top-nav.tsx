@@ -44,7 +44,7 @@ export function TopNav() {
     .find((n) => (n.href === "/console" ? path === "/console" : path?.startsWith(n.href)))?.key;
 
   return (
-    <header className="grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3">
+    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3">
       <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
         <Mascot kind="analyst" size={34} active />
         <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>

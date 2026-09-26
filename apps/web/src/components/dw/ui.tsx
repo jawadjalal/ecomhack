@@ -58,7 +58,7 @@ export function Card({
     <As
       {...rest}
       className={cn(
-        "relative overflow-hidden rounded-[26px] p-6",
+        "relative overflow-clip rounded-[26px] p-6",
         tone === "white" && "border border-dw-hairline",
         hover && "dw-card",
         className,

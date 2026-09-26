@@ -78,13 +78,15 @@ export function LiveShoppers({
   return (
     <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
       <section aria-label="Live shoppers" className="flex min-w-0 flex-col gap-3">
-        <div className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-1">
-          <div className="flex items-baseline gap-3">
-            <h2 className="text-[22px] font-semibold tracking-[-0.02em]">Live shoppers</h2>
-            <span className="flex items-center gap-[7px] text-[13px] text-[#6B655A]">
-              <span className={cn("size-[7px] rounded-full", liveCount ? "dw-live-dot bg-dw-live" : "bg-dw-ink/25")} />
-              {liveCount ? `${liveCount} on the store` : "Nobody on the store right now"}
-              {simulated && <span className="text-[#8A8478]">· simulated</span>}
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-1 sm:flex-nowrap">
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h2 className="shrink-0 text-[22px] font-semibold tracking-[-0.02em]">Live shoppers</h2>
+            <span className="flex min-w-0 items-center gap-[7px] text-[13px] whitespace-nowrap text-[#6B655A]">
+              <span className={cn("size-[7px] shrink-0 rounded-full", liveCount ? "dw-live-dot bg-dw-live" : "bg-dw-ink/25")} />
+              <span className="truncate">
+                {liveCount ? `${liveCount} on the store` : "Quiet right now"}
+                {simulated && <span className="text-[#8A8478]"> · simulated</span>}
+              </span>
             </span>
           </div>
           <Segmented<Filter>

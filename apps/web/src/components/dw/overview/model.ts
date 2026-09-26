@@ -185,11 +185,13 @@ export interface FunnelStep {
 export function funnelSteps(summary: AnalyticsSummary | undefined): FunnelStep[] {
   const h = summary?.byKind.human;
   const a = summary?.byKind.agent;
-  return STEP_LABELS.map((label, i) => ({
-    label,
-    people: h?.visitors ? h.funnel[i + 1]?.rateFromPrevious : undefined,
-    agents: a?.visitors ? a.funnel[i + 1]?.rateFromPrevious : undefined,
-  }));
+  // Visitors can reach a later step without the previous one (an agent adds to cart straight from
+  // search), so a step-to-step rate can top 100%: cap it, it reads "everyone moved on".
+  const rate = (k: typeof h, i: number) => {
+    const v = k?.visitors ? k.funnel[i + 1]?.rateFromPrevious : undefined;
+    return v === undefined || !Number.isFinite(v) ? undefined : Math.min(1, Math.max(0, v));
+  };
+  return STEP_LABELS.map((label, i) => ({ label, people: rate(h, i), agents: rate(a, i) }));
 }
 
 /* ------------------------------------------------------------------ shoppers */

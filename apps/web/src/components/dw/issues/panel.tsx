@@ -63,12 +63,14 @@ export function Panel({
 }
 
 /** Ink tooltip pill that floats above its `group` parent on hover/focus. */
-export function Tip({ children, className }: { children: ReactNode; className?: string }) {
+export function Tip({ children, className, align = "center" }: { children: ReactNode; className?: string; align?: "center" | "start" | "end" }) {
   return (
     <span
       role="tooltip"
       className={cn(
-        "pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-20 max-w-[240px] -translate-x-1/2 translate-y-1 truncate rounded-full bg-dw-ink px-2.5 py-1 text-[12px] font-medium whitespace-nowrap text-white opacity-0 shadow-[0_6px_16px_rgba(20,20,19,0.18)] transition-[opacity,transform] duration-200",
+        "pointer-events-none absolute bottom-[calc(100%+8px)] z-20 max-w-[240px] translate-y-1 truncate",
+        align === "center" ? "left-1/2 -translate-x-1/2" : align === "start" ? "left-0" : "right-0",
+        "rounded-full bg-dw-ink px-2.5 py-1 text-[12px] font-medium whitespace-nowrap text-white opacity-0 shadow-[0_6px_16px_rgba(20,20,19,0.18)] transition-[opacity,transform] duration-200",
         "group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100",
         className,
       )}

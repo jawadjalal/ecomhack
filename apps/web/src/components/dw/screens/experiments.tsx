@@ -12,7 +12,9 @@ import { ChanceCard, WhoBuysCard, type ChancePoint } from "../experiments/charts
 import { PastExperiments, WhatChangesCard } from "../experiments/changes";
 import {
   CARD_FILL,
+  appHref,
   audienceNoun,
+  chance,
   changeRows,
   controlSpecFor,
   decisionRules,
@@ -130,7 +132,7 @@ export function ExperimentsScreen() {
   const m = result ? measured(result) : undefined;
   const noun = audienceNoun(m?.audience ?? "all");
   const sim = synthetic ? " (simulated)" : "";
-  const P = result ? <b className="font-semibold text-dw-ink">{pct0(result.probabilityToBeat)} chance</b> : null;
+  const P = result ? <b className="font-semibold text-dw-ink">{chance(result.probabilityToBeat)} chance</b> : null;
   let lede: ReactNode;
   if (!result || !m) lede = "The test just started: half of your shoppers see B. The first results land after one round of shoppers.";
   else if (running)
@@ -194,6 +196,7 @@ export function ExperimentsScreen() {
         <Tip
           wide
           side="bottom"
+          align="end"
           tip={`Sends the next round of shoppers and reads the result. Darwin never ships early: B goes live only once it's ${shipPct(rules.ship)} sure, and gets dropped under ${pct0(rules.drop)}.`}
         >
           <PillButton size="lg" onClick={() => void step()} disabled={stepping} aria-busy={stepping}>
@@ -205,7 +208,7 @@ export function ExperimentsScreen() {
     );
   } else if (view.outcome === "shipped" && view.record) {
     actions = (
-      <PillButton size="lg" href={`/console/pulls#gen-${view.record.generation}`}>
+      <PillButton size="lg" href={appHref(`/console/pulls#gen-${view.record.generation}`, mock)}>
         See the pull request
       </PillButton>
     );
@@ -287,6 +290,7 @@ export function ExperimentsScreen() {
             loop={loop}
             selectedId={exp.id}
             now={now}
+            mock={mock}
             onSelect={(id) => {
               choose(id);
               window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });

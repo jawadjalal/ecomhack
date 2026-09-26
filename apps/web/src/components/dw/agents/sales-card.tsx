@@ -55,7 +55,7 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-4 items-end gap-2">
+      <div className="mt-6 grid grid-cols-4 items-start gap-2">
         {steps.map((s, i) => (
           <div key={s.label} className="flex min-w-0 flex-col items-center text-center">
             <TrackPill

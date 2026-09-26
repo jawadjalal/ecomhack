@@ -92,7 +92,7 @@ export function SourceChip({ source }: { source?: string }) {
   return (
     <span
       title={source}
-      className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full bg-white/80 px-2.5 text-[12px] font-medium text-dw-ink/80 shadow-[inset_0_0_0_1px_rgba(20,20,19,0.06)]"
+      className="inline-flex h-7 max-w-full items-center gap-1.5 self-start rounded-full bg-white/80 px-2.5 text-[12px] font-medium text-dw-ink/80 shadow-[inset_0_0_0_1px_rgba(20,20,19,0.06)]"
     >
       {heuristic ? <BookOpen className="size-3.5" aria-hidden /> : glyph ? <BrandGlyph brand={glyph} size={13} /> : null}
       <span className="truncate">{heuristic ? "Written from Darwin's playbook, no LLM" : `Written by ${b.model ?? b.label}`}</span>

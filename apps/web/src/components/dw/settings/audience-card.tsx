@@ -23,7 +23,7 @@ export function AudienceCard({ className }: { className?: string }) {
   const runningAudience = running?.result?.audience ?? (running?.result ? "all" : undefined);
 
   return (
-    <Card tone="blue" shape="observer" corner="br" className={cn("flex flex-col p-6 sm:p-7", className)} aria-label="Who Darwin tests for">
+    <Card tone="blue" shape="observer" corner="br" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Who Darwin tests for">
       <CardTitle>Who Darwin tests for</CardTitle>
       <p className="mt-2 text-[14.5px] leading-snug text-[#2E3A55]">
         Each fix is judged only on the shoppers it can reach, so the others can&apos;t add noise to the call. Darwin works this out from what the fix changes.

@@ -17,7 +17,6 @@ import {
   SHIP_AT,
   countText,
   funnelSteps,
-  liftText,
   pctSmart,
   seriesText,
   seriesValue,
@@ -384,7 +383,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                       </Tip>
                       <span className="num text-[12px] font-semibold">{Math.round(v * 100)}%</span>
                       <Grow
-                        size={Math.max(26, Math.round(v * 115))}
+                        size={Math.max(26, Math.round(v * 104))}
                         delay={0.3 + i * 0.07 + j * 0.04}
                         className={cn(
                           "w-[26px] rounded-full transition-[filter,background-color] duration-200",

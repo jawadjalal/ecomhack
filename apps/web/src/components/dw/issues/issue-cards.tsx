@@ -54,7 +54,7 @@ export function BuyersLostCard({ rows, selected, onSelect }: { rows: IssueRow[];
               aria-pressed={on}
               className="group relative flex min-w-0 flex-col items-center gap-1.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-dw-ink"
             >
-              <Tip>
+              <Tip align={i < 2 ? "start" : i >= rows.length - 2 ? "end" : "center"}>
                 #{r.n} · {STATUS_LABEL[r.status]} · {r.insight.title}
               </Tip>
               <span className={cn("num text-[12px] font-semibold transition-opacity", !on && selected && "opacity-70")}>{fmtImpact(v)}</span>

@@ -8,7 +8,7 @@ import { BrandGlyph } from "../brand-logos";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { Card, Empty, LiveDot, PageHead, PillButton, Typing } from "../ui";
-import { buildPrRows, githubLive, indexLog, type PrRow } from "../experiments/model";
+import { appHref, buildPrRows, githubLive, indexLog, type PrRow } from "../experiments/model";
 import { DiffCard, PrList, ProofCard } from "../experiments/pr-parts";
 import { setHash, useHash } from "../experiments/use-hash";
 
@@ -92,7 +92,7 @@ export function PullRequestsScreen() {
 
   let actions: ReactNode = null;
   const seeTest = sel.experiment ? (
-    <PillButton tone="sand" size="lg" href={`/console/experiments#${sel.experiment.id}`}>
+    <PillButton tone="sand" size="lg" href={appHref(`/console/experiments#${sel.experiment.id}`, mock)}>
       See the test
     </PillButton>
   ) : null;
