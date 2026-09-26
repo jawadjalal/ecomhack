@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { githubTokenFor } from "@/lib/auth/oauth";
-import { githubErrorStatus, inspectRepository, publicOrigin, scriptTag } from "@/lib/github";
+import { githubErrorStatus, inspectRepository, installSnippet } from "@/lib/github";
 import type { TrackingPlan } from "@/lib/contracts";
 import { amendPlan, applyToggles, buildPlan, cachedPlan, cachePlan, getPlan, planCacheKey, planIntro, savePlan } from "@/lib/tracking";
+import { siteIdForUrl } from "@/lib/web";
 
 const SiteSchema = z.string().regex(/^[\w.-]{1,64}$/);
 
@@ -25,15 +26,6 @@ const StoreUrl = z
   .pipe(z.url({ protocol: /^https?$/, message: STORE_URL_HINT }))
   .refine((u) => new URL(u).hostname.includes("."), STORE_URL_HINT);
 
-/** "https://Shop.Example.com/x" → "shop-example-com": the darwin.js site id for a store without GitHub. */
-const siteIdForUrl = (url: string) =>
-  new URL(url).hostname
-    .toLowerCase()
-    .replace(/^www\./, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-
 /** Onboarding's answers to Darwin's questions (optional; also part of the plan's cache key). */
 const Answers = z.union([
   z.record(z.string().max(40), z.union([z.string().max(300), z.array(z.string().max(80)).max(20), z.boolean(), z.number()])),
@@ -52,7 +44,7 @@ async function stablePlan(key: string, regenerate: boolean | undefined, make: ()
 }
 
 /**
- * POST /api/onboarding/plan { prompt?, repoUrl | siteUrl, whop?, answers?, regenerate? } → { plan, reply, cached, note?, snippet? }
+ * POST /api/onboarding/plan { prompt?, repoUrl | siteUrl, whop?, answers?, regenerate? } → { plan, reply, cached, note?, snippet?, install }
  * With repoUrl: reads the repo (framework, site id) and the install is a pull request.
  * With siteUrl (no GitHub): the install is one script tag, returned as `snippet`.
  * Either way, what the merchant said becomes a tracking plan, saved. Same inputs → same plan (see stablePlan).
@@ -81,7 +73,8 @@ export async function POST(req: Request) {
     const { plan, cached } = await stablePlan(key, input.regenerate, () =>
       buildPlan({ site, siteUrl: input.siteUrl, prompt: input.prompt?.trim() || undefined, framework: "Any website (script tag)", whop: input.whop }),
     );
-    return Response.json({ plan, reply: planIntro(plan), cached, snippet: scriptTag({ src: `${publicOrigin(req)}/darwin.js`, siteId: site }) });
+    const install = installSnippet(req, site);
+    return Response.json({ plan, reply: planIntro(plan), cached, snippet: install.tag, install });
   }
   try {
     const repo = await inspectRepository(input.repoUrl!, { token: githubTokenFor(req) });
@@ -97,7 +90,15 @@ export async function POST(req: Request) {
     const { plan, cached } = await stablePlan(key, input.regenerate, () =>
       buildPlan({ site: repo.siteId, prompt: input.prompt?.trim() || undefined, repo: repo.repo, framework: repo.framework, whop: input.whop, analytics: repo.analytics, repoRead: !repo.assumed }),
     );
-    return Response.json({ plan, reply: planIntro(plan), cached, note: repo.note, found: { framework: repo.framework, assumed: repo.assumed, analytics: repo.analytics } });
+    return Response.json({
+      plan,
+      reply: planIntro(plan),
+      cached,
+      note: repo.note,
+      found: { framework: repo.framework, assumed: repo.assumed, analytics: repo.analytics },
+      // The tag the install PR adds (same helper), for anyone installing by hand.
+      install: installSnippet(req, plan.site),
+    });
   } catch (err) {
     const { status, error } = githubErrorStatus(err);
     return Response.json({ error }, { status });
@@ -131,9 +132,9 @@ export async function PUT(req: Request) {
   return Response.json({ plan: savePlan(applyToggles(plan, input.enabled)) });
 }
 
-/** GET /api/onboarding/plan?site=… → { plan } */
+/** GET /api/onboarding/plan?site=… → { plan, install } (install: the darwin.js tag for the site, same helper as POST). */
 export function GET(req: Request) {
   const site = SiteSchema.safeParse(new URL(req.url).searchParams.get("site") ?? "");
   if (!site.success) return Response.json({ error: "?site= is required" }, { status: 400 });
-  return Response.json({ plan: getPlan(site.data) ?? null });
+  return Response.json({ plan: getPlan(site.data) ?? null, install: installSnippet(req, site.data) });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgentFunnel } from "@/lib/store-agent";
-import { Card, CardTitle, HBar, Tag } from "@/components/dw/ui";
+import { Card, CardTitle, DEPTH, HBar, Tag } from "@/components/dw/ui";
 import { TrackPill } from "@/components/dw/dashboards/charts";
 import { BuyerAvatar } from "./avatars";
 
@@ -35,8 +35,9 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
   const best = Math.max(0.01, ...agents.map((a) => a.rate));
 
   return (
-    <Card tone="yellow" shape="shipper" corner="tr" className="flex min-w-0 flex-col p-5 sm:p-6 [&>div.relative]:flex [&>div.relative]:flex-1 [&>div.relative]:flex-col">
+    <Card tone="yellow" shape="shipper" corner="tr" className={`flex min-w-0 flex-col p-5 tabular-nums sm:p-6 [&>div.relative]:flex [&>div.relative]:flex-1 [&>div.relative]:flex-col ${DEPTH}`}>
       <CardTitle
+        className="[&>h2]:text-[20px]"
         right={
           !!f?.simulated && (
             <span title="Chats from Darwin's simulated buyer agents, kept apart from real ones">

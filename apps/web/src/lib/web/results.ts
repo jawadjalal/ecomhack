@@ -161,7 +161,8 @@ export function trafficLabel(res: WebRuleResult | undefined, overview: WebSiteOv
   return res?.synthetic ? "simulated" : overview.syntheticVisitors > 0 && n > 0 ? "mixed" : "real";
 }
 
-export function knownSites(rules: WebRule[], events: readonly AnalyticsEvent[]): WebSiteSummary[] {
+/** Sites for the Personalize picker: with events, with rules, and `extra` (tracking-plan sites) with 0 visitors. */
+export function knownSites(rules: WebRule[], events: readonly AnalyticsEvent[], extra: readonly string[] = []): WebSiteSummary[] {
   const seen = new Map<string, { visitors: Set<string>; url?: string }>();
   for (const e of events) {
     const site = siteOf(e);
@@ -173,6 +174,7 @@ export function knownSites(rules: WebRule[], events: readonly AnalyticsEvent[]):
     if (e.event === "$pageview" && typeof u === "string" && e.properties?.synthetic !== true) s.url = u;
   }
   for (const r of rules) if (!seen.has(r.site)) seen.set(r.site, { visitors: new Set() });
+  for (const site of extra) if (site && !seen.has(site)) seen.set(site, { visitors: new Set() });
   return [...seen]
     .map(([site, s]) => ({
       site,

@@ -34,6 +34,7 @@ export { computeHeatmap, MAX_HEATMAP_ELEMENTS } from "./heatmap";
 export { draftRule, heuristicDraft, suggestRules, rankSources, ideaDraft, ideasFor, PLAYBOOK, FOLLOW_UPS } from "./drafts";
 export { getAutopilot, setAutopilot, stepAutopilot, resetAutopilot, retractUnbackedCopy, judge, AUTOPILOT } from "./autopilot";
 export { pageOutline, outlineFromHtml } from "./outline";
+export { siteIdForUrl, siteDirectory, eventSite } from "./sites";
 export { findClaims, unverifiedClaims, unbackedTexts, needsMerchant, readyToPublish, pageFacts, NEEDS } from "./claims";
 export { simulateWebTraffic, changeEffect, MAX_SIM_VISITORS } from "./simulate";
 
@@ -45,13 +46,13 @@ export const DEMO_PATH = "/demo/north-trail";
  * Everything the personalize console shows for one site. Loading it first pauses any live rule whose copy the
  * site's page (as Darwin last read it) doesn't back up, and logs why (autopilot.ts retractUnbackedCopy).
  */
-export function webState(site: string): WebRulesResponse {
+export function webState(site: string, opts: { planSites?: readonly string[] } = {}): WebRulesResponse {
   retractUnbackedCopy(site);
   const events = eventStore().all();
   const all = listRules();
   const rules = all.filter((r) => r.site === site);
   const { overview, results } = computeSite(site, rules, events);
-  return { site, rules, results, overview, sites: knownSites(all, events), autopilot: getAutopilot(site) };
+  return { site, rules, results, overview, sites: knownSites(all, events, opts.planSites), autopilot: getAutopilot(site) };
 }
 
 export { readJson, errorResponse, requestOrigin } from "./http";

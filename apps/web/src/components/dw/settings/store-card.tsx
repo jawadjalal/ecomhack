@@ -9,12 +9,17 @@ import { useGithubStatus } from "@/lib/console/hooks";
 import { BrandGlyph, WhopLogo } from "../brand-logos";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, CardTitle, Tag } from "../ui";
+import { Card, CardTitle, DEPTH, Tag } from "../ui";
 import { brainOf, scriptTagFor, useSession, useWhop, type GithubStatusFull } from "./data";
 import { Snippet } from "./snippet";
 
 type Dot = "on" | "demo" | "off" | "agent";
-const DOT_TITLE: Record<Dot, string> = { on: "Connected", demo: "Demo or dry run", off: "Not connected", agent: "Always on for AI shoppers" };
+const DOT_TITLE: Record<Dot, string> = {
+  on: "Connected",
+  demo: "Demo or dry run",
+  off: "Not connected",
+  agent: "Always on for AI shoppers",
+};
 const DOT: Record<Dot, string> = {
   on: "bg-dw-live",
   demo: "bg-[#E8A33D]",
@@ -64,10 +69,14 @@ export function StoreCard({ className }: { className?: string }) {
   const whopDot: Dot = !wc ? "off" : wc.mode === "live" ? "on" : "demo";
 
   return (
-    <Card tone="white" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Your store">
+    <Card tone="white" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Your store">
       <CardTitle
+        className="[&>h2]:text-[20px]"
         right={
-          <Link href="/onboarding" className="inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium text-dw-ink hover:bg-dw-sand focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:outline-none">
+          <Link
+            href="/onboarding"
+            className="inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium text-dw-ink hover:bg-dw-sand focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:outline-none"
+          >
             Connect a store <ArrowUpRight className="size-3.5" />
           </Link>
         }
@@ -95,9 +104,7 @@ export function StoreCard({ className }: { className?: string }) {
             )
           }
         >
-          {conn?.host && conn.siteId && (
-            <Snippet className="mt-2.5" label="darwin.js install tag" code={scriptTagFor(conn.host, conn.siteId)} />
-          )}
+          {conn?.host && conn.siteId && <Snippet className="mt-2.5" label="darwin.js install tag" code={scriptTagFor(conn.host, conn.siteId)} />}
         </Row>
 
         <Row
@@ -181,13 +188,7 @@ export function StoreCard({ className }: { className?: string }) {
               <span className="font-normal text-dw-ink/60">{brain.llm ? "AI" : "Darwin's rules"}</span>
             </span>
           }
-          detail={
-            !loop
-              ? "Checking…"
-              : brain.llm
-                ? "AI writes the issues and fixes"
-                : "Built-in rules, no AI key needed. Add an AI key on the server to write them with AI"
-          }
+          detail={!loop ? "Checking…" : brain.llm ? "AI writes the issues and fixes" : "Built-in rules, no AI key needed. Add an AI key on the server to write them with AI"}
         />
       </ul>
     </Card>
@@ -217,7 +218,11 @@ function Row({
     <motion.li
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.12 + i * 0.06, duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+      transition={{
+        delay: 0.12 + i * 0.06,
+        duration: 0.35,
+        ease: [0.2, 0.8, 0.2, 1],
+      }}
       className="dw-row relative -mx-3 rounded-2xl px-3 py-2.5 hover:bg-[#F6F0E4]"
     >
       <div className="flex items-center gap-3.5">
@@ -225,7 +230,11 @@ function Row({
           <span className="grid size-10 place-items-center overflow-hidden rounded-[13px] bg-white text-dw-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_0_0_1px_rgba(20,20,19,0.08),0_3px_8px_rgba(20,20,19,0.07)]">
             {icon}
           </span>
-          {badge && <span className="absolute -right-1.5 -bottom-1.5 grid size-[20px] place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(20,20,19,0.1),0_2px_4px_rgba(20,20,19,0.08)]">{badge}</span>}
+          {badge && (
+            <span className="absolute -right-1.5 -bottom-1.5 grid size-[20px] place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(20,20,19,0.1),0_2px_4px_rgba(20,20,19,0.08)]">
+              {badge}
+            </span>
+          )}
           <span title={DOT_TITLE[dot]} className={cn("absolute -top-0.5 -right-0.5 size-3 rounded-full ring-[2.5px] ring-dw-surface", DOT[dot], dot === "on" && "dw-live-dot")}>
             <span className="sr-only">{DOT_TITLE[dot]}</span>
           </span>

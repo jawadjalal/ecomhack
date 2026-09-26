@@ -81,7 +81,7 @@ export function StartDemo({ align = "center", className, agent = "darwin" }: { a
           tone={agent === "darwin" ? "yellow" : "ink"}
           onClick={() => void setAutopilot(true)}
           disabled={stepping || !loop}
-          className="pl-2.5 max-sm:h-auto max-sm:min-h-12 max-sm:w-full max-sm:py-2.5"
+          className="pl-2.5 max-sm:h-auto max-sm:min-h-12 max-sm:w-full max-sm:py-2.5 [&_svg]:size-full"
           data-agent={agent}
         >
           <Mascot kind={who.kind} size={30} active={false} title={name} /> {fresh ? who.fresh(name) : who.run(name)}

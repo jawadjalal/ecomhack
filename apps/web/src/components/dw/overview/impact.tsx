@@ -11,6 +11,7 @@ import type { Experiment, LoopState } from "@/lib/contracts";
 import { PHASE_META } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "../mascot";
+import { DEPTH } from "../ui";
 import { CountUp, Grow } from "./fx";
 import { Swap } from "./swap";
 import { liftText, pctSmart } from "./model";
@@ -94,13 +95,28 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
                   ),
                   label: "more buyers per 1,000 visitors",
                 },
-                { value: lift !== undefined ? <CountUp value={lift} format="lift" /> : "–", label: "conversion since Darwin started" },
-                { value: <CountUp value={shipped} format="int" />, label: shipped === 1 ? "change shipped" : "changes shipped" },
+                {
+                  value: lift !== undefined ? <CountUp value={lift} format="lift" /> : "–",
+                  label: "conversion since Darwin started",
+                },
+                {
+                  value: <CountUp value={shipped} format="int" />,
+                  label: shipped === 1 ? "change shipped" : "changes shipped",
+                },
               ]
             : [
-                { value: before ? pctSmart(before.overallConversionRate) : "–", label: "of shoppers buy today" },
-                { value: <CountUp value={running} format="int" />, label: running === 1 ? "test running" : "tests running" },
-                { value: <CountUp value={shipped} format="int" />, label: "changes shipped" },
+                {
+                  value: before ? pctSmart(before.overallConversionRate) : "–",
+                  label: "of shoppers buy today",
+                },
+                {
+                  value: <CountUp value={running} format="int" />,
+                  label: running === 1 ? "test running" : "tests running",
+                },
+                {
+                  value: <CountUp value={shipped} format="int" />,
+                  label: "changes shipped",
+                },
               ]
           ).map((x, i) => (
             <div key={i} className={cn("flex min-w-0 flex-col gap-1", i === 0 ? "pr-3" : "px-3")}>
@@ -117,10 +133,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
             </Swap>
             {simulated && <span className="shrink-0 whitespace-nowrap">· simulated</span>}
           </span>
-          <Link
-            href="/console/changes"
-            className="inline-flex shrink-0 items-center gap-1 font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4"
-          >
+          <Link href="/console/changes" className="inline-flex shrink-0 items-center gap-1 font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4">
             See all changes
             <ArrowRight className="size-3.5" />
           </Link>
@@ -129,7 +142,10 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
 
       <section
         aria-label="Darwin’s impact so far"
-        className="relative max-sm:hidden grid grid-cols-1 gap-x-6 gap-y-4 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-4 sm:grid-cols-2 lg:flex lg:h-[80px] lg:items-center lg:gap-x-5 lg:py-2.5"
+        className={cn(
+          "relative max-sm:hidden grid grid-cols-1 gap-x-6 gap-y-4 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-4 tabular-nums sm:grid-cols-2 lg:flex lg:h-[80px] lg:items-center lg:gap-x-5 lg:py-2.5",
+          DEPTH,
+        )}
       >
         <div className="flex min-w-0 items-center gap-3.5 sm:col-span-2 lg:flex-1">
           <Mascot kind="shipper" size={42} frame active={loop.autopilot} />
@@ -154,9 +170,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
               </>
             ) : (
               <>
-                <span className="text-[20px] leading-tight font-semibold tracking-[-0.02em] lg:text-[18px]">
-                  {before ? "Your original store is measured" : "Darwin is getting to know your store"}
-                </span>
+                <span className="text-[20px] leading-tight font-semibold tracking-[-0.02em] lg:text-[18px]">{before ? "Your original store is measured" : "Darwin is getting to know your store"}</span>
                 <span className="text-[13.5px] leading-snug text-dw-ink/65 lg:line-clamp-1 lg:text-[13px]">
                   {before
                     ? `${pctSmart(before.overallConversionRate)} of shoppers buy today. Darwin’s impact shows here once the first change ships.`
@@ -178,17 +192,12 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
         <Divider />
         <div className="flex min-w-0 flex-col gap-1 lg:w-[15.5rem] lg:shrink-0">
           <span className="text-[16px] leading-tight font-semibold whitespace-nowrap lg:text-[15px]">
-            <CountUp value={shipped} format="int" /> change{shipped === 1 ? "" : "s"} shipped
-            <span className="font-normal text-dw-ink/65 max-lg:hidden">
-              {" "}
-              · {running ? `${running} test${running === 1 ? "" : "s"} running` : "no test running"}
-            </span>
+            <CountUp value={shipped} format="int" /> change
+            {shipped === 1 ? "" : "s"} shipped
+            <span className="font-normal text-dw-ink/65 max-lg:hidden"> · {running ? `${running} test${running === 1 ? "" : "s"} running` : "no test running"}</span>
           </span>
           <span className="text-[13px] text-dw-ink/65 lg:hidden">{running ? `${running} test${running === 1 ? "" : "s"} running now` : "No test running"}</span>
-          <Link
-            href="/console/changes"
-            className="group inline-flex items-center gap-1 text-[13px] font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4 hover:decoration-dw-ink"
-          >
+          <Link href="/console/changes" className="group inline-flex items-center gap-1 text-[13px] font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4 hover:decoration-dw-ink">
             See all changes
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>

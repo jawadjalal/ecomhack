@@ -124,6 +124,17 @@ describe("heuristic parser", () => {
     ["what's left on this page?", [{ command: "whats_left", input: { area: "dashboards" } }], "/console/dashboards?site=trail-shop-co-uk"],
     ["what's left to do on the store agent", [{ command: "whats_left", input: { area: "agents" } }]],
     ["hey darwin, can you please chart mobile vs desktop", [{ command: "build_dashboard", input: { request: "mobile vs desktop", site: "trail-shop-co-uk" } }], "/console/dashboards?site=trail-shop-co-uk"],
+    ["watch darwin improve the demo store", [{ command: "start_demo", input: {} }]],
+    ["start the demo", [{ command: "start_demo", input: {} }]],
+    ["watch darwin fix it", [{ command: "watch_fix", input: { steps: 6 } }]],
+    ["test my install on https://shop.example.com", [{ command: "check_install", input: { url: "https://shop.example.com" } }]],
+    ["is darwin installed?", [{ command: "check_install", input: {} }]],
+    ["save my setup as jo@example.com", [{ command: "save_setup", input: { email: "jo@example.com" } }]],
+    ["save my setup for trail-shop under jo@example.com", [{ command: "save_setup", input: { email: "jo@example.com", site: "trail-shop-co-uk" } }]],
+    ["which store am I looking at?", [{ command: "which_store", input: {} }]],
+    ["is this the demo store?", [{ command: "which_store", input: {} }]],
+    ["what platform is shop.example.com on?", [{ command: "detect_platform", input: { url: "shop.example.com" } }]],
+    ["research competitors for trail running shoes in the UK", [{ command: "research_competitors", input: { query: "trail running shoes in the UK" } }]],
     [
       "send 200 shoppers then step the loop and show me the issues",
       [

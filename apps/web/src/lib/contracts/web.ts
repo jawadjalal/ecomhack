@@ -167,6 +167,15 @@ export interface WebRulesResponse {
   overview: WebSiteOverview;
   sites: WebSiteSummary[];
   autopilot: WebAutopilotState;
+  /** The darwin.js install tag for this site, built server-side (DARWIN_PUBLIC_URL, else the request origin). */
+  install?: {
+    origin: string;
+    src: string;
+    siteId: string;
+    tag: string;
+    /** The store address to check the install on (GET /api/onboarding/verify): the tracking plan's, else the latest page seen. */
+    storeUrl?: string;
+  };
 }
 
 export interface WebDraftResponse {

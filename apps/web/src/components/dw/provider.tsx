@@ -11,6 +11,7 @@ import { useSWRConfig } from "swr";
 import type { LoopState } from "@/lib/contracts";
 import { createConsoleApi, type ConsoleApi } from "@/lib/console/api";
 import { ApiContext, useAutopilotDriver, useLoop, useTrafficDriver } from "@/lib/console/hooks";
+import { setLive } from "@/lib/console/live";
 
 const TRAFFIC_KEY = "darwin.console.traffic";
 
@@ -121,6 +122,8 @@ function Inner({ api, mock, children }: { api: ConsoleApi; mock: boolean; childr
         const next = await api.setAutopilot(on);
         await mutateLoop(next, { revalidate: false });
         if (on) setTrafficOn(true);
+        // Live while Darwin works, still while it rests.
+        setLive(on);
       } catch (e) {
         notify(`Autopilot: ${(e as Error).message}`);
       }

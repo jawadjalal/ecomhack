@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUp, Globe, LoaderCircle, Sparkles, Users, WandSparkles } from "lucide-react";
+import { ArrowRight, ArrowUp, Globe, LoaderCircle, Plus, Sparkles, Users, WandSparkles, X } from "lucide-react";
 import type { DashboardsResponse, TrackingPlan, WebSimulateResponse } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "@/components/dw/mascot";
@@ -11,6 +11,7 @@ import { SwitchPill } from "@/components/dw/agents/switch";
 import { recallLastSite, recallPlan, recallSimulated, rememberPlan, rememberSimulated, rememberSite } from "@/lib/tracking/remember";
 import { DashboardGrid } from "./dashboard-grid";
 import { useLiveInterval } from "@/lib/console/live";
+import { boardNames, boardsFor } from "@/lib/tracking/boards";
 
 async function get<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
@@ -55,6 +56,10 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
   const [reply, setReply] = useState<string>();
   const [ideas, setIdeas] = useState(false);
   const [restoredNote, setRestoredNote] = useState<string>();
+  const [board, setBoardState] = useState("Overview");
+  const [naming, setNaming] = useState(false);
+  const [boardName, setBoardName] = useState("");
+  const [making, setMaking] = useState(false);
   const ticking = useRef(false);
   const restoredAt = useRef(0);
   const resentAt = useRef(0);
@@ -68,6 +73,23 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
     }, 0);
     return () => clearTimeout(t);
   }, [initialSite]);
+
+  // ?board= picks the tab (read after mount so the server and first client render agree).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const b = new URLSearchParams(window.location.search).get("board");
+      if (b) setBoardState(b.slice(0, 40));
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+  const setBoard = useCallback((b: string) => {
+    setBoardState(b);
+    const q = new URLSearchParams(window.location.search);
+    if (b === "Overview") q.delete("board");
+    else q.set("board", b);
+    const qs = q.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, []);
 
   const load = useCallback(async () => {
     if (!site) return;
@@ -138,7 +160,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
     if (!message.trim() || asking) return;
     setAsking(true);
     try {
-      const res = await get<{ plan: TrackingPlan; reply: string; id?: string }>("/api/dashboards", { site, message });
+      const res = await get<{ plan: TrackingPlan; reply: string; id?: string }>("/api/dashboards", { site, message, board });
       setReply(res.reply);
       setAsk("");
       await load();
@@ -153,6 +175,23 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
       setReply((e as Error).message);
     } finally {
       setAsking(false);
+    }
+  };
+
+  const makeBoard = async (name: string) => {
+    if (name.trim().length < 2 || making) return;
+    setMaking(true);
+    try {
+      const res = await get<{ reply: string; board: string; ids: string[] }>("/api/dashboards", { site, newBoard: name.trim() });
+      setReply(res.reply);
+      setBoardName("");
+      setNaming(false);
+      await load();
+      if (res.ids.length) setBoard(res.board);
+    } catch (e) {
+      setReply((e as Error).message);
+    } finally {
+      setMaking(false);
     }
   };
 
@@ -178,6 +217,9 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
   }, [traffic, simulate]);
 
   const plan = data?.plan;
+  const tabs = boardNames(plan?.dashboards ?? []);
+  if (!tabs.includes(board)) tabs.push(board);
+  const shown = (data?.dashboards ?? []).filter((d) => boardsFor(d).includes(board));
   const real = data ? data.totalEvents - data.syntheticEvents : 0;
   const enabled = plan?.events.filter((e) => e.enabled).length ?? 0;
   const honesty = data && (
@@ -234,6 +276,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
                   setSite(v);
                   setData(undefined);
                   window.history.replaceState(null, "", `?site=${encodeURIComponent(v)}`);
+                  setBoardState("Overview");
                 }
               }}
               className="flex h-10 min-w-0 items-center gap-2 rounded-full bg-dw-sand pr-1 pl-4 text-[14px] text-dw-ink/70 transition-shadow focus-within:shadow-[0_0_0_2px_#141413]"
@@ -369,7 +412,77 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
         </div>
       )}
 
-      {data && site && <DashboardGrid dashboards={data.dashboards} onRemove={removeChart} />}
+      {data && site && (
+        <nav aria-label="Dashboards" className="flex min-w-0 flex-col gap-2">
+          <div className="-mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 py-1 [scrollbar-width:none]" role="tablist">
+            {tabs.map((b) => {
+              const n = data.dashboards.filter((d) => boardsFor(d).includes(b)).length;
+              return (
+                <button
+                  key={b}
+                  type="button"
+                  role="tab"
+                  aria-selected={board === b}
+                  data-testid={`board-${b}`}
+                  onClick={() => setBoard(b)}
+                  className={cn(
+                    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink",
+                    board === b ? "bg-dw-ink text-white" : "bg-dw-surface text-dw-ink/80 shadow-[0_0_0_1px_#EDE4D2] hover:bg-dw-sand",
+                  )}
+                >
+                  {b}
+                  <span className={cn("num font-dwmono text-[11.5px]", board === b ? "text-white/70" : "text-dw-ink/50")}>{n}</span>
+                </button>
+              );
+            })}
+            {plan && !naming && (
+              <button
+                type="button"
+                onClick={() => setNaming(true)}
+                data-testid="new-board"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-dw-ink/25 px-3.5 text-[14px] font-medium whitespace-nowrap text-dw-ink/80 hover:border-dw-ink/50 hover:text-dw-ink"
+              >
+                <Plus className="size-4" /> New dashboard
+              </button>
+            )}
+          </div>
+          {plan && naming && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                makeBoard(boardName);
+              }}
+              className="flex h-11 max-w-[34rem] min-w-0 items-center gap-2 rounded-full bg-dw-surface pr-1.5 pl-4 shadow-[0_0_0_1px_#EDE4D2] focus-within:shadow-[0_0_0_2px_#141413]"
+            >
+              <input
+                autoFocus
+                value={boardName}
+                onChange={(e) => setBoardName(e.target.value)}
+                maxLength={40}
+                placeholder="What is it for? “my coupon launch”"
+                aria-label="New dashboard name"
+                data-testid="new-board-name"
+                className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-dw-ink/45"
+              />
+              <button type="submit" disabled={making || boardName.trim().length < 2} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-dw-ink px-3 text-[13.5px] font-medium text-white disabled:opacity-30">
+                {making ? <LoaderCircle className="size-4 animate-spin" /> : <Plus className="size-4" />} Make it
+              </button>
+              <button type="button" onClick={() => setNaming(false)} aria-label="Cancel" className="grid size-8 shrink-0 place-items-center rounded-full text-dw-ink/60 hover:bg-dw-sand">
+                <X className="size-4" />
+              </button>
+            </form>
+          )}
+        </nav>
+      )}
+      {data && site && (shown.length ? (
+        <DashboardGrid dashboards={shown} onRemove={removeChart} site={site} />
+      ) : (
+        <Card tone="white" shape="analyst" hover={false}>
+          <Empty mascot={<Mascot kind="analyst" size={56} frame active={false} />}>
+            No charts on “{board}” yet. Ask for a chart above and it lands here.
+          </Empty>
+        </Card>
+      ))}
       {!data && site && !error && (
         <div className={cn("grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]")} aria-hidden>
           <div className="h-56 animate-pulse rounded-[26px] bg-dw-sand/70 motion-reduce:animate-none" />

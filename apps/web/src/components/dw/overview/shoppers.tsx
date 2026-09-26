@@ -63,13 +63,22 @@ function visibleRows(filter: Filter, agents: Shopper[], people: Shopper[]): Shop
 }
 
 /**
- * The last non-empty list. On Vercel a poll can land on a server instance that hasn't seen these shoppers,
- * which briefly returns nothing; keep showing the shoppers we already had instead of flashing "Quiet".
+ * A calm, sticky list: new shoppers arrive at most every few seconds instead of on every poll, and an empty
+ * poll (on Vercel it can land on a server instance that hasn't seen these shoppers) keeps the last list.
  */
-function useStickyList<T>(list: T[]): T[] {
-  const [kept, setKept] = useState(list);
-  if (list.length && list !== kept) setKept(list);
-  return list.length ? list : kept;
+function useCalmList<T>(list: T[], everyMs = 6000): T[] {
+  const [shown, setShown] = useState(list);
+  const lastAt = useRef(0);
+  useEffect(() => {
+    if (!list.length) return;
+    const wait = Math.max(0, lastAt.current + everyMs - Date.now());
+    const t = setTimeout(() => {
+      lastAt.current = Date.now();
+      setShown(list);
+    }, wait);
+    return () => clearTimeout(t);
+  }, [list, everyMs]);
+  return shown.length ? shown : list;
 }
 
 export function LiveShoppers({
@@ -89,8 +98,8 @@ export function LiveShoppers({
   /** Kept for callers; the empty state sends a one-off batch of simulated shoppers itself. */
   onSendShoppers?: () => void;
 }) {
-  const agents = useStickyList(agentsNow);
-  const people = useStickyList(peopleNow);
+  const agents = useCalmList(agentsNow);
+  const people = useCalmList(peopleNow);
   const now = useNow();
   const { api, notify } = useDarwin();
   const [filter, setFilter] = useState<Filter>("all");

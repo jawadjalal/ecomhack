@@ -6,7 +6,7 @@ import type { Catalog } from "@/lib/store-agent";
 import { cn } from "@/components/ui/cn";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { WhopLogo } from "@/components/dw/brand-logos";
-import { Card, CardTitle, Tag } from "@/components/dw/ui";
+import { Card, CardTitle, DEPTH, Tag } from "@/components/dw/ui";
 import { money } from "./sales-card";
 
 const WORKS_WITH = ["chatgpt", "claude", "perplexity", "gemini", "grok", "copilot"];
@@ -29,11 +29,9 @@ export function ConnectCard({ endpoint }: { endpoint: string }) {
   const { copied, copy } = useCopy();
   const curl = `curl -s ${endpoint} -H 'content-type: application/json' -H 'x-agent-name: my-agent' \\\n  -d '{"jsonrpc":"2.0","id":1,"method":"SendMessage","params":{"message":{"role":"ROLE_USER","messageId":"m1","parts":[{"text":"coaching under £40 a month"}]}}}'`;
   return (
-    <Card tone="blue" shape="observer" corner="tr" className="min-w-0">
-      <CardTitle>Connect any AI agent</CardTitle>
-      <p className="mt-1.5 text-[14px] leading-snug text-dw-ink/75">
-        Shoppers&apos; AI agents chat with Mika here. They get real offers and buy through a checkout link that credits them.
-      </p>
+    <Card tone="blue" shape="observer" corner="tr" className={`min-w-0 ${DEPTH}`}>
+      <CardTitle className="[&>h2]:text-[20px]">Connect any AI agent</CardTitle>
+      <p className="mt-1.5 text-[14px] leading-snug text-dw-ink/75">Shoppers&apos; AI agents chat with Mika here. They get real offers and buy through a checkout link that credits them.</p>
       <div className="mt-3 flex items-center gap-1.5" aria-label="Works with ChatGPT, Claude, Perplexity, Gemini, Grok, Copilot and your own agent">
         {WORKS_WITH.map((k) => (
           <AgentTile key={k} brand={agentBrand(k)} size={28} className="transition-transform hover:-translate-y-0.5 hover:-rotate-6" />
@@ -83,8 +81,10 @@ export function ConnectCard({ endpoint }: { endpoint: string }) {
 /** What it sells: the catalog the agent pitches from (Whop plans, or the labelled demo catalog). */
 export function OffersCard({ catalog }: { catalog?: Catalog }) {
   return (
-    <Card tone="white" shape="designer" corner="br" className="min-w-0">
-      <CardTitle right={catalog && `${catalog.offers.length} offer${catalog.offers.length === 1 ? "" : "s"}`}>What it sells</CardTitle>
+    <Card tone="white" shape="designer" corner="br" className={`min-w-0 ${DEPTH}`}>
+      <CardTitle className="[&>h2]:text-[20px]" right={catalog && `${catalog.offers.length} offer${catalog.offers.length === 1 ? "" : "s"}`}>
+        What it sells
+      </CardTitle>
       <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] text-dw-ink/65">
         {catalog?.source === "whop" ? (
           <>
@@ -95,8 +95,7 @@ export function OffersCard({ catalog }: { catalog?: Catalog }) {
         )}
       </p>
       <ul className="mt-3 flex flex-col gap-1.5">
-        {!catalog &&
-          [0, 1, 2].map((i) => <li key={i} className="h-[62px] animate-pulse rounded-[18px] bg-dw-sand/70 motion-reduce:animate-none" aria-hidden />)}
+        {!catalog && [0, 1, 2].map((i) => <li key={i} className="h-[62px] animate-pulse rounded-[18px] bg-dw-sand/70 motion-reduce:animate-none" aria-hidden />)}
         {catalog?.offers.map((o) => (
           <li key={o.id} className={cn("dw-row rounded-[18px] bg-dw-sand/70 px-4 py-3", !o.available && "opacity-60")}>
             <div className="flex items-baseline justify-between gap-3">

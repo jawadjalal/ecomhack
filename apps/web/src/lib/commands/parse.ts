@@ -162,6 +162,55 @@ const rollback: Rule = (c) => {
   return m ? { command: "rollback", input: { generation: Number(m[1]) } } : null;
 };
 
+const startDemo: Rule = (c) =>
+  /\b(?:watch (?:darwin|it) (?:improve|work on|optimi[sz]e)|(?:start|run|launch|begin|try|play)\s+(?:the\s+)?demo(?:\s+(?:store|mode))?|demo mode|explore (?:with )?the demo store|show me how (?:it|darwin) works)\b/i.test(c)
+    ? { command: "start_demo", input: {} }
+    : null;
+
+const watchFix: Rule = (c) => (/\bwatch\s+(?:darwin\s+|it\s+)?(?:fix|fixing|repair)\b|\bwatch\s+(?:the|a)\s+fix\b/i.test(c) ? { command: "watch_fix", input: {} } : null);
+
+const URL_RE = /\b(https?:\/\/[^\s,;]+|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}(?:\/[^\s,;]*)?)/i;
+const EMAIL_RE = /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/;
+const urlIn = (c: string) => URL_RE.exec(c.replace(EMAIL_RE, " "))?.[1]?.replace(/[?.!]+$/, "");
+
+const checkInstall: Rule = (c) => {
+  const hit =
+    /\b(?:test|check|verify|confirm)\s+(?:my\s+|the\s+)?(?:install(?:ation)?|darwin\.?js|tag|snippet|script)\b/i.test(c) ||
+    /\b(?:is|did)\s+(?:darwin(?:\.?js)?|the (?:tag|snippet|script))\s+(?:installed|working|live|set up)\b/i.test(c) ||
+    /\bdid (?:the|my) install work\b/i.test(c);
+  if (!hit) return null;
+  const url = urlIn(c.replace(/\bdarwin\.js\b/gi, " "));
+  return { command: "check_install", input: url ? { url } : {} };
+};
+
+const saveSetup: Rule = (c, ctx) => {
+  if (!/\b(?:save|keep|remember)\s+(?:my\s+|the\s+)?(?:setup|set-up|progress|account|store|work)\b/i.test(c)) return null;
+  const email = EMAIL_RE.exec(c)?.[0];
+  const { site } = splitSite(c.replace(EMAIL_RE, " ").replace(/\s+(?:as|under|with|to)\s*$/i, "").trim(), ctx.sites?.tracking ?? []);
+  return { command: "save_setup", input: { ...(email ? { email } : {}), ...(site ? { site } : {}) } };
+};
+
+const whichStore: Rule = (c) =>
+  /\b(?:which|what)\s+(?:store|site|shop)\b(?!.*\bplatform\b)|\bis (?:this|it) (?:the demo(?: store)?|my (?:store|site|shop)|real)\b|\bam i (?:on|looking at) (?:the demo|my (?:store|site))\b/i.test(c)
+    ? { command: "which_store", input: {} }
+    : null;
+
+const detectPlatform: Rule = (c) => {
+  const hit =
+    /\b(?:detect|identify|check)\s+(?:the\s+)?platform\b|\b(?:what|which)\s+platform\b|\bwhat (?:is|does)\s+\S+\s+(?:run|built|made)\s+(?:on|with)\b|\b(?:is|runs?)\s+\S+\s+(?:on\s+)?(?:shopify|webflow|wordpress|squarespace|wix|bigcommerce)\b/i.test(c);
+  if (!hit) return null;
+  const url = urlIn(c);
+  return url ? { command: "detect_platform", input: { url } } : null;
+};
+
+const research: Rule = (c) => {
+  if (!/\bcompetit(?:or|ors|ion|ive)\b/i.test(c)) return null;
+  if (!/\b(?:research|analy[sz]e|look (?:at|into)|find|who are|study|scan|compare|check (?:out)?)\b/i.test(c)) return null;
+  const m = /\bcompetit\w*\s+(?:for|in|of|selling|on|around|about)\s+(.{2,})$/i.exec(c);
+  const query = (m?.[1] ?? c).trim().slice(0, 500);
+  return { command: "research_competitors", input: { query } };
+};
+
 const whatsLeft: Rule = (c, ctx) => {
   const hit =
     /\b(?:what'?s|what is|what are|anything|is there anything)\b.*\b(?:left|remaining|missing|still to do|to do|todo|unfinished|planned)\b/i.test(c) ||
@@ -334,7 +383,7 @@ const openIssue: Rule = (c, ctx) => {
 const briefing: Rule = (c) =>
   /\b(?:brief(?:ing)?|catch me up|status update|daily update|morning update|digest|sitrep|what happened(?: today)?)\b/i.test(c) ? { command: "briefing", input: {} } : null;
 
-const RULES: Rule[] = [navigate, rollback, whatsLeft, agentAutopilot, autopilot, actOnBriefing, sendShopper, agentTest, step, simulate, dashboard, personalize, openIssue, briefing];
+const RULES: Rule[] = [navigate, rollback, startDemo, watchFix, checkInstall, saveSetup, detectPlatform, whichStore, research, whatsLeft, agentAutopilot, autopilot, actOnBriefing, sendShopper, agentTest, step, simulate, dashboard, personalize, openIssue, briefing];
 
 /** One clause → one validated step, or null when no rule matches. */
 function parseClause(raw: string, ctx: ParseContext): PlanStep | null {
@@ -356,7 +405,7 @@ function askStep(text: string): PlanStep | null {
 }
 
 const VERBS =
-  /^(?:go|open|show|take|navigate|jump|switch|view|see|send|simulate|add|generate|run|step|advance|turn|enable|disable|start|stop|pause|resume|let|put|build|make|create|chart|plot|draft|personali[sz]e|roll|rollback|revert|restore|ask|tell|explain|ship|brief|give|test|try|what|why|how)\b/i;
+  /^(?:go|open|show|take|navigate|jump|switch|view|see|send|simulate|add|generate|run|step|advance|turn|enable|disable|start|stop|pause|resume|let|put|build|make|create|chart|plot|draft|personali[sz]e|roll|rollback|revert|restore|ask|tell|explain|ship|brief|give|test|try|what|why|how|watch|check|verify|save|detect|research|which)\b/i;
 
 /** Split on "then", ";", "after that" and sentence breaks. */
 const STRONG = /\s*(?:;|\.\s+(?=[a-z])|,?\s+and\s+then\s+|,?\s+then\s+|,?\s+after that,?\s+|\s+followed by\s+)\s*/i;
