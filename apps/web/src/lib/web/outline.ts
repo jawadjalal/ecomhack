@@ -74,10 +74,18 @@ export function outlineFromHtml(html: string): PageElement[] {
     .map(({ selector, tag, text }) => ({ selector, tag, text }));
 }
 
-/** Fetch a public page (SSRF-safe) and outline it. Never throws: [] when it can't be read. */
-export async function pageOutline(url: string | undefined): Promise<PageElement[]> {
+const CACHE_MS = 5 * 60_000;
+const g = globalThis as unknown as { __darwinOutlines?: Map<string, { at: number; outline: PageElement[] }> };
+
+/** Fetch a public page (SSRF-safe) and outline it, cached for 5 minutes. Never throws: [] when it can't be read. */
+export async function pageOutline(url: string | undefined, now = Date.now()): Promise<PageElement[]> {
   if (!url) return [];
+  const cache = (g.__darwinOutlines ??= new Map());
+  const hit = cache.get(url);
+  if (hit && now - hit.at < CACHE_MS) return hit.outline;
   const res = await safeFetch(url, { timeoutMs: 6000 });
-  if (res.error || res.status >= 400 || !res.body) return [];
-  return outlineFromHtml(res.body);
+  const outline = res.error || res.status >= 400 || !res.body ? [] : outlineFromHtml(res.body);
+  cache.set(url, { at: now, outline });
+  if (cache.size > 200) cache.delete(cache.keys().next().value!);
+  return outline;
 }

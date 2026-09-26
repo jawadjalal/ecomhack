@@ -91,5 +91,7 @@ export const config = {
     "/api/web/draft",
     "/api/web/suggest",
     "/api/web/simulate",
+    "/api/web/autopilot/:path*",
+    "/api/web/autopilot",
   ],
 };

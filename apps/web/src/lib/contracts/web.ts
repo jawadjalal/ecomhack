@@ -67,6 +67,41 @@ export interface WebRule {
   startedAt?: string;
   /** When it was shipped to the whole audience. A/B results only count exposures before this. */
   shippedAt?: string;
+  /** Why a test ended (set when it's shipped or stopped on a result). */
+  outcome?: WebRuleOutcome;
+}
+
+export interface WebRuleOutcome {
+  decision: "shipped" | "stopped";
+  /** One line: "97% chance better, +41% orders". */
+  reason: string;
+  probabilityToBeat?: number;
+  lift?: number;
+  at: string;
+  by: "autopilot" | "manual";
+}
+
+/** One thing autopilot did, for the console's decision log. */
+export interface WebAutopilotEntry {
+  at: string;
+  kind: "on" | "off" | "started" | "shipped" | "stopped" | "waiting";
+  message: string;
+  ruleId?: string;
+  source?: TrafficSource;
+}
+
+/**
+ * Autopilot runs the loop on its own for a site: one A/B test per traffic source (biggest conversion gap
+ * first), ships winners, stops losers, then tries that source's next idea.
+ */
+export interface WebAutopilotState {
+  site: string;
+  on: boolean;
+  /** Newest first. */
+  log: WebAutopilotEntry[];
+  /** Playbook ideas already tried ("ai:0"), so a stopped idea is never retried. */
+  tried: string[];
+  lastStepAt?: string;
 }
 
 /** A rule as drafted (from a prompt or the playbook), before it's saved. */
@@ -127,6 +162,7 @@ export interface WebRulesResponse {
   results: WebRuleResult[];
   overview: WebSiteOverview;
   sites: WebSiteSummary[];
+  autopilot: WebAutopilotState;
 }
 
 export interface WebDraftResponse {
@@ -144,6 +180,8 @@ export interface WebDraftResponse {
 // POST /api/web/draft { site, prompt, url? }  → WebDraftResponse (LLM or heuristic, not saved)  (admin)
 // POST /api/web/suggest { site }              → { rules: WebRuleDraft[] } playbook per source   (admin)
 // POST /api/web/simulate { site, visitors }   → WebSimulateResponse, synthetic traffic          (admin)
+// POST /api/web/autopilot { site, on }        → WebAutopilotState                               (admin)
+// POST /api/web/autopilot/step { site }       → { state: WebAutopilotState, actions }          (admin)
 
 export interface WebSimulateResponse {
   site: string;

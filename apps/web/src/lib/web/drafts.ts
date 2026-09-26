@@ -313,34 +313,80 @@ export const PLAYBOOK: Record<TrafficSource, Play> = {
   },
 };
 
+/** Each source's next idea, tried when the first one is stopped or already shipped. */
+export const FOLLOW_UPS: Record<TrafficSource, Play> = {
+  ai: {
+    hypothesis: "AI-referred shoppers compare on facts. Answering 'can I return it?' right at the buy button removes the last doubt.",
+    build: (o) => ({ name: "Returns & warranty badge for AI assistants", changes: [{ action: "badge", selector: pickSelector("button", o), value: DEFAULT_COPY.ai.badge }] }),
+  },
+  search: {
+    hypothesis: "If the headline can't change, a bar repeating the search still confirms the visitor is in the right place.",
+    build: () => ({ name: "Search-matched banner", changes: [{ action: "banner", value: "{query}: in stock, ships today" }] }),
+  },
+  social: {
+    hypothesis: "Social visitors trust other shoppers. Saying how many people bought it, above the fold, beats a small badge.",
+    build: () => ({ name: "Social-proof banner", changes: [{ action: "banner", value: DEFAULT_COPY.social.banner }] }),
+  },
+  paid: {
+    hypothesis: "Putting the ad's offer on the buy button itself keeps the promise in view at the moment of decision.",
+    build: (o) => ({ name: "Offer on the button for ad clicks", changes: [{ action: "text", selector: pickSelector("button", o), value: DEFAULT_COPY.paid.button }] }),
+  },
+  email: {
+    hypothesis: "Subscribers are already on the list: the newsletter popup only gets in their way.",
+    build: (o) => ({ name: "No popup for subscribers", changes: [{ action: "hide", selector: pickSelector("popup", o) }] }),
+  },
+  referral: {
+    hypothesis: "Visitors from a review arrive wanting reassurance; free returns up front lowers the risk of trying.",
+    build: () => ({ name: "Free-returns banner for referrals", changes: [{ action: "banner", value: DEFAULT_COPY.referral.banner }] }),
+  },
+  direct: {
+    hypothesis: "Returning customers came to buy; a reminder of free returns and delivery removes the last hesitation.",
+    build: () => ({ name: "Free delivery & returns banner for direct visitors", changes: [{ action: "banner", value: DEFAULT_COPY.direct.banner }] }),
+  },
+};
+
+/** All ideas for a source, in the order to try them. */
+export const ideasFor = (source: TrafficSource): Play[] => [PLAYBOOK[source], FOLLOW_UPS[source]];
+
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
 /**
- * One playbook idea per source, the biggest opportunity first: sources with the most visitors
- * converting furthest below the site average. With no data yet, the playbook order stands.
+ * Sources by opportunity: most visitors converting furthest below the site average first.
+ * With no data yet, the playbook order stands.
  */
-export function suggestRules(site: string, overview?: WebSiteOverview, outline: PageElement[] = []): WebRuleDraft[] {
+export function rankSources(overview?: WebSiteOverview): TrafficSource[] {
   const order: TrafficSource[] = ["ai", "search", "social", "paid", "email", "direct", "referral"];
-  const avg = overview?.conversionRate ?? 0;
+  if (!overview?.visitors) return order;
+  const avg = overview.conversionRate;
   const gap = (s: TrafficSource) => {
-    const st = overview?.bySource[s];
-    return st && st.visitors ? st.visitors * Math.max(0.001, avg - st.conversionRate + 0.001) : 0;
+    const st = overview.bySource[s];
+    return st.visitors ? st.visitors * Math.max(0.001, avg - st.conversionRate + 0.001) : 0;
   };
-  const ranked = overview?.visitors ? [...order].sort((a, b) => gap(b) - gap(a)) : order;
-  return ranked.slice(0, 5).map((source) => {
-    const play = PLAYBOOK[source];
-    const st = overview?.bySource[source];
-    const evidence =
-      st && st.visitors >= 20
-        ? ` Data: ${TRAFFIC_SOURCE_LABEL[source]} convert at ${pct(st.conversionRate)} vs ${pct(avg)} site-wide (${st.visitors} visitors${overview?.syntheticVisitors ? ", includes simulated traffic" : ""}).`
-        : "";
-    return WebRuleDraftSchema.parse({
-      site,
-      ...play.build(outline),
-      hypothesis: play.hypothesis + evidence,
-      audience: { sources: [source] },
-      mode: "test",
-      author: "playbook",
-    });
+  return [...order].sort((a, b) => gap(b) - gap(a));
+}
+
+/** Idea `index` for `source` as a draft, with the site's own numbers in the hypothesis when there are enough. */
+export function ideaDraft(site: string, source: TrafficSource, index: number, overview?: WebSiteOverview, outline: PageElement[] = []): WebRuleDraft | undefined {
+  const play = ideasFor(source)[index];
+  if (!play) return undefined;
+  const st = overview?.bySource[source];
+  const evidence =
+    st && overview && st.visitors >= 20
+      ? ` Data: ${TRAFFIC_SOURCE_LABEL[source]} convert at ${pct(st.conversionRate)} vs ${pct(overview.conversionRate)} site-wide (${st.visitors} visitors${overview.syntheticVisitors ? ", includes simulated traffic" : ""}).`
+      : "";
+  return WebRuleDraftSchema.parse({
+    site,
+    ...play.build(outline),
+    hypothesis: play.hypothesis + evidence,
+    audience: { sources: [source] },
+    mode: "test",
+    author: "playbook",
   });
+}
+
+/** One playbook idea per source, the biggest opportunity first. */
+export function suggestRules(site: string, overview?: WebSiteOverview, outline: PageElement[] = []): WebRuleDraft[] {
+  return rankSources(overview)
+    .slice(0, 5)
+    .map((source) => ideaDraft(site, source, 0, overview, outline)!);
 }
