@@ -72,11 +72,9 @@ async function whopGet<T>(path: string, key: string): Promise<T> {
     } catch {
       /* not json */
     }
-    const msg =
-      res.status === 401 || res.status === 403
-        ? "Whop rejected that API key. Create one under Developer → API keys on whop.com."
-        : `Whop answered ${res.status}${detail ? `: ${detail}` : ""}`;
-    throw new WhopError(msg, res.status === 401 || res.status === 403 ? 401 : 502);
+    if (res.status === 401) throw new WhopError("Whop rejected that API key. Create one under Developer → API keys on whop.com.", 401);
+    // 403 = the key is real but lacks a scope; callers may fall back to an endpoint it can read.
+    throw new WhopError(`Whop answered ${res.status}${detail ? `: ${detail}` : ""}`, res.status === 403 ? 403 : 502);
   }
   return (await res.json()) as T;
 }
@@ -85,14 +83,19 @@ function str(v: unknown): string | undefined {
   return typeof v === "string" && v.trim() ? v : undefined;
 }
 
+type RawProduct = Record<string, unknown> & { account?: { id?: unknown; title?: unknown } };
+
+function toProducts(data: RawProduct[]): WhopProduct[] {
+  return data
+    .map((p) => ({ id: str(p.id) ?? "", title: str(p.title) ?? str(p.name) ?? "Untitled product" }))
+    .filter((p) => p.id);
+}
+
 /** Products are a nice-to-have for the onboarding summary: never fail the connection over them. */
-async function listProducts(key: string, accountId: string): Promise<WhopProduct[]> {
+async function listProducts(key: string, accountId?: string): Promise<RawProduct[]> {
   try {
-    const j = await whopGet<{ data?: unknown[] }>(`/products?company_id=${encodeURIComponent(accountId)}&first=6`, key);
-    return (j.data ?? [])
-      .map((p) => p as Record<string, unknown>)
-      .map((p) => ({ id: str(p.id) ?? "", title: str(p.title) ?? str(p.name) ?? "Untitled product" }))
-      .filter((p) => p.id);
+    const q = accountId ? `company_id=${encodeURIComponent(accountId)}&first=6` : "first=6";
+    return ((await whopGet<{ data?: unknown[] }>(`/products?${q}`, key)).data ?? []) as RawProduct[];
   } catch {
     return [];
   }
@@ -113,17 +116,33 @@ export async function connectWhop(opts: { apiKey?: string } = {}): Promise<WhopC
     });
   }
 
-  const me = await whopGet<Record<string, unknown>>("/accounts/me", key);
-  const accountId = str(me.id);
+  let accountId: string | undefined;
+  let title: string | undefined;
+  let raw: RawProduct[];
+  const notes: string[] = [];
+  try {
+    const me = await whopGet<Record<string, unknown>>("/accounts/me", key);
+    accountId = str(me.id);
+    title = str(me.title) ?? str(me.name) ?? str(me.username);
+    raw = await listProducts(key, accountId);
+  } catch (err) {
+    // Scoped keys (e.g. no company:balance:read) can't read /accounts/me but can list products,
+    // and each product carries its business ({ account: { id, title } }).
+    if (!(err instanceof WhopError) || err.status !== 403) throw err;
+    raw = ((await whopGet<{ data?: unknown[] }>("/products?first=6", key)).data ?? []) as RawProduct[];
+    accountId = str(raw[0]?.account?.id);
+    title = str(raw[0]?.account?.title);
+    raw = raw.filter((p) => !accountId || str(p.account?.id) === accountId);
+    notes.push("Key is scoped: read the business from its products (no account-level access).");
+  }
   if (pasted) secret.__darwinWhopKey = pasted;
-  const products = accountId ? await listProducts(key, accountId) : [];
   return kvSet<WhopConnection>(KEY, {
     mode: "live",
     accountId,
-    title: str(me.title) ?? str(me.name) ?? str(me.username) ?? accountId ?? "Whop business",
-    products,
+    title: title ?? accountId ?? "Whop business",
+    products: toProducts(raw),
     connectedAt: now,
-    notes: [],
+    notes,
   });
 }
 
