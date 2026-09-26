@@ -2319,6 +2319,8 @@ function NoGithub({ onChoose }: { onChoose: () => void }) {
         Only sell on Whop?{" "}
         <Link
           href="/console/agents"
+          target="_blank"
+          rel="noreferrer"
           className="rounded font-semibold text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
         >
           Your store agent needs no code
