@@ -760,9 +760,10 @@ async function runArms(browser, fx, origin) {
     const keys = Object.keys(state.proposal?.patch ?? {});
     humanVisible = keys.some((k) => k !== "agentSurface");
     record("arms", `experiment ${n + 1} running: "${exp.name}" (${keys.join(", ")})`, true);
-    await armVisitors(browser, fx, origin, exp, state.liveSpec, n);
+    const kept = await armVisitors(browser, fx, origin, exp, state.liveSpec, n);
     // Close it out: with no simulated traffic per round it runs to max rounds, then decides.
     for (let i = 0; i < 8 && (state.phase === "experiment" || state.phase === "decide"); i++) await step();
+    await returningVisitors(origin, kept, n);
     const failures = [];
     const ctx = await browser.newContext({ baseURL: origin });
     const page = await ctx.newPage();
@@ -784,6 +785,7 @@ async function armVisitors(browser, fx, origin, exp, liveSpec, n) {
   const N = opts.quick ? 12 : 30;
   const tag = `${Date.now().toString(36)}${n}`;
   const seen = { control: [], treatment: [] };
+  const kept = [];
   await pool(
     Array.from({ length: N }, (_, i) => i),
     CONCURRENCY,
@@ -817,7 +819,10 @@ async function armVisitors(browser, fx, origin, exp, liveSpec, n) {
       }
       for (const is of issues) fail(`${is.type}: ${is.text}`);
       if (failures.length) record("arms", `visitor ${distinctId}`, false, failures.join(" ; "));
-      await ctx.close();
+      // Keep one browser per arm (cookies + posthog's persisted super properties) for the returning-visitor check.
+      const arm = seen.treatment.includes(distinctId) ? "treatment" : "control";
+      if (!kept.some((k) => k.arm === arm) && !failures.length) kept.push({ ctx, distinctId, arm });
+      else await ctx.close();
     },
   );
   record("arms", `both arms rendered (control ${seen.control.length}, treatment ${seen.treatment.length})`, seen.control.length > 0 && seen.treatment.length > 0);
@@ -839,6 +844,32 @@ async function armVisitors(browser, fx, origin, exp, liveSpec, n) {
   const missing = [...armOf.keys()].filter((d) => !withEvents.has(d));
   record("arms", `every visitor's events captured (${withEvents.size}/${armOf.size})`, missing.length === 0, missing.slice(0, 5).join(", "));
   record("arms", "visitor_kind stamped on every event", evs.every((e) => e.properties.visitor_kind === "human" || e.properties.visitor_kind === "agent"));
+  return kept;
+}
+
+/** After the experiment ends, the same browsers come back: their events must drop experiment_id/variant. */
+async function returningVisitors(origin, kept, n) {
+  const since = new Date().toISOString();
+  const live = (await (await fetch(`${origin}/api/loop`)).json()).liveSpec;
+  for (const { ctx } of kept) {
+    const page = await ctx.newPage();
+    await page.goto("/store", { waitUntil: "networkidle" });
+    await page.goto("/store/products/aurora-daily-trainer", { waitUntil: "networkidle" });
+    await page.waitForTimeout(2000);
+    await ctx.close();
+  }
+  await new Promise((r) => setTimeout(r, 1500));
+  const ids = new Set(kept.map((k) => k.distinctId));
+  const evs = (await events(origin, "limit=1000&synthetic=0")).filter((e) => ids.has(e.distinct_id) && e.timestamp >= since);
+  const bad = evs
+    .filter((e) => e.properties.experiment_id !== undefined || e.properties.variant !== undefined || e.properties.spec_version !== live.version)
+    .map((e) => `${e.event}: experiment_id=${e.properties.experiment_id} variant=${e.properties.variant} spec_version=${e.properties.spec_version}`);
+  record(
+    "arms",
+    `experiment ${n + 1}: returning visitors (${kept.map((k) => k.arm).join(" + ")}) attributed to live v${live.version} (${evs.length} events)`,
+    evs.length > 0 && bad.length === 0,
+    evs.length ? bad.slice(0, 4).join(" ; ") : "no events captured",
+  );
 }
 
 /* ------------------------------------------------------------------ section: agent APIs */
