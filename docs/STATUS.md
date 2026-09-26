@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 14:45 UTC (Telegram → Ask Darwin)
+Last updated: 2026-09-26 15:00 UTC (Telegram tools via runAssistant)
 
 ---
 
@@ -105,10 +105,10 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Left to do:** set `XAI_API_KEY` on Vercel and run the real bot; a loop test can't be shipped from chat while running (needs `POST /api/loop/decide`).
 
 ### Telegram  🟡
-- **Done:** `POST /api/telegram` accepts Bot API updates and answers text with `ask()` — the Overview Ask Darwin chat from PR #37 (`POST /api/ask`), same system prompt, context, heuristic and LLM client. Secret header `X-Telegram-Bot-Api-Secret-Token`, allowlist (`TELEGRAM_ALLOWED_CHAT_IDS`, one reply with the chat id), typing action, MarkdownV2 with a plain-text retry, split at 4096, `/start` and `/help`. History per chat in the process KV, and in Supabase `telegram_chats` when the URL and service role are set (migration `0002`; errors fall back to memory and do not fail the webhook). `npm run telegram:setup` and `GET /api/telegram` (Bearer `DARWIN_ADMIN_TOKEN`) call `setWebhook` for `https://usedarwin.app/api/telegram`.
-- **Left to do:** set the three env vars on Vercel, apply `0002_telegram_chats.sql` if history should survive cold starts, register the webhook, send `/start`. `src/lib/status/roadmap.ts` is not on main, so the in-app "what's left" mirror was not updated.
-- **Limitations:** without Supabase, history resets across serverless instances. An empty allowlist lets any chat that finds the bot spend the LLM key. This is not wired to `runAssistant` (`/api/assistant` from PR #36), so Telegram cannot step the loop, ship, or call tools.
-- **Next-run ideas:** a confirm step that forwards "yes" into `runAssistant` so a merchant can ship from Telegram; edit one message in place instead of sending a second bubble when the answer is long.
+- **Done:** `POST /api/telegram` accepts Bot API updates. Chats in `TELEGRAM_ALLOWED_CHAT_IDS` go through `runAssistant` (the console assistant, `POST /api/assistant`): every message, same tools, yes/no before ship / autopilot / reset, tool summaries as text. With the allowlist empty, messages stay on `ask()` (`POST /api/ask`) and `/help` says tools are off. Secret header, one reply with the chat id when a chat is not listed, typing, MarkdownV2, 4096 split, `/start` and `/help`. History per chat (including a pending confirm) in the process KV, and in Supabase `telegram_chats` when configured (migration `0002`; errors fall back to memory). `npm run telegram:setup` and `GET /api/telegram` register the webhook.
+- **Left to do:** set the three env vars on Vercel (put your chat id in the allowlist), apply `0002_telegram_chats.sql` if history should survive cold starts, register the webhook, send `/start`. `src/lib/status/roadmap.ts` is not on main, so the in-app "what's left" mirror was not updated.
+- **Limitations:** without Supabase, history and an unanswered yes/no reset across serverless instances. An empty allowlist still lets any chat spend the LLM key on answers. Tool use requires the allowlist, so a public bot cannot step the loop.
+- **Next-run ideas:** inline Yes/No buttons instead of a text reply; edit one message in place when the answer is long.
 
 ### Lead agent: ⌘K, bottom chat, WebMCP  🟡
 - **In progress:** one typed command layer (`src/lib/commands`) used by ⌘K, the bottom prompt-bar chat on every screen, and WebMCP (`navigator.modelContext`) so a browser agent can navigate, build dashboards, simulate traffic, roll back, draft personalizations, ship/stop tests. `window.darwin.run(name, input)` for automation.
@@ -137,6 +137,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 15:00 UTC — telegram.** Allowlisted Telegram chats now call `runAssistant` (same tools as the console assistant): step the loop, experiments, ship, autopilot, reset, with yes/no before side effects. Empty allowlist stays answer-only via `ask()` and `/help` says so. Still open: set the allowlist on Vercel.
 - **2026-09-26 14:45 UTC — telegram.** Text Darwin from Telegram through the Overview Ask Darwin chat (`ask` / `POST /api/ask` from merged PR #37), not a second assistant. Webhook secret, chat allowlist, typing, MarkdownV2, 4096 split, per-chat history (KV, Supabase when configured). Still open: set env on Vercel and register the webhook; not connected to the tool-using `/api/assistant` (PR #36). `roadmap.ts` is not on main.
 - **2026-09-26 14:30 UTC — demo-mode agent.** Demo store mode: /store is PACE end to end (no Whop strip / "STORE" brand), boot fills the console with labelled simulated shoppers (fresh → Gen 1 + test live; restart → one refill round), onboarding "Skip: explore with the demo store", "Demo store · Connect your site" note on every console page, dashboards default to the demo store's plan, North Trail seeded for Personalize/Traffic, Whop server key counts as connected, store agent never named `biz_…`, `explore_demo_store` assistant tool. Not touched (other agent's files): Overview lede while paused, conversion card sources, `roadmap.ts`. Still open: curl/headless hits on the agent API show as agent sessions.
 - **2026-09-26 13:59 UTC — readiness agent.** `/readiness` + certificate page restyled to the cream design (hero, loading crew, error state, score / agents-can-do / fixes / CTA to onboarding, Grok certify panel from #36 kept and restyled); screenshots at 1440×900 and 390×844, no horizontal overflow. Open: readiness command for the lead agent, prefill onboarding with the audited URL.

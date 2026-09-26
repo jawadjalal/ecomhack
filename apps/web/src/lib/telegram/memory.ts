@@ -15,10 +15,19 @@ const TABLE = "telegram_chats";
 const MAX_TURNS = 12;
 const SUPABASE_MS = 2500;
 
+/** A side-effecting tool the merchant has not answered yet (yes / no). */
+export interface PendingTool {
+  tool: string;
+  args: Record<string, unknown>;
+  prompt: string;
+}
+
 export interface ChatMemory {
   turns: AskTurn[];
   /** Already told this chat it isn't on the allowlist (reply once). */
   deniedNotice: boolean;
+  /** Set while `runAssistant` is waiting for yes/no. Cleared once they answer or send a new request. */
+  pending?: PendingTool;
 }
 
 type Store = Record<string, ChatMemory>;
@@ -52,10 +61,19 @@ function validTurn(t: unknown): t is AskTurn {
   return (o.role === "user" || o.role === "darwin") && typeof o.text === "string";
 }
 
+function validPending(raw: unknown): PendingTool | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const pending = raw as PendingTool;
+  if (typeof pending.tool !== "string" || !pending.tool.trim() || typeof pending.prompt !== "string") return undefined;
+  const args = pending.args && typeof pending.args === "object" && !Array.isArray(pending.args) ? pending.args : {};
+  return { tool: pending.tool.slice(0, 60), args, prompt: pending.prompt.slice(0, 500) };
+}
+
 function trimMemory(memory: ChatMemory): ChatMemory {
   return {
     deniedNotice: memory.deniedNotice,
     turns: memory.turns.slice(-MAX_TURNS).map((t) => ({ role: t.role, text: t.text.slice(0, 2000) })),
+    pending: memory.pending ? validPending(memory.pending) : undefined,
   };
 }
 
@@ -88,7 +106,7 @@ export async function loadChat(chatId: string): Promise<ChatMemory> {
   try {
     const sb = await client();
     const { data, error } = await withTimeout(
-      sb.from(TABLE).select("turns, denied_notice").eq("chat_id", chatId).maybeSingle(),
+      sb.from(TABLE).select("turns, denied_notice, pending").eq("chat_id", chatId).maybeSingle(),
       SUPABASE_MS,
     );
     if (error) {
@@ -96,9 +114,9 @@ export async function loadChat(chatId: string): Promise<ChatMemory> {
       return localGet(chatId);
     }
     if (!data) return blank();
-    const row = data as { turns?: unknown; denied_notice?: boolean };
+    const row = data as { turns?: unknown; denied_notice?: boolean; pending?: unknown };
     const turns = Array.isArray(row.turns) ? row.turns.filter(validTurn).slice(-MAX_TURNS) : [];
-    const memory = { turns, deniedNotice: Boolean(row.denied_notice) };
+    const memory = { turns, deniedNotice: Boolean(row.denied_notice), pending: validPending(row.pending) };
     localSet(chatId, memory);
     return memory;
   } catch (err) {
@@ -118,6 +136,7 @@ export async function saveChat(chatId: string, memory: ChatMemory): Promise<void
         chat_id: chatId,
         turns: trimmed.turns,
         denied_notice: trimmed.deniedNotice,
+        pending: trimmed.pending ?? null,
         updated_at: new Date().toISOString(),
       }),
       SUPABASE_MS,

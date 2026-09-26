@@ -2,13 +2,15 @@
  * Telegram → Darwin.
  *
  * POST  Telegram Bot API updates (header `X-Telegram-Bot-Api-Secret-Token`).
- *       Text messages go through `ask()` — the Overview Ask Darwin chat (`POST /api/ask`).
+ *       Allowlisted chats go through `runAssistant` (`POST /api/assistant`). With no allowlist,
+ *       messages stay on `ask()` (`POST /api/ask`) and cannot run tools.
  * GET   Register the webhook (`setWebhook`). Requires `Authorization: Bearer <DARWIN_ADMIN_TOKEN>`.
  *
  * Unset `TELEGRAM_BOT_TOKEN` answers 503. Importing this module never reads the token, so
  * `next build` succeeds without it.
  */
 import { adminToken, bearer, isAdminCredential, safeEqual } from "@/lib/auth/admin";
+import { publicOrigin } from "@/lib/github";
 import { botToken, handleTelegramUpdate, registerWebhook, webhookSecret, type TelegramUpdate } from "@/lib/telegram";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Expected a Telegram Update JSON body." }, { status: 400 });
   }
 
-  const result = await handleTelegramUpdate(body as TelegramUpdate);
+  const result = await handleTelegramUpdate(body as TelegramUpdate, { origin: publicOrigin(req) });
   return Response.json(result, { headers: { "cache-control": "no-store" } });
 }
 

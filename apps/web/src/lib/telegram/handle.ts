@@ -1,24 +1,42 @@
 /**
- * One Telegram update → the Overview "Ask Darwin" chat.
+ * One Telegram update → Darwin.
  *
- * Calls `ask()` from `lib/ask` — the same function `POST /api/ask` uses — so the system prompt,
- * shopper context, heuristic and LLM client are not reimplemented here. This is the chat the
- * redesigned console (PR #37) shows on Overview. It does not call `runAssistant` (`/api/assistant`).
+ * Allowlisted chats (`TELEGRAM_ALLOWED_CHAT_IDS`) go through `runAssistant`, the same function
+ * as the console assistant panel (`POST /api/assistant`): every message, same tools, same
+ * confirm-before-acting rule. Yes / no replies the pending tool; any other message supersedes
+ * it, matching the panel.
+ *
+ * With no allowlist, messages stay on `ask()` (Overview Ask Darwin, `POST /api/ask`). That path
+ * only answers. `/help` says tools are off.
  */
+import type { AssistantMessage, AssistantPendingConfirm } from "@/lib/contracts";
 import { ask, type AskTurn } from "@/lib/ask";
-import { chatAllowed, sendText, sendTyping } from "./client";
-import { formatDarwinReply } from "./format";
-import { loadChat, saveChat } from "./memory";
+import { runAssistant } from "@/lib/assistant/agent";
+import { chatAllowed, sendText, sendTyping, toolsEnabled } from "./client";
+import { formatAssistantReply, formatDarwinReply } from "./format";
+import { loadChat, saveChat, type ChatMemory } from "./memory";
 
 const MAX_QUESTION = 2000;
 
-export const START_TEXT = `Hi, I'm Darwin — the same assistant as Ask Darwin on your store overview.
+export function startText(tools: boolean): string {
+  const shared = `Hi, I'm Darwin — the same assistant as Ask Darwin in the console.`;
+  if (!tools) {
+    return `${shared}
 
-Text me about your shoppers: conversion, agents versus people, the current test, or what to do next.
+Ask about your shoppers: conversion, agents versus people, the current test, or what to do next.
 
-/help lists a few examples.`;
+Acting is off until this chat is listed in TELEGRAM_ALLOWED_CHAT_IDS. /help has more.`;
+  }
+  return `${shared}
 
-export const HELP_TEXT = `Ask in plain English. I use the live store numbers, the same way the Ask Darwin chat in the console does.
+Ask a question, or tell me to act: step the loop, check experiments, ship a winner, turn autopilot on. Anything that changes the store asks you to reply yes or no first.
+
+/help lists examples.`;
+}
+
+export function helpText(tools: boolean): string {
+  if (!tools) {
+    return `Ask in plain English. I use the live store numbers, the same way the Ask Darwin chat in the console does.
 
 Try:
 - How is conversion?
@@ -27,7 +45,20 @@ Try:
 - Is the test winning?
 - What should I do next?
 
-I answer questions from here. Shipping a change or running the loop still happens in the console.`;
+Tool use is off because TELEGRAM_ALLOWED_CHAT_IDS is empty. I can answer, but I won't step the loop, ship, or change anything until this chat is on that list.`;
+  }
+  return `You can ask and act, the same way as the assistant in the console.
+
+Try:
+- How are we doing?
+- Step the loop
+- What experiments are running?
+- Ship the winner
+- Turn autopilot on
+- Reset everything
+
+Shipping, autopilot and reset wait for you to reply yes or no. Any other message cancels that prompt and is taken as a new request.`;
+}
 
 export interface TelegramUpdate {
   update_id?: number;
@@ -42,19 +73,48 @@ export interface HandleResult {
   ok: true;
   ignored?: "no_text" | "bot" | "allowlist" | "duplicate_notice";
   replied?: boolean;
+  /** Which chat handled the message, when one did. */
+  mode?: "ask" | "assistant";
 }
 
-/** `/start`, `/start@BotName`, `/help`. Anything else is a question for Darwin. */
+export interface HandleOptions {
+  /** Darwin's public origin, for tools that link back to the console. */
+  origin?: string;
+}
+
+/** `/start`, `/start@BotName`, `/help`. Anything else is a message for Darwin. */
 export function commandOf(text: string): string | null {
   const match = text.trim().match(/^\/([a-z0-9_]+)(?:@\w+)?(?:\s|$)/i);
   return match ? match[1].toLowerCase() : null;
+}
+
+/** Yes / no only when the whole message is a confirmation. Anything longer is a new request. */
+export function confirmChoice(text: string): boolean | null {
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .replace(/[!.]+$/g, "")
+    .replace(/,/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (/^(y|yes|yeah|yep|ok|okay|confirm|confirmed|go ahead|do it|ship it|sure|yes go ahead)$/.test(normalized)) return true;
+  if (/^(n|no|nope|nah|cancel|stop|dont|don't|no cancel that)$/.test(normalized)) return false;
+  return null;
 }
 
 function deniedText(chatId: string): string {
   return `This chat isn't allowed to use Darwin yet. Your chat id is ${chatId}. Add it to TELEGRAM_ALLOWED_CHAT_IDS, then redeploy.`;
 }
 
-export async function handleTelegramUpdate(update: TelegramUpdate): Promise<HandleResult> {
+function toAssistantMessages(turns: AskTurn[]): AssistantMessage[] {
+  return turns.map((turn) => ({ role: turn.role === "user" ? "user" : "assistant", content: turn.text }));
+}
+
+function asPending(confirm: AssistantPendingConfirm): NonNullable<ChatMemory["pending"]> {
+  return { tool: confirm.tool, args: confirm.args, prompt: confirm.prompt };
+}
+
+export async function handleTelegramUpdate(update: TelegramUpdate, opts: HandleOptions = {}): Promise<HandleResult> {
   const message = update.message;
   const text = message?.text?.trim() ?? "";
   const rawId = message?.chat?.id;
@@ -72,36 +132,63 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<Hand
     return { ok: true, ignored: "allowlist", replied: true };
   }
 
+  const tools = toolsEnabled();
   const command = commandOf(text);
   if (command === "start") {
-    await sendText(chatId, START_TEXT);
+    await sendText(chatId, startText(tools));
     return { ok: true, replied: true };
   }
   if (command === "help") {
-    await sendText(chatId, HELP_TEXT);
+    await sendText(chatId, helpText(tools));
     return { ok: true, replied: true };
   }
 
   await sendTyping(chatId);
   const memory = await loadChat(chatId);
-  const history: AskTurn[] = memory.turns;
   const question = text.slice(0, MAX_QUESTION);
 
+  if (!tools) return answerOnly(chatId, memory, question);
+
+  const choice = memory.pending ? confirmChoice(question) : null;
+  const userLine = choice === true ? "Yes, go ahead." : choice === false ? "No, cancel that." : question;
+  const messages = [...toAssistantMessages(memory.turns), { role: "user" as const, content: userLine }];
+  const confirm =
+    memory.pending && choice !== null ? { tool: memory.pending.tool, args: memory.pending.args, approved: choice } : undefined;
+
+  let res;
+  try {
+    res = await runAssistant({ messages, confirm, origin: opts.origin, context: { path: "/telegram" } });
+  } catch (err) {
+    console.warn("[telegram] assistant failed:", String(err).slice(0, 200));
+    await sendText(chatId, "I couldn't do that just now. Try again in a moment.");
+    return { ok: true, replied: true, mode: "assistant" };
+  }
+
+  const reply = formatAssistantReply(res, opts.origin);
+  memory.turns = [...memory.turns, { role: "user", text: userLine }, { role: "darwin", text: reply.slice(0, 2000) }];
+  memory.pending = res.pendingConfirm ? asPending(res.pendingConfirm) : undefined;
+  await saveChat(chatId, memory);
+  await sendText(chatId, reply);
+  return { ok: true, replied: true, mode: "assistant" };
+}
+
+async function answerOnly(chatId: string, memory: ChatMemory, question: string): Promise<HandleResult> {
   let answer: string;
   let cards: { label: string; value: string }[] | undefined;
   try {
-    const res = await ask({ question, history });
+    const res = await ask({ question, history: memory.turns });
     answer = res.answer;
     cards = res.cards;
   } catch (err) {
     console.warn("[telegram] ask failed:", String(err).slice(0, 200));
     await sendText(chatId, "I couldn't answer that just now. Try again in a moment.");
-    return { ok: true, replied: true };
+    return { ok: true, replied: true, mode: "ask" };
   }
 
   const reply = formatDarwinReply(answer, cards) || "I don't have an answer for that yet.";
-  memory.turns = [...history, { role: "user", text: question }, { role: "darwin", text: answer.slice(0, 2000) }];
+  memory.turns = [...memory.turns, { role: "user", text: question }, { role: "darwin", text: answer.slice(0, 2000) }];
+  memory.pending = undefined;
   await saveChat(chatId, memory);
   await sendText(chatId, reply);
-  return { ok: true, replied: true };
+  return { ok: true, replied: true, mode: "ask" };
 }

@@ -6,6 +6,8 @@ create table if not exists public.telegram_chats (
   chat_id       text        primary key,
   turns         jsonb       not null default '[]'::jsonb,
   denied_notice boolean     not null default false,
+  -- Side-effecting tool waiting for yes/no (`runAssistant` pendingConfirm). Null when none.
+  pending       jsonb,
   updated_at    timestamptz not null default now()
 );
 

@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { ask } = vi.hoisted(() => ({ ask: vi.fn() }));
+const { ask, runAssistant } = vi.hoisted(() => ({ ask: vi.fn(), runAssistant: vi.fn() }));
 
 vi.mock("@/lib/ask", () => ({
   ask,
+}));
+
+vi.mock("@/lib/assistant/agent", () => ({
+  runAssistant,
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
@@ -15,7 +19,8 @@ vi.mock("@supabase/supabase-js", () => ({
 import { isProtectedPath } from "@/lib/auth/admin";
 import { GET, POST } from "@/app/api/telegram/route";
 import { proxy, config as proxyConfig } from "@/proxy";
-import { TELEGRAM_TEXT_LIMIT, telegramMessages } from "./format";
+import { formatAssistantReply, TELEGRAM_TEXT_LIMIT, telegramMessages } from "./format";
+import { confirmChoice } from "./handle";
 import { resetTelegramMemory } from "./memory";
 
 interface Sent {
@@ -44,6 +49,7 @@ function post(body: unknown, secret = "sekret") {
 
 beforeEach(() => {
   ask.mockReset();
+  runAssistant.mockReset();
   ask.mockResolvedValue({
     answer: "Your store converts 5%.",
     cards: [{ label: "Converts", value: "5%" }],
@@ -84,6 +90,29 @@ describe("telegram message formatting", () => {
     }
     expect(parts.map((p) => p.plain).join(" ").replace(/\s+/g, " ").trim().length).toBeGreaterThan(1000);
   });
+
+  it("turns tool results into readable text, including a link and a yes/no prompt", () => {
+    const text = formatAssistantReply(
+      {
+        reply: "I stepped the loop.",
+        actions: [
+          {
+            ok: true,
+            summary: "Loop moved idle → observe (Gen 0).",
+            synthetic: true,
+            link: { label: "Open the console", href: "/console" },
+          },
+        ],
+        pendingConfirm: { prompt: "Ship it?" },
+      },
+      "https://usedarwin.app",
+    );
+    expect(text).toContain("I stepped the loop.");
+    expect(text).toContain("Loop moved idle → observe (Gen 0).");
+    expect(text).toContain("(simulated)");
+    expect(text).toContain("https://usedarwin.app/console");
+    expect(text).toContain("Reply yes");
+  });
 });
 
 describe("POST /api/telegram", () => {
@@ -104,6 +133,7 @@ describe("POST /api/telegram", () => {
     expect(noSecret.status).toBe(503);
     expect(await noSecret.json()).toMatchObject({ error: expect.stringMatching(/TELEGRAM_WEBHOOK_SECRET/) });
     expect(ask).not.toHaveBeenCalled();
+    expect(runAssistant).not.toHaveBeenCalled();
     expect(sent).toHaveLength(0);
   });
 
@@ -113,6 +143,7 @@ describe("POST /api/telegram", () => {
     const wrong = await post(telegramUpdate("hi"), "nope");
     expect(wrong.status).toBe(401);
     expect(ask).not.toHaveBeenCalled();
+    expect(runAssistant).not.toHaveBeenCalled();
     expect(sent).toHaveLength(0);
   });
 
@@ -122,6 +153,7 @@ describe("POST /api/telegram", () => {
     expect(first.status).toBe(200);
     expect(await first.json()).toMatchObject({ ignored: "allowlist", replied: true });
     expect(ask).not.toHaveBeenCalled();
+    expect(runAssistant).not.toHaveBeenCalled();
     const notices = sent.filter((s) => s.method === "sendMessage");
     expect(notices).toHaveLength(1);
     expect(notices[0].body.text).toContain("42");
@@ -133,13 +165,16 @@ describe("POST /api/telegram", () => {
     expect(await second.json()).toMatchObject({ ignored: "duplicate_notice" });
     expect(sent.filter((s) => s.method === "sendMessage")).toHaveLength(0);
     expect(ask).not.toHaveBeenCalled();
+    expect(runAssistant).not.toHaveBeenCalled();
   });
 
-  it("routes text through ask(), remembers the chat, and sends typing", async () => {
+  it("answers only, via ask(), when the allowlist is empty", async () => {
     const first = await post(telegramUpdate("How is conversion?"));
     expect(first.status).toBe(200);
     expect(ask).toHaveBeenCalledTimes(1);
     expect(ask).toHaveBeenCalledWith({ question: "How is conversion?", history: [] });
+    expect(runAssistant).not.toHaveBeenCalled();
+    expect(await first.json()).toMatchObject({ mode: "ask" });
     expect(sent.map((s) => s.method)).toEqual(["sendChatAction", "sendMessage"]);
     expect(sent[0].body).toMatchObject({ chat_id: "42", action: "typing" });
     expect(sent[1].body.parse_mode).toBe("MarkdownV2");
@@ -180,6 +215,102 @@ describe("POST /api/telegram", () => {
     const texts = sent.filter((s) => s.method === "sendMessage").map((s) => s.body.text ?? "");
     expect(texts[0]).toMatch(/Ask Darwin/i);
     expect(texts[1]).toMatch(/plain English/i);
+    expect(texts[1]).toMatch(/Tool use is off/);
+    expect(runAssistant).not.toHaveBeenCalled();
+  });
+
+  it("routes every allowlisted message through runAssistant and shows the tool result", async () => {
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "42");
+    runAssistant.mockResolvedValue({
+      reply: "Stepped the loop.",
+      actions: [{ tool: "step_loop", args: {}, ok: true, summary: "Loop moved idle → observe (Gen 0).", synthetic: true }],
+      model: "heuristic",
+      suggestions: [],
+    });
+    const res = await post(telegramUpdate("step the loop"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ mode: "assistant" });
+    expect(ask).not.toHaveBeenCalled();
+    expect(runAssistant).toHaveBeenCalledTimes(1);
+    expect(runAssistant).toHaveBeenCalledWith({
+      messages: [{ role: "user", content: "step the loop" }],
+      confirm: undefined,
+      origin: "http://x",
+      context: { path: "/telegram" },
+    });
+    const body = sent.find((s) => s.method === "sendMessage")?.body.text ?? "";
+    expect(body).toContain("Stepped the loop");
+    expect(body).toContain("Loop moved idle");
+    expect(body).toContain("simulated");
+
+    runAssistant.mockResolvedValueOnce({
+      reply: "One experiment is running.",
+      actions: [{ tool: "list_experiments", args: {}, ok: true, summary: "1 experiment (1 running). Checkout copy." }],
+      model: "heuristic",
+    });
+    await post(telegramUpdate("what experiments are running?"));
+    expect(runAssistant).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: "user", content: "step the loop" },
+          { role: "assistant", content: expect.stringContaining("Loop moved idle") },
+          { role: "user", content: "what experiments are running?" },
+        ],
+      }),
+    );
+  });
+
+  it("confirms a pending tool on yes, cancels on no, and drops it when the next message is a new request", async () => {
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "42, 7");
+    const pending = { tool: "set_autopilot", args: { on: true }, prompt: "Turn autopilot on?" };
+    runAssistant.mockResolvedValueOnce({ reply: "Turn autopilot on?", actions: [], pendingConfirm: pending, model: "heuristic" });
+    await post(telegramUpdate("turn autopilot on"));
+    expect(sent.find((s) => s.method === "sendMessage")?.body.text).toContain("Reply yes");
+
+    runAssistant.mockResolvedValueOnce({
+      reply: "Autopilot is on.",
+      actions: [{ tool: "set_autopilot", args: { on: true }, ok: true, summary: "Autopilot is on: the console will keep stepping the loop." }],
+      model: "heuristic",
+    });
+    await post(telegramUpdate("Yes!"));
+    expect(runAssistant).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        confirm: { tool: "set_autopilot", args: { on: true }, approved: true },
+        messages: expect.arrayContaining([{ role: "user", content: "Yes, go ahead." }]),
+      }),
+    );
+    expect(ask).not.toHaveBeenCalled();
+
+    runAssistant.mockResolvedValueOnce({ reply: "Reset the store to Gen 0?", actions: [], pendingConfirm: { tool: "reset_loop", args: {}, prompt: "Reset?" }, model: "heuristic" });
+    await post(telegramUpdate("reset everything", 7));
+    runAssistant.mockResolvedValueOnce({ reply: "Okay, cancelled. Nothing changed.", actions: [], model: "heuristic" });
+    await post(telegramUpdate("no", 7));
+    expect(runAssistant).toHaveBeenLastCalledWith(expect.objectContaining({ confirm: { tool: "reset_loop", args: {}, approved: false } }));
+
+    runAssistant.mockResolvedValueOnce({
+      reply: "Open a pull request shipping “Checkout copy”?",
+      actions: [],
+      pendingConfirm: { tool: "ship_winner", args: {}, prompt: "Open a pull request?" },
+      model: "heuristic",
+    });
+    await post(telegramUpdate("ship the winner"));
+    runAssistant.mockResolvedValueOnce({ reply: "The loop is idle.", actions: [{ tool: "loop_status", args: {}, ok: true, summary: "Phase idle, Gen 0." }], model: "heuristic" });
+    await post(telegramUpdate("how are we doing?"));
+    expect(runAssistant).toHaveBeenLastCalledWith(expect.objectContaining({ confirm: undefined }));
+    expect(confirmChoice("yes")).toBe(true);
+    expect(confirmChoice("no")).toBe(false);
+    expect(confirmChoice("how are we doing?")).toBeNull();
+  });
+
+  it("tells an allowlisted chat that it can act", async () => {
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "42");
+    const help = await post(telegramUpdate("/help"));
+    expect(help.status).toBe(200);
+    const text = sent.find((s) => s.method === "sendMessage")?.body.text ?? "";
+    expect(text).toMatch(/Step the loop/);
+    expect(text).toMatch(/reply yes or no/i);
+    expect(ask).not.toHaveBeenCalled();
+    expect(runAssistant).not.toHaveBeenCalled();
   });
 
   it("still answers when Supabase history fails", async () => {

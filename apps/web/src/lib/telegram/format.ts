@@ -21,6 +21,40 @@ export function formatDarwinReply(answer: string, cards?: { label: string; value
   return [body, chips.length ? chips.join("\n") : ""].filter(Boolean).join("\n\n");
 }
 
+export interface AssistantReplyAction {
+  ok: boolean;
+  summary: string;
+  synthetic?: boolean;
+  link?: { label: string; href: string };
+}
+
+/** Plain-text version of a `runAssistant` turn: the reply, any tool summaries it didn't already include, and a yes/no line when a tool is waiting. */
+export function formatAssistantReply(
+  res: { reply: string; actions?: AssistantReplyAction[]; pendingConfirm?: { prompt: string } },
+  origin?: string,
+): string {
+  const reply = res.reply.trim();
+  const lines: string[] = [];
+  if (reply) lines.push(reply);
+  for (const action of res.actions ?? []) {
+    const summary = action.summary.trim();
+    if (summary && !reply.includes(summary)) {
+      const synth = action.synthetic && !/simulat|synthetic/i.test(summary) ? " (simulated)" : "";
+      const lead = action.ok ? summary : `Didn't work: ${summary}`;
+      lines.push(`${lead}${synth}`);
+    }
+    const href = action.link?.href;
+    if (href && !lines.some((line) => line.includes(href))) {
+      const url = /^https?:\/\//i.test(href) ? href : origin ? `${origin.replace(/\/$/, "")}${href.startsWith("/") ? href : `/${href}`}` : href;
+      lines.push(`${action.link?.label ?? "Open"}: ${url}`);
+    }
+  }
+  if (res.pendingConfirm && !/reply yes/i.test(lines.join("\n"))) {
+    lines.push("Reply yes to go ahead, or no to cancel.");
+  }
+  return lines.filter(Boolean).join("\n\n") || "I don't have an answer for that yet.";
+}
+
 export interface TelegramPart {
   /** Unescaped text, used if Telegram rejects the MarkdownV2 body. */
   plain: string;

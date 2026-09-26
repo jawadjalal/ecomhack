@@ -38,6 +38,15 @@ export function chatAllowed(chatId: string): boolean {
   return ids.includes(chatId);
 }
 
+/**
+ * Tool calls (step the loop, ship, autopilot, …) only run for chats on
+ * `TELEGRAM_ALLOWED_CHAT_IDS`. An empty allowlist is answer-only: anyone who
+ * finds the bot can still ask questions, but cannot act or spend a tool loop.
+ */
+export function toolsEnabled(): boolean {
+  return allowedChatIds() !== null;
+}
+
 export function webhookUrl(): string {
   return process.env.TELEGRAM_WEBHOOK_URL?.trim() || DEFAULT_WEBHOOK_URL;
 }

@@ -175,14 +175,17 @@ npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
 
 ### Telegram
 
-Text Darwin from Telegram. Messages go through the same Ask Darwin chat as the console overview (`ask()` in `src/lib/ask`, `POST /api/ask`): the same system prompt, shopper context, heuristic and LLM client.
+Text Darwin from Telegram.
+
+- **Allowlisted chats** (`TELEGRAM_ALLOWED_CHAT_IDS`) go through `runAssistant`, the same function as the console assistant (`POST /api/assistant`). Every message can ask a question or act: step the loop, check experiments, ship a winner, turn autopilot on, reset. Shipping, autopilot and reset wait until you reply `yes` or `no`. Any other reply cancels that prompt.
+- **No allowlist:** messages stay on the Overview Ask Darwin chat (`ask()`, `POST /api/ask`) and only answer questions. `/help` says tool use is off. Set the allowlist before you expect the bot to change anything.
 
 1. In Telegram, open [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the bot token.
 2. Pick a webhook secret: 1–256 characters, only `A–Z`, `a–z`, `0–9`, `_` and `-` (for example `openssl rand -hex 32`).
 3. On the Vercel project for [usedarwin.app](https://usedarwin.app), set:
    - `TELEGRAM_BOT_TOKEN` — the token from BotFather
    - `TELEGRAM_WEBHOOK_SECRET` — the secret from step 2
-   - `TELEGRAM_ALLOWED_CHAT_IDS` — leave blank for a first try, or set `0` so the bot replies with your chat id and ignores everyone else
+   - `TELEGRAM_ALLOWED_CHAT_IDS` — your chat id (comma-separated if several). Required for stepping the loop, shipping, and other tools. Leave it empty and the bot only answers questions. Set `0` first if you don't know the id yet: the bot replies once with it.
 4. Redeploy so the new env vars are live.
 5. Register the webhook (this calls Telegram `setWebhook` for `https://usedarwin.app/api/telegram` and sends the secret):
 
@@ -197,9 +200,9 @@ Text Darwin from Telegram. Messages go through the same Ask Darwin chat as the c
    curl -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN" https://usedarwin.app/api/telegram
    ```
 
-6. Open the bot and send `/start`, then a question (`How is conversion?`, `What should I do next?`).
+6. Open the bot and send `/start`. Then try `How is conversion?` or, once your chat id is on the allowlist, `Step the loop`.
 
-If `TELEGRAM_ALLOWED_CHAT_IDS` is set and your chat is not on it, the bot replies **once** with your chat id. Add that id (comma-separated if you have several), redeploy, and message again. Leave the variable empty only if you accept that anyone who finds the bot can spend the LLM key. The bot answers questions; it does not ship changes or step the loop (that stays in the console).
+If `TELEGRAM_ALLOWED_CHAT_IDS` is set and your chat is not on it, the bot replies **once** with your chat id. Add that id, redeploy, and message again. Leave the variable empty only for a question-only bot: anyone who finds it can spend the LLM key on answers, and it will not run tools. With the allowlist set, those chats can act, so keep the list to yourself.
 
 ### Honest notes
 
