@@ -278,7 +278,7 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
                   className={cn(
                     "block h-2 origin-left rounded-full transition-transform duration-200 group-hover:scale-y-150",
                     reached ? "bg-dw-ink" : here && !live ? "border-[1.5px] border-dashed border-dw-ink" : !here ? "bg-white/50" : "",
-                    live && "dw-typing-seg",
+                    live && "animate-pulse motion-reduce:animate-none",
                   )}
                   style={live ? { background: "linear-gradient(90deg, #141413 0 50%, rgba(20,20,19,0.14) 50%)" } : undefined}
                   initial={reduce ? false : { scaleX: 0 }}
@@ -327,7 +327,7 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
             <div className="flex items-center justify-between gap-2.5 px-0.5">
               <span className="truncate font-dwmono text-[13px] font-medium">{s.key.tool}</span>
               <span className={cn("inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-semibold", PILL[s.key.tone])}>
-                {s.key.tone === "live" && <span className="dw-spin inline-block size-[9px] rounded-full border-[1.5px] border-current border-r-transparent" />}
+                {s.key.tone === "live" && <span className="inline-block size-[9px] animate-spin rounded-full border-[1.5px] border-current border-r-transparent motion-reduce:animate-none" />}
                 {s.key.pill}
               </span>
             </div>
