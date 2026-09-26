@@ -4,7 +4,7 @@
  * Motion helpers for the Overview: staggered card entrance, count-up numbers, pills that grow in, and the
  * black pill tooltip. Everything settles instantly under prefers-reduced-motion.
  */
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { cn } from "@/components/ui/cn";
 
@@ -59,19 +59,32 @@ function fmt(v: number, format: CountFormat, digits?: number): string {
   }
 }
 
-/** A number that counts up to `value` (and glides to new values as data refreshes). */
+/** A number that counts up to `value` on first mount, then glides only when the displayed value actually changes. */
 export function CountUp({ value, format = "int", digits, className }: { value: number; format?: CountFormat; digits?: number; className?: string }) {
   const reduce = useReducedMotion();
   const mv = useMotionValue(reduce ? value : 0);
   const text = useTransform(mv, (v) => fmt(v, format, digits));
+  const mounted = useRef(false);
+  const prevDisplay = useRef(fmt(value, format, digits));
   useEffect(() => {
     if (reduce) {
       mv.set(value);
       return;
     }
-    const c = animate(mv, value, { duration: 0.9, ease: EASE });
+    if (!mounted.current) {
+      mounted.current = true;
+      const c = animate(mv, value, { duration: 0.9, ease: EASE });
+      return () => c.stop();
+    }
+    const display = fmt(value, format, digits);
+    if (display === prevDisplay.current) {
+      mv.set(value);
+      return;
+    }
+    prevDisplay.current = display;
+    const c = animate(mv, value, { duration: 0.35, ease: EASE });
     return () => c.stop();
-  }, [value, reduce, mv]);
+  }, [value, reduce, mv, format, digits]);
   return (
     <motion.span className={cn("num", className)} aria-label={fmt(value, format, digits)}>
       {text}
@@ -95,15 +108,22 @@ export function Grow({
 }) {
   const reduce = useReducedMotion();
   const prop = axis === "y" ? "height" : "width";
-  return (
-    <motion.span
-      className={cn("block", className)}
-      style={style}
-      initial={reduce ? false : { [prop]: 0 }}
-      animate={{ [prop]: size }}
-      transition={{ duration: 0.8, ease: EASE, delay }}
-    />
-  );
+  const mv = useMotionValue<number | string>(reduce ? size : 0);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (reduce) {
+      mv.set(size);
+      return;
+    }
+    if (!mounted.current) {
+      mounted.current = true;
+      const c = animate(mv, size, { duration: 0.8, ease: EASE, delay });
+      return () => c.stop();
+    }
+    const c = animate(mv, size, { duration: 0.35, ease: EASE });
+    return () => c.stop();
+  }, [size, reduce, mv, delay]);
+  return <motion.span className={cn("block", className)} style={{ ...style, [prop]: mv }} />;
 }
 
 /** Black pill tooltip shown when the parent `.group` is hovered or focused. */
