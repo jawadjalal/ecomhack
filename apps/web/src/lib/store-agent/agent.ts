@@ -218,7 +218,7 @@ async function askModel(text: string, catalog: Catalog, conv: Conversation): Pro
 
 /**
  * The model's reply, if it passes the hard checks; else undefined and the rules answer. Checks: the offer id is in
- * the catalog, every price it mentions is a catalog price, a checkout is never made for a negated buy ("don't buy
+ * the catalog, every price it mentions is a catalog price (or the buyer's own budget), a checkout is never made for a negated buy ("don't buy
  * yet"), an id we don't sell, or a different offer than the one the buyer named. Checkout links only ever come
  * from createCheckout (tagged), and any link the model wrote is dropped.
  */
@@ -231,7 +231,9 @@ async function aiTurn(
   if (!out) return undefined;
   const offer = out.offerId ? catalog.offers.find((o) => o.id === out.offerId) : undefined;
   if (out.offerId && !offer) return undefined; // an offer we don't sell
-  if (amounts(out.reply).some((a) => !catalog.offers.some((o) => o.price === a))) return undefined; // a price we don't charge
+  // A price we don't charge (the buyer's own budget, "under £40", may be repeated back).
+  const said = new Set(amounts(text));
+  if (amounts(out.reply).some((a) => !said.has(a) && !catalog.offers.some((o) => o.price === a))) return undefined;
   const idLike = text.match(/\b(?:plan|prod|pass)_[\w-]+/i)?.[0];
   if (idLike && !catalog.offers.some((o) => o.id === idLike)) return undefined; // "we don't sell that": the rules say so
   const reply = out.reply.replace(/https?:\/\/\S+/g, "").replace(/[ \t]{2,}/g, " ").trim();
