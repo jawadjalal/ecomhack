@@ -6,6 +6,8 @@
  *   connectRepository       parse a repo URL, open the install PR, remember the connection
  *   shipWinningSpec         pick the experiment + spec to ship, then openSpecPR
  *   getGithubStatus         what the console shows (mode, repo, framework, recent PRs)
+ *   listRepoFiles / readRepoFile / commitFileChanges / openPullRequest / mergePullRequest / pullRequestStatus
+ *                           repo editing for the agent team (edit.ts). Writes need the merchant's confirmation.
  *
  * Modes (see githubMode()):
  *   offline  — no GITHUB_TOKEN, or GitHub rejected it (401): no network; returns the would-be PR (files + body).
@@ -66,6 +68,26 @@ export { verifyGithubToken, lastTokenCheck, resetTokenChecks, TOKEN_CHECK_TTL_MS
 export { detectAnalytics, detectFramework, planInstall, scriptTag, type Framework, type FrameworkDetection } from "./install";
 export type { TrafficMix } from "./spec-pr";
 export type { GithubConnection, GithubMode, PullRequestRecord } from "./store";
+export {
+  listRepoFiles,
+  readRepoFile,
+  commitFileChanges,
+  openPullRequest,
+  mergePullRequest,
+  pullRequestStatus,
+  listEditPullRequests,
+  invalidEditPath,
+  resolveRepo,
+  editBranchName,
+  MAX_EDIT_FILES,
+  MAX_EDIT_BYTES,
+  type RepoFileList,
+  type RepoFile,
+  type FileEditResult,
+  type MergeResult,
+  type PrStatus,
+  type EditPrRecord,
+} from "./edit";
 
 export interface RepoRef {
   owner: string;

@@ -5,10 +5,11 @@
  * the demo store, so the honest first step is "watch Darwin improve the demo store" (simulated shoppers +
  * autopilot, both labelled), with "connect your store" next to it. Once data flows the normal screens take over.
  */
-import { ArrowUpRight, Play } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import type { LoopState } from "@/lib/contracts";
 import { useSummary } from "@/lib/console/hooks";
+import { getAgent } from "@/lib/team/roster";
 import { cn } from "@/components/ui/cn";
 import { Mascot, type MascotKind } from "./mascot";
 import { useDarwin } from "./provider";
@@ -45,19 +46,45 @@ export function useFirstRun(): boolean {
   return !mock && !autopilot && !trafficOn && loopIsFresh(loop) && visitors === 0;
 }
 
+/** Whose page an empty state is on: each loop page's start button names (and shows) that page's agent. */
+export type PageAgent = "darwin" | "iris" | "pixel" | "fizz" | "dash";
+
+const PAGE_AGENT: Record<PageAgent, { kind: MascotKind; run: (name: string) => string; fresh: (name: string) => string }> = {
+  darwin: { kind: "leader", run: (n) => `Let ${n} run`, fresh: (n) => `Watch ${n} improve the demo store` },
+  iris: { kind: "observer", run: (n) => `Let ${n} watch`, fresh: (n) => `Let ${n} watch the demo store` },
+  pixel: { kind: "designer", run: (n) => `Let ${n} draft a fix`, fresh: (n) => `Let ${n} draft a fix for the demo store` },
+  fizz: { kind: "experimenter", run: (n) => `Let ${n} run the test`, fresh: (n) => `Let ${n} test fixes on the demo store` },
+  dash: { kind: "shipper", run: (n) => `Let ${n} ship winners`, fresh: (n) => `Let ${n} ship winners on the demo store` },
+};
+
+/** The page agent for a loop mascot (observer → Iris, designer → Pixel, …); Darwin otherwise. */
+export function pageAgentFor(kind: MascotKind | undefined): PageAgent {
+  return kind === "observer" ? "iris" : kind === "designer" ? "pixel" : kind === "experimenter" ? "fizz" : kind === "shipper" ? "dash" : "darwin";
+}
+
 /**
- * The one-click start used by every empty screen. On a fresh loop: "Watch Darwin improve the demo store"
- * (+ "Connect your store" when nothing is connected). Otherwise the plain "Let Darwin run".
+ * The one-click start used by every empty screen: turns autopilot on (+ simulated shoppers on a fresh demo store).
+ * The button names and shows `agent`, the page's own agent ("Let Iris watch", "Let Fizz run the test"…); Darwin's
+ * own start (Overview) is in his yellow. On a fresh loop it also offers "Connect your store" when nothing is connected.
  */
-export function StartDemo({ align = "center", className }: { align?: "center" | "start"; className?: string }) {
+export function StartDemo({ align = "center", className, agent = "darwin" }: { align?: "center" | "start"; className?: string; agent?: PageAgent }) {
   const { loop, setAutopilot, stepping } = useDarwin();
   const store = useStoreContext();
   const fresh = loopIsFresh(loop);
+  const who = PAGE_AGENT[agent];
+  const name = getAgent(agent).name;
   return (
     <div className={cn("flex flex-col gap-2.5", align === "center" ? "items-center text-center" : "items-start", className)}>
       <div className={cn("flex flex-wrap gap-2.5 max-sm:w-full max-sm:flex-col", align === "center" && "justify-center")}>
-        <PillButton size="lg" onClick={() => void setAutopilot(true)} disabled={stepping || !loop} className="max-sm:h-auto max-sm:min-h-12 max-sm:w-full max-sm:py-2.5">
-          <Play /> {fresh ? "Watch Darwin improve the demo store" : "Let Darwin run"}
+        <PillButton
+          size="lg"
+          tone={agent === "darwin" ? "yellow" : "ink"}
+          onClick={() => void setAutopilot(true)}
+          disabled={stepping || !loop}
+          className="pl-2.5 max-sm:h-auto max-sm:min-h-12 max-sm:w-full max-sm:py-2.5 [&_svg]:size-full"
+          data-agent={agent}
+        >
+          <Mascot kind={who.kind} size={30} active={false} title={name} /> {fresh ? who.fresh(name) : who.run(name)}
         </PillButton>
         {fresh && !store.connected && (
           <PillButton size="lg" tone="white" href="/onboarding" className="max-sm:w-full">
@@ -72,7 +99,7 @@ export function StartDemo({ align = "center", className }: { align?: "center" | 
 
 const STEPS: { kind: MascotKind; label: string; line: string; tab: string; href: string }[] = [
   { kind: "observer", label: "Watch", line: "Simulated people and AI agents shop the demo store.", tab: "Overview", href: "/console" },
-  { kind: "analyst", label: "Find leaks", line: "Where they drop off, biggest first.", tab: "Issues", href: "/console/issues" },
+  { kind: "leader", label: "Find leaks", line: "Where they drop off, biggest first.", tab: "Issues", href: "/console/issues" },
   { kind: "designer", label: "Draft a fix", line: "A small page change Darwin can undo.", tab: "Fixes", href: "/console/fixes" },
   { kind: "experimenter", label: "Test it", line: "Half the shoppers see the fix. Darwin counts who buys.", tab: "Experiments", href: "/console/experiments" },
   { kind: "shipper", label: "Ship it", line: "The winner goes live. You can roll it back.", tab: "Changes", href: "/console/changes" },
@@ -94,7 +121,7 @@ export function FirstRun() {
       className="grid gap-6 rounded-[26px] border border-dw-hairline bg-dw-surface p-7 max-sm:p-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-10 lg:p-9"
     >
       <div className="flex min-w-0 flex-col items-start gap-5">
-        <Mascot kind="analyst" size={64} frame active />
+        <Mascot kind="leader" size={64} frame active />
         <div className="flex flex-col gap-3">
           <h2 id="dw-first-run" className="text-[32px] leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-[38px]">
             Watch Darwin improve a store, live

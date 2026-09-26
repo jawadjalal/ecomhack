@@ -12,6 +12,7 @@ import { ChatCard, type ChatLine, type ChatOffer } from "@/components/dw/agents/
 import { ConnectCard, OffersCard } from "@/components/dw/agents/connect-card";
 import { SalesCard } from "@/components/dw/agents/sales-card";
 import { TestsCard } from "@/components/dw/agents/tests-card";
+import { useLiveInterval } from "@/lib/console/live";
 
 const SIM_BUYER = "darwin-buyer (simulated)";
 
@@ -40,14 +41,16 @@ export function AgentsApp({ origin }: { origin: string }) {
     if (res.ok) setStats(await res.json());
     if (t.ok) setTests(await t.json());
   }, []);
+  const every = useLiveInterval(3000);
   useEffect(() => {
     const first = setTimeout(() => load(), 0);
-    const t = setInterval(() => load(), 3000);
+    // Static unless the Live switch is on: on a multi-server host each poll can land on a server with other numbers.
+    const t = every ? setInterval(() => load(), every) : undefined;
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      if (t) clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   /** Talk to the store agent over the real A2A endpoint, exactly as an outside agent would. */
   const send = async (message: string) => {

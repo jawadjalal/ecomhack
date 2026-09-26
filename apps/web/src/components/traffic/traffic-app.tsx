@@ -9,6 +9,7 @@ import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { Card, Empty, LegendKey, PageHead, PillButton, Tag, type Tone } from "@/components/dw/ui";
 import { CardHead, DwSwitch, HEAD_CONTROLS, SiteSelect } from "@/components/dw/personalize/kit";
 import { SourceMark } from "@/components/dw/traffic/source-mark";
+import { useLiveInterval } from "@/lib/console/live";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -85,14 +86,16 @@ export function TrafficApp() {
     }
   }, [site, synthetic]);
 
+  const every = useLiveInterval(4000);
   useEffect(() => {
     const first = setTimeout(load, 0);
-    const t = setInterval(load, 4000);
+    // Static unless the Live switch is on: on a multi-server host each poll can land on a server with other numbers.
+    const t = every ? setInterval(load, every) : undefined;
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      if (t) clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   const addTestTraffic = async () => {
     setBusy(true);
@@ -383,7 +386,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="analyst" size={34} active={!!busy} title="Darwin" />
+          <Mascot kind="leader" size={34} active={!!busy} title="Darwin" />
           What to improve
         </span>
       </CardHead>
@@ -401,7 +404,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
             <LoaderCircle className="size-4 animate-spin" aria-hidden /> Reading the numbers…
           </p>
         )}
-        {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="analyst" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
+        {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="leader" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
         <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-3">
           {shown.map((i) => (
             <InsightCard key={i.id} insight={i} site={site} />

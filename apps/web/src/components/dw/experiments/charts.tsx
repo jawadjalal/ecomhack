@@ -67,8 +67,8 @@ export function ChanceCard({
             align="end"
             tip={
               early > shipAt
-                ? `Ada ships the new version once she's ${pctShip(shipAt)} sure on the final look (${pctShip(early)} on earlier looks, so noise can't sneak a win) and drops it under ${pct0(drop)}.`
-                : `Ada ships the new version once she's ${pctShip(shipAt)} sure and drops it under ${pct0(drop)}.`
+                ? `Fizz ships the new version once it's ${pctShip(shipAt)} sure on the final look (${pctShip(early)} on earlier looks, so noise can't sneak a win) and drops it under ${pct0(drop)}.`
+                : `Fizz ships the new version once it's ${pctShip(shipAt)} sure and drops it under ${pct0(drop)}.`
             }
           >
             <span tabIndex={0} className="rounded-full text-[14px] text-[#5A2744] outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">

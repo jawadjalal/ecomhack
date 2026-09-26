@@ -54,7 +54,7 @@ export function DiffCard({ row, configPath, live, heading, compact }: { row: PrR
             <span className="mt-3 font-dw text-[13px] leading-snug text-[#8F8B82]">One script tag that lets Iris see people and AI agents shop. It records what happens only. It never changes your pages.</span>
           </>
         ) : lines.length === 0 ? (
-          <span className="font-dw text-[13px] text-[#8F8B82]">Max didn&apos;t log the page settings for this change.</span>
+          <span className="font-dw text-[13px] text-[#8F8B82]">Dash didn&apos;t log the page settings for this change.</span>
         ) : (
           lines.map((l, i) => (
             <motion.span
@@ -127,7 +127,7 @@ export function ProofCard({
       className={cn("h-full rounded-[28px] px-5 sm:px-6", CARD_FILL, DEPTH, compact ? "py-5 [&>.relative]:gap-3" : "[&>.relative]:gap-5")}
       aria-label="Proof"
     >
-      <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : row.kind === "rollback" ? "Undone" : "Why Max shipped it"}</h2>
+      <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : row.kind === "rollback" ? "Undone" : "Why Dash shipped it"}</h2>
       {row.kind === "rollback" ? (
         <>
           <div className="flex flex-col">
@@ -153,7 +153,7 @@ export function ProofCard({
           </div>
           {result && m ? (
             <div className="grid grid-cols-2 gap-2.5">
-              <Tile compact={compact} i={0} value={chance(result.probabilityToBeat)} label="chance it's better" tip="Ada's read of the test: how sure she is the new version beats your current page." />
+              <Tile compact={compact} i={0} value={chance(result.probabilityToBeat)} label="chance it's better" tip="Fizz's read of the test: how sure it is the new version beats your current page." />
               <Tile compact={compact} i={1} value={count(m.visitors)} label={`${audienceNoun(m.audience)} tested${synthetic ? " (simulated)" : ""}`} tip={`${count(m.a.visitors)} saw your current page, ${count(m.b.visitors)} saw the new version`} />
               <Tile
                 compact={compact}
@@ -171,7 +171,7 @@ export function ProofCard({
               />
             </div>
           ) : (
-            <p className="text-[14px] text-[#2F3517]">The test behind this change isn&apos;t in Ada&apos;s memory any more, so only its gain is shown.</p>
+            <p className="text-[14px] text-[#2F3517]">The test behind this change isn&apos;t in Fizz&apos;s memory any more, so only its gain is shown.</p>
           )}
         </>
       )}

@@ -181,7 +181,7 @@ export function StoreCard({ className }: { className?: string }) {
         <Row
           i={4}
           dot={brain.llm ? "on" : "demo"}
-          icon={<Mascot kind="analyst" size={26} active={false} title="Darwin" />}
+          icon={<Mascot kind="leader" size={26} active={false} title="Darwin" />}
           name={
             <span className="flex flex-wrap items-center gap-x-2">
               How Darwin thinks

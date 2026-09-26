@@ -17,11 +17,11 @@ type Member = { name: string; role: string; line: string; face: ReactNode; tint:
 const mascot = (kind: MascotKind) => <Mascot kind={kind} size={64} />;
 
 const CREW: Member[] = [
-  { name: "Darwin", role: "Lead", line: "Talks to you and runs the team. Ask it anything about your store.", face: mascot("analyst"), tint: "bg-dw-lilac", tilt: -4 },
+  { name: "Darwin", role: "Lead", line: "Talks to you and runs the team. Ask it anything about your store.", face: mascot("leader"), tint: "bg-dw-lilac", tilt: -4 },
   { name: "Iris", role: "Watcher", line: "Finds where people and AI shoppers get stuck.", face: mascot("observer"), tint: "bg-dw-blue", tilt: 3 },
-  { name: "Theo", role: "Designer", line: "Drafts page changes from facts already on your page.", face: mascot("designer"), tint: "bg-dw-warn-bg", tilt: -3 },
-  { name: "Ada", role: "Tester", line: "Tests the new version against your current page and picks the winner.", face: mascot("experimenter"), tint: "bg-dw-pink", tilt: 4 },
-  { name: "Max", role: "Shipper", line: "Ships the winner as a code change, and can undo it in one click.", face: mascot("shipper"), tint: "bg-dw-win-bg", tilt: -3 },
+  { name: "Pixel", role: "Designer", line: "Drafts page changes from facts already on your page.", face: mascot("designer"), tint: "bg-dw-warn-bg", tilt: -3 },
+  { name: "Fizz", role: "Tester", line: "Tests the new version against your current page and picks the winner.", face: mascot("experimenter"), tint: "bg-dw-pink", tilt: 4 },
+  { name: "Dash", role: "Shipper", line: "Ships the winner as a code change, and can undo it in one click.", face: mascot("shipper"), tint: "bg-dw-win-bg", tilt: -3 },
   {
     name: "Mika",
     role: "Store agent",
