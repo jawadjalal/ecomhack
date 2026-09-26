@@ -7,12 +7,23 @@ import { cn } from "@/components/ui/cn";
 import { AgentTile, agentBrand } from "../agent-tile";
 import { Mascot, Silhouette } from "../mascot";
 import { ArmChip, PillButton, TONE } from "../ui";
-import { fmtImpact, issueStats, sessionsFor, type FixRow, type IssueRow } from "./model";
+import {
+  fmtImpact,
+  issueStats,
+  sessionsFor,
+  type FixRow,
+  type IssueRow,
+} from "./model";
 
 const INK2 = "#5A2744";
 
 /** What the fix card says and where its button goes, from the issue's status and the fixes history. */
-function fixCopy(row: IssueRow, fix: FixRow | undefined, past: FixRow | undefined, rest: { n: number }) {
+function fixCopy(
+  row: IssueRow,
+  fix: FixRow | undefined,
+  past: FixRow | undefined,
+  rest: { n: number },
+) {
   if (row.status === "test" && fix) {
     return {
       text: `${fix.title}. Live in test B now, measured against your current store.`,
@@ -67,10 +78,15 @@ export function IssueDetail({
       id={id}
       aria-live="polite"
       aria-label="Issue detail"
-      className="relative isolate flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[26px] px-6 py-6 sm:px-7"
+      className="relative isolate flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-[26px] px-6 py-5 sm:px-7"
       style={{ background: TONE.pink.bg }}
     >
-      <Silhouette kind="experimenter" color={TONE.pink.shape} size={240} style={{ right: -70, top: -90, zIndex: -1 }} />
+      <Silhouette
+        kind="experimenter"
+        color={TONE.pink.shape}
+        size={240}
+        style={{ right: -70, top: -90, zIndex: -1 }}
+      />
       <AnimatePresence mode="wait" initial={false}>
         {row && (
           <motion.div
@@ -79,9 +95,15 @@ export function IssueDetail({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-            className="flex flex-1 flex-col gap-[18px]"
+            className="flex flex-1 flex-col gap-4"
           >
-            <DetailBody row={row} fix={fix} past={past} sessions={sessions} nowTesting={nowTesting} />
+            <DetailBody
+              row={row}
+              fix={fix}
+              past={past}
+              sessions={sessions}
+              nowTesting={nowTesting}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -110,12 +132,19 @@ function DetailBody({
 
   return (
     <>
-      <header className="flex flex-col gap-1.5 pr-10">
+      <header className="flex flex-col gap-1 pr-10">
         <span className="text-[13px]" style={{ color: INK2 }}>
           Issue {row.n} · {row.who} · {row.where}
         </span>
-        <h2 className="text-[26px] leading-[1.2] font-semibold tracking-[-0.015em] text-balance">{insight.title}</h2>
-        <p className="mt-1 max-w-[46rem] text-[15px] leading-relaxed text-dw-ink/80">{insight.detail}</p>
+        <h2 className="text-[26px] leading-[1.2] font-semibold tracking-[-0.015em] text-balance">
+          {insight.title}
+        </h2>
+        <p
+          className="mt-1 max-w-[46rem] lg:line-clamp-2 text-[15px] leading-normal text-dw-ink/80"
+          title={insight.detail}
+        >
+          {insight.detail}
+        </p>
       </header>
 
       <dl className="flex flex-wrap gap-x-8 gap-y-3">
@@ -127,10 +156,16 @@ function DetailBody({
             transition={{ delay: 0.05 + i * 0.06 }}
             className="flex min-w-0 flex-col-reverse gap-0.5"
           >
-            <dt className="max-w-[14rem] truncate text-[12px] tracking-[0.02em] uppercase" style={{ color: INK2 }} title={s.label}>
+            <dt
+              className="max-w-[14rem] truncate text-[12px] tracking-[0.02em] uppercase"
+              style={{ color: INK2 }}
+              title={s.label}
+            >
               {s.label}
             </dt>
-            <dd className="num text-[22px] leading-tight font-semibold">{s.value}</dd>
+            <dd className="num text-[22px] leading-tight font-semibold">
+              {s.value}
+            </dd>
           </motion.div>
         ))}
       </dl>
@@ -144,7 +179,8 @@ function DetailBody({
             </span>
             {seen.rows.length > 0 && (
               <span className="text-right text-[12px]" style={{ color: INK2 }}>
-                {seen.matched} of the last {seen.scanned} agent sessions{seen.rows.some((r) => r.synthetic) ? " · simulated" : ""}
+                {seen.matched} of the last {seen.scanned} agent sessions
+                {seen.rows.some((r) => r.synthetic) ? " · simulated" : ""}
               </span>
             )}
           </div>
@@ -169,7 +205,13 @@ function DetailBody({
             </ul>
           )}
           {evidence.length > 0 && (
-            <ul className={cn("flex flex-wrap gap-1.5", seen.rows.length > 0 && "mt-1 border-t border-[#5A2744]/10 pt-3")}>
+            <ul
+              className={cn(
+                "flex flex-wrap gap-1.5",
+                seen.rows.length > 0 &&
+                  "mt-1 border-t border-[#5A2744]/10 pt-3",
+              )}
+            >
               {evidence.map((e, i) => (
                 <motion.li
                   key={e.label}
@@ -185,29 +227,67 @@ function DetailBody({
             </ul>
           )}
           {seen.rows.length === 0 && insight.audience === "human" && (
-            <p className="text-[12px] text-dw-ink/60">People don&apos;t leave tool calls behind, so these numbers come from their page events.</p>
+            <p className="text-[12px] text-dw-ink/60">
+              People don&apos;t leave tool calls behind, so these numbers come
+              from their page events.
+            </p>
           )}
-          <span className="mt-auto truncate pt-2 font-dwmono text-[12px] text-[#8A6275]" title={insight.id}>
-            {[insight.id.replace(/^ins_/, ""), insight.stage, `${fmtImpact(insight.impactScore)}/1k`].join(" · ")}
+          <span
+            className="mt-auto truncate pt-2 font-dwmono text-[12px] text-[#8A6275]"
+            title={insight.id}
+          >
+            {[
+              insight.id.replace(/^ins_/, ""),
+              insight.stage,
+              `${fmtImpact(insight.impactScore)}/1k`,
+            ].join(" · ")}
           </span>
         </div>
 
         {/* The fix */}
         <div className="flex min-w-0 flex-col gap-2.5 rounded-[20px] bg-white px-[18px] py-4">
           <div className="flex items-center gap-2.5">
-            <Mascot kind="designer" size={30} frame active={row.status !== "queued"} />
+            <Mascot
+              kind="designer"
+              size={30}
+              frame
+              active={row.status !== "queued"}
+            />
             <span className="text-[14px] font-semibold">The fix</span>
             {row.status === "test" && (
-              <span className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-dw-ink/60">
-                <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" /> testing
+              <span className="inline-flex items-center gap-1.5 text-[12px] text-dw-ink/60">
+                <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" />{" "}
+                testing
               </span>
             )}
+            <PillButton
+              href={copy.href}
+              size="sm"
+              tone={row.status === "queued" ? "sand" : "ink"}
+              className="group/cta ml-auto"
+            >
+              {copy.cta}
+              <ArrowRight className="transition-transform group-hover/cta:translate-x-0.5" />
+            </PillButton>
           </div>
-          <p className={cn("text-[15px] leading-[1.45]", row.status === "queued" && "text-dw-ink/75")}>{copy.text}</p>
+          <p
+            className={cn(
+              "text-[15px] leading-[1.45]",
+              row.status === "queued" && "text-dw-ink/75",
+            )}
+          >
+            {copy.text}
+          </p>
           {row.status === "queued" && nowTesting && (
             <p className="rounded-2xl bg-dw-bg px-3.5 py-2.5 text-[13px] leading-snug text-dw-ink/75">
-              {nowTesting.drafted ? "Drafted right now" : "In test right now"}: <span className="font-semibold text-dw-ink">{nowTesting.title}</span>
-              {nowTesting.nums.length ? ` (issue ${nowTesting.nums.join(", ")})` : ""}.
+              {nowTesting.drafted ? "Drafted right now" : "In test right now"}:{" "}
+              <span className="font-semibold text-dw-ink">
+                {nowTesting.title}
+              </span>
+              {nowTesting.nums.length
+                ? ` (issue ${nowTesting.nums.join(", ")})`
+                : ""}
+              .
             </p>
           )}
           {fix?.diff.length ? (
@@ -219,10 +299,6 @@ function DetailBody({
               ))}
             </ul>
           ) : null}
-          <PillButton href={copy.href} tone={row.status === "queued" ? "sand" : "ink"} className="group/cta mt-auto self-start">
-            {copy.cta}
-            <ArrowRight className="transition-transform group-hover/cta:translate-x-0.5" />
-          </PillButton>
         </div>
       </div>
     </>

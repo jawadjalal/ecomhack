@@ -68,6 +68,22 @@ export function DashboardGrid({ dashboards, compact = false, onRemove }: { dashb
 export function DashboardCard({ d, compact, onRemove, tone }: { d: DashboardData; compact?: boolean; onRemove?: (id: string) => void; tone?: Tone }) {
   const look = LOOK[d.kind] ?? LOOK.events;
   const t = tone ?? look.tone;
+  /** The KPI strip is one slim band (title left, numbers right) so the charts start above the fold. */
+  const band = d.kind === "kpis" && !compact && !d.empty && !onRemove;
+  if (band)
+    return (
+      <Card tone={t} shape={look.shape} corner={look.corner} className="@container min-w-0 py-5" data-dashboard={d.id}>
+        <div className="flex flex-col gap-4 @4xl:flex-row @4xl:items-center @4xl:gap-10">
+          <div className="shrink-0 @4xl:w-60">
+            <CardTitle>{d.title}</CardTitle>
+            <p className="mt-1 text-[13.5px] leading-snug text-dw-ink/70">{d.why}</p>
+          </div>
+          <div className="min-w-0 flex-1">
+            <Body d={d} ring={TONE[t].bg} />
+          </div>
+        </div>
+      </Card>
+    );
   return (
     <Card
       tone={t}
@@ -100,7 +116,7 @@ export function DashboardCard({ d, compact, onRemove, tone }: { d: DashboardData
         <span className={cn(compact && "text-[19px]")}>{d.title}</span>
       </CardTitle>
       {!compact && <p className="mt-1 max-w-[40rem] text-[14px] leading-snug text-dw-ink/70">{d.why}</p>}
-      <div className={cn("flex flex-1 flex-col", compact ? "mt-3" : "mt-5")}>{d.empty ? <Waiting kind={d.kind} /> : <Body d={d} compact={compact} ring={TONE[t].bg} />}</div>
+      <div className={cn("flex flex-1 flex-col", compact ? "mt-3" : "mt-4")}>{d.empty ? <Waiting kind={d.kind} /> : <Body d={d} compact={compact} ring={TONE[t].bg} />}</div>
     </Card>
   );
 }
@@ -137,10 +153,10 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
   switch (d.kind) {
     case "kpis":
       return (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-5 @xl:flex @xl:flex-wrap @xl:gap-x-10">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-5 @xl:flex @xl:flex-wrap @xl:gap-x-10 @4xl:justify-between">
           {d.kpis?.map((k, i) => (
             <div key={k.label} className="min-w-0 @xl:min-w-[6.5rem]">
-              <div className={cn("num leading-none font-semibold tracking-[-0.03em]", compact ? "text-[28px]" : "text-[38px]")}>{k.value}</div>
+              <div className={cn("num leading-none font-semibold tracking-[-0.03em]", compact ? "text-[28px]" : "text-[34px]")}>{k.value}</div>
               <div className={cn("mt-1.5 text-[12px] tracking-[0.02em] text-dw-ink/70 uppercase", i === 0 && "w-fit border-b-2 border-dw-ink pb-1 text-dw-ink")}>{k.label}</div>
               {k.hint && <div className="mt-1 text-[12.5px] text-dw-ink/60">{k.hint}</div>}
             </div>
@@ -161,7 +177,7 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
                 <TrackPill
                   value={s.visitors}
                   max={first}
-                  height={compact ? 88 : 116}
+                  height={compact ? 88 : 100}
                   width={compact ? 24 : 28}
                   label={pct(s.rate, 0)}
                   tip={`${int(s.visitors)} of ${int(first)} visitors`}

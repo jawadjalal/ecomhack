@@ -158,40 +158,39 @@ export function AgentsApp({ origin }: { origin: string }) {
       />
 
       {cat?.source === "demo" && (
-        <div role="note" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[22px] bg-dw-warn-bg px-5 py-3.5 text-[14px] text-dw-warn">
+        <div role="note" title={cat.note} className="-mt-1 flex min-h-10 items-center gap-2.5 rounded-full bg-dw-warn-bg py-1.5 pr-1.5 pl-4 text-[13.5px] text-dw-warn">
           <Store className="size-4 shrink-0" />
-          <p className="min-w-0 flex-1 basis-[15rem]">
-            <b className="font-semibold">Demo catalog.</b> {cat.note ?? "These are demo offers, and payments are simulated."}
+          <p className="min-w-0 flex-1 leading-snug sm:truncate">
+            <b className="font-semibold">Demo catalog.</b> No Whop business connected yet: demo offers, and payments on the demo checkout are simulated and labelled.
           </p>
           <Link
             href="/onboarding"
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white/70 px-3.5 text-[13px] font-medium text-dw-ink transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-white/75 px-3 text-[12.5px] font-medium text-dw-ink transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
           >
-            <WhopLogo size={14} /> Connect Whop <ArrowRight className="size-3.5" />
+            <WhopLogo size={13} /> Connect Whop <ArrowRight className="size-3.5" />
           </Link>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-        <TestsCard
-          tests={tests}
-          simOn={simOn}
-          onSim={setSimOn}
-          onAutopilot={(on) => {
-            testsPost({ autopilot: on });
-            if (on && !f?.conversations) setSimOn(true);
-          }}
-          onStart={(lever: Lever) => testsPost({ start: lever })}
-        />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <ChatCard lines={lines} text={text} onText={setText} onSend={send} busy={busy} running={running} onRunBuyer={runBuyer} demo={cat?.source !== "whop"} />
         <SalesCard funnel={f} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <ConnectCard endpoint={endpoint} />
-          <OffersCard catalog={cat} />
-        </div>
-        <ChatCard lines={lines} text={text} onText={setText} onSend={send} busy={busy} running={running} onRunBuyer={runBuyer} demo={cat?.source !== "whop"} />
+      <TestsCard
+        tests={tests}
+        simOn={simOn}
+        onSim={setSimOn}
+        onAutopilot={(on) => {
+          testsPost({ autopilot: on });
+          if (on && !f?.conversations) setSimOn(true);
+        }}
+        onStart={(lever: Lever) => testsPost({ start: lever })}
+      />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
+        <OffersCard catalog={cat} />
+        <ConnectCard endpoint={endpoint} />
       </div>
     </>
   );

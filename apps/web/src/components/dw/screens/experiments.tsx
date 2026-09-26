@@ -26,6 +26,7 @@ import {
   pageFor,
   pickExperiment,
 } from "../experiments/model";
+import { ResultStrip } from "../experiments/result-strip";
 import { SpecMock } from "../experiments/spec-mock";
 import { Tip } from "../experiments/tip";
 import { setHash, useHash } from "../experiments/use-hash";
@@ -174,6 +175,20 @@ export function ExperimentsScreen() {
   /* ---------------------------------------------------------------- actions (real APIs only) */
 
   const isLoopTest = running && loop.experimentId === exp.id;
+  const nextStep: { text: string; href?: string } =
+    view.outcome === "shipped" && view.record
+      ? { text: `Live as Gen ${view.record.generation}`, href: appHref(`/console/changes#gen-${view.record.generation}`, mock) }
+      : view.outcome === "lost"
+        ? { text: "Dropped; the store stayed on A" }
+        : view.outcome === "unclear"
+          ? { text: "The store stayed on A" }
+          : view.outcome === "stopped"
+            ? { text: "Stopped before a verdict" }
+            : isLoopTest && autopilot
+              ? { text: "Autopilot reads the next round" }
+              : isLoopTest
+                ? { text: "Next round when you let Darwin decide" }
+                : { text: "Waiting for the next round" };
   const canDecide = isLoopTest && (loop.phase === "experiment" || loop.phase === "decide");
   let actions: ReactNode = null;
   if (canDecide && autopilot) {
@@ -250,9 +265,12 @@ export function ExperimentsScreen() {
       <PageHead mascot={<Mascot kind="experimenter" size={52} frame active={running} />} title={exp.name} lede={lede} right={actions} />
 
       <div key={exp.id} className="flex flex-col gap-4">
+        <motion.div {...stagger(0)}>
+          <ResultStrip result={result} outcome={view.outcome} rules={rules} synthetic={synthetic} next={nextStep} />
+        </motion.div>
         <div className="grid gap-4 lg:grid-cols-2">
           <motion.div {...stagger(0)} className="min-w-0">
-            <Card tone="white" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="A, today">
+            <Card tone="white" className={`h-full px-5 py-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-3`} aria-label="A, today">
               <CardTitle right={<span className="text-[14px]">{armLine("A")}</span>}>A · {running ? "today" : "before"}</CardTitle>
               <div className="flex flex-1 flex-col [&>*]:flex-1">
                 <SpecMock spec={view.control} other={exp.treatmentSpec} arm="A" page={view.page} />
@@ -260,7 +278,7 @@ export function ExperimentsScreen() {
             </Card>
           </motion.div>
           <motion.div {...stagger(1)} className="min-w-0">
-            <Card tone="yellow" shape="designer" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="B, the fix">
+            <Card tone="yellow" shape="designer" className={`h-full px-5 py-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-3`} aria-label="B, the fix">
               <CardTitle right={<span className="text-[14px] text-[#4F4417]">{armLine("B")}</span>}>B · the fix</CardTitle>
               <div className="flex flex-1 flex-col [&>*]:flex-1">
                 <SpecMock spec={exp.treatmentSpec} other={view.control} arm="B" page={view.page} />

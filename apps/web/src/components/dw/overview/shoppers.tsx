@@ -3,10 +3,12 @@
 /**
  * Live shoppers list joined to the Journey panel. The selected row turns pink, extends into the gap and
  * fuses with the panel through two radial-gradient fillets; the panel's top-left corner squares off when
- * the first row is selected.
+ * the first row is selected. Tablets open the journey under its row; phones get a compact list and open
+ * the journey as a full-screen sheet.
  */
 import Link from "next/link";
-import { Fragment, useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ChevronRight, X } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AnalyticsSummary, LoopState } from "@/lib/contracts";
 import { timeAgo } from "@/lib/console/format";
@@ -34,6 +36,19 @@ function useWide(): boolean {
     subscribeWide,
     () => window.matchMedia(WIDE).matches,
     () => true,
+  );
+}
+const PHONE = "(max-width: 639px)";
+const subscribePhone = (cb: () => void) => {
+  const mq = window.matchMedia(PHONE);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+};
+function usePhone(): boolean {
+  return useSyncExternalStore(
+    subscribePhone,
+    () => window.matchMedia(PHONE).matches,
+    () => false,
   );
 }
 
@@ -97,6 +112,8 @@ export function LiveShoppers({
   const lastMinute = now ? everyone.filter((s) => now - Date.parse(s.lastAt) < 60_000).length : 0;
   const simulated = everyone.some((s) => s.synthetic);
   const wide = useWide();
+  const phone = usePhone();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const panel = (
     <div
@@ -185,8 +202,18 @@ export function LiveShoppers({
             >
               {rows.map((s, i) => (
                 <Fragment key={s.id}>
-                  <ShopperRow s={s} on={i === selIdx} first={i === 0} now={now} onPick={() => setPicked(s.id)} />
-                  {!wide && i === selIdx && panel}
+                  <ShopperRow
+                    s={s}
+                    on={!phone && i === selIdx}
+                    first={i === 0}
+                    now={now}
+                    compact={phone}
+                    onPick={() => {
+                      setPicked(s.id);
+                      if (phone) setSheetOpen(true);
+                    }}
+                  />
+                  {!wide && !phone && i === selIdx && panel}
                 </Fragment>
               ))}
             </div>
@@ -215,11 +242,70 @@ export function LiveShoppers({
           {panel}
         </section>
       )}
+      <JourneySheet open={phone && sheetOpen && !!sel} onClose={() => setSheetOpen(false)} s={sel}>
+        {sel && <Journey s={sel} loop={loop} test={test} board={board} summary={summary} flat />}
+      </JourneySheet>
     </div>
   );
 }
 
-function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; first: boolean; now: number; onPick: () => void }) {
+/** Phones: the journey as a full-screen sheet that slides up (Esc or ✕ closes it; the page stops scrolling). */
+function JourneySheet({ open, onClose, s, children }: { open: boolean; onClose: () => void; s?: Shopper; children: React.ReactNode }) {
+  const reduce = useReducedMotion();
+  const close = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const root = document.documentElement;
+    const prev = root.style.overflow;
+    root.style.overflow = "hidden";
+    close.current?.focus({ preventScroll: true });
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => {
+      root.style.overflow = prev;
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open, onClose]);
+  return (
+    <AnimatePresence>
+      {open && s && (
+        <motion.div
+          key="journey-sheet"
+          id="dw-journey"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Journey of ${s.name}`}
+          className="fixed inset-0 z-[70] flex flex-col bg-dw-pink"
+          initial={reduce ? false : { y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%", transition: { duration: 0.22, ease: EASE } }}
+          transition={{ duration: 0.38, ease: EASE }}
+        >
+          <div className="flex h-14 shrink-0 items-center gap-3 px-3 pt-[env(safe-area-inset-top)]">
+            <button
+              ref={close}
+              type="button"
+              onClick={onClose}
+              aria-label="Close journey"
+              className="grid size-10 place-items-center rounded-full bg-white/60 text-dw-ink transition-transform active:scale-90"
+            >
+              <X className="size-[18px]" />
+            </button>
+            <span className="text-[17px] font-semibold">Journey</span>
+            <span className="ml-auto truncate text-[12.5px] text-[#5A2744]">
+              {[s.kind === "agent" ? "Agent" : "Person", s.model, s.arm ? `test ${s.arm}` : undefined].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-[22px] overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(24px,env(safe-area-inset-bottom))]">
+            {children}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function ShopperRow({ s, on, first, now, compact, onPick }: { s: Shopper; on: boolean; first: boolean; now: number; compact?: boolean; onPick: () => void }) {
   const reduce = useReducedMotion();
   const when = s.status === "live" ? timeAgo(s.lastAt, now) || "now" : timeAgo(s.lastAt, now);
   return (
@@ -234,6 +320,7 @@ function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; fi
       onClick={onPick}
       className={cn(
         "relative flex h-[90px] shrink-0 items-center gap-3.5 px-4 text-left text-dw-ink outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:ring-offset-dw-bg",
+        compact && "h-[68px] gap-3 rounded-[18px] px-3 active:scale-[0.985] active:bg-[#e4dccb]",
         on
           ? "rounded-[22px] bg-dw-pink max-lg:rounded-b-none lg:-mr-[18px] lg:rounded-r-none lg:pr-[34px]"
           : "dw-row rounded-[22px] bg-dw-sand hover:bg-[#e8e0cd]",
@@ -258,12 +345,12 @@ function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; fi
         />
       )}
       <span className="dw-tilt relative flex shrink-0">
-        <Mascot kind={s.mascot} size={48} frame active={s.status === "live"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
-        {s.kind === "agent" && <AgentTile brand={s.brand} size={20} invert={on} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
+        <Mascot kind={s.mascot} size={compact ? 40 : 48} frame active={s.status === "live"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
+        {s.kind === "agent" && <AgentTile brand={s.brand} size={compact ? 18 : 20} invert={on} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-baseline justify-between gap-2.5">
-          <span className="truncate text-[15px] font-semibold">{s.name}</span>
+          <span className={cn("truncate font-semibold", compact ? "text-[14.5px]" : "text-[15px]")}>{s.name}</span>
           <span className={cn("flex shrink-0 items-center font-dwmono text-[12px] whitespace-nowrap", on ? "text-[#5A2744]" : "text-[#8A8478]")}>
             {s.status === "live" && <span className="dw-live-dot mr-1.5 inline-block size-1.5 rounded-full bg-dw-live" />}
             {when}
@@ -274,6 +361,7 @@ function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; fi
           <span className="truncate text-[13px] text-[#6B655A]">{s.sub}</span>
         </span>
       </span>
+      {compact && <ChevronRight aria-hidden className="size-4 shrink-0 text-dw-ink/35" />}
     </motion.button>
   );
 }
@@ -292,6 +380,7 @@ const STAGE: Record<KeyTone, string> = {
   won: "linear-gradient(160deg, #A8BCE7 0%, #C9D39A 55%, #7FA05A 100%)",
   fail: "linear-gradient(160deg, #B9B2A4 0%, #E3C9C0 55%, #C98D6E 100%)",
 };
+const FLAT: Record<KeyTone, string> = { warn: "#F6C9A6", live: "#B8CAEE", won: "#C9D39A", fail: "#E3DAC6" };
 const GRAIN =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
@@ -302,14 +391,17 @@ function Journey({
   board,
   summary,
   compact,
+  flat,
 }: {
   s: Shopper;
   loop?: LoopState;
   test?: TestView;
   board: BoardRow[];
   summary?: AnalyticsSummary;
-  /** Under its row on phones: the row already shows who it is, so the header is one line. */
+  /** Under its row on tablets: the row already shows who it is, so the header is one line. */
   compact?: boolean;
+  /** Phones: flat solid colours, no gradient stage. */
+  flat?: boolean;
 }) {
   const reduce = useReducedMotion();
   const won = s.status === "bought";
@@ -458,9 +550,9 @@ function Journey({
             <span className="px-0.5 text-[14px] leading-snug">{s.key.text}</span>
             <div
               className="relative flex min-h-[112px] items-center justify-center overflow-hidden rounded-[12px] py-3"
-              style={{ background: STAGE[s.key.tone] }}
+              style={{ background: flat ? FLAT[s.key.tone] : STAGE[s.key.tone] }}
             >
-              <span aria-hidden className="pointer-events-none absolute inset-0 opacity-35 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
+              {!flat && <span aria-hidden className="pointer-events-none absolute inset-0 opacity-35 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />}
               <div className="relative z-[1] w-[68%] overflow-hidden rounded-[10px] bg-white shadow-[0_10px_30px_rgba(20,20,19,0.18)] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)] group-hover/tool:-translate-y-1 group-hover/tool:scale-[1.03]">
                 <div className="flex h-[18px] items-center gap-1 border-b border-[#EFEAE0] px-2">
                   <span className="size-[5px] rounded-full bg-[#E4DDCF]" />

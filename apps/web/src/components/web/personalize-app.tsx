@@ -345,6 +345,28 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   const rules = useMemo(() => [...(data?.rules ?? [])].filter((r) => r.id !== draft?.savedId).reverse(), [data, draft?.savedId]);
   const resultOf = (id: string) => data?.results.find((r) => r.ruleId === id);
 
+  // A new draft lands below the live tests: bring it into view.
+  const draftRef = useRef<HTMLDivElement>(null);
+  const hasDraft = !!draft;
+  useEffect(() => {
+    if (hasDraft) draftRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [hasDraft]);
+
+  const running = rules.filter((r) => r.status === "running" && r.mode === "test");
+  const liveTests = (className: string) => (
+    <LiveTests
+      className={className}
+      loading={!data}
+      tests={running}
+      shipped={data?.rules.filter((r) => r.status === "shipped").length ?? 0}
+      resultOf={resultOf}
+      busy={busy}
+      onView={(r) => setView((v) => ({ ...v, source: r.audience.sources?.[0] ?? "direct", previewRuleId: undefined }))}
+      onPause={(r) => patch(r, { status: "paused" }, `Paused “${r.name}”.`)}
+      onShip={(r) => patch(r, { status: "shipped" }, `Shipped “${r.name}” to everyone in its audience.`)}
+    />
+  );
+
   const siteOptions = [...new Set([site, ...(data?.sites ?? []).map((s) => s.site)])].map((s) => ({ value: s, label: s }));
   const viewOptions = (["original", ...TRAFFIC_SOURCES] as const).map((s) => ({
     value: s,
@@ -360,7 +382,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
       <PageHead
         mascot={<Mascot kind="designer" size={50} active />}
         title="Personalize"
-        lede="Change any store page for each traffic source and search, then let an A/B test decide."
+        lede="Change the page for each traffic source, then let an A/B test decide."
         right={
           <div className={HEAD_CONTROLS}>
             <SiteSelect value={site} options={siteOptions} onChange={switchSite} />
@@ -385,6 +407,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         {/* ---------------- left: preview + traffic */}
         <div className="flex min-w-0 flex-col gap-4">
+          {liveTests("xl:hidden")}
           <Card tone="white" hover={false} className="p-4 sm:p-6">
             <CardHead
               right={
@@ -460,7 +483,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                 </>
               }
             >
-              <div className="relative h-[min(72vh,52rem)] min-h-[28rem] bg-white">
+              <div className="relative h-[26rem] bg-white xl:h-[clamp(22rem,calc(100svh-27rem),30rem)]">
                 {src ? (
                   <iframe ref={frame} key={src} src={src} onLoad={paint} title={`${site} preview`} className="absolute inset-0 h-full w-full" />
                 ) : (
@@ -479,8 +502,9 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
           <TrafficPanel data={data} site={site} />
         </div>
 
-        {/* ---------------- right: ask, draft, rules */}
+        {/* ---------------- right: live tests, ask, draft */}
         <div className="flex min-w-0 flex-col gap-4">
+          {liveTests("hidden xl:block")}
           <Card tone="yellow" shape="designer" corner="tr" hover={false}>
             <CardHead>Ask Darwin to change the page</CardHead>
             <div className="mt-4 flex flex-col gap-3">
@@ -491,7 +515,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) draftFromPrompt();
                   }}
-                  rows={3}
+                  rows={2}
                   aria-label="Ask Darwin to change the page"
                   placeholder="e.g. People coming from ChatGPT should see delivery and returns up front"
                   className="block w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[15px] leading-snug outline-none placeholder:text-dw-ink/40"
@@ -504,7 +528,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                   </PillButton>
                 </div>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {EXAMPLES.map((ex) => (
                   <button
                     key={ex}
@@ -513,10 +537,11 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                       setPrompt(ex);
                       draftFromPrompt(ex);
                     }}
-                    className="dw-row group flex min-h-9 items-center gap-2 rounded-full bg-white/45 px-3.5 py-1.5 text-left text-[13px] text-dw-ink/75 hover:bg-white/80 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-dw-ink"
+                    title={ex}
+                    className="group flex h-8 max-w-full items-center gap-1.5 rounded-full bg-white/45 px-3 text-left text-[12.5px] text-dw-ink/75 transition-colors hover:bg-white/85 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-dw-ink"
                   >
-                    <Sparkles className="dw-tilt size-3.5 shrink-0 text-dw-ink/40 group-hover:text-dw-ink" aria-hidden />
-                    <span className="min-w-0 truncate">{ex}</span>
+                    <Sparkles className="size-3.5 shrink-0 text-dw-ink/40 transition-transform group-hover:rotate-12 group-hover:text-dw-ink" aria-hidden />
+                    <span className="min-w-0 truncate">{ex.split(":")[0]}</span>
                   </button>
                 ))}
               </div>
@@ -561,7 +586,11 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
             </Card>
           )}
 
-          {draft && <DraftCard draft={draft} busy={busy} onEdit={editDraft} onPreview={previewDraft} onLaunch={launch} onDiscard={discard} />}
+          {draft && (
+            <div ref={draftRef} className="scroll-mt-6">
+              <DraftCard draft={draft} busy={busy} onEdit={editDraft} onPreview={previewDraft} onLaunch={launch} onDiscard={discard} />
+            </div>
+          )}
 
           {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
           <InstallPanel site={site} origin={origin} />
@@ -578,7 +607,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
             </span>
           }
         >
-          Live rules &amp; tests
+          All rules &amp; tests
         </CardHead>
         <div className="mt-4 grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
           {!data &&
@@ -610,6 +639,126 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
 }
 
 /* ------------------------------------------------------------------ pieces */
+
+function SourceChip({ source }: { source?: TrafficSource }) {
+  if (!source)
+    return (
+      <span className="flex h-7 shrink-0 items-center rounded-full bg-dw-sand px-2.5 text-[12px] font-medium" title="Every traffic source">
+        Everyone
+      </span>
+    );
+  return (
+    <span className="flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-dw-sand pr-2.5 pl-1 text-[12px] font-medium" title={TRAFFIC_SOURCE_LABEL[source]}>
+      {source === "ai" ? (
+        <AiStack size={18} />
+      ) : (
+        <span className="grid size-5 place-items-center rounded-full bg-white text-dw-ink/70 [&>svg]:size-3">{SOURCE_ICON[source]}</span>
+      )}
+      {source === "ai" ? "AI" : SHORT[source]}
+    </span>
+  );
+}
+
+/** The results, compact: one row per running A/B test, with its chance to beat the original. */
+function LiveTests({
+  className,
+  loading,
+  tests,
+  shipped,
+  resultOf,
+  busy,
+  onView,
+  onPause,
+  onShip,
+}: {
+  className?: string;
+  loading: boolean;
+  tests: WebRule[];
+  shipped: number;
+  resultOf: (id: string) => WebRuleResult | undefined;
+  busy?: string;
+  onView: (r: WebRule) => void;
+  onPause: (r: WebRule) => void;
+  onShip: (r: WebRule) => void;
+}) {
+  return (
+    <Card tone="pink" shape="experimenter" corner="br" hover={false} className={cn("p-5", className)}>
+      <CardHead
+        right={
+          <span className="num">
+            {tests.length} running{shipped ? ` · ${shipped} shipped` : ""}
+          </span>
+        }
+      >
+        <span className="flex items-center gap-2.5">
+          Live tests
+          {tests.length > 0 && <span className="dw-live-dot size-2 rounded-full bg-dw-live" aria-hidden />}
+        </span>
+      </CardHead>
+      <p className="mt-1 text-[13px] text-dw-ink/65">Original → with the change, and the chance the change wins.</p>
+      <ul className="mt-3 flex flex-col gap-1.5">
+        {loading && [0, 1].map((i) => <li key={i} className="h-[62px] animate-pulse rounded-[18px] bg-white/50" />)}
+        {!loading && tests.length === 0 && (
+          <li className="flex items-center gap-3 rounded-[18px] bg-white/60 p-3 text-[13.5px] text-dw-ink/70">
+            <Mascot kind="experimenter" size={36} frame active={false} />
+            No tests running. Draft a change below, or turn on Autopilot.
+          </li>
+        )}
+        {tests.map((r) => {
+          const res = resultOf(r.id);
+          const p = res?.probabilityToBeat;
+          const enough = (res?.control.visitors ?? 0) >= 100 && (res?.treatment.visitors ?? 0) >= 100;
+          const verdict = p === undefined || !enough ? undefined : p >= 0.95 ? "win" : p <= 0.05 ? "lose" : undefined;
+          const n = (res?.control.visitors ?? 0) + (res?.treatment.visitors ?? 0);
+          return (
+            <li key={r.id} className={cn("rounded-[18px] px-3 py-2", verdict === "win" ? "bg-dw-win-bg" : verdict === "lose" ? "bg-dw-warn-bg" : "bg-white/75")}>
+              <div className="flex items-center gap-2">
+                <SourceChip source={r.audience.sources?.[0]} />
+                <button
+                  type="button"
+                  onClick={() => onView(r)}
+                  title="Show this test in the preview"
+                  className="min-w-0 flex-1 truncate text-left text-[14px] font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-dw-ink"
+                >
+                  {r.name}
+                </button>
+                <span className="-mr-1.5 flex shrink-0 items-center">
+                  <IconBtn title={`Ship “${r.name}” to everyone in its audience`} onClick={() => onShip(r)} busy={busy === `${r.id}:shipped`} className="size-8">
+                    <Rocket />
+                  </IconBtn>
+                  <IconBtn title={`Pause “${r.name}”`} onClick={() => onPause(r)} busy={busy === `${r.id}:paused`} className="size-8">
+                    <Pause />
+                  </IconBtn>
+                </span>
+              </div>
+              {res && n > 0 ? (
+                <div className="mt-1 grid grid-cols-[auto_minmax(0,1fr)_2.75rem] items-center gap-3 text-[12.5px]">
+                  <span className="num whitespace-nowrap text-dw-ink/65">
+                    {pct(res.control.conversionRate)} → <span className="font-semibold text-dw-ink">{pct(res.treatment.conversionRate)}</span>
+                  </span>
+                  <span
+                    className="relative block h-2 rounded-full bg-dw-ink/10"
+                    role="meter"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round((p ?? 0) * 100)}
+                    aria-label={`Chance “${r.name}” beats the original`}
+                  >
+                    <span className="block h-full rounded-full bg-dw-ink transition-[width] duration-700" style={{ width: `${Math.max(2, Math.round((p ?? 0) * 100))}%` }} />
+                    <span className="absolute -top-0.5 h-3 w-[2px] rounded-full bg-dw-ink/60" style={{ left: "95%" }} aria-hidden />
+                  </span>
+                  <span className={cn("num text-right font-semibold", verdict === "win" ? "text-dw-win" : verdict === "lose" ? "text-dw-warn" : "")}>{p !== undefined ? pct(p, 0) : "–"}</span>
+                </div>
+              ) : (
+                <div className="mt-1 text-[12.5px] text-dw-ink/55">Collecting data: needs 100+ visitors in each group.</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
 
 function DraftCard({
   draft,

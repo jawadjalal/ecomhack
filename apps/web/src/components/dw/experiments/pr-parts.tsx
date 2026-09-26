@@ -77,7 +77,7 @@ export function DiffCard({ row, configPath, live, heading, compact }: { row: PrR
 
 /* ------------------------------------------------------------------ proof */
 
-function Tile({ value, label, tip, i }: { value: string; label: string; tip?: string; i: number }) {
+function Tile({ value, label, tip, i, compact }: { value: string; label: string; tip?: string; i: number; compact?: boolean }) {
   const reduce = useReducedMotion();
   const body = (
     <motion.div
@@ -85,9 +85,12 @@ function Tile({ value, label, tip, i }: { value: string; label: string; tip?: st
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: 0.25 + i * 0.07, type: "spring", stiffness: 300, damping: 26 }}
       tabIndex={tip ? 0 : undefined}
-      className="flex w-full flex-col rounded-[16px] bg-white/55 px-4 py-3.5 transition-colors outline-none hover:bg-white/75 focus-visible:ring-2 focus-visible:ring-dw-ink"
+      className={cn(
+        "flex w-full flex-col rounded-[16px] bg-white/55 px-4 transition-colors outline-none hover:bg-white/75 focus-visible:ring-2 focus-visible:ring-dw-ink",
+        compact ? "py-2.5" : "py-3.5",
+      )}
     >
-      <span className="num text-[22px] leading-tight font-semibold tracking-[-0.02em]">{value}</span>
+      <span className={cn("num leading-tight font-semibold tracking-[-0.02em]", compact ? "text-[19px]" : "text-[22px]")}>{value}</span>
       <span className="text-[13px] text-[#2F3517]">{label}</span>
     </motion.div>
   );
@@ -104,9 +107,12 @@ export function ProofCard({
   row,
   synthetic,
   restored,
+  compact,
 }: {
   row: PrRow;
   synthetic: boolean;
+  /** Denser layout for side panels (Changes page). */
+  compact?: boolean;
   /** Rollbacks: the generation put back, with its measured rates. */
   restored?: { generation: number; human: number; agent: number };
 }) {
@@ -114,18 +120,24 @@ export function ProofCard({
   const m = result ? measured(result) : undefined;
   const lift = row.lift ?? result?.lift;
   return (
-    <Card tone="olive" shape="shipper" corner="br" className={`h-full px-5 sm:px-7 ${CARD_FILL} [&>.relative]:gap-5`} aria-label="Proof">
+    <Card
+      tone="olive"
+      shape="shipper"
+      corner="br"
+      className={cn("h-full px-5 sm:px-7", CARD_FILL, compact ? "py-5 [&>.relative]:gap-3" : "[&>.relative]:gap-5")}
+      aria-label="Proof"
+    >
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : row.kind === "rollback" ? "Rolled back" : "Proof"}</h2>
       {row.kind === "rollback" ? (
         <>
           <div className="flex flex-col">
-            <span className="text-[44px] leading-none font-semibold tracking-[-0.03em]">Gen {restored?.generation ?? "?"}</span>
+            <span className={cn("leading-none font-semibold tracking-[-0.03em]", compact ? "text-[36px]" : "text-[44px]")}>Gen {restored?.generation ?? "?"}</span>
             <span className="mt-1 text-[15px] text-[#2F3517]">settings are back on your store. No test needed: the store ran them before.</span>
           </div>
           {restored && (
             <div className="grid grid-cols-2 gap-2.5">
-              <Tile i={0} value={`${rate(restored.human)}%`} label={`people converted on Gen ${restored.generation}`} />
-              <Tile i={1} value={`${rate(restored.agent)}%`} label={`agents converted on Gen ${restored.generation}`} />
+              <Tile compact={compact} i={0} value={`${rate(restored.human)}%`} label={`people converted on Gen ${restored.generation}`} />
+              <Tile compact={compact} i={1} value={`${rate(restored.agent)}%`} label={`agents converted on Gen ${restored.generation}`} />
             </div>
           )}
         </>
@@ -135,21 +147,23 @@ export function ProofCard({
         </p>
       ) : (
         <>
-          <div className="mt-2 flex flex-col">
-            <span className="num text-[56px] leading-none font-semibold tracking-[-0.03em] sm:text-[64px]">{lift !== undefined ? signedPct(lift) : "–"}</span>
-            <span className="mt-1 text-[15px] text-[#2F3517]">more {audienceNoun(m?.audience ?? "all")} bought</span>
+          <div className={compact ? "flex items-end gap-3" : "mt-2 flex flex-col"}>
+            <span className={cn("num leading-none font-semibold tracking-[-0.03em]", compact ? "text-[44px]" : "text-[56px] sm:text-[64px]")}>{lift !== undefined ? signedPct(lift) : "–"}</span>
+            <span className={cn("text-[15px] text-[#2F3517]", compact ? "pb-0.5" : "mt-1")}>more {audienceNoun(m?.audience ?? "all")} bought</span>
           </div>
           {result && m ? (
             <div className="grid grid-cols-2 gap-2.5">
-              <Tile i={0} value={chance(result.probabilityToBeat)} label="chance it wins" tip="Darwin's Bayesian read of the test: how sure it is that B beats A." />
-              <Tile i={1} value={count(m.visitors)} label={`${audienceNoun(m.audience)} tested${synthetic ? " (simulated)" : ""}`} tip={`${count(m.a.visitors)} saw A, ${count(m.b.visitors)} saw B`} />
+              <Tile compact={compact} i={0} value={chance(result.probabilityToBeat)} label="chance it wins" tip="Darwin's Bayesian read of the test: how sure it is that B beats A." />
+              <Tile compact={compact} i={1} value={count(m.visitors)} label={`${audienceNoun(m.audience)} tested${synthetic ? " (simulated)" : ""}`} tip={`${count(m.a.visitors)} saw A, ${count(m.b.visitors)} saw B`} />
               <Tile
+                compact={compact}
                 i={2}
                 value={`${rate(result.control.byKind.human.conversionRate)} → ${rate(result.treatment.byKind.human.conversionRate)}%`}
                 label="people convert"
                 tip={`${count(result.control.byKind.human.visitors)} people saw A, ${count(result.treatment.byKind.human.visitors)} saw B`}
               />
               <Tile
+                compact={compact}
                 i={3}
                 value={`${rate(result.control.byKind.agent.conversionRate)} → ${rate(result.treatment.byKind.agent.conversionRate)}%`}
                 label="agents convert"

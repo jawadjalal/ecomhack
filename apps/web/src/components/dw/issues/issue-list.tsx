@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { cn } from "@/components/ui/cn";
 import { Tag } from "../ui";
 import type { Focus } from "./issue-cards";
-import { JoinHighlight } from "./join";
+import { JoinHighlight, MoreButton, useCollapsed } from "./join";
 import { fmtImpact, STATUS_LABEL, type IssueRow } from "./model";
 
 const NUM_BG: Record<IssueRow["who"], string> = { Agents: "#F3B5D5", People: "#B8CAEE", Everyone: "#D5CCF5" };
@@ -40,6 +40,7 @@ export function IssueList({
   onSelect: (id: string) => void;
   panelId: string;
 }) {
+  const list = useCollapsed(rows, rows.findIndex((r) => r.insight.id === selected));
   return (
     <section aria-label="All issues" className="relative flex min-w-0 flex-col gap-2.5 rounded-[26px] border border-dw-hairline bg-dw-surface px-[22px] pt-[22px] pb-4">
       <div className="flex items-baseline justify-between px-1 pb-1">
@@ -47,7 +48,7 @@ export function IssueList({
         <span className="text-[13px] text-[#8A8478]">biggest first</span>
       </div>
       <div role="listbox" aria-label="Issues" aria-controls={panelId} className="flex flex-col gap-1">
-        {rows.map((r, i) => {
+        {list.visible.map((r, i) => {
           const on = r.insight.id === selected;
           const dim = !inFocus(r, focus);
           return (
@@ -88,6 +89,7 @@ export function IssueList({
           );
         })}
       </div>
+      <MoreButton hidden={list.hidden} canCollapse={list.canCollapse} noun={list.hidden === 1 ? "issue" : "issues"} onClick={list.toggle} />
     </section>
   );
 }

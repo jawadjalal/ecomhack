@@ -65,7 +65,7 @@ function Issues() {
         }
       />
 
-      <div className="mt-3 grid gap-[14px] md:grid-cols-2 lg:h-[250px] lg:grid-cols-[1.4fr_1fr_1fr]">
+      <div className="grid gap-[14px] md:grid-cols-2 lg:h-[200px] lg:grid-cols-[1.4fr_1fr_1fr]">
         <div className="min-w-0 md:col-span-2 lg:col-span-1 [&>*]:h-full">
           <BuyersLostCard rows={rows} selected={row?.insight.id} onSelect={select} />
         </div>
@@ -73,7 +73,7 @@ function Issues() {
         <WhereCard rows={rows} selected={row?.insight.id} onFocus={setFocus} onSelect={select} />
       </div>
 
-      <div className="mt-3.5 grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
+      <div className="grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
         <IssueList rows={rows} selected={row?.insight.id} focus={focus} onSelect={select} panelId="dw-issue-detail" />
         <IssueDetail id="dw-issue-detail" row={row} fix={fix} past={past} sessions={sessions} nowTesting={nowTesting} />
       </div>
@@ -87,9 +87,9 @@ function IssuesSkeleton() {
       <Shimmer className="h-14 w-[min(640px,90%)] rounded-full" />
       <Shimmer className="h-5 w-[min(520px,80%)] rounded-full" />
       <div className="mt-3 grid gap-[14px] lg:grid-cols-[1.4fr_1fr_1fr]">
-        <Shimmer className="h-[250px]" />
-        <Shimmer className="h-[250px]" />
-        <Shimmer className="h-[250px]" />
+        <Shimmer className="h-[200px]" />
+        <Shimmer className="h-[200px]" />
+        <Shimmer className="h-[200px]" />
       </div>
       <div className="grid gap-[14px] lg:grid-cols-[1fr_1.4fr]">
         <Shimmer className="h-[470px]" />

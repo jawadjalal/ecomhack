@@ -17,47 +17,49 @@ const perK = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x))}`;
 
 /* ------------------------------------------------------------------ uplift */
 
+/** One audience: before (dashed) vs now (solid) as horizontal pills, scaled to the pair. */
 function Pair({ label, before, now, lift, delay }: { label: string; before: number; now: number; lift?: number; delay: number }) {
   const reduce = useReducedMotion();
-  const H = 118;
-  const max = Math.max(before, now, 0.0001) * 1.05;
-  const pill = (v: number, solid: boolean, d: number) => (
-    <Tip tip={`${solid ? "Now" : "Before Darwin"}: ${pct(v)} of ${label.toLowerCase()} bought`} align={label === "Everyone" ? "start" : label === "AI agents" ? "end" : "center"}>
-      <span tabIndex={0} className="group/p flex flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
-        <span className={solid ? "num text-[12px] font-semibold" : "num text-[12px] text-dw-ink/75"}>{rate(v)}</span>
-        <motion.span
-          initial={reduce ? false : { height: 0, opacity: 0 }}
-          animate={{ height: Math.max(22, Math.round((v / max) * H)), opacity: 1 }}
-          transition={{ delay: d, type: "spring", stiffness: 160, damping: 20 }}
-          className={
-            solid
-              ? "block w-[22px] rounded-full bg-dw-ink transition-[filter] group-hover/p:brightness-75"
-              : "block w-[22px] rounded-full border-[1.5px] border-dashed border-dw-ink transition-colors group-hover/p:bg-dw-ink/10"
-          }
-        />
+  const max = Math.max(before, now, 0.0001) * 1.08;
+  const bar = (v: number, solid: boolean, d: number) => (
+    <Tip tip={`${solid ? "Now" : "Before Darwin"}: ${pct(v)} of ${label.toLowerCase()} bought`} align="start" className="flex w-full">
+      <span tabIndex={0} className="group/p flex w-full items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
+        <span className="relative h-3 flex-1">
+          <motion.span
+            initial={reduce ? false : { width: 0 }}
+            animate={{ width: `${Math.max(4, (v / max) * 100)}%` }}
+            transition={{ delay: d, duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
+            className={
+              solid
+                ? "absolute inset-y-0 left-0 rounded-full bg-dw-ink transition-[filter] group-hover/p:brightness-75"
+                : "absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink transition-colors group-hover/p:bg-dw-ink/10"
+            }
+          />
+        </span>
+        <span className={cn("num w-10 shrink-0 text-right text-[12.5px]", solid ? "font-semibold" : "text-dw-ink/65")}>{rate(v)}</span>
       </span>
     </Tip>
   );
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="flex items-end gap-2.5">
-        {pill(before, false, delay)}
-        {pill(now, true, delay + 0.08)}
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13.5px] font-medium">{label}</span>
+        <span className={cn("num inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-semibold", lift !== undefined && lift < 0 ? "bg-dw-warn-bg text-dw-warn" : "bg-dw-ink text-white")}>
+          {lift !== undefined ? signedPct(lift) : "–"}
+        </span>
       </div>
-      <span className="text-[13px] text-dw-ink/80">{label}</span>
-      <span className={cn("num inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-semibold", lift !== undefined && lift < 0 ? "bg-dw-warn-bg text-dw-warn" : "bg-dw-ink text-white")}>
-        {lift !== undefined ? signedPct(lift) : "–"}
-      </span>
+      {bar(before, false, delay)}
+      {bar(now, true, delay + 0.08)}
     </div>
   );
 }
 
 export function UpliftCards({ up, synthetic, shipped }: { up: Up; synthetic: boolean; shipped: number }) {
   const n = (h?: number, a?: number) => (h ?? 0) + (a ?? 0);
-  const sim = synthetic ? " (simulated)" : "";
+  const measuredBoth = n(up.base.humanVisitors, up.base.agentVisitors) > 0 && n(up.now.humanVisitors, up.now.agentVisitors) > 0;
   return (
     <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
-      <Card tone="white" className={`h-full ${CARD_FILL} [&>.relative]:gap-4`} aria-label="Before Darwin vs now">
+      <Card tone="white" className={`h-full py-5 ${CARD_FILL} [&>.relative]:gap-3.5`} aria-label="Before Darwin vs now">
         <CardTitle
           right={
             <span className="flex items-center gap-3">
@@ -68,41 +70,43 @@ export function UpliftCards({ up, synthetic, shipped }: { up: Up; synthetic: boo
         >
           Before Darwin vs now
         </CardTitle>
-        <div className="grid flex-1 grid-cols-3 items-end pt-2">
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
           <Pair label="Everyone" before={up.all.before} now={up.all.now} lift={up.all.lift} delay={0.15} />
           <Pair label="People" before={up.human.before} now={up.human.now} lift={up.human.lift} delay={0.27} />
           <Pair label="AI agents" before={up.agent.before} now={up.agent.now} lift={up.agent.lift} delay={0.39} />
         </div>
-        <p className="text-[12.5px] leading-snug text-dw-ink/60">
+        <p className="text-[12px] leading-snug text-dw-ink/55">
           Share of shoppers who bought
-          {n(up.base.humanVisitors, up.base.agentVisitors) > 0 && n(up.now.humanVisitors, up.now.agentVisitors) > 0
-            ? `. Before: ${count(n(up.base.humanVisitors, up.base.agentVisitors))} shoppers on Gen 0; now: ${count(n(up.now.humanVisitors, up.now.agentVisitors))} on Gen ${up.now.generation}${sim}`
-            : synthetic
-              ? ", simulated shoppers"
-              : ""}
-          . &ldquo;Everyone&rdquo; uses your usual mix of people and agents, so it only moves when the store does.
+          {measuredBoth
+            ? `, ${count(n(up.base.humanVisitors, up.base.agentVisitors))} shoppers on Gen 0 vs ${count(n(up.now.humanVisitors, up.now.agentVisitors))} on Gen ${up.now.generation}`
+            : ""}
+          {synthetic ? " (simulated)" : ""}.{" "}
+          <Tip tip="“Everyone” is weighted to your usual mix of people and agents, so it only moves when the store does, not when the traffic mix does." wide>
+            <span tabIndex={0} className="cursor-help underline decoration-dotted underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
+              How “Everyone” is counted
+            </span>
+          </Tip>
         </p>
       </Card>
 
-      <Card tone="yellow" shape="shipper" corner="br" className={`h-full ${CARD_FILL} [&>.relative]:gap-4`} aria-label="Extra buyers">
+      <Card tone="yellow" shape="shipper" corner="br" className={`h-full py-5 ${CARD_FILL} [&>.relative]:gap-3`} aria-label="Extra buyers">
         <CardTitle>Extra buyers</CardTitle>
-        <div className="flex flex-col">
-          <span className="num text-[56px] leading-none font-semibold tracking-[-0.03em] sm:text-[64px]">{perK(up.all.per1000)}</span>
-          <span className="mt-1 text-[15px] text-[#4F4417]">buyers per 1,000 visitors, from the same traffic</span>
+        <div className="flex items-end gap-3">
+          <span className="num text-[48px] leading-[0.9] font-semibold tracking-[-0.03em]">{perK(up.all.per1000)}</span>
+          <span className="pb-0.5 text-[14px] leading-snug text-[#4F4417]">buyers per 1,000 visitors, from the same traffic</span>
         </div>
-        <ul className="mt-auto flex flex-col gap-1.5 text-[14px]">
+        <div className="flex flex-wrap gap-2 text-[13px]">
           {[
             ["People", up.human.per1000],
             ["AI agents", up.agent.per1000],
           ].map(([label, v]) => (
-            <li key={label as string} className="flex items-center justify-between rounded-[14px] bg-white/45 px-3.5 py-2">
-              <span>{label}</span>
-              <span className="num font-semibold">{perK(v as number)} per 1,000</span>
-            </li>
+            <span key={label as string} className="inline-flex items-center gap-2 rounded-full bg-white/50 px-3 py-1.5">
+              {label} <b className="num font-semibold">{perK(v as number)}</b>
+            </span>
           ))}
-        </ul>
-        <p className="text-[12.5px] text-[#4F4417]">
-          Across {shipped} shipped change{shipped === 1 ? "" : "s"}. Orders only; Darwin makes no revenue claims.
+        </div>
+        <p className="text-[12px] text-[#4F4417]">
+          Across {shipped} shipped change{shipped === 1 ? "" : "s"}. Orders only, no revenue claims.
         </p>
       </Card>
     </div>

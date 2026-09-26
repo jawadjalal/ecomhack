@@ -94,7 +94,7 @@ function Fixes() {
         right={right}
       />
 
-      <div className="mt-3 grid gap-[14px] md:grid-cols-2 lg:h-[240px] lg:grid-cols-[1.5fr_1fr_1fr]">
+      <div className="grid gap-[14px] md:grid-cols-2 lg:h-[188px] lg:grid-cols-[1.5fr_1fr_1fr]">
         <div className="min-w-0 md:col-span-2 lg:col-span-1 [&>*]:h-full">
           <InTestCard fix={inTest} rows={rows} hasDraft={Boolean(drafted)} />
         </div>
@@ -102,7 +102,7 @@ function Fixes() {
         <ThrownAwayCard thrown={thrown} shipped={shipped} />
       </div>
 
-      <div className="mt-3.5 grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
+      <div className="grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
         <FixList fixes={fixes} rows={rows} selected={fix.id} onSelect={select} panelId="dw-fix-detail" />
         <FixDetail id="dw-fix-detail" fix={fix} rows={rows} archive={archive} loop={loop} autopilot={autopilot} stepping={stepping} step={step} />
       </div>
@@ -116,9 +116,9 @@ function FixesSkeleton() {
       <Shimmer className="h-14 w-[min(520px,90%)] rounded-full" />
       <Shimmer className="h-5 w-[min(640px,80%)] rounded-full" />
       <div className="mt-3 grid gap-[14px] lg:grid-cols-[1.5fr_1fr_1fr]">
-        <Shimmer className="h-[240px]" />
-        <Shimmer className="h-[240px]" />
-        <Shimmer className="h-[240px]" />
+        <Shimmer className="h-[188px]" />
+        <Shimmer className="h-[188px]" />
+        <Shimmer className="h-[188px]" />
       </div>
       <div className="grid gap-[14px] lg:grid-cols-[1fr_1.4fr]">
         <Shimmer className="h-[480px]" />

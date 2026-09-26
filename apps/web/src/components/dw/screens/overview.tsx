@@ -15,6 +15,8 @@ import { DarwinChat, type Suggestion } from "../overview/chat";
 import { EASE, Rise } from "../overview/fx";
 import { useFirstName, usePeopleEvents } from "../overview/hooks";
 import { ImpactStrip } from "../overview/impact";
+import { CardDeck, DECK_ITEM, DECK_ROW } from "../overview/deck";
+import { cn } from "@/components/ui/cn";
 import { agentBoard, agentShopper, chartPoints, pctSmart, peopleFromEvents, projectIfShipped, testView, type Shopper } from "../overview/model";
 import { LiveShoppers } from "../overview/shoppers";
 
@@ -98,10 +100,11 @@ export function OverviewScreen() {
   ];
 
   return (
-    <div className="flex flex-col gap-7">
-      <header className="flex flex-col gap-2.5 px-1 pt-1.5">
+    <div className="flex flex-col gap-7 lg:-mt-2 lg:gap-6">
+      {/* Desktop keeps the essentials above the fold: greeting and lede share one line group. */}
+      <header className="flex flex-col gap-2.5 px-1 pt-1.5 lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-x-5 lg:gap-y-1 lg:pt-0">
         <motion.h1
-          className="min-h-[1.05em] text-[36px] leading-[1.05] font-semibold tracking-[-0.03em] sm:text-[46px]"
+          className="min-h-[1.05em] shrink-0 text-[36px] leading-[1.05] font-semibold tracking-[-0.03em] sm:text-[46px] lg:text-[38px]"
           initial={reduce ? false : { opacity: 0, y: 10 }}
           animate={now ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
           transition={{ duration: 0.5, ease: EASE }}
@@ -109,7 +112,7 @@ export function OverviewScreen() {
           {now ? `${greeting(new Date(now).getHours())}${firstName ? `, ${firstName}` : ""}` : " "}
         </motion.h1>
         <motion.p
-          className="max-w-[60rem] text-[17px] leading-[1.45] text-[#4A463D] sm:text-[18px]"
+          className="max-w-[60rem] text-[17px] leading-[1.45] text-[#4A463D] sm:text-[18px] lg:min-w-0 lg:flex-1 lg:text-[16.5px]"
           initial={reduce ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: EASE, delay: 0.08 }}
@@ -118,31 +121,33 @@ export function OverviewScreen() {
         </motion.p>
       </header>
 
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-3.5 lg:gap-3">
         <Rise i={0}>
           <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
         </Rise>
-        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-          <Rise i={1}>
-            <ConversionCard points={points} summary={summary} simulated={simulated} onRun={autopilot ? undefined : run} />
-          </Rise>
-          <Rise i={2}>
-            <AbCard test={test} autopilot={autopilot} onRun={points.length ? run : undefined} />
-          </Rise>
-        </div>
-        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
-          <Rise i={3}>
-            <AgentsCard
-              board={board}
-              peopleRate={summary?.byKind.human.visitors ? summary.byKind.human.conversionRate : undefined}
-              sample={finished}
-              simulated={simulated}
-            />
-          </Rise>
-          <Rise i={4}>
-            <FunnelCard summary={summary} />
-          </Rise>
-        </div>
+        <CardDeck count={4} labels={["Conversion", "A vs B", "Which agents buy", "How they convert"]}>
+          <div className={cn("grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-3", DECK_ROW)}>
+            <Rise i={1} item className={DECK_ITEM}>
+              <ConversionCard points={points} summary={summary} simulated={simulated} onRun={autopilot ? undefined : run} />
+            </Rise>
+            <Rise i={2} item className={DECK_ITEM}>
+              <AbCard test={test} autopilot={autopilot} onRun={points.length ? run : undefined} />
+            </Rise>
+          </div>
+          <div className={cn("grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] lg:gap-3", DECK_ROW)}>
+            <Rise i={3} item className={DECK_ITEM}>
+              <AgentsCard
+                board={board}
+                peopleRate={summary?.byKind.human.visitors ? summary.byKind.human.conversionRate : undefined}
+                sample={finished}
+                simulated={simulated}
+              />
+            </Rise>
+            <Rise i={4} item className={DECK_ITEM}>
+              <FunnelCard summary={summary} />
+            </Rise>
+          </div>
+        </CardDeck>
       </div>
 
       <Rise i={5}>

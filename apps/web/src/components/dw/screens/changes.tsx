@@ -190,6 +190,7 @@ export function ChangesScreen() {
               <ProofCard
                 row={sel.row}
                 synthetic={synthetic}
+                compact
                 restored={
                   sel.kind === "rollback" && sel.restores !== undefined
                     ? { generation: sel.restores, human: sel.record.humanConversionRate, agent: sel.record.agentConversionRate }

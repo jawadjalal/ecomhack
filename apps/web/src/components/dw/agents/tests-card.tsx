@@ -57,44 +57,47 @@ export function TestsCard({
 
   return (
     <Card tone="pink" shape="experimenter" corner="br" className="min-w-0">
-      <CardTitle
-        right={
-          running ? (
-            <span className="flex items-center gap-1.5 font-medium text-dw-ink">
-              <LiveDot /> Testing now
-            </span>
-          ) : s?.autopilot ? (
-            <span className="font-medium text-dw-ink">Autopilot is choosing the next test</span>
-          ) : undefined
-        }
-      >
-        A/B tests on your agent
-      </CardTitle>
-      <p className="mt-1.5 max-w-[46rem] text-[14px] leading-snug text-dw-ink/75">
-        Darwin changes one thing about how the agent pitches at a time and keeps it only if more conversations end in a payment. The pitch today:{" "}
-        <b className="font-semibold text-dw-ink">{pitch}</b>.
-      </p>
-
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <SwitchRow
-          on={!!s?.autopilot}
-          onChange={onAutopilot}
-          label="Autopilot"
-          hint="Test one lever at a time; keep winners, stop losers"
-          icon={<Cpu />}
-          title="Test one pitch lever at a time; keep winners, stop losers"
-        />
-        <SwitchRow
-          on={simOn}
-          onChange={onSim}
-          label="Simulated buyers"
-          hint="80 simulated buyer agents every 3 s, labelled"
-          icon={<Users />}
-          title="80 simulated buyer agents every 3 s (labelled)"
-        />
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0 flex-1 basis-[22rem]">
+          <CardTitle
+            right={
+              running ? (
+                <span className="flex items-center gap-1.5 font-medium text-dw-ink">
+                  <LiveDot /> Testing now
+                </span>
+              ) : s?.autopilot ? (
+                <span className="font-medium text-dw-ink">Choosing the next test</span>
+              ) : undefined
+            }
+          >
+            A/B tests on your agent
+          </CardTitle>
+          <p className="mt-1.5 max-w-[46rem] text-[14px] leading-snug text-dw-ink/75">
+            Darwin changes one thing about how the agent pitches at a time and keeps it only if more conversations end in a payment. The pitch today:{" "}
+            <b className="font-semibold text-dw-ink">{pitch}</b>.
+          </p>
+        </div>
+        <div className="grid w-full gap-2 sm:grid-cols-2 xl:w-[42rem]">
+          <SwitchRow
+            on={!!s?.autopilot}
+            onChange={onAutopilot}
+            label="Autopilot"
+            hint="Test one lever at a time; keep winners, stop losers"
+            icon={<Cpu />}
+            title="Test one pitch lever at a time; keep winners, stop losers"
+          />
+          <SwitchRow
+            on={simOn}
+            onChange={onSim}
+            label="Simulated buyers"
+            hint="80 simulated buyer agents every 3 s, labelled"
+            icon={<Users />}
+            title="80 simulated buyer agents every 3 s (labelled)"
+          />
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col">
           <ul className="flex flex-col gap-1.5">
             {LEVERS_IN_ORDER.map((l) => {
@@ -130,22 +133,13 @@ export function TestsCard({
               );
             })}
           </ul>
-          <div className="mt-3 rounded-[22px] bg-white/45 p-4">
-            <div className="text-[14px] font-semibold">How Darwin calls a test</div>
-            <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
-              {RULES.map((r) => (
-                <div key={r.label}>
-                  <dt className="sr-only">{r.label}</dt>
-                  <dd className="num text-[18px] leading-tight font-semibold">{r.value}</dd>
-                  <dd className="text-[12px] text-dw-ink/65">{r.label}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col">
           <LiveTest label={running ? LEVER_LABEL[running.lever] : undefined} result={result} autopilot={!!s?.autopilot} />
+        </div>
+
+        <div className="grid min-w-0 content-start gap-3 lg:col-span-2 lg:grid-cols-2 xl:col-span-1 xl:grid-cols-1">
           {!!s?.log.length && (
             <div className="rounded-[22px] bg-white/55 p-4">
               <div className="mb-2 flex items-baseline justify-between">
@@ -174,6 +168,18 @@ export function TestsCard({
               </ol>
             </div>
           )}
+          <div className="rounded-[22px] bg-white/45 p-4">
+            <div className="text-[14px] font-semibold">How Darwin calls a test</div>
+            <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
+              {RULES.map((r) => (
+                <div key={r.label}>
+                  <dt className="sr-only">{r.label}</dt>
+                  <dd className="num text-[18px] leading-tight font-semibold">{r.value}</dd>
+                  <dd className="text-[12px] text-dw-ink/65">{r.label}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         </div>
       </div>
     </Card>

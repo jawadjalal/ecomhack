@@ -15,7 +15,7 @@ const EASE = [0.2, 0.8, 0.2, 1] as const;
 function Big({ value, label, color }: { value: string; label: string; color: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="num text-[30px] leading-none font-semibold tracking-[-0.02em]">{value}</span>
+      <span className="num text-[28px] leading-none font-semibold tracking-[-0.02em]">{value}</span>
       <span className="text-[12px] tracking-[0.02em] uppercase" style={{ color }}>
         {label}
       </span>
@@ -36,11 +36,11 @@ export function InTestCard({ fix, rows, hasDraft }: { fix?: FixRow; rows: IssueR
         </h2>
         {refs?.text && <span className="shrink-0 text-[14px] text-[#5A2744]">fixes {refs.text}</span>}
       </div>
-      <p className="mt-2.5 max-w-[30rem] text-[20px] leading-[1.3] font-medium text-balance">
+      <p className="mt-1.5 line-clamp-2 max-w-[30rem] text-[18px] leading-[1.3] font-medium text-balance">
         {testing ? fix.title : hasDraft ? "Nothing yet. The fix Darwin just drafted goes into test B next." : "Nothing right now. Darwin starts a test as soon as it has a fix."}
       </p>
       {testing && (
-        <div className="mt-auto flex items-end gap-7 pt-4">
+        <div className="mt-auto flex items-end gap-7 pt-3">
           <Big value={fix.lift !== undefined ? signedPct(fix.lift) : "–"} label={fix.lift !== undefined ? "so far" : "waiting for data"} color="#5A2744" />
           <div className="flex flex-1 flex-col gap-1.5 pb-1">
             <div className="flex justify-between gap-2 text-[12px] text-[#5A2744]">
@@ -79,9 +79,11 @@ export function UpNextCard({ drafted, next, testing }: { drafted?: FixRow; next?
   return (
     <Panel tone="yellow" shape="designer" corner="br" silhouette={210} label="Up next">
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Up next</h2>
-      <p className="mt-2.5 line-clamp-3 text-[18px] leading-[1.35]">{body.text}</p>
+      <p className={`mt-1.5 text-[16px] leading-[1.35] ${body.value ? "line-clamp-2" : "line-clamp-4"}`} title={body.text}>
+        {body.text}
+      </p>
       {body.value && (
-        <div className="mt-auto pt-4">
+        <div className="mt-auto pt-3">
           <Big value={body.value} label={body.label ?? ""} color="#4F4417" />
         </div>
       )}
@@ -93,8 +95,10 @@ export function ThrownAwayCard({ thrown, shipped }: { thrown?: FixRow; shipped: 
   return (
     <Panel tone="olive" shape="shipper" corner="br" silhouette={200} label="Thrown away">
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Thrown away</h2>
-      <p className="mt-2.5 line-clamp-3 text-[18px] leading-[1.35]">{thrown ? thrown.title : "Nothing yet. Fixes that lose their test end up here."}</p>
-      <div className="mt-auto pt-4">
+      <p className="mt-1.5 line-clamp-2 text-[16px] leading-[1.35]" title={thrown?.title}>
+        {thrown ? thrown.title : "Nothing yet. Fixes that lose their test end up here."}
+      </p>
+      <div className="mt-auto pt-3">
         {thrown ? (
           <Big value={liftText(thrown)} label={thrown.status === "rejected" ? "lost its test · never retried" : "no clear signal · shelved"} color="#2F3517" />
         ) : shipped > 0 ? (

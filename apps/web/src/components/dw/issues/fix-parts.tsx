@@ -110,7 +110,7 @@ function prettyValue(v?: string): string {
 }
 
 /** The config diff as friendly setting rows: what the setting is, then A → B. */
-export function SettingRows({ lines }: { lines: string[] }) {
+export function SettingRows({ lines, compact }: { lines: string[]; compact?: boolean }) {
   if (!lines.length) return <p className="text-[14px] text-dw-ink/60">The exact settings for this fix have aged out of Darwin&apos;s log.</p>;
   return (
     <ul className="flex flex-col divide-y divide-dw-hairline">
@@ -122,15 +122,18 @@ export function SettingRows({ lines }: { lines: string[] }) {
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.08 + i * 0.06, ease: [0.2, 0.8, 0.2, 1] }}
-            className="group grid gap-x-4 gap-y-1.5 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+            className={cn(
+              "group grid gap-x-4 gap-y-1.5 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
+              compact ? "py-2" : "py-2.5",
+            )}
           >
-            <div className="min-w-0">
+            <div className="min-w-0" title={d.path}>
               <div className="truncate text-[14px] font-medium">{humanizePath(d.path)}</div>
-              <div className="truncate font-dwmono text-[11.5px] text-dw-ink/45">{d.path}</div>
+              <div className={cn("truncate font-dwmono text-[11.5px] text-dw-ink/45", compact && "lg:hidden")}>{d.path}</div>
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-dwmono text-[12.5px]">
               {d.before !== undefined && (
-                <span className="inline-flex max-w-[12rem] items-center gap-1 truncate rounded-lg bg-[#FBE7E4] px-2 py-1 text-[#8E1D14]" title={d.before}>
+                <span className={cn("inline-flex items-center gap-1 truncate rounded-lg bg-[#FBE7E4] px-2 py-1 text-[#8E1D14]", compact ? "max-w-[8.5rem]" : "max-w-[12rem]")} title={d.before}>
                   <span className="font-dw text-[10px] font-semibold opacity-70">A</span>
                   <span className="truncate line-through decoration-[#8E1D14]/40">{prettyValue(d.before)}</span>
                 </span>
@@ -138,7 +141,7 @@ export function SettingRows({ lines }: { lines: string[] }) {
               <span className="text-dw-ink/35 transition-transform group-hover:translate-x-0.5" aria-hidden>
                 →
               </span>
-              <span className="inline-flex max-w-[14rem] items-center gap-1 truncate rounded-lg bg-[#E3F6EA] px-2 py-1 font-medium text-[#1B5E33]" title={d.after}>
+              <span className={cn("inline-flex items-center gap-1 truncate rounded-lg bg-[#E3F6EA] px-2 py-1 font-medium text-[#1B5E33]", compact ? "max-w-[10rem]" : "max-w-[14rem]")} title={d.after}>
                 <span className="font-dw text-[10px] font-semibold opacity-70">B</span>
                 <span className="truncate">{prettyValue(d.after)}</span>
               </span>
