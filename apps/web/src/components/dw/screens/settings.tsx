@@ -7,44 +7,40 @@ import { AutopilotCard } from "../settings/autopilot-card";
 import { GrokCard } from "../settings/grok-card";
 import { DemoCard, ResetCard } from "../settings/reset-card";
 import { StoreCard } from "../settings/store-card";
-import { PageHead } from "../ui";
+import { PageHead, PlainSurface } from "../ui";
 
 /**
  * Settings (opened from the avatar): how much Darwin may do on its own, what it's plugged into,
  * who each test is judged on, where it reports back, and the way back to Gen 0.
- * Card rows alternate 1.7fr/1fr and 1fr/1.7fr (never equal boxes).
+ * One column of sections. Each control still lives in its card module.
  */
 export function SettingsScreen() {
   return (
     <MotionConfig reducedMotion="user">
-      <PageHead title="Settings" lede="How much Darwin may do on its own, and where it reports back." />
+      <PlainSurface>
+        <PageHead title="Settings" lede="How much Darwin may do on its own, and where it reports back." />
 
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <Rise i={0}>
-          <AutopilotCard className="h-full" />
-        </Rise>
-        <Rise i={1}>
-          <StoreCard className="h-full" />
-        </Rise>
-      </div>
-
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_1.7fr]">
-        <Rise i={2}>
-          <AudienceCard className="h-full" />
-        </Rise>
-        <Rise i={3}>
-          <GrokCard className="h-full" />
-        </Rise>
-      </div>
-
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1.7fr_1fr]">
-        <Rise i={4}>
-          <ResetCard className="h-full" />
-        </Rise>
-        <Rise i={5}>
-          <DemoCard className="h-full" />
-        </Rise>
-      </div>
+        <div className="mx-auto mt-2 flex w-full max-w-[760px] flex-col divide-y divide-dw-ink/10">
+          <Rise i={0}>
+            <AutopilotCard className="py-8" />
+          </Rise>
+          <Rise i={1}>
+            <StoreCard className="py-8" />
+          </Rise>
+          <Rise i={2}>
+            <AudienceCard className="py-8" />
+          </Rise>
+          <Rise i={3}>
+            <GrokCard className="py-8" />
+          </Rise>
+          <Rise i={4}>
+            <ResetCard className="py-8" />
+          </Rise>
+          <Rise i={5}>
+            <DemoCard className="py-8" />
+          </Rise>
+        </div>
+      </PlainSurface>
     </MotionConfig>
   );
 }

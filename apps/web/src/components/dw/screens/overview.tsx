@@ -10,6 +10,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { PHASE_META } from "@/lib/console/format";
 import { useExperiments, useNow, useSessions, useSummary } from "@/lib/console/hooks";
 import { useDarwin } from "../provider";
+import { PlainSurface } from "../ui";
 import { AbCard, AgentsCard, ConversionCard, FunnelCard } from "../overview/cards";
 import { DarwinChat, type Suggestion } from "../overview/chat";
 import { EASE, Rise } from "../overview/fx";
@@ -98,10 +99,11 @@ export function OverviewScreen() {
   ];
 
   return (
-    <div className="flex flex-col gap-7">
-      <header className="flex flex-col gap-2.5 px-1 pt-1.5">
+    <PlainSurface>
+    <div className="flex flex-col">
+      <header className="flex max-w-3xl flex-col gap-2.5 pt-1.5">
         <motion.h1
-          className="min-h-[1.05em] text-[36px] leading-[1.05] font-semibold tracking-[-0.03em] sm:text-[46px]"
+          className="min-h-[1.05em] text-[40px] leading-[1.02] font-semibold tracking-[-0.04em] sm:text-[56px]"
           initial={reduce ? false : { opacity: 0, y: 10 }}
           animate={now ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
           transition={{ duration: 0.5, ease: EASE }}
@@ -118,19 +120,18 @@ export function OverviewScreen() {
         </motion.p>
       </header>
 
-      <div className="flex flex-col gap-3.5">
-        <Rise i={0}>
-          <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
-        </Rise>
-        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-          <Rise i={1}>
-            <ConversionCard points={points} summary={summary} simulated={simulated} onRun={autopilot ? undefined : run} />
-          </Rise>
+      <Rise i={1}>
+        <ConversionCard points={points} summary={summary} simulated={simulated} onRun={autopilot ? undefined : run} />
+      </Rise>
+      <Rise i={0}>
+        <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
+      </Rise>
+
+      <div className="mt-12 grid grid-cols-1 items-start gap-x-16 gap-y-12 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+        <div className="divide-y divide-dw-ink/10 border-t border-dw-ink/10">
           <Rise i={2}>
             <AbCard test={test} autopilot={autopilot} onRun={points.length ? run : undefined} />
           </Rise>
-        </div>
-        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
           <Rise i={3}>
             <AgentsCard
               board={board}
@@ -143,13 +144,13 @@ export function OverviewScreen() {
             <FunnelCard summary={summary} />
           </Rise>
         </div>
+        <Rise i={5}>
+          <LiveShoppers agents={agents} people={people} loop={loop} test={test} board={board} summary={summary} onSendShoppers={() => setTrafficOn(true)} />
+        </Rise>
       </div>
-
-      <Rise i={5}>
-        <LiveShoppers agents={agents} people={people} loop={loop} test={test} board={board} summary={summary} onSendShoppers={() => setTrafficOn(true)} />
-      </Rise>
 
       <DarwinChat suggestions={suggestions} />
     </div>
+    </PlainSurface>
   );
 }

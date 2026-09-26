@@ -56,8 +56,30 @@ export function UpliftCards({ up, synthetic, shipped }: { up: Up; synthetic: boo
   const n = (h?: number, a?: number) => (h ?? 0) + (a ?? 0);
   const sim = synthetic ? " (simulated)" : "";
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
-      <Card tone="white" className={`h-full ${CARD_FILL} [&>.relative]:gap-4`} aria-label="Before Darwin vs now">
+    <div className="flex flex-col items-start gap-10 border-b border-dw-ink/10 pb-10 lg:flex-row lg:items-end lg:justify-between">
+      <Card tone="yellow" shape="shipper" corner="br" className={`w-full shrink-0 lg:max-w-sm ${CARD_FILL} [&>.relative]:gap-3`} aria-label="Extra buyers">
+        <p className="text-[13px] font-medium tracking-[0.12em] text-dw-ink/50 uppercase">Extra buyers</p>
+        <div className="flex flex-col">
+          <span className="num text-[64px] leading-none font-semibold tracking-[-0.045em] sm:text-[80px]">{perK(up.all.per1000)}</span>
+          <span className="mt-2 text-[15px] text-dw-ink/65">per 1,000 visitors, from the same traffic</span>
+        </div>
+        <ul className="flex flex-col gap-1 text-[14px]">
+          {[
+            ["People", up.human.per1000],
+            ["AI agents", up.agent.per1000],
+          ].map(([label, v]) => (
+            <li key={label as string} className="flex items-center justify-between gap-6 border-t border-dw-ink/10 py-2">
+              <span>{label}</span>
+              <span className="num font-semibold">{perK(v as number)} per 1,000</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-[12.5px] text-dw-ink/55">
+          Across {shipped} shipped change{shipped === 1 ? "" : "s"}. Orders only; Darwin makes no revenue claims.
+        </p>
+      </Card>
+
+      <Card tone="white" className={`min-w-0 flex-1 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="Before Darwin vs now">
         <CardTitle
           right={
             <span className="flex items-center gap-3">
@@ -81,28 +103,6 @@ export function UpliftCards({ up, synthetic, shipped }: { up: Up; synthetic: boo
               ? ", simulated shoppers"
               : ""}
           . &ldquo;Everyone&rdquo; uses your usual mix of people and agents, so it only moves when the store does.
-        </p>
-      </Card>
-
-      <Card tone="yellow" shape="shipper" corner="br" className={`h-full ${CARD_FILL} [&>.relative]:gap-4`} aria-label="Extra buyers">
-        <CardTitle>Extra buyers</CardTitle>
-        <div className="flex flex-col">
-          <span className="num text-[56px] leading-none font-semibold tracking-[-0.03em] sm:text-[64px]">{perK(up.all.per1000)}</span>
-          <span className="mt-1 text-[15px] text-[#4F4417]">buyers per 1,000 visitors, from the same traffic</span>
-        </div>
-        <ul className="mt-auto flex flex-col gap-1.5 text-[14px]">
-          {[
-            ["People", up.human.per1000],
-            ["AI agents", up.agent.per1000],
-          ].map(([label, v]) => (
-            <li key={label as string} className="flex items-center justify-between rounded-[14px] bg-white/45 px-3.5 py-2">
-              <span>{label}</span>
-              <span className="num font-semibold">{perK(v as number)} per 1,000</span>
-            </li>
-          ))}
-        </ul>
-        <p className="text-[12.5px] text-[#4F4417]">
-          Across {shipped} shipped change{shipped === 1 ? "" : "s"}. Orders only; Darwin makes no revenue claims.
         </p>
       </Card>
     </div>

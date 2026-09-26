@@ -54,7 +54,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
   return (
     <section
       aria-label="Darwin’s impact so far"
-      className="relative grid grid-cols-1 gap-x-6 gap-y-4 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-4 sm:grid-cols-2 lg:flex lg:items-center lg:gap-x-6"
+      className="relative mt-8 grid grid-cols-1 gap-x-8 gap-y-5 border-y border-dw-ink/10 py-5 sm:grid-cols-2 lg:flex lg:items-center lg:gap-x-8"
     >
       <div className="flex min-w-0 items-center gap-3.5 sm:col-span-2 lg:flex-1">
         <Mascot kind="shipper" size={46} frame active={loop.autopilot} />

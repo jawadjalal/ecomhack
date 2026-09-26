@@ -7,5 +7,5 @@ import { LiveDashboard } from "@/components/dw/landing/mini-dashboard";
  * in-browser demo engine (simulated shoppers, labelled as such).
  */
 export function LandingLoop({ className }: { className?: string }) {
-  return <LiveDashboard className={className} />;
+  return <LiveDashboard className={className} embed />;
 }

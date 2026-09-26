@@ -6,7 +6,7 @@ import { useExperiments, useSessions, useSummary } from "@/lib/console/hooks";
 import { count } from "@/lib/console/format";
 import { useDarwin } from "../provider";
 import { Mascot } from "../mascot";
-import { PageHead } from "../ui";
+import { PageHead, PlainSurface } from "../ui";
 import { BuyersLostCard, WhereCard, WhoCard, type Focus } from "../issues/issue-cards";
 import { IssueDetail } from "../issues/issue-detail";
 import { IssueList } from "../issues/issue-list";
@@ -53,7 +53,7 @@ function Issues() {
       : undefined;
 
   return (
-    <>
+    <PlainSurface>
       <PageHead
         mascot={<Mascot kind="analyst" size={52} frame active />}
         title={`${n} thing${n === 1 ? "" : "s"} stop${n === 1 ? "s" : ""} shoppers buying`}
@@ -65,19 +65,20 @@ function Issues() {
         }
       />
 
-      <div className="mt-3 grid gap-[14px] md:grid-cols-2 lg:h-[250px] lg:grid-cols-[1.4fr_1fr_1fr]">
-        <div className="min-w-0 md:col-span-2 lg:col-span-1 [&>*]:h-full">
-          <BuyersLostCard rows={rows} selected={row?.insight.id} onSelect={select} />
-        </div>
+      <div className="mt-8 border-b border-dw-ink/10 pb-8">
+        <BuyersLostCard rows={rows} selected={row?.insight.id} onSelect={select} />
+      </div>
+
+      <div className="mt-8 grid gap-10 md:grid-cols-2">
         <WhoCard rows={rows} onFocus={setFocus} onSelect={select} />
         <WhereCard rows={rows} selected={row?.insight.id} onFocus={setFocus} onSelect={select} />
       </div>
 
-      <div className="mt-3.5 grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
+      <div className="mt-12 grid items-start gap-8 border-t border-dw-ink/10 pt-8 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
         <IssueList rows={rows} selected={row?.insight.id} focus={focus} onSelect={select} panelId="dw-issue-detail" />
         <IssueDetail id="dw-issue-detail" row={row} fix={fix} past={past} sessions={sessions} nowTesting={nowTesting} />
       </div>
-    </>
+    </PlainSurface>
   );
 }
 

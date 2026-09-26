@@ -8,7 +8,7 @@ import { useExperiments, useGithubStatus, useLoop, useNow } from "@/lib/console/
 import { BrandGlyph } from "../brand-logos";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing } from "../ui";
+import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, PlainSurface, Typing } from "../ui";
 import { Timeline, UpliftCards } from "../experiments/changes-parts";
 import { appHref, buildChanges, githubLive, indexLog, uplift, type ChangeEntry } from "../experiments/model";
 import { DiffCard, ProofCard } from "../experiments/pr-parts";
@@ -68,13 +68,10 @@ export function ChangesScreen() {
 
   if (!loop) {
     return (
-      <>
+      <PlainSurface>
         <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Loading <Typing /></span>} />
-        <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]" aria-hidden>
-          <div className="h-[300px] animate-pulse rounded-[26px] bg-dw-surface" />
-          <div className="h-[300px] animate-pulse rounded-[26px] bg-dw-yellow/40" />
-        </div>
-      </>
+        <div className="mt-8 h-[280px] animate-pulse bg-dw-ink/[0.04]" aria-hidden />
+      </PlainSurface>
     );
   }
 
@@ -83,13 +80,13 @@ export function ChangesScreen() {
 
   if (!sel || entries.every((e) => e.kind === "baseline")) {
     return (
-      <>
+      <PlainSurface>
         <PageHead
           mascot={<Mascot kind="shipper" size={52} frame active />}
           title="No changes yet"
           lede="When a test wins, Darwin puts the change live on your store and shows you what it did to sales. You can roll any change back."
         />
-        <Card tone="olive" shape="shipper" corner="br" hover={false}>
+        <Card tone="olive" shape="shipper" corner="br" hover={false} className="mt-6">
           <Empty
             mascot={<Mascot kind="shipper" size={88} frame active />}
             action={
@@ -107,7 +104,7 @@ export function ChangesScreen() {
             </span>
           </Empty>
         </Card>
-      </>
+      </PlainSurface>
     );
   }
 
@@ -149,7 +146,7 @@ export function ChangesScreen() {
   });
 
   return (
-    <>
+    <PlainSurface>
       <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title={title} lede={lede} right={actions} />
 
       {up && (
@@ -158,7 +155,7 @@ export function ChangesScreen() {
         </motion.div>
       )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[1.7fr_1fr]">
+      <div className="mt-10 grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
         <motion.div {...stagger(1)} className="min-w-0">
           <Timeline
             entries={entries}
@@ -207,6 +204,6 @@ export function ChangesScreen() {
           )}
         </motion.div>
       </div>
-    </>
+    </PlainSurface>
   );
 }

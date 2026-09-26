@@ -13,7 +13,7 @@ import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Mascot } from "@/components/dw/mascot";
 import { AgentTile, agentBrand, type AgentBrand } from "@/components/dw/agent-tile";
-import { ArmChip, Card, HBar, LegendKey, LiveDot, PillBar, Typing } from "@/components/dw/ui";
+import { ArmChip, Card, HBar, LegendKey, LiveDot, PillBar, PlainSurface, Typing } from "@/components/dw/ui";
 import { useLiveDemo, type LiveDemo } from "./use-live-demo";
 
 const pct = (x: number, d = 1) => `${(x * 100).toFixed(d)}%`;
@@ -47,7 +47,7 @@ function useBox<T extends HTMLElement>() {
  * The tilted, floating dashboard. `fit="both"` scales to the container's width and height (desktop:
  * it fills whatever the hero leaves); `fit="width"` scales to width and sets its own height (phones).
  */
-export function LiveDashboard({ className }: { className?: string }) {
+export function LiveDashboard({ className, embed = false }: { className?: string; embed?: boolean }) {
   const reduce = useReducedMotion() ?? false;
   const demo = useLiveDemo({ slow: reduce });
   const [ref, box] = useBox<HTMLDivElement>();
@@ -68,14 +68,14 @@ export function LiveDashboard({ className }: { className?: string }) {
             aria-hidden
             className="relative h-full w-full"
             style={{ transformStyle: "preserve-3d", transformOrigin: "50% 0%" }}
-            initial={reduce ? { rotateX: compact ? 8 : 16 } : { rotateX: 24, y: 40, opacity: 0 }}
+            initial={reduce || embed ? { rotateX: 0 } : { rotateX: 24, y: 40, opacity: 0 }}
             animate={
-              reduce
-                ? { rotateX: compact ? 8 : 16 }
+              reduce || embed
+                ? { rotateX: 0, y: 0, opacity: 1 }
                 : { rotateX: compact ? [8, 6, 8] : [16, 13.5, 16], rotateY: compact ? 0 : [-1.2, 1.2, -1.2], y: 0, opacity: 1 }
             }
             transition={
-              reduce
+              reduce || embed
                 ? { duration: 0 }
                 : {
                     opacity: { duration: 0.8, ease: [0.2, 0.8, 0.2, 1] },
@@ -85,7 +85,7 @@ export function LiveDashboard({ className }: { className?: string }) {
                   }
             }
           >
-            <Frame demo={demo} compact={compact} />
+            <Frame demo={demo} compact={compact} embed={embed} />
           </motion.div>
         </div>
       )}
@@ -95,34 +95,42 @@ export function LiveDashboard({ className }: { className?: string }) {
 
 /* ------------------------------------------------------------------ frame */
 
-function Frame({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
+function Frame({ demo, compact, embed }: { demo: LiveDemo; compact: boolean; embed?: boolean }) {
   return (
     <div
-      className="relative flex h-full w-full flex-col rounded-[30px] border border-white/80 bg-dw-bg p-5"
-      style={{
-        transformStyle: "preserve-3d",
-        boxShadow: "0 60px 120px -40px rgba(20,20,19,0.35), 0 30px 60px -30px rgba(20,20,19,0.25), inset 0 1px 0 rgba(255,255,255,0.9)",
-      }}
+      className={cn("relative flex h-full w-full flex-col bg-dw-bg p-5", embed ? "rounded-none shadow-none" : "rounded-[30px] border border-white/80")}
+      style={
+        embed
+          ? { transformStyle: "preserve-3d" }
+          : {
+              transformStyle: "preserve-3d",
+              boxShadow: "0 60px 120px -40px rgba(20,20,19,0.35), 0 30px 60px -30px rgba(20,20,19,0.25), inset 0 1px 0 rgba(255,255,255,0.9)",
+            }
+      }
     >
       <MiniNav demo={demo} compact={compact} />
-      {compact ? (
-        <div className="mt-4 flex flex-col gap-3">
-          <ConversionCard demo={demo} compact />
-          <AvsBCard demo={demo} compact />
-        </div>
-      ) : (
-        <div className="mt-4 grid flex-1 grid-cols-[1.7fr_1fr] grid-rows-[268px_1fr] gap-3">
-          <ConversionCard demo={demo} />
-          <AvsBCard demo={demo} />
-          <div className="col-span-2 grid grid-cols-[1fr_1.7fr] gap-3">
-            <AgentsCard demo={demo} />
-            <ShoppersCard sessions={demo.sessions} />
+      <PlainSurface>
+        {compact ? (
+          <div className="mt-4 flex flex-col gap-4">
+            <ConversionCard demo={demo} compact />
+            <AvsBCard demo={demo} compact />
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
+            <ConversionCard demo={demo} />
+            <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] gap-5 border-t border-dw-ink/10 pt-4">
+              <AvsBCard demo={demo} />
+              <div className="grid min-h-0 grid-rows-2 gap-4">
+                <AgentsCard demo={demo} />
+                <ShoppersCard sessions={demo.sessions} />
+              </div>
+            </div>
+          </div>
+        )}
+      </PlainSurface>
 
       {/* a floating layer: the newest AI shopper, lifted off the page */}
-      <FloatingShopper session={demo.sessions[0]} compact={compact} />
+      <FloatingShopper session={demo.sessions[0]} compact={compact} embed={embed} />
     </div>
   );
 }
@@ -473,14 +481,16 @@ function Row({ s }: { s: AgentSessionSummary }) {
   );
 }
 
-function FloatingShopper({ session, compact }: { session?: AgentSessionSummary; compact: boolean }) {
+function FloatingShopper({ session, compact, embed }: { session?: AgentSessionSummary; compact: boolean; embed?: boolean }) {
   return (
     <div
       className="absolute"
       style={
         compact
           ? { left: 36, right: 36, bottom: 18, transform: "translateZ(70px)" }
-          : { left: 452, right: 38, top: 418, transform: "translateZ(44px)" }
+          : embed
+            ? { right: 28, bottom: 20, width: 420, transform: "translateZ(44px)" }
+            : { left: 452, right: 38, top: 418, transform: "translateZ(44px)" }
       }
     >
       <AnimatePresence mode="popLayout" initial={false}>

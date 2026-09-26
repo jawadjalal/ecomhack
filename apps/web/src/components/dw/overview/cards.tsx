@@ -99,7 +99,7 @@ export function ConversionCard({
   }, [points, tab]);
 
   return (
-    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[276px]", FILL)} aria-label="Conversion">
+    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col px-0 py-1 sm:py-2", FILL)} aria-label="Conversion">
       <CardHead
         title="Conversion"
         right={
@@ -121,7 +121,7 @@ export function ConversionCard({
         </CardEmpty>
       ) : (
         <>
-          <div role="tablist" aria-label="Chart" className="mt-3.5 flex flex-wrap gap-x-7 gap-y-2">
+          <div role="tablist" aria-label="Chart" className="mt-2 flex flex-wrap items-end gap-x-10 gap-y-4">
             {tabs.map((t) => {
               const on = t.key === tab;
               return (
@@ -132,18 +132,22 @@ export function ConversionCard({
                   aria-selected={on}
                   onClick={() => setTab(t.key)}
                   className={cn(
-                    "flex flex-col items-start gap-0.5 border-b-2 pb-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-dw-ink",
+                    "flex flex-col items-start gap-1 border-b-2 pb-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-dw-ink",
                     on ? "border-dw-ink" : "border-transparent hover:border-dw-ink/25",
                   )}
                 >
-                  <CountUp value={t.value} format={t.format} className="text-[18px] leading-tight font-semibold" />
-                  <span className="text-[12px] tracking-[0.02em] text-[#4F4417] uppercase">{t.label}</span>
+                  <CountUp
+                    value={t.value}
+                    format={t.format}
+                    className={cn(on ? "text-[64px] leading-none font-semibold tracking-[-0.045em] sm:text-[84px]" : "text-[22px] leading-tight font-semibold")}
+                  />
+                  <span className={cn("text-[12px] tracking-[0.04em] uppercase", on ? "text-dw-ink/70" : "text-dw-ink/45")}>{t.label}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="relative mt-3.5 flex min-h-[150px] flex-1 flex-col gap-1.5">
+          <div className="relative mt-6 flex min-h-[180px] flex-1 flex-col gap-1.5 sm:min-h-[220px]">
             <div className="relative flex-1">
               {/* one faint pill per generation: how many shoppers Darwin measured */}
               <div className="absolute inset-0 flex items-end gap-2.5">
@@ -205,7 +209,7 @@ export function ConversionCard({
               </svg>
               <motion.div
                 key={`d-${tab}`}
-                className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-dw-ink shadow-[0_0_0_4px_#F6D76B]"
+                className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-dw-ink shadow-[0_0_0_4px_#F7F1E5]"
                 style={{ left: `${chart.lastPt[0] / 10}%`, top: `${chart.lastPt[1]}%` }}
                 initial={reduce ? false : { scale: 0 }}
                 animate={{ scale: 1 }}
@@ -242,7 +246,7 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
   const ended = test && !test.running;
   const decision = test?.experiment.result?.decision;
   return (
-    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[276px]", FILL)} aria-label="A vs B">
+    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col px-0 py-7", FILL)} aria-label="A vs B">
       <CardHead
         title={ended ? "Last test" : "A vs B"}
         right={
@@ -335,7 +339,7 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
   const max = Math.max(...rows.map((r) => r.rate), peopleRate ?? 0, 1e-9);
   const people = agentBrand(undefined, "human");
   return (
-    <Card tone="blue" shape="observer" corner="tr" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[250px]", FILL)} aria-label="Which agents buy">
+    <Card tone="blue" shape="observer" corner="tr" className={cn("flex flex-col px-0 py-7", FILL)} aria-label="Which agents buy">
       <CardHead
         title="Which agents buy"
         right={
@@ -410,7 +414,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
     if (s.people !== undefined && (weakest < 0 || s.people < (steps[weakest].people ?? 1))) weakest = i;
   });
   return (
-    <Card tone="olive" shape="analyst" corner="br" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[250px]", FILL)} aria-label="How they convert">
+    <Card tone="olive" shape="analyst" corner="br" className={cn("flex flex-col px-0 py-7", FILL)} aria-label="How they convert">
       <CardHead
         title="How they convert"
         right={

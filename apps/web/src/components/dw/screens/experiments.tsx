@@ -7,7 +7,7 @@ import { count, pct, sourceBadge } from "@/lib/console/format";
 import { useExperiments, useNow, useSamples } from "@/lib/console/hooks";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing, pct0 } from "../ui";
+import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, PlainSurface, Typing, pct0 } from "../ui";
 import { ChanceCard, WhoBuysCard, type ChancePoint } from "../experiments/charts";
 import { PastExperiments, WhatChangesCard } from "../experiments/changes";
 import {
@@ -93,21 +93,21 @@ export function ExperimentsScreen() {
 
   if (!experiments || !loop) {
     return (
-      <>
+      <PlainSurface>
         <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Loading the tests <Typing /></span>} />
-        <div className="grid gap-4 lg:grid-cols-2" aria-hidden>
-          <div className="h-[390px] animate-pulse rounded-[26px] bg-dw-surface" />
-          <div className="h-[390px] animate-pulse rounded-[26px] bg-dw-yellow/40" />
+        <div className="mt-8 grid gap-8 lg:grid-cols-2" aria-hidden>
+          <div className="h-[320px] animate-pulse bg-dw-ink/[0.04]" />
+          <div className="h-[320px] animate-pulse bg-dw-ink/[0.04]" />
         </div>
-      </>
+      </PlainSurface>
     );
   }
 
   if (!exp || !view) {
     return (
-      <>
+      <PlainSurface>
         <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="No tests yet" lede="When Darwin has a fix worth trying, it shows half your shoppers the new version and measures who buys." />
-        <Card tone="pink" shape="experimenter" hover={false}>
+        <Card tone="pink" shape="experimenter" hover={false} className="mt-8">
           <Empty
             mascot={<Mascot kind="experimenter" size={88} frame active />}
             action={
@@ -123,7 +123,7 @@ export function ExperimentsScreen() {
             The first A/B test starts right after Darwin finds a leak and designs a fix for it.
           </Empty>
         </Card>
-      </>
+      </PlainSurface>
     );
   }
 
@@ -246,58 +246,60 @@ export function ExperimentsScreen() {
   });
 
   return (
-    <>
+    <PlainSurface>
       <PageHead mascot={<Mascot kind="experimenter" size={52} frame active={running} />} title={exp.name} lede={lede} right={actions} />
 
-      <div key={exp.id} className="flex flex-col gap-4">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <motion.div {...stagger(0)} className="min-w-0">
-            <Card tone="white" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="A, today">
-              <CardTitle right={<span className="text-[14px]">{armLine("A")}</span>}>A · {running ? "today" : "before"}</CardTitle>
-              <div className="flex flex-1 flex-col [&>*]:flex-1">
-                <SpecMock spec={view.control} other={exp.treatmentSpec} arm="A" page={view.page} />
-              </div>
-            </Card>
+      <div key={exp.id} className={`mt-8 grid items-start gap-10 ${past.length > 1 ? "lg:grid-cols-[minmax(200px,280px)_minmax(0,1fr)]" : ""}`}>
+        {past.length > 1 && (
+          <motion.div {...stagger(0)} className="min-w-0 lg:sticky lg:top-6">
+            <PastExperiments
+              experiments={past}
+              loop={loop}
+              selectedId={exp.id}
+              now={now}
+              mock={mock}
+              onSelect={(id) => {
+                choose(id);
+                window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+              }}
+            />
           </motion.div>
-          <motion.div {...stagger(1)} className="min-w-0">
-            <Card tone="yellow" shape="designer" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="B, the fix">
-              <CardTitle right={<span className="text-[14px] text-[#4F4417]">{armLine("B")}</span>}>B · the fix</CardTitle>
-              <div className="flex flex-1 flex-col [&>*]:flex-1">
-                <SpecMock spec={exp.treatmentSpec} other={view.control} arm="B" page={view.page} />
-              </div>
-            </Card>
+        )}
+
+        <div className="flex min-w-0 flex-col gap-10">
+          <div className="grid items-stretch gap-8 lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-dw-ink/10">
+            <motion.div {...stagger(1)} className="min-w-0 lg:pr-8">
+              <Card tone="white" className={`h-full px-0 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="A, today">
+                <CardTitle right={<span className="text-[14px]">{armLine("A")}</span>}>A · {running ? "today" : "before"}</CardTitle>
+                <div className="flex flex-1 flex-col [&>*]:flex-1">
+                  <SpecMock spec={view.control} other={exp.treatmentSpec} arm="A" page={view.page} />
+                </div>
+              </Card>
+            </motion.div>
+            <motion.div {...stagger(2)} className="min-w-0 lg:pl-8">
+              <Card tone="yellow" shape="designer" className={`h-full px-0 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="B, the fix">
+                <CardTitle right={<span className="text-[14px]">{armLine("B")}</span>}>B · the fix</CardTitle>
+                <div className="flex flex-1 flex-col [&>*]:flex-1">
+                  <SpecMock spec={exp.treatmentSpec} other={view.control} arm="B" page={view.page} />
+                </div>
+              </Card>
+            </motion.div>
+          </div>
+
+          <div className="grid items-start gap-10 border-t border-dw-ink/10 pt-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.8fr)]">
+            <motion.div {...stagger(3)} className="min-w-0">
+              <ChanceCard points={points} shipAt={rules.ship} early={rules.early} drop={rules.drop} decided={result && result.decision !== "running" ? result.decision : undefined} live={running} />
+            </motion.div>
+            <motion.div {...stagger(4)} className="min-w-0">
+              <WhoBuysCard result={result} audience={m?.audience ?? "all"} synthetic={synthetic} />
+            </motion.div>
+          </div>
+
+          <motion.div {...stagger(5)} className="border-t border-dw-ink/10 pt-8">
+            <WhatChangesCard rows={view.rows} source={ideaSource(view.proposal?.source)} />
           </motion.div>
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <motion.div {...stagger(2)} className="min-w-0">
-            <ChanceCard points={points} shipAt={rules.ship} early={rules.early} drop={rules.drop} decided={result && result.decision !== "running" ? result.decision : undefined} live={running} />
-          </motion.div>
-          <motion.div {...stagger(3)} className="min-w-0">
-            <WhoBuysCard result={result} audience={m?.audience ?? "all"} synthetic={synthetic} />
-          </motion.div>
-        </div>
-
-        <motion.div {...stagger(4)}>
-          <WhatChangesCard rows={view.rows} source={ideaSource(view.proposal?.source)} />
-        </motion.div>
       </div>
-
-      {past.length > 1 && (
-        <motion.div {...stagger(5)}>
-          <PastExperiments
-            experiments={past}
-            loop={loop}
-            selectedId={exp.id}
-            now={now}
-            mock={mock}
-            onSelect={(id) => {
-              choose(id);
-              window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
-            }}
-          />
-        </motion.div>
-      )}
-    </>
+    </PlainSurface>
   );
 }

@@ -6,7 +6,7 @@ import { ArrowRight, Play, Sparkles } from "lucide-react";
 import { useExperiments } from "@/lib/console/hooks";
 import { useDarwin } from "../provider";
 import { Mascot } from "../mascot";
-import { PageHead, PillButton } from "../ui";
+import { PageHead, PillButton, PlainSurface } from "../ui";
 import { InTestCard, ThrownAwayCard, UpNextCard } from "../issues/fix-cards";
 import { FixDetail, FixList } from "../issues/fix-view";
 import { buildFixes, insightArchive, rankIssues } from "../issues/model";
@@ -86,7 +86,7 @@ function Fixes() {
   ) : undefined;
 
   return (
-    <>
+    <PlainSurface>
       <PageHead
         mascot={<Mascot kind="designer" size={52} frame active />}
         title={`${n} fix${n === 1 ? "" : "es"}, ${tail}`}
@@ -94,19 +94,26 @@ function Fixes() {
         right={right}
       />
 
-      <div className="mt-3 grid gap-[14px] md:grid-cols-2 lg:h-[240px] lg:grid-cols-[1.5fr_1fr_1fr]">
-        <div className="min-w-0 md:col-span-2 lg:col-span-1 [&>*]:h-full">
-          <InTestCard fix={inTest} rows={rows} hasDraft={Boolean(drafted)} />
+      <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(240px,340px)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col divide-y divide-dw-ink/10 border-t border-dw-ink/10">
+          <div className="py-6">
+            <InTestCard fix={inTest} rows={rows} hasDraft={Boolean(drafted)} />
+          </div>
+          <div className="py-6">
+            <UpNextCard drafted={inTest ? undefined : drafted} next={next} testing={Boolean(inTest)} />
+          </div>
+          <div className="py-6">
+            <ThrownAwayCard thrown={thrown} shipped={shipped} />
+          </div>
+          <div className="py-6">
+            <FixList fixes={fixes} rows={rows} selected={fix.id} onSelect={select} panelId="dw-fix-detail" />
+          </div>
         </div>
-        <UpNextCard drafted={inTest ? undefined : drafted} next={next} testing={Boolean(inTest)} />
-        <ThrownAwayCard thrown={thrown} shipped={shipped} />
+        <div className="min-w-0 lg:sticky lg:top-6">
+          <FixDetail id="dw-fix-detail" fix={fix} rows={rows} archive={archive} loop={loop} autopilot={autopilot} stepping={stepping} step={step} />
+        </div>
       </div>
-
-      <div className="mt-3.5 grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
-        <FixList fixes={fixes} rows={rows} selected={fix.id} onSelect={select} panelId="dw-fix-detail" />
-        <FixDetail id="dw-fix-detail" fix={fix} rows={rows} archive={archive} loop={loop} autopilot={autopilot} stepping={stepping} step={step} />
-      </div>
-    </>
+    </PlainSurface>
   );
 }
 

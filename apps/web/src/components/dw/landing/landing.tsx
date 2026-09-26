@@ -19,29 +19,27 @@ const SHOPPERS: { brand: BrandKey; name: string }[] = [
   { brand: "copilot", name: "Copilot" },
 ];
 
-/** Same soft glow as the onboarding's first screen. */
-const GLOW =
-  "radial-gradient(52rem 30rem at 50% 30%, rgba(246,215,107,0.30), transparent 70%), radial-gradient(36rem 26rem at 8% 96%, rgba(184,202,238,0.30), transparent 70%), radial-gradient(36rem 26rem at 94% 92%, rgba(243,181,213,0.28), transparent 70%)";
+const STEPS = [
+  { n: "01", title: "Watch", body: "People and AI shopping agents, on the same store." },
+  { n: "02", title: "Find the drop-off", body: "Where a visit stops short of a purchase." },
+  { n: "03", title: "Test a change", body: "Half the shoppers see a fix. Darwin measures who buys." },
+  { n: "04", title: "Ship the winner", body: "The better version goes live. Then the loop starts again." },
+];
 
 const NAV_LINK =
   "flex h-10 items-center gap-1.5 rounded-full px-3 text-[14.5px] font-medium text-dw-ink/70 transition-colors hover:bg-dw-sand hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-dw-ink";
 
 /**
- * The public landing page: one screen. Headline, two actions, and the Darwin dashboard itself,
- * live, running on simulated shoppers.
+ * Public landing: an editorial column (headline, the loop in four lines, two actions)
+ * beside the live dashboard. Not a centred hero sitting on a grid of cards.
  */
 export function Landing() {
-  // Same props on the server and the client (no hydration mismatch); MotionConfig drops the movement
-  // for people who ask for reduced motion.
   const rise = (delay: number) => ({ initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.6, delay, ease: EASE } });
 
   return (
     <MotionConfig reducedMotion="user">
-      <div data-dw className="relative isolate flex min-h-[100svh] w-full flex-col overflow-x-hidden bg-dw-bg font-dw text-dw-ink lg:h-[100svh] lg:overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10" style={{ background: GLOW }} />
-
-        {/* quiet nav */}
-        <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-4 pt-4 sm:px-7">
+      <div data-dw className="flex min-h-[100svh] w-full flex-col bg-dw-bg font-dw text-dw-ink">
+        <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-5 sm:px-8 lg:px-12">
           <Link href="/" className="flex items-center gap-2.5 rounded-full focus-visible:outline-2 focus-visible:outline-dw-ink" aria-label="Darwin home">
             <Mascot kind="analyst" size={32} active />
             <span className="text-[22px] font-semibold tracking-[-0.02em]">darwin</span>
@@ -61,53 +59,69 @@ export function Landing() {
           </nav>
         </header>
 
-        <main className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col items-center px-4 sm:px-7">
-          <motion.h1
-            {...rise(0.05)}
-            className="isolate mt-8 text-center text-[38px] leading-[1.05] font-semibold tracking-[-0.035em] text-balance sm:mt-[clamp(1.5rem,4.5vh,3.25rem)] sm:text-[52px] xl:text-[60px]"
-          >
-            Your store,{" "}
-            <span className="relative inline-block whitespace-nowrap">
-              <motion.span
-                aria-hidden
-                className="absolute inset-x-[-0.1em] bottom-[0.06em] -z-10 h-[0.4em] rounded-full bg-dw-yellow"
-                style={{ originX: 0 }}
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ delay: 0.45, duration: 0.7, ease: EASE }}
-              />
-              improving itself.
-            </span>
-          </motion.h1>
-          <motion.p {...rise(0.12)} className="mt-3 text-center text-[16px] text-dw-ink/65 sm:text-[17px]">
-            For the people and the AI agents who shop there.
-          </motion.p>
+        <main className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+          <section className="flex flex-col justify-center px-5 py-10 sm:px-8 sm:py-14 lg:px-12 lg:py-16 xl:px-16">
+            <motion.p {...rise(0)} className="text-[13px] font-medium tracking-[0.16em] text-dw-ink/45 uppercase">
+              For people and AI shoppers
+            </motion.p>
+            <motion.h1
+              {...rise(0.05)}
+              className="mt-4 max-w-[14ch] text-[44px] leading-[0.96] font-semibold tracking-[-0.045em] text-balance sm:text-[60px] xl:text-[68px]"
+            >
+              Your store,{" "}
+              <span className="relative inline-block whitespace-nowrap">
+                <motion.span
+                  aria-hidden
+                  className="absolute inset-x-[-0.06em] bottom-[0.06em] -z-10 h-[0.32em] bg-dw-yellow"
+                  style={{ originX: 0 }}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ delay: 0.45, duration: 0.7, ease: EASE }}
+                />
+                improving itself.
+              </span>
+            </motion.h1>
+            <motion.p {...rise(0.12)} className="mt-5 max-w-[36rem] text-[17px] leading-relaxed text-dw-ink/70 sm:text-[18px]">
+              Darwin watches how the store is used, finds where shoppers drop off, tests a page change, and ships the winner.
+            </motion.p>
 
-          <motion.div {...rise(0.18)} className="mt-6 flex w-full flex-col items-center gap-2.5 sm:w-auto sm:flex-row">
-            <PillButton href="/onboarding" size="lg" className="group w-full sm:w-auto">
-              Set up your store
-              <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
-            </PillButton>
-            <PillButton href="/console" size="lg" tone="white" className="w-full sm:w-auto">
-              Open Darwin
-            </PillButton>
-          </motion.div>
-
-          <motion.p {...rise(0.24)} className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13px] text-dw-ink/50">
-            <span>Works with</span>
-            <span className="flex items-center gap-3 text-dw-ink/55">
-              {SHOPPERS.map((s) => (
-                <BrandGlyph key={s.brand} brand={s.brand} size={16} title={s.name} />
+            <motion.ol {...rise(0.18)} className="mt-10 max-w-[34rem] border-t border-dw-ink/10">
+              {STEPS.map((step) => (
+                <li key={step.n} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-4 border-b border-dw-ink/10 py-3.5">
+                  <span className="pt-0.5 font-dwmono text-[12px] text-dw-ink/40">{step.n}</span>
+                  <span>
+                    <span className="block text-[16px] font-semibold tracking-[-0.02em]">{step.title}</span>
+                    <span className="mt-0.5 block text-[14px] leading-snug text-dw-ink/60">{step.body}</span>
+                  </span>
+                </li>
               ))}
-            </span>
-          </motion.p>
+            </motion.ol>
 
-          {/* the dashboard, live */}
-          <div className="relative mt-6 w-full max-w-[1320px] lg:mt-[clamp(1rem,3.5vh,2.25rem)] lg:min-h-0 lg:flex-1">
-            <LandingLoop className="lg:h-full" />
-            {/* fade the bottom edge into the page */}
-            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-dw-bg to-transparent max-lg:hidden" />
-          </div>
+            <motion.div {...rise(0.24)} className="mt-8 flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row">
+              <PillButton href="/onboarding" size="lg" className="group w-full sm:w-auto">
+                Set up your store
+                <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
+              </PillButton>
+              <PillButton href="/console" size="lg" tone="white" className="w-full sm:w-auto">
+                Open Darwin
+              </PillButton>
+            </motion.div>
+
+            <motion.p {...rise(0.3)} className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-dw-ink/50">
+              <span>Works with</span>
+              <span className="flex items-center gap-3 text-dw-ink/55">
+                {SHOPPERS.map((s) => (
+                  <BrandGlyph key={s.brand} brand={s.brand} size={16} title={s.name} />
+                ))}
+              </span>
+            </motion.p>
+          </section>
+
+          <section className="relative min-h-[560px] border-t border-dw-ink/10 bg-[#EFE8D8] lg:min-h-0 lg:border-t-0 lg:border-l" aria-label="Live demo">
+            <div className="absolute inset-0 flex flex-col px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+              <LandingLoop className="min-h-0 flex-1" />
+            </div>
+          </section>
         </main>
       </div>
     </MotionConfig>
