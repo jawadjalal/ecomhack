@@ -58,6 +58,14 @@ export const BENCHMARKS = {
   agentConversion: 0.3, // agent visitor → order
 } as const;
 
+/**
+ * Priors for relative conversion uplift when a friction is removed (CRO research, e.g. Baymard's
+ * checkout abandonment studies). Used to size human insights on the same scale: orders × uplift.
+ */
+export const RELATIVE_UPLIFT = {
+  hiddenShipping: 0.22,
+} as const;
+
 /** Below this many visitors in the summary we do a spec audit instead of reading funnels. */
 export const MIN_VISITORS = 30;
 /** Minimum visitors at a funnel step before we trust its rate. */
@@ -205,7 +213,9 @@ function shippingShock(ctx: Ctx, checkoutFrictionPresent: boolean): Insight | un
   if (shock) {
     const base = Math.max(checkoutN, shock.count);
     const share = shock.count / base;
-    const impact = per1k(shock.count * 0.5, ctx);
+    // Surprise costs are the #1 reason carts are abandoned (Baymard), and a hidden fee also depresses
+    // earlier steps, so the upside is bigger than the people lost at the reveal itself.
+    const impact = per1k(Math.max(shock.count * 0.5, spec.cart.showShippingUpfront ? 0 : ordersN * RELATIVE_UPLIFT.hiddenShipping), ctx);
     return make("shipping_shock", {
       title: `${pct(share)} of checkouts die the moment shipping appears`,
       audience: "human",
@@ -223,8 +233,12 @@ function shippingShock(ctx: Ctx, checkoutFrictionPresent: boolean): Insight | un
   }
 
   if (spec.cart.showShippingUpfront || checkoutN < MIN_STEP) return undefined;
-  const gain = potential(completion, BENCHMARKS.checkoutCompletion, 0.35);
-  const impact = per1k(checkoutN * gain * (checkoutFrictionPresent ? 0.6 : 1), ctx);
+  // The larger of: the uplift prior, or the share of the gap to benchmark that shipping explains.
+  const gap = Math.max(0, BENCHMARKS.checkoutCompletion - completion);
+  const impact = per1k(
+    Math.max(ordersN * RELATIVE_UPLIFT.hiddenShipping, checkoutN * gap * 0.5 * (checkoutFrictionPresent ? 0.6 : 1)),
+    ctx,
+  );
   if (impact <= 0) return undefined;
   return make("shipping_shock", {
     title: `${pct(1 - completion)} of checkouts are abandoned — shipping is only revealed at the last step`,
@@ -259,14 +273,11 @@ function checkoutFriction(ctx: Ctx, shippingInsightPresent: boolean): Insight | 
 
   const shock = frictionOf(summary, "shipping_shock", "human")[0];
   const deadEnds = frictionOf(summary, "dead_end", "human").find((f) => /checkout/i.test(f.location));
-  let lost: number;
-  if (shock) {
-    // Abandonment not explained by the shipping reveal.
-    const other = Math.max(0, checkoutN - ordersN - shock.count);
-    lost = other * 0.35;
-  } else {
-    lost = checkoutN * potential(completion, BENCHMARKS.checkoutCompletion, frictionGain) * (shippingInsightPresent ? 0.4 : 1);
-  }
+  // Orders we'd expect back from removing the hurdles present (a forced account alone is the #2
+  // abandonment reason in Baymard's research), or the share of the gap to benchmark the form explains.
+  const gap = Math.max(0, BENCHMARKS.checkoutCompletion - completion);
+  const unexplained = shock ? Math.max(0, checkoutN - ordersN - shock.count) / Math.max(1, checkoutN - ordersN) : 1;
+  const lost = Math.max(ordersN * frictionGain, checkoutN * gap * 0.35 * unexplained * (shippingInsightPresent ? 0.6 : 1));
   const impact = per1k(lost, ctx);
   if (impact <= 0) return undefined;
 
@@ -314,7 +325,10 @@ function weakAddToCart(ctx: Ctx): Insight | undefined {
     (pp.trustBadges ? 0 : 0.02);
   if (gain === 0 && rate >= BENCHMARKS.addToCart) return undefined;
   const downstream = addN ? ordersN / addN : 0.3;
-  const impact = per1k(viewN * potential(rate, BENCHMARKS.addToCart, gain) * downstream, ctx);
+  // `gain` is the relative lift in add-to-bag from fixing what's missing; about half of it survives
+  // to orders. Closing the whole gap to the benchmark is not a realistic promise for one change.
+  const lost = ordersN * gain * 0.5 + viewN * Math.max(0, BENCHMARKS.addToCart - rate) * downstream * 0.05;
+  const impact = per1k(lost, ctx);
   if (impact <= 0) return undefined;
 
   const reasons = [
@@ -458,7 +472,9 @@ function agentInsights(ctx: Ctx): Insight[] {
     if (f.kind === "agent_missing_field") {
       missingReported = true;
       const g = agentGroupFor(f.detail) ?? agentGroupFor(f.location);
-      if (g) sig(g).askedDistinct += f.count;
+      // Several fields map to one group (e.g. `sizes` and `stock`); the same agent often asks for both,
+      // so take the max rather than summing distinct counts.
+      if (g) sig(g).askedDistinct = Math.max(sig(g).askedDistinct, f.count);
     } else if (f.kind === "agent_abandoned") {
       const reason = f.detail ?? f.location;
       const g = agentGroupFor(reason);
@@ -499,7 +515,7 @@ function agentInsights(ctx: Ctx): Insight[] {
     if (group === "negotiation") {
       title = `${num(Math.max(s.errors, s.abandoned, askedEst))} AI shoppers tried to negotiate: the store can't`;
     } else if (s.askedDistinct) {
-      title = `${pct(s.askedDistinct / agentN)} of AI shoppers asked for ${def.label}: we don't expose it`;
+      title = `${pct(Math.min(1, s.askedDistinct / agentN))} of AI shoppers asked for ${def.label}: we don't expose it`;
     } else if (s.askedRequests) {
       title = `AI shoppers asked for ${def.label} ${num(s.askedRequests)} times: we don't expose it`;
     } else {

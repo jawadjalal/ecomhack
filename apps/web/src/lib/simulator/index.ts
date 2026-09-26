@@ -39,6 +39,11 @@ export interface SimulationResult {
   orders: number;
   revenue: number;
   byVariant: Record<string, { visitors: number; orders: number }>;
+  /**
+   * Same tally split by visitor kind (key = variant or "live"). Lets the optimizer accumulate
+   * experiment arms round by round without re-reading (possibly evicted) raw events.
+   */
+  byVariantKind?: Record<string, Record<"human" | "agent", { visitors: number; orders: number; revenue: number }>>;
 }
 
 /** Test/demo knobs that are not part of the public contract. */
@@ -64,12 +69,20 @@ export async function runSimulation(opts: SimulationOptions, internals: Simulati
   const seed = (opts.seed ?? randomSeed()) >>> 0;
   const clock: SimClock = { now: internals.now ?? Date.now(), spreadMs: Math.max(0, opts.spreadMinutes ?? 30) * 60_000 };
 
-  const result: SimulationResult = { humans: 0, agents: 0, events: 0, orders: 0, revenue: 0, byVariant: {} };
-  const tally = (key: string, ordered: boolean, revenue: number) => {
+  const byVariantKind: NonNullable<SimulationResult["byVariantKind"]> = {};
+  const result: SimulationResult = { humans: 0, agents: 0, events: 0, orders: 0, revenue: 0, byVariant: {}, byVariantKind };
+  const tally = (key: string, ordered: boolean, revenue: number, kind: "human" | "agent") => {
     const v = (result.byVariant[key] ??= { visitors: 0, orders: 0 });
+    const k = ((byVariantKind[key] ??= {
+      human: { visitors: 0, orders: 0, revenue: 0 },
+      agent: { visitors: 0, orders: 0, revenue: 0 },
+    })[kind]);
     v.visitors++;
+    k.visitors++;
     if (ordered) {
       v.orders++;
+      k.orders++;
+      k.revenue += revenue;
       result.orders++;
       result.revenue += revenue;
     }
@@ -81,7 +94,7 @@ export async function runSimulation(opts: SimulationOptions, internals: Simulati
     const visit = simulateHumanVisit(deriveSeed(seed, 1, i), clock);
     for (const e of visit.events) buffer.push(e);
     result.humans++;
-    tally(visit.variantKey, visit.ordered, visit.revenue);
+    tally(visit.variantKey, visit.ordered, visit.revenue, "human");
   }
 
   /* ---- agents (stream 2) */
@@ -112,7 +125,7 @@ export async function runSimulation(opts: SimulationOptions, internals: Simulati
           { useLlm: useLlm && i < MAX_LLM_AGENTS },
         );
         if (summary.reason !== "not implemented") {
-          tally(summary.variant ?? resolved.variant ?? "live", summary.outcome === "purchased", summary.orderTotal ?? 0);
+          tally(summary.variant ?? resolved.variant ?? "live", summary.outcome === "purchased", summary.orderTotal ?? 0, "agent");
           result.events += eventStore().since(lastBefore, Number.MAX_SAFE_INTEGER).length;
           continue;
         }
@@ -140,7 +153,7 @@ export async function runSimulation(opts: SimulationOptions, internals: Simulati
       clock,
     );
     for (const e of visit.events) buffer.push(e);
-    tally(resolved.variant ?? "live", visit.outcome === "purchased", visit.revenue);
+    tally(resolved.variant ?? "live", visit.outcome === "purchased", visit.revenue, "agent");
   }
 
   /* ---- write, oldest first (stable sort keeps intra-session order on ties) */

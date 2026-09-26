@@ -121,6 +121,23 @@ export class GithubIntegrationError extends Error {
 
 /* ------------------------------------------------------------------ config */
 
+/**
+ * Run a PR flow in the configured mode; if GitHub is unreachable or rejects the token, redo it
+ * offline so callers (the loop, the console) still get the PR Darwin would have opened.
+ */
+async function withOfflineFallback(run: (mode: GithubMode) => Promise<PullRequestResult>): Promise<PullRequestResult> {
+  const mode = githubMode();
+  try {
+    return await run(mode);
+  } catch (err) {
+    if (mode === "offline") throw err;
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(`[github] ${mode} PR failed, falling back to a dry run: ${reason}`);
+    const result = await run("offline");
+    return { ...result, notes: [`GitHub unavailable (${reason.slice(0, 120)}), so this is the PR Darwin would open.`, ...(result.notes ?? []).slice(1)] };
+  }
+}
+
 export function githubMode(): GithubMode {
   if (!process.env.GITHUB_TOKEN?.trim()) return "offline";
   return /^(1|true|yes|on)$/i.test(process.env.DARWIN_GITHUB_DRY_RUN?.trim() ?? "") ? "dry-run" : "live";
@@ -224,7 +241,10 @@ function record(kind: PullRequestRecord["kind"], result: PullRequestResult, extr
 
 /** Onboarding: open a PR that installs Darwin analytics into the connected storefront repo. */
 export async function openAnalyticsInstallPR(repo: RepoRef, opts: { host: string; siteId?: string }): Promise<PullRequestResult> {
-  const mode = githubMode();
+  return withOfflineFallback((mode) => installPR(repo, opts, mode));
+}
+
+async function installPR(repo: RepoRef, opts: { host: string; siteId?: string }, mode: GithubMode): Promise<PullRequestResult> {
   const fullName = `${repo.owner}/${repo.repo}`;
   const snippet = { src: `${normalizeHost(opts.host)}/darwin.js`, siteId: opts.siteId ?? siteIdFor(repo) };
   const commitMessage = `Install Darwin analytics\n\nLoads darwin.js (site id "${snippet.siteId}") to measure how human shoppers and AI shopping agents use the store.`;
@@ -330,7 +350,10 @@ function parseSpec(content: string): PageSpec | null {
 
 /** Ship: open a PR that makes the winning spec the new storefront config. */
 export async function openSpecPR(repo: RepoRef, spec: PageSpec, ctx: SpecPRContext): Promise<PullRequestResult> {
-  const mode = githubMode();
+  return withOfflineFallback((mode) => specPR(repo, spec, ctx, mode));
+}
+
+async function specPR(repo: RepoRef, spec: PageSpec, ctx: SpecPRContext, mode: GithubMode): Promise<PullRequestResult> {
   const configPath = targetConfigPath();
   const fullName = `${repo.owner}/${repo.repo}`;
   const next = PageSpecSchema.parse(spec); // never commit an invalid config

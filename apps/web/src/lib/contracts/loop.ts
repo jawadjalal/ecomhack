@@ -121,6 +121,9 @@ export interface GenerationRecord {
   humanConversionRate: number;
   agentConversionRate: number;
   overallConversionRate: number;
+  /** Sample sizes behind the rates above (lets later measurements be pooled in). */
+  humanVisitors?: number;
+  agentVisitors?: number;
   /** Result of the experiment that produced this generation (absent for Gen 0). */
   experimentId?: string;
   lift?: number;

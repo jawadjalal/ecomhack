@@ -33,6 +33,9 @@ function makeDeps(overrides: LoopOverrides = {}) {
       observeAgents: 150,
       roundHumans: 800,
       roundAgents: 120,
+      // Small fake traffic: keep the decision bar proportionate (production defaults are larger).
+      minVisitors: 400,
+      maxRounds: 4,
       exploreEvery: 3,
       targetRepo: "acme/storefront",
       ...overrides.config,

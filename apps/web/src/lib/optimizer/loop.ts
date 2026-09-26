@@ -47,15 +47,21 @@ import { id } from "@/lib/ids";
 import { diagnose, refineInsightsWithLlm } from "./insights";
 import { ideaForProposal, propose, proposeWithLlm } from "./proposals";
 import {
+  addArmCounts,
+  armCountsFromStats,
+  emptyArmCounts,
+  evaluateArms,
   evaluateExperiment,
   experimentArms,
+  variantStatsFromCounts,
+  type ArmCounts,
   metricAudience,
   relativeLift,
   segment,
   type DecisionConfig,
 } from "./stats";
 import { withAgentTelemetry } from "./telemetry";
-import { diffPatch, num, pct, signedPct } from "./util";
+import { diffPatch, hashString, num, pct, signedPct } from "./util";
 
 /* ------------------------------------------------------------------ config & deps */
 
@@ -84,18 +90,22 @@ function envNum(name: string, fallback: number): number {
 }
 
 export function loopConfigFromEnv(): LoopConfig {
-  const observeHumans = envNum("DARWIN_DEMO_HUMANS", 1200);
-  const observeAgents = envNum("DARWIN_DEMO_AGENTS", 150);
+  const observeHumans = envNum("DARWIN_DEMO_HUMANS", 5000);
+  const observeAgents = envNum("DARWIN_DEMO_AGENTS", 400);
   return {
     observeHumans,
     observeAgents,
-    roundHumans: envNum("DARWIN_ROUND_HUMANS", Math.round(observeHumans / 2)),
-    roundAgents: envNum("DARWIN_ROUND_AGENTS", Math.round(observeAgents / 2)),
-    minVisitors: envNum("DARWIN_MIN_ARM_VISITORS", 400),
+    // Human conversion is ~2-5%, so detecting a +20% lift needs thousands of shoppers per arm.
+    // The simulator does ~4k shoppers in ~0.2s, so a round stays well under a second.
+    roundHumans: envNum("DARWIN_ROUND_HUMANS", 10000),
+    roundAgents: envNum("DARWIN_ROUND_AGENTS", 500),
+    minVisitors: envNum("DARWIN_MIN_ARM_VISITORS", 2000),
     minSegmentVisitors: envNum("DARWIN_MIN_ARM_AGENTS", 100),
-    maxRounds: Math.max(1, envNum("DARWIN_MAX_ROUNDS", 4)),
+    maxRounds: Math.max(1, envNum("DARWIN_MAX_ROUNDS", 3)),
     shipThreshold: 0.95,
     rejectThreshold: 0.1,
+    interimShipThreshold: 0.99,
+    interimRejectThreshold: 0.02,
     allocation: 0.5,
     exploreEvery: envNum("DARWIN_EXPLORE_EVERY", 3),
     targetRepo: process.env.DARWIN_TARGET_REPO?.trim() || "jawadjalal/ecomhack",
@@ -168,6 +178,8 @@ interface LoopMemory {
   simRuns: number;
   /** Proposals made so far (drives wildcard turns). */
   proposals: number;
+  /** Simulated arm tallies accumulated round by round for the running experiment. */
+  arms?: { experimentId: string; control: ArmCounts; treatment: ArmCounts };
 }
 
 interface Persisted {
@@ -387,6 +399,23 @@ async function observe(ctx: Persisted, deps: LoopDeps) {
     );
   }
 
+  // The generation's record was measured on its experiment arm; pool in this independent sample of
+  // the same live spec so the evolution chart rests on more traffic (same spec, so same true rate).
+  const current = ctx.state.history.at(-1);
+  if (ctx.state.generation > 0 && current?.specVersion === live.version && current.humanVisitors !== undefined) {
+    const pool = (rate: number, n: number, rate2: number, n2: number) => (n + n2 ? (rate * n + rate2 * n2) / (n + n2) : rate);
+    const hN = current.humanVisitors ?? 0;
+    const aN = current.agentVisitors ?? 0;
+    current.humanConversionRate = pool(current.humanConversionRate, hN, H.conversionRate, H.visitors);
+    current.agentConversionRate = pool(current.agentConversionRate, aN, A.conversionRate, A.visitors);
+    current.humanVisitors = hN + H.visitors;
+    current.agentVisitors = aN + A.visitors;
+    const all = current.humanVisitors + current.agentVisitors;
+    current.overallConversionRate = all
+      ? (current.humanConversionRate * current.humanVisitors + current.agentConversionRate * current.agentVisitors) / all
+      : current.overallConversionRate;
+  }
+
   if (ctx.state.generation === 0 && ctx.state.history.length === 0 && summary.overall.visitors > 0) {
     ctx.state.history.push({
       generation: 0,
@@ -395,6 +424,8 @@ async function observe(ctx: Persisted, deps: LoopDeps) {
       humanConversionRate: H.conversionRate,
       agentConversionRate: A.conversionRate,
       overallConversionRate: summary.overall.conversionRate,
+      humanVisitors: H.visitors,
+      agentVisitors: A.visitors,
       shippedAt: new Date().toISOString(),
     });
     say(ctx, "observer", `Baseline locked in as Gen 0: ${pct(summary.overall.conversionRate)} of all visitors buy.`);
@@ -443,13 +474,23 @@ async function proposeNow(ctx: Persisted, deps: LoopDeps) {
       { explore },
     );
     proposal = res.proposal;
-    if (!proposal) say(ctx, "designer", `LLM idea discarded (${res.reason}). Falling back to the playbook.`);
+    if (!proposal) {
+      console.warn(`[optimizer] LLM proposal discarded: ${res.reason}`);
+      say(
+        ctx,
+        "designer",
+        /\b(4\d\d|5\d\d|allowlist|network|fetch|timeout|ECONN)/i.test(res.reason ?? "")
+          ? "The LLM is unreachable right now, so I'm using the playbook."
+          : `LLM idea discarded (${(res.reason ?? "invalid").slice(0, 80)}). Falling back to the playbook.`,
+      );
+    }
   }
+  const last = ctx.memory.tried.at(-1);
   proposal ??= propose(
     ctx.state.insights,
     live,
     ctx.memory.tried.map((t) => t.patch),
-    { explore },
+    { explore, lastAudience: last ? metricAudience(last.patch, live) : undefined },
   );
 
   if (!proposal) {
@@ -505,12 +546,16 @@ async function startExperiment(ctx: Persisted, deps: LoopDeps) {
   ctx.memory.round = 0;
   ctx.state.experimentId = exp.id;
   ctx.state.phase = "experiment";
-  const audience = metricAudience(proposal.patch);
+  const audience = metricAudience(proposal.patch, live);
   say(
     ctx,
     "experimenter",
     `A/B test live: ${pct(exp.allocation)} of shoppers and agents now get "${proposal.title}"; the rest stay on v${live.version}.` +
-      (audience === "agent" ? " Humans can't see this change, so we judge it on AI shoppers only." : ""),
+      (audience === "agent"
+        ? " Humans can't see this change, so we judge it on AI shoppers only."
+        : audience === "human"
+          ? " AI shoppers never see this page change, so we judge it on human shoppers."
+          : ""),
     { experimentId: exp.id, controlVersion: live.version, treatmentVersion: exp.treatmentSpec.version, audience },
   );
   await runRound(ctx, deps, exp);
@@ -519,15 +564,45 @@ async function startExperiment(ctx: Persisted, deps: LoopDeps) {
 /** Which visitors an experiment's decision is measured on (see stats.metricAudience). */
 function experimentAudience(ctx: Persisted, exp: Experiment) {
   const control = getSpecVersion(exp.controlVersion) ?? getLiveSpec();
-  return metricAudience(ctx.state.proposal?.patch ?? diffPatch(control, exp.treatmentSpec));
+  return metricAudience(ctx.state.proposal?.patch ?? diffPatch(control, exp.treatmentSpec), control);
+}
+
+/**
+ * Experiment result after a round. Simulated traffic is tallied by the simulator and accumulated
+ * round by round (the event store is capped, so early rounds may already be evicted); real
+ * (non-synthetic) visitors in the experiment are read from events and added on top.
+ */
+function measureRound(
+  ctx: Persisted,
+  deps: LoopDeps,
+  exp: Experiment,
+  round: number,
+  audience: ReturnType<typeof metricAudience>,
+  sim: SimulationResult,
+): { result: ExperimentResult; synthetic: boolean } {
+  if (!sim.byVariantKind) return evaluateExperiment(exp.id, round, deps.config, audience);
+  if (ctx.memory.arms?.experimentId !== exp.id) {
+    ctx.memory.arms = { experimentId: exp.id, control: emptyArmCounts(), treatment: emptyArmCounts() };
+  }
+  const arms = ctx.memory.arms;
+  arms.control = addArmCounts(arms.control, sim.byVariantKind.control);
+  arms.treatment = addArmCounts(arms.treatment, sim.byVariantKind.treatment);
+
+  const real = experimentArms(exp.id, eventStore().all().filter((e) => !e.properties.synthetic));
+  const control = variantStatsFromCounts("control", addArmCounts(arms.control, armCountsFromStats(real.control)));
+  const treatment = variantStatsFromCounts("treatment", addArmCounts(arms.treatment, armCountsFromStats(real.treatment)));
+  return {
+    result: evaluateArms(control, treatment, round, deps.config, hashString(`${exp.id}:${round}`), audience),
+    synthetic: sim.humans + sim.agents > 0,
+  };
 }
 
 async function runRound(ctx: Persisted, deps: LoopDeps, exp: Experiment) {
   const round = ctx.memory.round + 1;
-  await runTraffic(ctx, deps, deps.config.roundHumans, deps.config.roundAgents);
+  const sim = await runTraffic(ctx, deps, deps.config.roundHumans, deps.config.roundAgents);
   ctx.memory.round = round;
   const audience = experimentAudience(ctx, exp);
-  const { result, synthetic } = evaluateExperiment(exp.id, round, deps.config, audience);
+  const { result, synthetic } = measureRound(ctx, deps, exp, round, audience, sim);
   saveExperiment({ ...exp, result });
 
   const c = segment(result.control, audience);
@@ -650,7 +725,7 @@ async function ship(ctx: Persisted, deps: LoopDeps, exp: Experiment, result: Exp
         "shipper",
         pr.url && !pr.dryRun
           ? `Pull request${pr.number ? ` #${pr.number}` : ""} opened: ${pr.url}`
-          : `PR drafted (dry run, no GitHub token): "${pr.title}" on branch ${pr.branch}.`,
+          : `PR drafted (dry run): "${pr.title}" on branch ${pr.branch}.`,
         { pr: prData },
       );
     } catch (err) {
@@ -669,6 +744,8 @@ async function ship(ctx: Persisted, deps: LoopDeps, exp: Experiment, result: Exp
     humanConversionRate: t.byKind.human.conversionRate,
     agentConversionRate: t.byKind.agent.conversionRate,
     overallConversionRate: t.conversionRate,
+    humanVisitors: t.byKind.human.visitors,
+    agentVisitors: t.byKind.agent.visitors,
     experimentId: exp.id,
     lift: result.lift,
     ...(prUrl ? { prUrl } : {}),

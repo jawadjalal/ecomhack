@@ -10,12 +10,13 @@
  * history, then validates whatever comes back exactly like a playbook patch. Any failure → playbook.
  */
 import { z } from "zod";
-import { PageSpecSchema, type ChangeProposal, type Insight, type PageSpec, type SpecPatch } from "@/lib/contracts";
+import { PageSpecSchema, type Audience, type ChangeProposal, type Insight, type PageSpec, type SpecPatch } from "@/lib/contracts";
 import { describeDiff } from "@/lib/spec/patch";
 import { generateJson, llmAvailable, llmLabel } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
 import { insightKind, type InsightKind } from "./insights";
 import { canonicalKey, clamp, normalizePatch, withTimeout } from "./util";
+import { metricAudience } from "./stats";
 
 export interface PlaybookIdea {
   title: string;
@@ -260,6 +261,23 @@ const FALLBACK_ORDER: IdeaKey[] = [
 export interface ProposeOptions {
   /** Wildcard turn: prefer a risky/creative idea. */
   explore?: boolean;
+  /** Audience the previous experiment targeted (see stats.metricAudience). */
+  lastAudience?: Audience;
+}
+
+/**
+ * Human-only and agent-only changes never interact (each audience can't see the other's change).
+ * Agents convert ~10x better than humans, so ranking by lost orders alone would spend every
+ * experiment on the agent surface. After a single-audience experiment we therefore turn to the
+ * other audience's best idea (if it has one), so both funnels keep improving.
+ */
+function rotateAudience<T extends { audience: Audience }>(pool: T[], last: Audience | undefined): T[] {
+  if (last !== "agent" && last !== "human") return pool;
+  const other: Audience = last === "agent" ? "human" : "agent";
+  const preferred = pool.filter((o) => o.audience === other);
+  if (preferred.length) return preferred;
+  const mixed = pool.filter((o) => o.audience === "all");
+  return mixed.length ? mixed : pool;
 }
 
 /** Look up the playbook idea behind a proposal (by title), e.g. to tell the audience it's a risky bet. */
@@ -284,6 +302,7 @@ export function propose(
     patch: SpecPatch;
     next: PageSpec;
     score: number;
+    audience: Audience;
     insights: Insight[];
   }
   const options = new Map<IdeaKey, Option>();
@@ -291,6 +310,8 @@ export function propose(
   const consider = (key: IdeaKey, score: number, insight?: Insight) => {
     const idea: PlaybookIdea = IDEAS[key];
     if (tried.has(canonicalKey(idea.patch))) return;
+    // A sticky button is already always in view; moving it "above the fold" would be a step back.
+    if (key === "above_fold_cta" && spec.productPage.ctaPosition === "sticky") return;
     const norm = normalizePatch(spec, idea.patch);
     if (!norm || tried.has(canonicalKey(norm.patch))) return;
     const existing = options.get(key);
@@ -299,7 +320,8 @@ export function propose(
       if (insight && !existing.insights.includes(insight)) existing.insights.push(insight);
       return;
     }
-    options.set(key, { key, idea, patch: norm.patch, next: norm.next, score, insights: insight ? [insight] : [] });
+    const audience = metricAudience(norm.patch, spec);
+    options.set(key, { key, idea, patch: norm.patch, next: norm.next, score, audience, insights: insight ? [insight] : [] });
   };
 
   insights.forEach((insight, rank) => {
@@ -324,6 +346,7 @@ export function propose(
   }
   if (!pool.length) return null;
 
+  if (!opts.explore) pool = rotateAudience(pool, opts.lastAudience);
   pool.sort((a, b) => b.score - a.score);
   const best = pool[0];
   const lead = best.insights[0];

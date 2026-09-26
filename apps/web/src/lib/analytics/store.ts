@@ -22,6 +22,7 @@ const MAX_EVENTS = Number(process.env.DARWIN_MAX_EVENTS ?? 250_000);
 const DATA_DIR = process.env.DARWIN_DATA_DIR ?? path.join(process.cwd(), ".data");
 const FILE = path.join(DATA_DIR, "events.ndjson");
 const PERSIST = process.env.DARWIN_PERSIST !== "0";
+const PERSIST_SYNTHETIC = process.env.DARWIN_PERSIST_SYNTHETIC === "1";
 
 class MemoryEventStore implements EventStore {
   private events: AnalyticsEvent[] = [];
@@ -41,7 +42,8 @@ class MemoryEventStore implements EventStore {
   private push(e: AnalyticsEvent) {
     this.index.set(e.uuid, this.offset + this.events.length);
     this.events.push(e);
-    if (this.events.length > MAX_EVENTS) {
+    // Trim in batches (10% slack): splicing on every push past the cap is O(n) per event.
+    if (this.events.length > MAX_EVENTS * 1.1) {
       const dropped = this.events.splice(0, this.events.length - MAX_EVENTS);
       for (const d of dropped) this.index.delete(d.uuid);
       this.offset += dropped.length;
@@ -58,10 +60,13 @@ class MemoryEventStore implements EventStore {
       this.push(e);
       out.push(e);
     }
-    if (PERSIST && out.length) {
+    // Simulated traffic is regenerable and can reach hundreds of MB during long autopilot runs,
+    // so by default only real events hit disk (loop, spec and experiment state persist separately).
+    const toPersist = PERSIST_SYNTHETIC ? out : out.filter((e) => !e.properties.synthetic);
+    if (PERSIST && toPersist.length) {
       try {
         fs.mkdirSync(DATA_DIR, { recursive: true });
-        fs.appendFileSync(FILE, out.map((e) => JSON.stringify(e)).join("\n") + "\n");
+        fs.appendFileSync(FILE, toPersist.map((e) => JSON.stringify(e)).join("\n") + "\n");
       } catch (err) {
         console.warn("[events] persist failed", err);
       }

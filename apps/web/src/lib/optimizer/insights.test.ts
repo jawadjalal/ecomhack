@@ -58,11 +58,12 @@ describe("diagnose", () => {
   it("finds shipping shock from funnel shape + spec when friction data is empty", () => {
     const insights = diagnose(BASELINE, DEFAULT_SPEC);
     const kinds = insights.map(insightKind);
-    expect(kinds[0]).toBe("shipping_shock");
+    // Agents buying at 8% vs a ~30% benchmark is the single biggest leak; the checkout leaks follow.
+    expect(kinds.slice(0, 3)).toContain("shipping_shock");
     expect(kinds).toContain("weak_add_to_cart");
     expect(kinds).toContain("checkout_friction");
     expect(kinds).toContain("agent_blind");
-    const top = insights[0];
+    const top = insights.find((i) => insightKind(i) === "shipping_shock")!;
     expect(top.title).toContain("66%"); // 1 - 29/85
     expect(top.detail).toContain("29 of 85");
     expect(top.impactScore).toBeGreaterThan(0);

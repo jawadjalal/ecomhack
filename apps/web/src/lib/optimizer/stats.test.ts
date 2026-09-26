@@ -1,3 +1,4 @@
+import { DEFAULT_SPEC } from "@/lib/spec/default-spec";
 import { describe, expect, it } from "vitest";
 import type { AnalyticsEvent, VariantStats } from "@/lib/contracts";
 import { comparePosteriors, decide, evaluateArms, metricAudience, variantStatsFromEvents, DEFAULT_DECISION } from "./stats";
@@ -76,7 +77,11 @@ describe("audience-scoped (triggered) analysis", () => {
   it("measures agentSurface-only patches on agents", () => {
     expect(metricAudience({ agentSurface: { exposeDeliveryEta: true } })).toBe("agent");
     expect(metricAudience({ agentSurface: { exposeReturnPolicy: true }, productPage: { showReturnsPolicy: true } })).toBe("all");
-    expect(metricAudience({ cart: { showShippingUpfront: true } })).toBe("all");
+    expect(metricAudience({ cart: { showShippingUpfront: true } })).toBe("human");
+    expect(metricAudience({ productPage: { ctaPosition: "sticky" }, checkout: { steps: 1 } })).toBe("human");
+    // Agents feel the free-shipping threshold through landed price, unless landed price is hidden.
+    expect(metricAudience({ cart: { freeShippingThreshold: 6000 } })).toBe("all");
+    expect(metricAudience({ cart: { freeShippingThreshold: 6000 } }, DEFAULT_SPEC)).toBe("human");
     expect(metricAudience({})).toBe("all");
   });
 

@@ -9,7 +9,7 @@
  * Triggered analysis: a patch that only touches `agentSurface` is invisible to humans, so its
  * decision is computed on agent visitors only (`audience: "agent"`); human traffic would just add noise.
  */
-import type { AnalyticsEvent, Audience, ExperimentResult, SpecPatch, VariantStats, VisitorKind } from "@/lib/contracts";
+import type { AnalyticsEvent, Audience, ExperimentResult, PageSpec, SpecPatch, VariantStats, VisitorKind } from "@/lib/contracts";
 import { eventStore } from "@/lib/analytics/store";
 import { filterEvents } from "@/lib/analytics/summary";
 import { hashString, mulberry32 } from "./util";
@@ -21,10 +21,16 @@ export interface DecisionConfig {
   minVisitors: number;
   /** Same, when the metric is scoped to one audience (agents are a small slice of traffic). */
   minSegmentVisitors: number;
-  /** Ship when P(treatment > control) ≥ this. */
+  /** Ship when P(treatment > control) ≥ this at the final round. */
   shipThreshold: number;
-  /** Reject when P(treatment > control) ≤ this. */
+  /** Reject when P(treatment > control) ≤ this at the final round. */
   rejectThreshold: number;
+  /**
+   * Stricter bars for stopping early. We look after every round, and each look is another chance
+   * to be fooled by noise, so interim looks must clear a higher bar (a simple alpha-spending rule).
+   */
+  interimShipThreshold?: number;
+  interimRejectThreshold?: number;
   /** After this many traffic rounds without a call, give up: inconclusive. */
   maxRounds: number;
 }
@@ -34,6 +40,8 @@ export const DEFAULT_DECISION: DecisionConfig = {
   minSegmentVisitors: 100,
   shipThreshold: 0.95,
   rejectThreshold: 0.1,
+  interimShipThreshold: 0.99,
+  interimRejectThreshold: 0.02,
   maxRounds: 4,
 };
 
@@ -62,6 +70,52 @@ export function variantStatsFromEvents(variant: string, events: readonly Analyti
   const visitors = kindOf.size;
   const conversions = buyers.size;
   return { variant, visitors, conversions, revenue, conversionRate: visitors ? conversions / visitors : 0, byKind };
+}
+
+export interface ArmCounts {
+  human: { visitors: number; orders: number; revenue: number };
+  agent: { visitors: number; orders: number; revenue: number };
+}
+
+export const emptyArmCounts = (): ArmCounts => ({
+  human: { visitors: 0, orders: 0, revenue: 0 },
+  agent: { visitors: 0, orders: 0, revenue: 0 },
+});
+
+export function addArmCounts(a: ArmCounts, b?: Partial<ArmCounts>): ArmCounts {
+  const add = (x: ArmCounts["human"], y?: ArmCounts["human"]) => ({
+    visitors: x.visitors + (y?.visitors ?? 0),
+    orders: x.orders + (y?.orders ?? 0),
+    revenue: x.revenue + (y?.revenue ?? 0),
+  });
+  return { human: add(a.human, b?.human), agent: add(a.agent, b?.agent) };
+}
+
+/** Arm counts from already-computed stats (e.g. real events), to combine with simulated tallies. */
+export function armCountsFromStats(v: VariantStats): ArmCounts {
+  const share = (k: "human" | "agent") => (v.conversions ? v.byKind[k].conversions / v.conversions : 0);
+  return {
+    human: { visitors: v.byKind.human.visitors, orders: v.byKind.human.conversions, revenue: Math.round(v.revenue * share("human")) },
+    agent: { visitors: v.byKind.agent.visitors, orders: v.byKind.agent.conversions, revenue: Math.round(v.revenue * share("agent")) },
+  };
+}
+
+export function variantStatsFromCounts(variant: string, c: ArmCounts): VariantStats {
+  const kind = (k: ArmCounts["human"]) => ({
+    visitors: k.visitors,
+    conversions: k.orders,
+    conversionRate: k.visitors ? k.orders / k.visitors : 0,
+  });
+  const visitors = c.human.visitors + c.agent.visitors;
+  const conversions = c.human.orders + c.agent.orders;
+  return {
+    variant,
+    visitors,
+    conversions,
+    revenue: c.human.revenue + c.agent.revenue,
+    conversionRate: visitors ? conversions / visitors : 0,
+    byKind: { human: kind(c.human), agent: kind(c.agent) },
+  };
 }
 
 /** Control + treatment stats for an experiment, read from the event store. */
@@ -167,11 +221,15 @@ export function decide(
   cfg: DecisionConfig = DEFAULT_DECISION,
   audience: Audience = "all",
 ): Decision {
-  const min = audience === "all" ? cfg.minVisitors : cfg.minSegmentVisitors;
+  // Agents convert at ~50%, so a small sample is decisive; humans (~3%) need the full minimum.
+  const min = audience === "agent" ? cfg.minSegmentVisitors : cfg.minVisitors;
   const enough = input.controlVisitors >= min && input.treatmentVisitors >= min;
-  if (enough && input.probabilityToBeat >= cfg.shipThreshold) return "ship";
-  if (enough && input.probabilityToBeat <= cfg.rejectThreshold) return "reject";
-  if (input.round >= cfg.maxRounds) return "inconclusive";
+  const final = input.round >= cfg.maxRounds;
+  const ship = final ? cfg.shipThreshold : (cfg.interimShipThreshold ?? cfg.shipThreshold);
+  const reject = final ? cfg.rejectThreshold : (cfg.interimRejectThreshold ?? cfg.rejectThreshold);
+  if (enough && input.probabilityToBeat >= ship) return "ship";
+  if (enough && input.probabilityToBeat <= reject) return "reject";
+  if (final) return "inconclusive";
   return "running";
 }
 
@@ -181,9 +239,14 @@ export function relativeLift(a: number, b: number): number | undefined {
 }
 
 /** Which visitors a patch can affect: agentSurface-only patches are invisible to humans. */
-export function metricAudience(patch: SpecPatch): Audience {
+export function metricAudience(patch: SpecPatch, live?: PageSpec): Audience {
   const keys = Object.keys(patch).filter((k) => patch[k as keyof SpecPatch] !== undefined);
-  return keys.length > 0 && keys.every((k) => k === "agentSurface") ? "agent" : "all";
+  if (keys.length === 0) return "all";
+  if (keys.every((k) => k === "agentSurface")) return "agent";
+  // Human UI changes are invisible to agents, whose ~50% conversion would only add noise to the
+  // metric. The one UI knob agents feel is the free-shipping threshold, via their landed price.
+  const agentsFeelShipping = patch.cart?.freeShippingThreshold !== undefined && (live?.agentSurface.exposeLandedPrice ?? true);
+  return !keys.includes("agentSurface") && !agentsFeelShipping ? "human" : "all";
 }
 
 /** The slice of an arm the decision metric counts. */
