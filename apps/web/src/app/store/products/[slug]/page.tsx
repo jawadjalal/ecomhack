@@ -12,7 +12,13 @@ import { getStoreContext } from "@/lib/storefront/context";
 import { deliveryEstimate } from "@/lib/storefront/delivery";
 
 function findProduct(slug: string) {
-  const p = getProduct(decodeURIComponent(slug));
+  let ref = slug;
+  try {
+    ref = decodeURIComponent(slug);
+  } catch {
+    // A stray "%" (e.g. /store/products/100%25) is not a product: fall through to a 404, not a URIError.
+  }
+  const p = getProduct(ref);
   return p && (p.slug === slug || p.id === slug) ? p : undefined;
 }
 
