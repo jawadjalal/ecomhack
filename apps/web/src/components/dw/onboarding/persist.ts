@@ -9,7 +9,7 @@ import type { Answers } from "./ask";
 
 export const PROGRESS_KEY = "darwin-onboarding-progress:v1";
 
-export type SavedStage = "connect" | "ask" | "plan" | "install" | "live";
+export type SavedStage = "connect" | "team" | "ask" | "plan" | "install" | "live";
 
 export interface SavedMessage {
   from: "you" | "darwin";
@@ -33,7 +33,7 @@ export interface SavedProgress {
   chat: SavedMessage[];
 }
 
-const STAGES: SavedStage[] = ["connect", "ask", "plan", "install", "live"];
+const STAGES: SavedStage[] = ["connect", "team", "ask", "plan", "install", "live"];
 
 export function loadProgress(): SavedProgress | null {
   try {

@@ -1,23 +1,29 @@
 "use client";
 
 /**
- * Onboarding pieces in the cream Darwin design: stepper, chat bubbles, the crew working through steps,
+ * Onboarding pieces in the cream Darwin design: stepper, chat bubbles, the team working through steps,
  * check animations, the "which brain" chip and the stage backdrop. Used by components/onboarding.
+ *
+ * The merchant only ever talks to Darwin (the red crowned leader). Specialists show up next to him
+ * as helpers ("Iris is on it") and in step lists, never as a second voice.
  */
 import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, ChevronRight, ListChecks, TriangleAlert } from "lucide-react";
 import { cn } from "@/components/ui/cn";
-import { Mascot, type MascotKind } from "@/components/dw/mascot";
+import type { AgentId, MascotState } from "@/lib/contracts/team";
+import { getAgent } from "@/lib/team/roster";
+import { AnimatedMascot } from "@/components/mascots/animated-mascot";
 import { BrandGlyph, type BrandKey } from "@/components/dw/brand-logos";
 
 export const EASE = [0.2, 0.8, 0.2, 1] as const;
 
 /* ------------------------------------------------------------------ stepper */
 
-export type Step = "connect" | "plan" | "install" | "live";
+export type Step = "connect" | "team" | "plan" | "install" | "live";
 const STEPS: { id: Step; label: string }[] = [
   { id: "connect", label: "Connect" },
+  { id: "team", label: "Team" },
   { id: "plan", label: "Plan" },
   { id: "install", label: "Install" },
   { id: "live", label: "Live" },
@@ -109,14 +115,15 @@ export function CheckPop({ size = 20, tone = "ink", burst, delay = 0, className 
   );
 }
 
-/** Which crew member does a step: observers read, designers plan, shippers open PRs. */
-export function crewFor(step: string): MascotKind {
-  if (/pull request|shipping|opening/i.test(step)) return "shipper";
-  if (/plan|choos|adding|dashboard/i.test(step)) return "designer";
-  return "observer";
+/** Which specialist does a step: Iris reads and plans what to measure, Pixel edits code, Dash opens PRs. */
+export function crewFor(step: string): AgentId {
+  if (/pull request|shipping|opening/i.test(step)) return "dash";
+  if (/adding|darwin\.js|editing/i.test(step)) return "pixel";
+  if (/test|experiment/i.test(step)) return "fizz";
+  return "iris";
 }
 
-/** A list of steps: done ones tick, the current one has its crew member bobbing, later ones wait. */
+/** A list of steps: done ones tick, the current one shows the specialist at work, later ones wait. */
 export function StepList({ steps, current, finished, className, reveal }: { steps: string[]; current: number; finished?: boolean; className?: string; reveal?: boolean }) {
   const shown = reveal ? steps.slice(0, current + 1) : steps;
   return (
@@ -136,7 +143,7 @@ export function StepList({ steps, current, finished, className, reveal }: { step
               {done ? (
                 <CheckPop size={20} />
               ) : now ? (
-                <Mascot kind={crewFor(s)} size={26} active />
+                <AnimatedMascot kind={getAgent(crewFor(s)).mascot} state="working" size={30} title={`${getAgent(crewFor(s)).name} is on it`} />
               ) : (
                 <span className="size-[18px] rounded-full border-[1.5px] border-dashed border-dw-ink/25" />
               )}
@@ -154,11 +161,15 @@ export function StepList({ steps, current, finished, className, reveal }: { step
 
 /* ------------------------------------------------------------------ chat */
 
-/** Darwin talking: the framed 3D analyst as the avatar, a white bubble. */
-export function AgentBubble({ children, working, className }: { children: ReactNode; working?: boolean; className?: string }) {
+/**
+ * Darwin talking: the crowned leader as the avatar, a white bubble. `thinking` while he composes a reply,
+ * `working` while his team runs steps; resting otherwise. Tap him and he reacts.
+ */
+export function AgentBubble({ children, working, thinking, className }: { children: ReactNode; working?: boolean; thinking?: boolean; className?: string }) {
+  const state: MascotState = thinking ? "thinking" : working ? "working" : "idle";
   return (
-    <div className={cn("flex items-start gap-3", className)}>
-      <Mascot kind="analyst" frame size={40} active={working ?? true} title="Darwin" />
+    <div className={cn("flex items-start gap-2.5", className)}>
+      <AnimatedMascot kind="leader" state={state} size={48} interactive title="Darwin" className="-mt-1.5 -ml-1" />
       <div className="min-w-0 flex-1 rounded-[22px] rounded-tl-[8px] border border-dw-hairline bg-dw-surface px-4 py-3 text-[15px] leading-relaxed text-dw-ink/85 shadow-[0_1px_0_rgba(20,20,19,0.03),0_12px_30px_-22px_rgba(20,20,19,0.35)]">
         {children}
       </div>
@@ -207,9 +218,21 @@ export function brainOf(designer?: string): Brain | null {
   const m = model.toLowerCase();
   if (/grok|xai/.test(m)) return { label: "Thinking with Grok", glyph: "grok", model };
   if (/claude|anthropic/.test(m)) return { label: "Thinking with Claude", glyph: "claude", model };
+  if (m.includes("deepseek")) return { label: `Runs on ${prettyModel(model)}`, glyph: "openrouter", model };
   if (/gpt|openai|(^|\/)o[1345]\b/.test(m)) return { label: "Thinking with OpenAI", glyph: "openai", model };
   if (m.includes("/")) return { label: "Thinking with OpenRouter", glyph: "openrouter", model };
   return { label: `Thinking with ${model}`, model };
+}
+
+/** "deepseek/deepseek-v4.1-flash" → "DeepSeek V4.1 Flash". */
+export function prettyModel(model: string): string {
+  const base = model.split("/").pop() ?? model;
+  return base
+    .replace(/^deepseek-?/i, "DeepSeek ")
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((w) => (/^v?\d/i.test(w) ? w.toUpperCase() : w === "DeepSeek" ? w : w[0].toUpperCase() + w.slice(1)))
+    .join(" ");
 }
 
 export function BrainChip({ brain, className }: { brain: Brain | null; className?: string }) {
@@ -224,50 +247,95 @@ export function BrainChip({ brain, className }: { brain: Brain | null; className
         {brain.glyph ? <BrandGlyph brand={brain.glyph} size={13} /> : <ListChecks className="size-3.5" />}
       </span>
       <span className="truncate">{brain.label}</span>
-      {short && brain.glyph === "openrouter" && <span className="truncate font-dwmono text-[12px] font-normal text-dw-ink/55">{short}</span>}
+      {short && brain.glyph === "openrouter" && !brain.label.startsWith("Runs on") && <span className="truncate font-dwmono text-[12px] font-normal text-dw-ink/55">{short}</span>}
     </span>
   );
 }
 
 /* ------------------------------------------------------------------ stage heads */
 
-/** A framed crew member that pops when it changes, and hops when `celebrate` flips on. */
-export function StageMascot({ kind, size = 64, active = true, celebrate = false }: { kind: MascotKind; size?: number; active?: boolean; celebrate?: boolean }) {
+/** Darwin, big, with the specialist he has on the job tucked in beside him (it pops in when it changes). */
+export function StageMascot({
+  helper,
+  state = "idle",
+  helperState = "working",
+  size = 92,
+  celebrate = false,
+}: {
+  helper?: AgentId;
+  state?: MascotState;
+  helperState?: MascotState;
+  size?: number;
+  celebrate?: boolean;
+}) {
   const reduce = useReducedMotion();
+  const h = helper ? getAgent(helper) : null;
+  const hs = Math.round(size * 0.5);
   return (
     <span className="relative inline-grid shrink-0" style={{ width: size, height: size }}>
+      <AnimatedMascot kind="leader" state={state} size={size} interactive title="Darwin" flash={celebrate ? { state: "success", key: "celebrate" } : undefined} />
       <AnimatePresence initial={false} mode="popLayout">
-        <motion.span
-          key={kind}
-          className="col-start-1 row-start-1 inline-grid"
-          initial={reduce ? false : { scale: 0.4, rotate: -24, opacity: 0 }}
-          animate={{ scale: 1, rotate: 0, opacity: 1 }}
-          exit={{ scale: 0.4, rotate: 24, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 380, damping: 19 }}
-        >
+        {h && (
           <motion.span
-            key={celebrate ? "hop" : "rest"}
-            className="inline-grid"
-            animate={celebrate && !reduce ? { y: [0, -16, 0, -7, 0], rotate: [0, -10, 8, -3, 0] } : undefined}
-            transition={{ duration: 0.9, ease: "easeOut" }}
+            key={h.id}
+            className="absolute -right-[18%] -bottom-[8%] inline-grid"
+            initial={reduce ? false : { scale: 0.4, y: 6, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.4, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 420, damping: 22 }}
           >
-            <Mascot kind={kind} frame size={size} active={active} />
+            <AnimatedMascot kind={h.mascot} state={helperState} size={hs} title={`${h.name}, ${h.role.toLowerCase()}`} />
           </motion.span>
-        </motion.span>
+        )}
       </AnimatePresence>
     </span>
   );
 }
 
-/** H1 46/600 with a crew member, a one-line lede and optional right-hand actions. */
-export function StageHead({ mascot, title, lede, right, celebrate }: { mascot: MascotKind; title: ReactNode; lede?: ReactNode; right?: ReactNode; celebrate?: boolean }) {
+/** "Iris is on it": which specialist Darwin handed this step to. */
+export function HelperChip({ helper, doing, className }: { helper: AgentId; doing?: string; className?: string }) {
+  const a = getAgent(helper);
+  return (
+    <span className={cn("inline-flex h-7 max-w-full items-center gap-1.5 rounded-full bg-dw-surface pr-3 pl-2 text-[13px] text-dw-ink/75 shadow-[0_0_0_1px_rgba(20,20,19,0.07)]", className)}>
+      <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: a.color }} />
+      <span className="truncate">
+        <b className="font-semibold text-dw-ink">{a.name}</b> {doing ?? `(${a.role.toLowerCase()}) is on it`}
+      </span>
+    </span>
+  );
+}
+
+/** H1 46/600 with Darwin (and his helper), a one-line lede and optional right-hand actions. */
+export function StageHead({
+  helper,
+  helperState,
+  doing,
+  state,
+  title,
+  lede,
+  right,
+  celebrate,
+}: {
+  helper?: AgentId;
+  helperState?: MascotState;
+  /** What the helper is doing, for the chip under the title ("is reading your store"). */
+  doing?: string;
+  state?: MascotState;
+  title: ReactNode;
+  lede?: ReactNode;
+  right?: ReactNode;
+  celebrate?: boolean;
+}) {
   return (
     <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-      <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-        <StageMascot kind={mascot} size={64} celebrate={celebrate} />
+      <div className="flex min-w-0 items-center gap-5 sm:gap-7">
+        <span className="-my-3 -ml-2 inline-grid">
+          <StageMascot helper={helper} helperState={helperState} state={state} celebrate={celebrate} />
+        </span>
         <div className="min-w-0">
           <h1 className="text-[32px] leading-[1.05] font-semibold tracking-[-0.03em] text-balance sm:text-[46px]">{title}</h1>
           {lede && <p className="mt-2 max-w-[46rem] text-[15.5px] leading-snug text-dw-ink/70 sm:text-[17px]">{lede}</p>}
+          {helper && <HelperChip helper={helper} doing={doing} className="mt-3" />}
         </div>
       </div>
       {right && <div className="flex flex-wrap items-center gap-2.5">{right}</div>}
@@ -315,6 +383,7 @@ export function Drawer({ children }: { children: ReactNode }) {
 const GLOW: Record<string, string> = {
   connect:
     "radial-gradient(46rem 30rem at 50% 42%, rgba(246,215,107,0.30), transparent 70%), radial-gradient(34rem 26rem at 14% 92%, rgba(184,202,238,0.28), transparent 70%), radial-gradient(34rem 26rem at 88% 88%, rgba(243,181,213,0.26), transparent 70%)",
+  team: "radial-gradient(44rem 30rem at 22% 12%, rgba(255,122,122,0.20), transparent 70%), radial-gradient(40rem 30rem at 88% 70%, rgba(184,202,238,0.30), transparent 70%), radial-gradient(30rem 24rem at 50% 100%, rgba(246,215,107,0.18), transparent 70%)",
   ask: "radial-gradient(44rem 30rem at 50% 18%, rgba(213,204,245,0.40), transparent 70%), radial-gradient(34rem 26rem at 90% 90%, rgba(246,215,107,0.20), transparent 70%)",
   plan: "radial-gradient(50rem 30rem at 78% 8%, rgba(246,215,107,0.26), transparent 70%), radial-gradient(40rem 30rem at 6% 70%, rgba(184,202,238,0.26), transparent 70%)",
   install: "radial-gradient(46rem 30rem at 70% 12%, rgba(169,180,110,0.26), transparent 70%), radial-gradient(36rem 26rem at 10% 90%, rgba(95,240,180,0.12), transparent 70%)",

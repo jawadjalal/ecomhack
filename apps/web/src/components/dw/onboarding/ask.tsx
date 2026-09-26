@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Globe, Plus } from "lucide-react";
 import { cn } from "@/components/ui/cn";
-import { Mascot } from "@/components/dw/mascot";
+import { AnimatedMascot } from "@/components/mascots/animated-mascot";
 import { PillButton, Typing } from "@/components/dw/ui";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { WhopLogo } from "@/components/dw/brand-logos";
@@ -158,10 +158,10 @@ export function AskChat({
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Mascot kind="analyst" frame size={52} active title="Darwin" />
+          <AnimatedMascot kind="leader" state={typing ? "thinking" : "idle"} size={64} interactive title="Darwin" className="-my-2 -ml-1.5" />
           <div>
             <div className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Darwin</div>
-            <div className="text-[13.5px] text-dw-ink/60">Your store&apos;s analyst</div>
+            <div className="text-[13.5px] text-dw-ink/60">Your team lead</div>
           </div>
         </div>
         <BrainChip brain={brain} />
@@ -170,7 +170,7 @@ export function AskChat({
       {prompt.trim() && <YouBubble text={prompt.trim()} />}
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }}>
-        <AgentBubble working={typing}>
+        <AgentBubble thinking={typing}>
           Connected to <b className="font-semibold text-dw-ink">{connectedTo}</b>
           {whop ? (
             <>
@@ -186,7 +186,7 @@ export function AskChat({
       <AnimatePresence initial={false}>
         {(step > 0 || !typing) && (
           <motion.div key="q1" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }} className="flex flex-col gap-3">
-            <AgentBubble working={step === 0}>
+            <AgentBubble>
               <p className="font-medium text-dw-ink">{Q_TRACK}</p>
               {step === 0 && (
                 <form
@@ -230,11 +230,11 @@ export function AskChat({
         {step > 0 && (
           <motion.div key="q2" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }} className="flex flex-col gap-3">
             {typing && step === 1 ? (
-              <AgentBubble working>
+              <AgentBubble thinking>
                 <Typing />
               </AgentBubble>
             ) : (
-              <AgentBubble working={step === 1}>
+              <AgentBubble>
                 <p className="font-medium text-dw-ink">{Q_WHERE}</p>
                 {step === 1 && (
                   <div className="mt-3 flex flex-col gap-2" role="group" aria-label="Where your customers are">

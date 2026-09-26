@@ -32,12 +32,16 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/tracking/            Tracking plans (what to record, from the merchant's words) and the dashboards built from them.
   src/lib/research/            Market & competitor research (Tavily + LLM, sourced claims, A/B test ideas).
   src/lib/assistant/           "Ask Darwin": the merchant's managing assistant (tool registry over public APIs + LLM loop).
+  src/lib/team/                The agent team: Darwin (lead) delegates to Iris/Pixel/Fizz/Dash concurrently in group chats;
+                               roster.ts (names/roles/tools, client-safe), tools.ts (per-agent registries), orchestrator.ts.
   src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher,
                                Grok certificate (agent trial over MCP or page reading → Gold/Silver/Bronze + badge).
-  src/lib/llm/                 Grok (xAI) / Claude / heuristic fallback.
+  src/lib/llm/                 Providers: DeepSeek V4 Flash via OpenRouter (default), APINex (Pixel/editor, hard tasks,
+                               overflow), Grok (xAI), Claude; runToolLoop (tools → JSON fallback → next provider) → heuristic.
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
   src/app/store/**             The demo storefront (what shoppers see).
-  src/app/onboarding/**        First-run setup: prompt bar, connect Whop + GitHub, analytics PR, dashboards.
+  src/app/onboarding/**        First-run setup: prompt bar, connect Whop + GitHub, meet Darwin's team, analytics PR, dashboards.
+  src/components/mascots/      Animated team mascots (public/mascots/{kind}-{state}.svg): calm at rest, big moves on events.
   src/app/console/**           Mission control (what judges see).
   src/app/api/**               HTTP API — see src/lib/contracts/api.ts for every route and shape.
 ```
@@ -56,11 +60,12 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | web | `lib/web/**`, `/api/web/**`, `/demo/**`, `app/console/personalize`, `components/web/**` | `webState`, `buildRuntime`, `createRule`, `updateRule`, `draftRule`, `suggestRules`, `simulateWebTraffic` |
 | readiness | `lib/readiness/**`, `/api/readiness/**`, `/api/leads`, `app/readiness/**`, `components/readiness/**` | `auditStore`, `evaluate`, `certifyStore`, `getCertificate` |
 | console | `app/page.tsx`, `app/console/**`, `components/console/**` | — |
-| onboarding | `app/onboarding/**`, `components/onboarding/**`, `lib/whop/**`, `/api/whop/**`, `public/onboarding/**` | `connectWhop`, `getWhopStatus` |
+| onboarding | `app/onboarding/**`, `components/onboarding/**`, `components/dw/onboarding/**`, `components/mascots/**`, `public/mascots/**`, `scripts/mascots/**`, `lib/whop/**`, `/api/whop/**`, `public/onboarding/**` | `connectWhop`, `getWhopStatus`, `<AnimatedMascot kind state interactive flash />` |
 | store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel`, `stepAgentTests`, `agentTestsView` |
 | tracking | `lib/tracking/**`, `/api/onboarding/**`, `/api/dashboards`, `app/console/dashboards`, `components/dashboards/**` | `heuristicPlan`, `amendPlan`, `getPlan`, `savePlan`, `computeDashboards`, `trackingDoc` |
 | briefing | `lib/briefing/**`, `/api/briefing/**` | `getBriefing`, `actOnBriefing` |
 | research | `lib/research/**`, `/api/research/**`, `app/console/research`, `components/research/**`, `contracts/research.ts` | `researchCompetitors`, `askResearch`, `listReports`, `getReport` |
+| team | `lib/team/**`, `/api/team/**`, `contracts/team.ts`, `lib/github/edit.ts` (with github) | `runTeamTurn`, `teamState`, `chatView`, `createUserChat`, `TEAM`, `toolsFor` (add a tool: an entry in `lib/team/tools.ts` + the agent's `tools` in `roster.ts`) |
 | assistant | `lib/assistant/**`, `/api/assistant`, `components/console/assistant-panel.tsx`, `components/console/mascot.tsx`, `app/console/layout.tsx` | `runAssistant`, `TOOLS`, `runTool` (add a tool: one entry in `lib/assistant/tools.ts`, wrapping another area's public API) |
 
 Cross-module calls go through the public API above, never deep imports into another area.

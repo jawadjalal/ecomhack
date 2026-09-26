@@ -36,10 +36,11 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Next-run ideas:** "Watch Darwin fix a store in 30 s" autoplay mode; a readiness score input right on the landing.
 
 ### Onboarding `/onboarding`  ✅
-- **Done:** composer-only screen 1 (Connect your GitHub / Connect your Whop), Darwin asks what to track and where, repo dropdown, script-tag path (no GitHub), plan → install → live dashboards, progress survives reload.
+- **Done:** composer-only screen 1 (Connect your GitHub / Connect your Whop), Darwin asks what to track and where, repo dropdown, script-tag path (no GitHub), plan → install → live dashboards, progress survives reload. **Team intro** (new stage after Connect): Darwin, the only one you talk to, introduces Iris / Pixel / Fizz / Dash one by one; each wakes up from asleep and lists its real tools from `lib/team/roster.ts`, with the ask-first ones marked; skip button; reduced motion shows all at once. **New animated mascots** (`components/mascots/animated-mascot.tsx`, `public/mascots/`): Darwin is the red crowned leader; resting is calm (slow breathing, blinks, glances), and the big moves only play on events: tap → reaction, typing → Darwin thinks, steps → working, done → success. Specialists appear beside Darwin as the ones doing each step ("Iris is doing the reading").
 - **Left to do:** set `GITHUB_OAUTH_CLIENT_ID/SECRET` on Vercel (the dropdown needs sign-in); detect the first real event after install and celebrate it; branch picker for the install PR; Shopify connect.
 - **Limitations:** plans live in server memory; the install PR is a preview while the server's `GITHUB_TOKEN` is rejected (it is, today).
-- **Next-run ideas:** "Whop OAuth" sign-in; auto-detect the store's platform from the URL.
+- **Next-run ideas:** "Whop OAuth" sign-in; auto-detect the store's platform from the URL; let the merchant ask Darwin a first question right in the team intro (stream `POST /api/team/chat` with `context.path=/onboarding`); swap the old `dw/mascot` crew on console screens for the animated set.
+- **Limitations (team intro):** the intro script is fixed copy, not an LLM call (so it is instant and never wrong); the model chip shows the loop's model, which is "Built-in rules" until an OpenRouter key is set.
 
 ### Overview `/console`  ✅ (🟡 above-the-fold pass)
 - **Done:** impact strip (before Darwin vs now, extra buyers per 1,000), Conversion / A vs B / Which agents buy / How they convert, live shoppers joined to the journey, Ask Darwin bottom-sheet chat (mobile sheet too).
@@ -101,6 +102,12 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **In progress:** one typed command layer (`src/lib/commands`) used by ⌘K, the bottom prompt-bar chat on every screen, and WebMCP (`navigator.modelContext`) so a browser agent can navigate, build dashboards, simulate traffic, roll back, draft personalizations, ship/stop tests. `window.darwin.run(name, input)` for automation.
 - **Left to do:** every new user-facing action must be added as a command (rule in AGENTS.md).
 
+### Agent team: Darwin + Iris, Pixel, Fizz, Dash (`lib/team`, `/api/team/**`)  🟡 (backend ✅, panel UI in progress)
+- **Done:** Darwin (team lead) plans and delegates; specialists each have their own tools (roster in `lib/team/roster.ts`, registries in `lib/team/tools.ts`). Several parts of an ask run **concurrently** (max 3) in a group chat Darwin opens, with ≤140-char progress/tool messages, then Darwin reports in the merchant's chat. Specialists can `ask` a teammate once (depth 1). Every side-effecting tool (merge, commit/PR, publish rule, ship, autopilot, reset) posts a `confirm` message and runs only after the merchant approves (once). NDJSON stream `POST /api/team/chat`; `GET /api/team`, `GET /api/team/chats/[id]`, `POST /api/team/chats`; chats persisted in `.data/team-*.json`. No key → keyword routing with the same group chats and real tool results. Onboarding (`context.path = "/onboarding"`) gets a short team intro. Pixel/Dash can list/read repo files, commit to `darwin/*` branches, open, check and merge PRs (`lib/github/edit.ts`; dry-run/offline return previews). LLM: `runToolLoop` with native tool calling → JSON-protocol fallback → next provider; DeepSeek V4 Flash via OpenRouter by default, APINex for Pixel (`APINEX_EDITOR_MODEL`), hard tasks and overflow (`OPENROUTER_MAX_CONCURRENT`). 18 tests.
+- **Left to do:** the bottom chat panel UI rendering chats/group chats/confirm buttons (other agent); register team actions in the command layer once `src/lib/commands` lands on this branch; the keyword path never marks tasks hard (only Darwin's LLM `delegate` does, per task).
+- **Limitations:** live model calls were not verified here (the sandbox egress blocks openrouter.ai and api.apinex.bond), so the live curl ran the heuristic path; APINex tool calling is unverified (the JSON fallback covers it); heuristic splitting is keyword based ("A and B, then C"); history sent to the model is the last 12 text messages of the chat; one in-process semaphore (not shared across instances).
+- **Next-run ideas:** let Darwin resume a delegation after a confirm is approved (today the approving agent just reports the tool result); stream specialists' model tokens; show per-agent cost/latency; have Dash poll `pr_status` after a merge-able PR opens and ping the merchant.
+
 ### Agent readiness `/readiness`  ⬜ restyle
 - **Done:** audit any store URL for AI shoppers.
 - **Left to do:** still the old dark design — restyle to cream.
@@ -121,5 +128,9 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 ---
 
 ## Run log (newest first)
+
+- **2026-09-26 UTC — team (agent team backend).** Shipped `lib/team` (roster, per-agent tools, orchestrator with concurrent delegation, group chats, ask, confirm gate), `/api/team/**` NDJSON API, `runToolLoop` + OpenRouter/APINex routing in `lib/llm/client.ts` (default model now `deepseek/deepseek-v4.1-flash`), repo editing in `lib/github/edit.ts`. Open: panel UI, command-layer registration, live LLM check outside the sandbox.
+
+- **2026-09-26 UTC — onboarding (main session).** Onboarding now talks only through Darwin (the new red crowned leader mascot), with a "Meet your team" stage that introduces the four specialists and their tools; the handoff's animated mascots are in `public/mascots` with a calm idle (`scripts/mascots/calm-idle.mjs`). Open: the console screens still use the old static crew.
 
 - **2026-09-26 13:40 UTC — lead agent.** Redesign of every screen (PR #37), Grok teammate, ACP/MCP agent checkout, rollback, owner bug list fixed (double payments, invented claims, rejected GitHub token, RPV tile, mobile overflow, dead store buttons). In progress: above-the-fold pass, lead agent (⌘K / chat / WebMCP), brutal judge review.

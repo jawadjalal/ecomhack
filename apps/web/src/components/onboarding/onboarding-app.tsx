@@ -31,7 +31,8 @@ import type { WhopConnection, WhopStatus } from "@/lib/whop";
 import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { DashboardGrid } from "@/components/dashboards/dashboard-grid";
-import { Mascot } from "@/components/dw/mascot";
+import { AnimatedMascot } from "@/components/mascots/animated-mascot";
+import { TeamIntro } from "@/components/onboarding/team-intro";
 import { Card, Empty, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
 import { BrandGlyph, WhopLogo } from "@/components/dw/brand-logos";
 import {
@@ -43,6 +44,7 @@ import {
   EASE,
   ErrorLine,
   StageHead,
+  StageMascot,
   StepList,
   Stepper,
   YouBubble,
@@ -57,8 +59,12 @@ import { clearProgress, loadProgress, saveProgress, type SavedProgress } from "@
 
 /* ------------------------------------------------------------------ data */
 
-/** connect → ask (Darwin's two questions) → plan → install → live. The stepper shows ask as part of Plan. */
-type Stage = "connect" | "ask" | "plan" | "install" | "live";
+/**
+ * connect → team (Darwin introduces his specialists) → ask (Darwin's two questions) → plan → install → live.
+ * The merchant only ever talks to Darwin; specialists show up beside him as the ones doing the work.
+ * The stepper shows ask as part of Plan.
+ */
+type Stage = "connect" | "team" | "ask" | "plan" | "install" | "live";
 
 const PR_STEPS = ["Reading the repository", "Adding darwin.js and your tracking plan", "Opening a pull request"];
 
@@ -106,6 +112,7 @@ interface Message {
 
 const WIDTH: Record<Stage, string> = {
   connect: "max-w-[48rem]",
+  team: "max-w-[80rem]",
   ask: "max-w-[44rem]",
   plan: "max-w-[84rem]",
   install: "max-w-[72rem]",
@@ -155,7 +162,7 @@ export function OnboardingApp() {
     setChat(saved.chat);
     const reconnected = !!saved.repo || !!saved.website;
     if (!reconnected || saved.stage === "connect") return setStage("connect");
-    if (saved.stage === "ask") return setStage("ask");
+    if (saved.stage === "team" || saved.stage === "ask") return setStage(saved.stage);
     const ctx = {
       prompt: saved.prompt,
       repo: saved.repo,
@@ -228,13 +235,23 @@ export function OnboardingApp() {
   const connected = !!repo || !!website;
   const brain = brainOf(designer);
 
+  /** Darwin listens (thinking face) while the merchant types, and relaxes a beat after they stop. */
+  const [listening, setListening] = useState(false);
+  const listenTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const listen = () => {
+    setListening(true);
+    clearTimeout(listenTimer.current);
+    listenTimer.current = setTimeout(() => setListening(false), 1200);
+  };
+  useEffect(() => () => clearTimeout(listenTimer.current), []);
+
   const reply = (text: string) => setChat((c) => [...c.filter((m) => !m.pending), { from: "darwin", text }]);
 
-  /** Screen 1 → 2: connected, now Darwin asks. */
-  const toAsk = () => {
+  /** Screen 1 → 2: connected, now Darwin introduces his team (then asks). */
+  const toTeam = () => {
     if (!connected) return;
     setOpen(null);
-    setStage("ask");
+    setStage("team");
     track("onboarding_connected", {
       whop: !!whop,
       described: !!prompt.trim(),
@@ -395,7 +412,7 @@ export function OnboardingApp() {
                   aria-label="Darwin console"
                   className="flex items-center gap-2.5 justify-self-start rounded-full focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
                 >
-                  <Mascot kind="analyst" size={32} active />
+                  <AnimatedMascot kind="leader" size={42} decorative className="-my-2 -mr-1" />
                   <span className="text-[22px] font-semibold tracking-[-0.02em]">darwin</span>
                 </Link>
                 <Stepper step={stage === "ask" ? "plan" : stage} className="col-span-2 justify-self-center max-md:order-last md:col-span-1" />
@@ -450,28 +467,25 @@ export function OnboardingApp() {
                     )}
                   >
                     <div className="flex items-start gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
-                      <motion.span
-                        key={connected ? "yes" : "no"}
-                        className="mt-0.5 inline-grid"
-                        animate={
-                          connected
-                            ? {
-                                y: [0, -12, 0, -4, 0],
-                                rotate: [0, -10, 6, 0, 0],
-                              }
-                            : undefined
-                        }
-                        transition={{ duration: 0.8 }}
-                      >
-                        <Mascot kind="analyst" frame size={44} active title="Darwin" />
-                      </motion.span>
+                      <AnimatedMascot
+                        kind="leader"
+                        state={listening ? "thinking" : "idle"}
+                        flash={connected ? { state: "success", key: "connected" } : undefined}
+                        size={60}
+                        interactive
+                        title="Darwin"
+                        className="-my-2 -ml-2 shrink-0"
+                      />
                       <textarea
                         value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
+                        onChange={(e) => {
+                          setPrompt(e.target.value);
+                          listen();
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
-                            if (connected) toAsk();
+                            if (connected) toTeam();
                             else setOpen("github");
                           }
                         }}
@@ -553,7 +567,7 @@ export function OnboardingApp() {
                       </div>
                       <button
                         type="button"
-                        onClick={toAsk}
+                        onClick={toTeam}
                         disabled={!connected}
                         aria-label="Continue"
                         className="relative grid size-12 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-[opacity,transform,background-color] hover:bg-black focus-visible:ring-2 focus-visible:ring-dw-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-dw-surface focus-visible:outline-none active:scale-95 disabled:opacity-25"
@@ -578,6 +592,20 @@ export function OnboardingApp() {
                 </motion.section>
               )}
 
+              {stage === "team" && (
+                <motion.section key="team" {...fade}>
+                  <TeamIntro
+                    connectedTo={connectedTo}
+                    brain={brain}
+                    onBack={() => setStage("connect")}
+                    onDone={() => {
+                      setStage("ask");
+                      track("team_met");
+                    }}
+                  />
+                </motion.section>
+              )}
+
               {stage === "ask" && (
                 <motion.section key="ask" {...fade}>
                   <AskChat
@@ -586,7 +614,7 @@ export function OnboardingApp() {
                     whop={whop?.title}
                     brain={brain}
                     initial={answers}
-                    onBack={() => setStage("connect")}
+                    onBack={() => setStage("team")}
                     onDone={(a) => void toPlan(a)}
                   />
                 </motion.section>
@@ -595,7 +623,11 @@ export function OnboardingApp() {
               {stage === "plan" && (
                 <motion.section key="plan" {...fade} className="flex flex-col gap-7">
                   <StageHead
-                    mascot={plan ? "designer" : "observer"}
+                    helper="iris"
+                    helperState={plan ? "idle" : "working"}
+                    doing={plan ? "drafted this plan with Darwin" : "is doing the reading"}
+                    state={plan ? "idle" : "working"}
+                    celebrate={!!plan}
                     title={plan ? "Here's what Darwin will record" : "Darwin is reading your store"}
                     lede={plan ? "Turn anything off, or tell Darwin what else to track." : "Checking what's there, then planning what to measure."}
                     right={<BrainChip brain={brain} />}
@@ -648,7 +680,7 @@ export function OnboardingApp() {
 
               {stage === "install" && plan?.siteUrl && (
                 <motion.section key="install" {...fade} className="flex flex-col gap-7">
-                  <StageHead mascot="shipper" title="Add one line to your site" lede={`No pull request needed: darwin.js goes on ${hostOf(plan.siteUrl)} with one script tag.`} />
+                  <StageHead helper="pixel" helperState="idle" doing="prepared your script tag" title="Add one line to your site" lede={`No pull request needed: darwin.js goes on ${hostOf(plan.siteUrl)} with one script tag.`} />
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
                     <div className="flex min-w-0 flex-col gap-4">
                       <InstallSnippet
@@ -673,10 +705,10 @@ export function OnboardingApp() {
 
               {stage === "install" && plan && !plan.siteUrl && (
                 <motion.section key="install" {...fade} className="flex flex-col gap-7">
-                  <StageHead mascot="shipper" title="One pull request, and you're set" lede="Darwin only ever changes your code through pull requests you review." />
+                  <StageHead helper="dash" helperState="idle" doing="will open the pull request" title="One pull request, and you're set" lede="Darwin only ever changes your code through pull requests you review." />
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
                     <div className="flex min-w-0 flex-col gap-4">
-                      <AgentBubble working={false}>
+                      <AgentBubble>
                         I&apos;ll open one pull request on <b className="font-dwmono font-medium text-dw-ink">{plan.repo}</b>: it loads darwin.js (under 5 KB) and commits your plan
                         as <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">DARWIN_TRACKING.md</code>, with the one line each event
                         needs. Nothing changes until you merge it.
@@ -707,7 +739,7 @@ export function OnboardingApp() {
 
               {restoring && !plan && (stage === "install" || stage === "live") && (
                 <motion.section key="restoring" {...fade} className="flex flex-col items-center gap-4 py-24 text-center">
-                  <Mascot kind="analyst" frame size={64} active />
+                  <AnimatedMascot kind="leader" state="thinking" size={88} title="Darwin" />
                   <p className="text-[17px] text-dw-ink/70">Picking up where you left off…</p>
                 </motion.section>
               )}
@@ -764,7 +796,7 @@ function Thread({ messages }: { messages: Message[] }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: EASE }}
           >
-            <AgentBubble working={!!m.pending}>
+            <AgentBubble working={!!m.pending && !!m.steps} thinking={!!m.pending && !m.steps}>
               {m.pending ? m.steps ? <Working steps={m.steps} /> : <Typing /> : <span className="whitespace-pre-line">{m.text}</span>}
             </AgentBubble>
           </motion.div>
@@ -799,7 +831,7 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => v
         }}
         className="flex items-center gap-2 rounded-full border border-dw-hairline bg-dw-surface py-1.5 pr-1.5 pl-2 shadow-[0_18px_40px_-26px_rgba(20,20,19,0.4)] focus-within:border-dw-ink/30"
       >
-        <Mascot kind="analyst" size={30} active={busy} />
+        <AnimatedMascot kind="leader" state={busy ? "thinking" : "idle"} size={40} decorative className="-my-1.5 -ml-1" />
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -837,7 +869,7 @@ function PlanSkeleton() {
   return (
     <Card tone="white" hover={false} className="p-6 sm:p-7" aria-busy="true" aria-label="Drafting your plan">
       <div className="flex items-center gap-4">
-        <Mascot kind="designer" frame size={60} active />
+        <AnimatedMascot kind="observer" state="working" size={72} title="Iris, observer" className="-my-2 -ml-2" />
         <div>
           <div className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Drafting your plan</div>
           <div className="mt-0.5 text-[14px] text-dw-ink/60">What to record, and the dashboards to build from it.</div>
@@ -1156,7 +1188,7 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
   return (
     <Card tone="white" hover={false} className="p-5 sm:p-6">
       <div className="flex items-center gap-3">
-        <Mascot kind={busy ? "shipper" : "shipper"} frame size={48} active={busy} />
+        <AnimatedMascot kind="shipper" state={busy ? "working" : "idle"} size={60} title="Dash, shipper" className="-my-2 -ml-1.5" />
         <div className="min-w-0">
           <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{busy ? "Opening your pull request" : "Ready when you are"}</h2>
           <p className="text-[14px] text-dw-ink/60">Three steps, a few seconds.</p>
@@ -1197,7 +1229,7 @@ function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet
   const custom = plan.events.filter((e) => e.enabled && !e.automatic).length;
   return (
     <>
-      <AgentBubble working={false}>
+      <AgentBubble>
         No pull request needed. Paste this one line into your site&apos;s{" "}
         <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">&lt;head&gt;</code> so it loads on every page
         {custom ? `, then add the one-line call for each of your ${custom} events where it happens (they're in the plan)` : ""}. darwin.js is under 5 KB and never reads form
@@ -1374,7 +1406,7 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           {data?.dashboards.length ? (
             <DashboardGrid dashboards={data.dashboards} compact />
           ) : (
-            <Empty mascot={<Mascot kind="experimenter" frame size={64} active />}>
+            <Empty mascot={<AnimatedMascot kind="observer" state={data ? "idle" : "working"} size={80} title="Iris, observer" />}>
               {data ? "Your dashboards appear here as soon as the first events arrive." : "Building your dashboards…"}
             </Empty>
           )}
@@ -1384,18 +1416,9 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
   );
 }
 
-/** The experimenter bobs while Darwin listens, and hops when every event has arrived. */
+/** Darwin, with Iris watching for the first events; he celebrates once every planned event has arrived. */
 function LiveMascot({ celebrate }: { celebrate: boolean }) {
-  return (
-    <motion.span
-      key={celebrate ? "all" : "some"}
-      className="inline-grid shrink-0"
-      animate={celebrate ? { y: [0, -18, 0, -8, 0], rotate: [0, -12, 8, -3, 0] } : undefined}
-      transition={{ duration: 0.9, ease: "easeOut" }}
-    >
-      <Mascot kind="experimenter" frame size={64} active />
-    </motion.span>
-  );
+  return <StageMascot helper="iris" helperState={celebrate ? "idle" : "working"} state="idle" celebrate={celebrate} />;
 }
 
 /* ------------------------------------------------------------------ connect pieces */
