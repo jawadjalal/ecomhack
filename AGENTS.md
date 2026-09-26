@@ -53,6 +53,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | onboarding | `app/onboarding/**`, `components/onboarding/**`, `lib/whop/**`, `/api/whop/**`, `public/onboarding/**` | `connectWhop`, `getWhopStatus` |
 | store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel`, `stepAgentTests`, `agentTestsView` |
 | tracking | `lib/tracking/**`, `/api/onboarding/**`, `/api/dashboards`, `app/console/dashboards`, `components/dashboards/**` | `heuristicPlan`, `amendPlan`, `getPlan`, `savePlan`, `computeDashboards`, `trackingDoc` |
+| briefing | `lib/briefing/**`, `/api/briefing/**` | `getBriefing`, `actOnBriefing` |
 
 Cross-module calls go through the public API above, never deep imports into another area.
 

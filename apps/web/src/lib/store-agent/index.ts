@@ -61,7 +61,7 @@ export function agentFunnel(events: readonly AnalyticsEvent[]): AgentFunnel {
     const meta = (p.whop_metadata ?? {}) as Record<string, unknown>;
     const ref = typeof p.darwin_ref === "string" ? p.darwin_ref : typeof meta.darwin_ref === "string" ? meta.darwin_ref : undefined;
     const agent = String(p.agent_name ?? meta.agent_name ?? "agent");
-    if (p.darwin_site === STORE_SITE && p.channel === "a2a" && ref) {
+    if (p.darwin_site === STORE_SITE && ["a2a", "acp", "mcp"].includes(String(p.channel)) && ref) {
       let c = convs.get(ref);
       if (!c) convs.set(ref, (c = { agent, offers: false, checkout: false, paid: false, simulated: p.synthetic === true }));
       if (e.event === "product_viewed") c.offers = true;

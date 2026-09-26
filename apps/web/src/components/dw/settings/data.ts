@@ -104,3 +104,10 @@ export function brainOf(designer: string | undefined): Brain {
   if (/gpt|^o\d/.test(m)) return { name: "OpenAI", model, glyph: "openai", llm: true, grok: false };
   return { name: model, model, llm: true, grok: false };
 }
+
+/** The darwin.js tag for a connected site (same markup as lib/github's install PR writes). */
+export function scriptTagFor(host: string, siteId: string): string {
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  const origin = (/^https?:\/\//i.test(host) ? host : `https://${host}`).replace(/\/+$/, "");
+  return `<script src="${esc(`${origin}/darwin.js`)}" data-darwin-site="${esc(siteId)}" defer></script>`;
+}

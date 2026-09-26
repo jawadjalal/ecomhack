@@ -292,12 +292,14 @@ function loopItems(origin: string, now: number): Draft[] {
       else if (deciding && result.decision === "inconclusive") tail = `; no clear winner, so Darwin will shelve it on its next step`;
       else if (deciding && result.decision === "reject") tail = `; it lost, so Darwin will shelve it on its next step`;
     }
+    // A finished test that didn't win: "losing" if it lost, else just "running" until Darwin shelves it.
+    const status = deciding && !ready ? (result!.decision === "reject" ? "losing" : "running") : statusFor(p, ready);
     const actions: BriefingAction[] = ready ? ["ship"] : deciding ? ["stop"] : [];
     out.push({
       id: `loop:${current.id}`,
       kind: "loop",
       title: current.name,
-      status: statusFor(p, ready),
+      status,
       probabilityToBeat: p,
       lift: result?.lift,
       ...labelled(current.id, result),
@@ -401,7 +403,8 @@ export async function getBriefing(opts: { origin: string }): Promise<Briefing> {
 
   // What to ask: the most urgent item the merchant can act on.
   const shipAsk = items.find((i) => (i.status === "ready" || i.status === "winning") && i.actions.includes("ship"));
-  const stopAsk = shipAsk ? undefined : items.find((i) => i.status === "losing" && i.actions.includes("stop"));
+  // Store page tests that lost are shelved by Darwin on its next step anyway: no need to ask about those.
+  const stopAsk = shipAsk ? undefined : items.find((i) => i.status === "losing" && i.actions.includes("stop") && i.kind !== "loop");
   const asked = shipAsk ?? stopAsk;
   const active = items.filter((i) => ACTIVE.has(i.status));
   const top = asked ?? active[0];
@@ -496,7 +499,7 @@ async function actOnLoop(experimentId: string, action: BriefingAction): Promise<
     if (!deciding || result!.decision !== "ship") {
       return {
         ok: false,
-        text: `“${exp.name}” hasn't cleared Darwin's ${shipBar} bar yet (chance it's better: ${p}), and Darwin won't ship a store page change before it does. It ships by itself once it clears the bar; follow it in the console.`,
+        text: `Darwin only ships a store page change once its test clears the ${shipBar} bar, and “${exp.name}” is at ${p}. Darwin calls it by itself when the data is in; follow it in the console.`,
       };
     }
     const after = await stepLoop(); // decide → ship: promotes the winner and opens the pull request
