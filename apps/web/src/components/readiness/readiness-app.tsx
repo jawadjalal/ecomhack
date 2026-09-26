@@ -738,8 +738,8 @@ export function ReadinessApp({ initialUrl = "" }: { initialUrl?: string }) {
             <Checks report={report} />
             <section className="flex flex-col gap-3">
               <h2 className="text-[24px] font-semibold">{cert && isGrok(cert) ? "Grok's shopping trial" : cert?.heuristic ? "Agent trial" : "The agent's shopping trial"}</h2>
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-                <ChatPane agent={agent ?? (cert && isGrok(cert) ? "Grok" : cert?.heuristic ? "Rules" : "AI agent")} mode={mode} msgs={transcript} thinking={false} waiting={false} host={host} />
+              <div className={cn("grid gap-4", trial && "lg:grid-cols-[1.2fr_1fr]")}>
+                {trial && <ChatPane agent={agent ?? (cert && isGrok(cert) ? "Grok" : cert?.heuristic ? "Rules" : "AI agent")} mode={mode} msgs={transcript} thinking={false} waiting={false} host={host} />}
                 <div className="flex min-w-0 flex-col gap-3 rounded-[26px] border border-dw-hairline bg-dw-surface p-5 sm:p-6">
                   {trial ? (
                     <>
@@ -752,10 +752,13 @@ export function ReadinessApp({ initialUrl = "" }: { initialUrl?: string }) {
                       </div>
                     </>
                   ) : (
-                    <>
-                      <div className="text-[17px] font-semibold">No agent trial</div>
-                      <p className="text-[14px] leading-relaxed text-dw-ink/75">{cert?.note ?? "No AI key is configured, so the level comes from the audit score alone."}</p>
-                    </>
+                    <div className="flex items-start gap-3">
+                      <Mascot kind="analyst" size={44} />
+                      <div>
+                        <div className="text-[17px] font-semibold">No agent trial this time</div>
+                        <p className="mt-1 text-[14px] leading-relaxed text-dw-ink/75">{cert?.note ?? "No AI key is configured, so the level comes from the score alone."}</p>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

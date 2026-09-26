@@ -829,7 +829,7 @@ export function verdictText(
   trial: CertificateTrial | undefined,
   note?: string,
 ): string {
-  const head = `${LEVEL_LABEL[level]}${trial ? "" : " (heuristic)"}: audit score ${report.score}/100, grade ${report.grade}.`;
+  const head = `${LEVEL_LABEL[level]}${trial ? "" : " (scored by rules)"}: audit score ${report.score}/100, grade ${report.grade}.`;
   const parts = [head];
   if (trial) {
     parts.push(trial.summary);

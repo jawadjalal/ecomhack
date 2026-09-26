@@ -166,7 +166,7 @@ describe("certifyStore", () => {
     });
     expect(cert.trial).toBeUndefined();
     expect(cert.id).toMatch(/^cert_[a-z0-9]+$/);
-    expect(cert.verdict).toContain("heuristic");
+    expect(cert.verdict).toContain("scored by rules");
     expect(cert.expiresAt).toBe("2026-04-01T00:00:00.000Z"); // +90 days
     expect(llm.calls).toHaveLength(0);
   });
