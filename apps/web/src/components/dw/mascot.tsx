@@ -78,6 +78,7 @@ export function Mascot({
   size = 64,
   active = true,
   state,
+  flash,
   frame = false,
   className,
   title,
@@ -87,6 +88,8 @@ export function Mascot({
   active?: boolean;
   /** What the agent is doing now; overrides `active`. */
   state?: MascotState;
+  /** Change `key` to play a state once (tapped / success / error), then settle back. */
+  flash?: { state: MascotState; key: string | number };
   frame?: boolean;
   className?: string;
   title?: string;
@@ -98,6 +101,7 @@ export function Mascot({
       kind={kind}
       state={state ?? "idle"}
       still={!state && !active}
+      flash={flash}
       size={box}
       tapOnClick
       title={title ?? mascotName(kind)}
