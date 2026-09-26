@@ -5,6 +5,8 @@ import { POST } from "@/app/api/store-agent/demo-pay/route";
 import { agentFunnel, DEMO_CATALOG, paidOrderFor, recordDemoPayment, resetCatalog, resetStoreAgent, runSimulatedBuyer } from ".";
 
 const offer = DEMO_CATALOG.offers[0];
+/** Separate requests run in separate turns. */
+const nextTurn = () => new Promise((r) => setImmediate(r));
 const orders = (ref: string) =>
   eventStore()
     .all()
@@ -20,14 +22,30 @@ beforeEach(() => {
 });
 
 describe("demo checkout payments are idempotent per checkout reference", () => {
-  it("records one paid order per ref, however many times Pay is pressed", () => {
+  it("records one paid order per ref, however many times Pay is pressed", async () => {
     expect(paidOrderFor("ctx_pay_once")).toBeUndefined();
     expect(recordDemoPayment(offer.id, "ctx_pay_once")).toEqual({ ok: true, title: offer.title });
+    await nextTurn();
     expect(recordDemoPayment(offer.id, "ctx_pay_once")).toEqual({ ok: true, alreadyPaid: true, title: offer.title });
-    expect(recordDemoPayment(offer.id, "ctx_pay_once")).toEqual({ ok: true, alreadyPaid: true, title: offer.title });
+    expect(recordDemoPayment(offer.id, "ctx_pay_once", false, { exclusive: true })).toEqual({ ok: true, alreadyPaid: true, title: offer.title });
     expect(orders("ctx_pay_once")).toHaveLength(1);
     expect(paidOrderFor("ctx_pay_once")?.properties.revenue).toBe(offer.price);
     expect(agentFunnel(eventStore().all()).revenue).toBe(offer.price);
+  });
+
+  it("an exclusive payment (one request) never joins another in flight, even in the same turn", () => {
+    expect(recordDemoPayment(offer.id, "ctx_same_turn", false, { exclusive: true }).alreadyPaid).toBeUndefined();
+    expect(recordDemoPayment(offer.id, "ctx_same_turn", false, { exclusive: true })).toMatchObject({ ok: true, alreadyPaid: true });
+    expect(orders("ctx_same_turn")).toHaveLength(1);
+  });
+
+  it("an order paid unit by unit in one turn (ACP, quantity 2) is one payment: both units count, paying again doesn't", async () => {
+    expect(recordDemoPayment(offer.id, "ctx_two_units").ok).toBe(true);
+    expect(recordDemoPayment(offer.id, "ctx_two_units").alreadyPaid).toBeUndefined();
+    await nextTurn();
+    expect(recordDemoPayment(offer.id, "ctx_two_units")).toMatchObject({ ok: true, alreadyPaid: true });
+    expect(orders("ctx_two_units").map((e) => e.uuid)).toEqual(["darwin:demo-pay:ctx_two_units:0", "darwin:demo-pay:ctx_two_units:1"]);
+    expect(agentFunnel(eventStore().all()).revenue).toBe(offer.price * 2);
   });
 
   it("counts a ref already paid through Whop (metadata darwin_ref) as paid", () => {
@@ -66,5 +84,13 @@ describe("demo checkout payments are idempotent per checkout reference", () => {
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual({ ok: true, alreadyPaid: true, title: offer.title });
     expect(orders("ctx_route_ref")).toHaveLength(1);
+  });
+
+  it("a double click (two requests at once) pays once", async () => {
+    const pay = () =>
+      POST(new Request("http://localhost/api/store-agent/demo-pay", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer: offer.id, ref: "ctx_double_click" }) }));
+    const bodies = await Promise.all([pay(), pay(), pay()].map(async (r) => (await r).json()));
+    expect(bodies.filter((b) => b.alreadyPaid)).toHaveLength(2);
+    expect(orders("ctx_double_click")).toHaveLength(1);
   });
 });
