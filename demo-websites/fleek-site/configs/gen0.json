@@ -1,0 +1,56 @@
+{
+  "version": 0,
+  "label": "Baseline",
+  "hero": {
+    "headline": "Vintage stock, by the bundle",
+    "subheadline": "Wholesale bundles from verified vintage suppliers. Up to 50% off this week across hundreds of bundles.",
+    "ctaText": "Learn more",
+    "layout": "fullbleed",
+    "showSocialProof": false
+  },
+  "announcement": {
+    "enabled": false,
+    "text": ""
+  },
+  "productGrid": {
+    "columns": 4,
+    "showRatings": false,
+    "showQuickAdd": false,
+    "sort": "featured"
+  },
+  "productPage": {
+    "ctaText": "Add to cart",
+    "ctaPosition": "below-description",
+    "showReviews": false,
+    "showSizeGuide": false,
+    "showDeliveryEstimate": false,
+    "showReturnsPolicy": false,
+    "urgency": "none",
+    "trustBadges": false
+  },
+  "cart": {
+    "showShippingUpfront": false,
+    "freeShippingThreshold": null,
+    "upsell": false
+  },
+  "checkout": {
+    "steps": 3,
+    "guestCheckout": false,
+    "expressPay": false
+  },
+  "theme": {
+    "accent": "#f8c642",
+    "radius": "md"
+  },
+  "agentSurface": {
+    "structuredData": false,
+    "exposeStock": false,
+    "exposeDeliveryEta": false,
+    "exposeReturnPolicy": false,
+    "exposeLandedPrice": false,
+    "negotiation": {
+      "enabled": false,
+      "maxDiscountPct": 0
+    }
+  }
+}
