@@ -130,10 +130,21 @@ export function GrokCard({ className }: { className?: string }) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-dw-ink/20 p-4"
+                className="flex flex-1 flex-col justify-center gap-4 rounded-2xl border border-dashed border-dw-ink/20 p-4"
               >
+                {/* A ghost of the message to come. */}
+                <div className="flex items-end gap-2.5" aria-hidden>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-dw-ink/10 text-dw-ink/40">
+                    <BrandGlyph brand="grok" size={15} />
+                  </span>
+                  <div className={cn("flex w-full max-w-[22rem] flex-col gap-2 rounded-[20px] rounded-bl-md bg-dw-ink/[0.06] px-4 py-3.5", state.kind === "loading" && "animate-pulse")}>
+                    <span className="h-2.5 w-[85%] rounded-full bg-dw-ink/15" />
+                    <span className="h-2.5 w-[65%] rounded-full bg-dw-ink/15" />
+                    <span className="h-2 w-[45%] rounded-full bg-dw-ink/10" />
+                  </div>
+                </div>
                 <p className="text-[13.5px] leading-snug text-dw-ink/70">See exactly what the bot would send you right now, from Darwin&apos;s live numbers.</p>
-                <PillButton size="sm" onClick={() => void load()} disabled={state.kind === "loading"} aria-busy={state.kind === "loading"}>
+                <PillButton size="sm" onClick={() => void load()} disabled={state.kind === "loading"} aria-busy={state.kind === "loading"} className="self-start">
                   {state.kind === "loading" ? (
                     <span className="flex items-center gap-2 [&_.bg-dw-ink]:bg-white">
                       Reading Darwin <Typing />

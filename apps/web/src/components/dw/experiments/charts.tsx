@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import type { ExperimentResult } from "@/lib/contracts";
 import { count } from "@/lib/console/format";
 import { Card, CardTitle, pct0 } from "../ui";
+import { CARD_FILL } from "./model";
 import { Tip } from "./tip";
 
 /* ------------------------------------------------------------------ chance B wins */
@@ -59,7 +60,7 @@ export function ChanceCard({
   const key = points.map((p) => p.p.toFixed(3)).join(",");
 
   return (
-    <Card tone="pink" shape="experimenter" className="flex min-h-[262px] flex-col" aria-label="Chance B wins">
+    <Card tone="pink" shape="experimenter" className={`h-full min-h-[262px] ${CARD_FILL}`} aria-label="Chance B wins">
       <CardTitle
         right={
           <Tip
@@ -187,7 +188,7 @@ export function WhoBuysCard({ result, audience, synthetic }: { result?: Experime
       ]
     : [];
   return (
-    <Card tone="blue" shape="observer" className="flex min-h-[262px] flex-col" aria-label="Who buys, A vs B">
+    <Card tone="blue" shape="observer" className={`h-full min-h-[262px] ${CARD_FILL}`} aria-label="Who buys, A vs B">
       <CardTitle
         right={
           <span className="flex items-center gap-3 text-[12px] text-[#2E3A55]">

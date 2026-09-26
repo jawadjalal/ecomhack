@@ -6,6 +6,12 @@ import type { ChangeProposal, Experiment, ExperimentResult, GenerationRecord, In
 import { money, parseDiffLine, humanizePath, prsByGeneration, withStatusPrs, type DiffLine, type PrInfo } from "@/lib/console/format";
 import { describeDiff } from "@/lib/spec/patch";
 
+/**
+ * `Card` wraps its children in a plain `div.relative`; this makes that wrapper a full-height flex
+ * column so charts and mocks can grow to fill the card (pair with `[&>.relative]:gap-*`).
+ */
+export const CARD_FILL = "flex flex-col [&>.relative]:flex [&>.relative]:min-h-0 [&>.relative]:flex-1 [&>.relative]:flex-col";
+
 /* ------------------------------------------------------------------ decision rules */
 
 /**

@@ -389,5 +389,5 @@ export function setIdParam(id: string | undefined) {
   const url = new URL(window.location.href);
   if (id) url.searchParams.set("id", id);
   else url.searchParams.delete("id");
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }

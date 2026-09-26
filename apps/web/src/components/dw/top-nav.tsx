@@ -52,7 +52,7 @@ export function TopNav() {
 
       <nav
         aria-label="Main"
-        className="flex h-[54px] items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink p-[5px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-lg:order-last max-lg:col-span-2 max-lg:justify-self-center"
+        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-lg:order-last max-lg:col-span-2 max-lg:justify-self-center"
       >
         {NAV.map((n, i) => {
           const on = n.key === active;
@@ -94,7 +94,7 @@ export function TopNav() {
           className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb]"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
-          {autopilot ? "Darwin running" : "Paused"}
+          <span className="max-sm:hidden">{autopilot ? "Darwin running" : "Paused"}</span>
           {mock && <span className="text-[12px] text-dw-ink/50">(demo data)</span>}
         </button>
         <MoreMenu />

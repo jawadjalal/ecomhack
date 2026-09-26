@@ -7,7 +7,7 @@ import { count, signedPct, timeAgo } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { BrandGlyph } from "../brand-logos";
 import { Card, Tag, pct0 } from "../ui";
-import { audienceNoun, diffCode, measured, type PrRow } from "./model";
+import { audienceNoun, CARD_FILL, diffCode, measured, type PrRow } from "./model";
 import { Tip } from "./tip";
 
 const rate = (x: number) => `${(x * 100).toFixed(x < 0.1 ? 1 : 0)}`;
@@ -20,7 +20,7 @@ export function DiffCard({ row, configPath, live }: { row: PrRow; configPath: st
   const branch = row.pr.branch ?? (row.kind === "install" ? "darwin/install-analytics" : undefined);
   const meta = [branch && `${branch} → ${row.pr.base ?? "main"}`, row.kind === "spec" ? "1 file" : undefined, row.state === "preview" ? "dry run" : row.pr.repo].filter(Boolean).join(" · ");
   return (
-    <Card tone="white" hover={false} className="flex h-full flex-col gap-4 px-5 sm:px-7" aria-label="The change">
+    <Card tone="white" hover={false} className={`h-full px-5 sm:px-7 ${CARD_FILL} [&>.relative]:gap-5`} aria-label="The change">
       <div className="flex flex-col gap-1.5">
         <h2 className="text-[22px] leading-snug font-semibold tracking-[-0.01em] sm:text-[24px]">{row.title}</h2>
         <div className="flex flex-wrap items-center gap-2">
@@ -38,7 +38,7 @@ export function DiffCard({ row, configPath, live }: { row: PrRow; configPath: st
           {row.state === "queued" && <Tag tone="warn">Queued: GitHub was unavailable</Tag>}
         </div>
       </div>
-      <div className="mt-4 flex min-h-[300px] flex-1 flex-col overflow-x-auto rounded-[18px] bg-dw-ink px-5 py-4 font-dwmono text-[13px] leading-[1.85] text-[#E8E6DF] sm:px-6 sm:text-[14px]">
+      <div className="flex min-h-[300px] flex-1 flex-col overflow-x-auto rounded-[18px] bg-dw-ink px-5 py-4 font-dwmono text-[13px] leading-[1.85] text-[#E8E6DF] sm:px-6 sm:text-[14px]">
         <span className="mb-1.5 text-[#8F8B82]">{row.kind === "install" ? "your store's root layout" : configPath}</span>
         {row.kind === "install" ? (
           <>
@@ -99,15 +99,15 @@ export function ProofCard({ row, synthetic }: { row: PrRow; synthetic: boolean }
   const m = result ? measured(result) : undefined;
   const lift = row.lift ?? result?.lift;
   return (
-    <Card tone="olive" shape="shipper" corner="br" className="flex h-full flex-col gap-5 px-5 sm:px-7" aria-label="Proof">
+    <Card tone="olive" shape="shipper" corner="br" className={`h-full px-5 sm:px-7 ${CARD_FILL} [&>.relative]:gap-5`} aria-label="Proof">
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : "Proof"}</h2>
       {row.kind === "install" ? (
-        <p className="mt-4 max-w-[26rem] text-[16px] leading-snug text-[#2F3517]">
+        <p className="max-w-[26rem] text-[16px] leading-snug text-[#2F3517]">
           Darwin can&apos;t fix what it can&apos;t see. This pull request is how every later test gets its shoppers: people in the browser, agents through the store API.
         </p>
       ) : (
         <>
-          <div className="mt-4 flex flex-col">
+          <div className="mt-2 flex flex-col">
             <span className="num text-[56px] leading-none font-semibold tracking-[-0.03em] sm:text-[64px]">{lift !== undefined ? signedPct(lift) : "–"}</span>
             <span className="mt-1 text-[15px] text-[#2F3517]">more {audienceNoun(m?.audience ?? "all")} bought</span>
           </div>

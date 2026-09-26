@@ -11,6 +11,7 @@ import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing, pct0 } f
 import { ChanceCard, WhoBuysCard, type ChancePoint } from "../experiments/charts";
 import { PastExperiments, WhatChangesCard } from "../experiments/changes";
 import {
+  CARD_FILL,
   audienceNoun,
   changeRows,
   controlSpecFor,
@@ -248,17 +249,17 @@ export function ExperimentsScreen() {
       <div key={exp.id} className="flex flex-col gap-4">
         <div className="grid gap-4 lg:grid-cols-2">
           <motion.div {...stagger(0)} className="min-w-0">
-            <Card tone="white" className="flex h-full flex-col gap-4 px-5 sm:px-6" aria-label="A, today">
-              <CardTitle right={armLine("A")}>A · {running ? "today" : "before"}</CardTitle>
-              <div className="mt-4">
+            <Card tone="white" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="A, today">
+              <CardTitle right={<span className="text-[14px]">{armLine("A")}</span>}>A · {running ? "today" : "before"}</CardTitle>
+              <div className="flex flex-1 flex-col [&>*]:flex-1">
                 <SpecMock spec={view.control} other={exp.treatmentSpec} arm="A" page={view.page} />
               </div>
             </Card>
           </motion.div>
           <motion.div {...stagger(1)} className="min-w-0">
-            <Card tone="yellow" shape="designer" className="flex h-full flex-col gap-4 px-5 sm:px-6" aria-label="B, the fix">
-              <CardTitle right={<span className="text-[#4F4417]">{armLine("B")}</span>}>B · the fix</CardTitle>
-              <div className="mt-4">
+            <Card tone="yellow" shape="designer" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="B, the fix">
+              <CardTitle right={<span className="text-[14px] text-[#4F4417]">{armLine("B")}</span>}>B · the fix</CardTitle>
+              <div className="flex flex-1 flex-col [&>*]:flex-1">
                 <SpecMock spec={exp.treatmentSpec} other={view.control} arm="B" page={view.page} />
               </div>
             </Card>
@@ -287,7 +288,7 @@ export function ExperimentsScreen() {
             selectedId={exp.id}
             now={now}
             onSelect={(id) => {
-              choose(id === auto?.id ? auto.id : id);
+              choose(id);
               window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
             }}
           />
