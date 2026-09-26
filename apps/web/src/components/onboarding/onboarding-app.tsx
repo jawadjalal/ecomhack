@@ -144,6 +144,10 @@ export function OnboardingApp() {
   const [urlError, setUrlError] = useState<string | null>(null);
   const urlInput = useRef<HTMLInputElement>(null);
   const continueBtn = useRef<HTMLButtonElement>(null);
+  /** The address lifted from the description (so typing the sentence can be all it takes). */
+  const [prefilled, setPrefilled] = useState<string | null>(null);
+  /** The host the merchant said is theirs when the description named another one. */
+  const [confirmedHost, setConfirmedHost] = useState<string | null>(null);
   const [snippet, setSnippet] = useState<string | null>(null);
   const [whopStatus, setWhopStatus] = useState<WhopStatus | null>(null);
   const [whop, setWhop] = useState<WhopConnection | null>(null);
@@ -288,6 +292,24 @@ export function OnboardingApp() {
   /** A valid address typed but not yet added still counts: Continue adds it. */
   const draftSite = website || repo ? null : storeOrigin(urlDraft);
   const connected = !!repo || !!website || !!draftSite;
+
+  /** Typing the description: a domain in it prefills the store address (until the merchant types their own). */
+  const changePrompt = (v: string) => {
+    setPrompt(v);
+    if (website || repo) return;
+    if (!urlDraft.trim() || urlDraft === prefilled) {
+      const d = domainIn(v);
+      setUrlDraft(d ?? "");
+      setPrefilled(d);
+      setUrlError(null);
+    }
+  };
+
+  /** The description names one store and the address field another: ask which is right. */
+  const mentioned = domainIn(prompt);
+  const currentOrigin = website ?? draftSite;
+  const mismatch =
+    !!mentioned && !!currentOrigin && bareHost(mentioned) !== bareHost(hostOf(currentOrigin)) && confirmedHost !== bareHost(hostOf(currentOrigin)) ? mentioned : null;
 
   /** "Paste your store URL" → the chip (Enter or Add). The script-tag path: no GitHub needed. */
   const addUrl = (focusNext = true) => {
@@ -568,7 +590,7 @@ export function OnboardingApp() {
                           <button
                             key={x.label}
                             type="button"
-                            onClick={() => setPrompt(x.text)}
+                            onClick={() => changePrompt(x.text)}
                             className="h-9 rounded-full bg-dw-bg/95 px-3.5 text-[14px] font-medium text-dw-ink transition-[transform,background-color] hover:bg-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none active:scale-[0.97]"
                           >
                             {x.label}
@@ -611,7 +633,7 @@ export function OnboardingApp() {
                         </motion.span>
                         <PromptField
                           value={prompt}
-                          onChange={setPrompt}
+                          onChange={changePrompt}
                           onEnter={() => {
                             if (connected) toAsk();
                             else urlInput.current?.focus();
@@ -642,7 +664,8 @@ export function OnboardingApp() {
                               <X className="size-4" />
                             </button>
                           </span>
-                        ) : (
+                        ) : null}
+                        {!website && (
                           <form
                             onSubmit={(e) => {
                               e.preventDefault();
@@ -676,6 +699,36 @@ export function OnboardingApp() {
                               Add <span className="font-dwmono text-[12px] text-white/60 max-sm:hidden">↵</span>
                             </button>
                           </form>
+                        )}
+                        {mismatch && currentOrigin && (
+                          <div
+                            role="group"
+                            aria-label="Which is your store?"
+                            className="mt-2.5 flex flex-wrap items-center gap-2 text-[13.5px] text-dw-ink/70 max-sm:rounded-[18px] max-sm:bg-dw-bg max-sm:px-3 max-sm:py-2"
+                          >
+                            <span>
+                              You mentioned <b className="font-semibold text-dw-ink">{mismatch}</b>. Which is your store?
+                            </span>
+                            {[mismatch, hostOf(currentOrigin)].map((h, i) => (
+                              <button
+                                key={h}
+                                type="button"
+                                onClick={() => {
+                                  if (i === 0) {
+                                    setWebsite(storeOrigin(h));
+                                    setRepo(null);
+                                    setUrlDraft("");
+                                    setUrlError(null);
+                                  } else if (!website) addUrl(false);
+                                  setConfirmedHost(bareHost(h));
+                                  track("store_address_disambiguated", { picked: i === 0 ? "description" : "field" });
+                                }}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-dw-hairline bg-white px-3 font-medium text-dw-ink transition-colors hover:border-dw-ink/30 focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+                              >
+                                <Globe className="size-3.5 text-dw-ink/55" aria-hidden /> {h}
+                              </button>
+                            ))}
+                          </div>
                         )}
                       </div>
 
@@ -2202,6 +2255,18 @@ const hostOf = (url: string) => {
     return url;
   }
 };
+
+const TLDS = "com|co\\.uk|org\\.uk|uk|co|io|shop|store|net|org|de|fr|es|it|nl|eu|ca|au|us|app|ai|biz|info|me|online|site|xyz|dev|ie|se|dk|no|fi|ch|at|be|pl|jp|in|nz|br|mx";
+const DOMAIN_RE = new RegExp(`(?<![@\\w.-])(?:https?://)?((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:${TLDS}))(?![\\w-])`, "i");
+
+/** The first store-looking domain in the merchant's words ("…mugs at emberandclay.co.uk…"), not emails. */
+function domainIn(text: string): string | null {
+  const m = text.match(DOMAIN_RE);
+  return m ? m[1].toLowerCase() : null;
+}
+
+/** "www.Eastfork.com" → "eastfork.com". */
+const bareHost = (h: string) => h.trim().toLowerCase().replace(/^www\./, "");
 
 /** "shop.example.com", "https://Shop.example.com/x" → "https://shop.example.com"; anything else → null. */
 function storeOrigin(raw: string): string | null {
