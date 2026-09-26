@@ -196,7 +196,7 @@ async function main() {
 
   const provider = llmProvider();
   const useLlm = !values.scripted && provider !== "none";
-  const defaultName = { xai: "grok-shopper", anthropic: "claude-shopper", openrouter: "openrouter-shopper", none: "scripted-shopper" }[provider];
+  const defaultName = { xai: "grok-shopper", apinex: "luna-shopper", anthropic: "claude-shopper", openrouter: "openrouter-shopper", none: "scripted-shopper" }[provider];
   const agentName = values.name ?? (useLlm ? defaultName : "scripted-shopper");
   const endpoint = `${values.url!.replace(/\/$/, "")}/api/mcp`;
   const goal = parseGoalBrief(values.goal!);

@@ -2,14 +2,16 @@
  * Provider-agnostic LLM helper for server code.
  *
  * Provider is picked from env:
- *   LLM_PROVIDER=xai|anthropic|openrouter|none   (optional, else auto-detect)
+ *   LLM_PROVIDER=xai|apinex|anthropic|openrouter|none   (optional, else auto-detect)
  *   XAI_API_KEY         → Grok via xAI's OpenAI-compatible API (hackathon sponsor)
+ *   APINEX_API_KEY      → Apinex's OpenAI-compatible API (default model free/gpt-6-luna). Free models need a
+ *                         daily check-in on apinex.bond, so a failed call falls back to OpenRouter.
  *   ANTHROPIC_API_KEY   → Claude via @anthropic-ai/sdk
  *   OPENROUTER_API_KEY  → any OpenRouter model (cheap testing, e.g. DeepSeek)
- *   XAI_MODEL / ANTHROPIC_MODEL / OPENROUTER_MODEL override the default model.
+ *   XAI_MODEL / APINEX_MODEL / ANTHROPIC_MODEL / OPENROUTER_MODEL override the default model.
  *   OPENROUTER_REASONING=off  → ask OpenRouter to skip the model's thinking (faster loop steps).
  *
- * If a Grok (xAI) call fails and OPENROUTER_API_KEY is set, the call is retried once through OpenRouter
+ * If a Grok (xAI) or Apinex call fails and OPENROUTER_API_KEY is set, the call is retried once through OpenRouter
  * (OPENROUTER_MODEL). Every answered call logs one line with the provider and model (never the prompt).
  *
  * With no key, `llmAvailable()` is false and callers MUST fall back to heuristics,
@@ -19,15 +21,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { z } from "zod";
 
-export type LlmProvider = "xai" | "anthropic" | "openrouter" | "none";
+export type LlmProvider = "xai" | "apinex" | "anthropic" | "openrouter" | "none";
 
 export function llmProvider(): LlmProvider {
   const forced = process.env.LLM_PROVIDER as LlmProvider | undefined;
   if (forced === "none") return "none";
   if (forced === "xai" && process.env.XAI_API_KEY) return "xai";
+  if (forced === "apinex" && process.env.APINEX_API_KEY) return "apinex";
   if (forced === "anthropic" && process.env.ANTHROPIC_API_KEY) return "anthropic";
   if (forced === "openrouter" && process.env.OPENROUTER_API_KEY) return "openrouter";
   if (process.env.XAI_API_KEY) return "xai";
+  if (process.env.APINEX_API_KEY) return "apinex";
   if (process.env.ANTHROPIC_API_KEY) return "anthropic";
   if (process.env.OPENROUTER_API_KEY) return "openrouter";
   return "none";
@@ -45,6 +49,8 @@ function modelFor(provider: LlmProvider): string {
   switch (provider) {
     case "xai":
       return process.env.XAI_MODEL || "grok-4";
+    case "apinex":
+      return process.env.APINEX_MODEL || "free/gpt-6-luna";
     case "anthropic":
       return process.env.ANTHROPIC_MODEL || "claude-opus-5";
     case "openrouter":
@@ -72,12 +78,14 @@ function logAnswer(provider: LlmProvider, model: string, startedAt: number, note
 
 const errorLine = (err: unknown) => (err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 160);
 
-/** xAI and OpenRouter both speak the OpenAI chat completions API. */
-async function openAiCompatible(provider: "xai" | "openrouter", { system, prompt, maxTokens = 4000 }: TextRequest): Promise<{ text: string; model: string }> {
+/** xAI, Apinex and OpenRouter all speak the OpenAI chat completions API. */
+async function openAiCompatible(provider: "xai" | "apinex" | "openrouter", { system, prompt, maxTokens = 4000 }: TextRequest): Promise<{ text: string; model: string }> {
   const client =
     provider === "xai"
       ? new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1" })
-      : new OpenAI({
+      : provider === "apinex"
+        ? new OpenAI({ apiKey: process.env.APINEX_API_KEY, baseURL: process.env.APINEX_BASE_URL || "https://api.apinex.bond/v1" })
+        : new OpenAI({
           apiKey: process.env.OPENROUTER_API_KEY,
           baseURL: "https://openrouter.ai/api/v1",
           defaultHeaders: { "X-Title": "Darwin" },
@@ -101,17 +109,17 @@ async function openAiCompatible(provider: "xai" | "openrouter", { system, prompt
 export async function generateText(req: TextRequest): Promise<string> {
   const provider = llmProvider();
   const startedAt = Date.now();
-  if (provider === "xai") {
+  if (provider === "xai" || provider === "apinex") {
     try {
-      const res = await openAiCompatible("xai", req);
-      logAnswer("xai", res.model, startedAt);
+      const res = await openAiCompatible(provider, req);
+      logAnswer(provider, res.model, startedAt);
       return res.text;
     } catch (err) {
       if (!process.env.OPENROUTER_API_KEY) throw err;
-      console.warn(`[llm] xai ${modelFor("xai")} failed (${errorLine(err)}); retrying once via OpenRouter`);
+      console.warn(`[llm] ${provider} ${modelFor(provider)} failed (${errorLine(err)}); retrying once via OpenRouter`);
       const retryAt = Date.now();
       const res = await openAiCompatible("openrouter", req);
-      logAnswer("openrouter", res.model, retryAt, " (fallback after xai failed)");
+      logAnswer("openrouter", res.model, retryAt, ` (fallback after ${provider} failed)`);
       return res.text;
     }
   }
@@ -135,7 +143,7 @@ export async function generateText(req: TextRequest): Promise<string> {
     logAnswer("anthropic", res.model || llmModel(), startedAt);
     return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   }
-  throw new Error("No LLM provider configured (set XAI_API_KEY, ANTHROPIC_API_KEY or OPENROUTER_API_KEY)");
+  throw new Error("No LLM provider configured (set XAI_API_KEY, APINEX_API_KEY, ANTHROPIC_API_KEY or OPENROUTER_API_KEY)");
 }
 
 /** Pull the first JSON object/array out of a model response. */
