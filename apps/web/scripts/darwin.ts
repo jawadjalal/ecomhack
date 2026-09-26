@@ -161,7 +161,8 @@ async function doText() {
     }
   }
   if (args.json) emit({ plan: p, results });
-  process.exitCode = failed ? 1 : 0;
+  // 1: a step failed, 2: a risky step was skipped (not confirmed).
+  process.exitCode = failed ? 1 : results.some((r) => r.skipped) ? 2 : 0;
 }
 
 async function state() {

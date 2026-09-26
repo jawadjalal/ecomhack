@@ -8,6 +8,7 @@ import { BrandGlyph, type BrandKey } from "@/components/dw/brand-logos";
 import { Art } from "@/components/dw/art";
 import { GelLink } from "@/components/dw/gel";
 import { LandingLoop } from "@/components/console/landing-loop";
+import { AgentStickers } from "./agent-stickers";
 
 const EASE = [0.2, 0.8, 0.2, 1] as const;
 
@@ -40,6 +41,8 @@ export function Landing() {
       <div data-dw className="relative isolate flex min-h-[100svh] w-full flex-col overflow-x-hidden bg-dw-bg font-dw text-dw-ink lg:h-[100svh] lg:overflow-hidden">
         {/* the painting: full-bleed on a computer, the hero's sky on a phone */}
         <Art id="marsh" position="50% 0%" priority scrim="bg-[#0b2533]/25 max-sm:bg-[#0b2533]/25" className="-z-10 max-sm:bottom-auto max-sm:h-[456px]" />
+        {/* a few AI-shopper stickers pressed onto the sky, in the margins (decoration) */}
+        <AgentStickers />
 
         {/* quiet nav */}
         <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-4 pt-4 sm:px-7">

@@ -5,8 +5,8 @@
  * store at /store, with simulated shoppers. Dashboards and Personalize are per site: the merchant's own
  * site once onboarding made a tracking plan for it, else the North Trail demo site.
  *
- * Nothing new is stored here: the merchant's store comes from onboarding's saved progress (sessionStorage,
- * this tab: see onboarding/persist.ts) and the GitHub connection the server already knows (/api/github/status).
+ * Nothing new is stored here: the merchant's store comes from onboarding's saved progress (loadProgress in
+ * onboarding/persist.ts) and the GitHub connection the server already knows (/api/github/status).
  */
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -47,18 +47,32 @@ export function hostOf(url: string): string {
   }
 }
 
-const noop = () => () => {};
+/** Onboarding progress: localStorage (current key), else the old per-tab sessionStorage copy (v1). */
+const LEGACY_PROGRESS_KEY = "darwin-onboarding-progress:v1";
+const subscribe = (cb: () => void) => {
+  window.addEventListener("storage", cb);
+  return () => window.removeEventListener("storage", cb);
+};
+/** A string snapshot (stable between renders) of both copies; loadProgress() parses the right one. */
 const readRaw = () => {
+  let a = "";
+  let b = "";
   try {
-    return sessionStorage.getItem(PROGRESS_KEY) ?? "";
+    a = localStorage.getItem(PROGRESS_KEY) ?? "";
   } catch {
-    return "";
+    /* storage blocked */
   }
+  try {
+    b = sessionStorage.getItem(LEGACY_PROGRESS_KEY) ?? "";
+  } catch {
+    /* storage blocked */
+  }
+  return a || b ? `${a}\n${b}` : "";
 };
 
 /** The merchant's store as onboarding and the server know it (never invents one). */
 export function useStoreContext(): StoreContext {
-  const raw = useSyncExternalStore(noop, readRaw, () => null);
+  const raw = useSyncExternalStore(subscribe, readRaw, () => null);
   const { status } = useGithubStatus();
   const progress = useMemo(() => (raw ? loadProgress() : null), [raw]);
   const serverRepo = (status as { connection?: { repo?: unknown } } | undefined)?.connection?.repo;

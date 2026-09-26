@@ -45,7 +45,7 @@ function BeforeNow({ label, before, now, max }: { label: string; before: number;
 function StripPlaceholder() {
   return (
     <>
-      <div aria-hidden className="h-[92px] sm:hidden" />
+      <div aria-hidden className="h-[96px] sm:hidden" />
       <div aria-hidden className="flex h-[80px] items-center gap-3.5 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 max-sm:hidden">
         <span className="size-[42px] shrink-0 rounded-full bg-dw-ink/[0.06]" />
         <span className="flex flex-col gap-2">

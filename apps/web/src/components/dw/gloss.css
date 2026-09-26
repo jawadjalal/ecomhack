@@ -242,6 +242,30 @@
     }
   }
 
+  /* Background stickers (landing): a crisp paper edge, no soft cast shadow, and a slow few-pixel float. */
+  .dw-stk.is-quiet {
+    filter: drop-shadow(0 1px 0.5px rgba(20, 20, 19, 0.22));
+  }
+
+  .dw-stk-float {
+    animation: dw-stk-float 6.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes dw-stk-float {
+    from {
+      transform: translateY(-3px);
+    }
+    to {
+      transform: translateY(3px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dw-stk-float {
+      animation: none;
+    }
+  }
+
   /* ── the bevel: a crisp surface with a lit top edge and a one-pixel lip ────────────────────────── */
 
   .dw-bevel {
