@@ -17,6 +17,7 @@ import type { Suggestion } from "../overview/chat";
 import { EASE, Rise } from "../overview/fx";
 import { useFirstName, usePeopleEvents } from "../overview/hooks";
 import { ImpactStrip } from "../overview/impact";
+import { WatchStrip } from "../overview/watch-strip";
 import { CardDeck, DECK_ITEM, DECK_ROW } from "../overview/deck";
 import { cn } from "@/components/ui/cn";
 import { agentBoard, agentShopper, chartPoints, pctSmart, peopleFromEvents, projectIfShipped, testView, type Shopper } from "../overview/model";
@@ -174,6 +175,9 @@ export function OverviewScreen() {
       <div className="flex flex-col gap-3.5 lg:gap-3">
         <Rise i={0}>
           <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
+        </Rise>
+        <Rise i={0}>
+          <WatchStrip />
         </Rise>
         <CardDeck count={4} labels={["Conversion", "A vs B", "Which agents buy", "How they convert"]}>
           <div className={cn("grid grid-cols-1 gap-3.5 lg:grid-cols-2 lg:gap-3", DECK_ROW)}>

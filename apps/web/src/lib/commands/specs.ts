@@ -19,6 +19,7 @@ export const PAGES = {
   experiments: { label: "Experiments", href: "/console/experiments" },
   changes: { label: "Changes", href: "/console/changes" },
   settings: { label: "Settings", href: "/console/settings" },
+  inbox: { label: "Inbox", href: "/console/inbox" },
   agents: { label: "Store agent", href: "/console/agents" },
   dashboards: { label: "Dashboards", href: "/console/dashboards" },
   personalize: { label: "Personalize", href: "/console/personalize" },
