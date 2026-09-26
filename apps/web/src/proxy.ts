@@ -112,5 +112,6 @@ export const config = {
     // "Ask Darwin" voice: speech-to-text, read-aloud and status (they spend the ElevenLabs key).
     "/api/voice/:path*",
     "/api/demo",
+    "/api/llm/:path*",
   ],
 };
