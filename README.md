@@ -52,7 +52,7 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 | **Agent commerce** | `src/lib/agent-commerce/**` | MCP + REST tools for AI shoppers, an A2A merchant agent that chats and negotiates within margin limits, `llms.txt`, agent card. |
 | **Analytics** | `src/lib/analytics/**` | PostHog-compatible ingest (`/ingest`, used by posthog-js), human vs AI-agent classification, funnels, friction signals. |
 | **Simulator** | `src/lib/simulator/**` | Synthetic shoppers (5 personas) and AI agents whose behaviour depends only on the page they're served. Labelled `synthetic`. |
-| **Optimizer** | `src/lib/optimizer/**` | The loop: diagnose → propose → Bayesian A/B test → decide → ship. LLM (Grok/Claude/OpenRouter) or heuristic playbook. |
+| **Optimizer** | `src/lib/optimizer/**` | The loop: diagnose → propose → Bayesian A/B test → decide → ship. LLM (OpenRouter DeepSeek V4 Flash / Grok / Claude) or heuristic playbook. |
 | **GitHub** | `src/lib/github/**` | Connect a repo → PR installing `darwin.js`; each winner → PR editing `storefront.config.json`. |
 | **Web personalization** | `src/lib/web/**` | Rules that change any page running darwin.js (text, banner, badge, hide, style) per traffic source and search query. Drafted from plain English (LLM or heuristic), A/B tested with arms recomputed server-side. |
 | **Console** | `src/app/console/**` | Mission control for the demo. |
@@ -171,6 +171,108 @@ claude mcp add --transport http pace-store http://localhost:3000/api/mcp
 
 # A scripted buyer agent chatting over A2A, in the terminal
 npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
+```
+
+### Telegram
+
+Text Darwin from Telegram.
+
+- **Allowlisted chats** (`TELEGRAM_ALLOWED_CHAT_IDS`) go through `runAssistant`, the same function as the console assistant (`POST /api/assistant`). Every message can ask a question or act: step the loop, check experiments, ship a winner, turn autopilot on, reset. Shipping, autopilot and reset wait until you reply `yes` or `no`. Any other reply cancels that prompt.
+- **No allowlist:** messages stay on the Overview Ask Darwin chat (`ask()`, `POST /api/ask`) and only answer questions. `/help` says tool use is off. Set the allowlist before you expect the bot to change anything.
+
+1. In Telegram, open [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the bot token.
+2. Pick a webhook secret: 1–256 characters, only `A–Z`, `a–z`, `0–9`, `_` and `-` (for example `openssl rand -hex 32`).
+3. On the Vercel project for [usedarwin.app](https://usedarwin.app), set:
+   - `TELEGRAM_BOT_TOKEN` — the token from BotFather
+   - `TELEGRAM_WEBHOOK_SECRET` — the secret from step 2
+   - `TELEGRAM_ALLOWED_CHAT_IDS` — your chat id (comma-separated if several). Required for stepping the loop, shipping, and other tools. Leave it empty and the bot only answers questions. Set `0` first if you don't know the id yet: the bot replies once with it.
+4. Redeploy so the new env vars are live.
+5. Register the webhook (this calls Telegram `setWebhook` for `https://usedarwin.app/api/telegram` and sends the secret):
+
+   ```bash
+   cd apps/web
+   TELEGRAM_BOT_TOKEN='…' TELEGRAM_WEBHOOK_SECRET='…' npm run telegram:setup
+   ```
+
+   Or, after the redeploy, if `DARWIN_ADMIN_TOKEN` is set on Vercel:
+
+   ```bash
+   curl -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN" https://usedarwin.app/api/telegram
+   ```
+
+6. Open the bot and send `/start`. Then try `How is conversion?` or, once your chat id is on the allowlist, `Step the loop`.
+
+If `TELEGRAM_ALLOWED_CHAT_IDS` is set and your chat is not on it, the bot replies **once** with your chat id. Add that id, redeploy, and message again. Leave the variable empty only for a question-only bot: anyone who finds it can spend the LLM key on answers, and it will not run tools. With the allowlist set, those chats can act, so keep the list to yourself.
+
+### Agent mode: ⌘K, WebMCP and `window.darwin`
+
+Everything Darwin can do is one typed command (`apps/web/src/lib/commands`): a zod input (also served as JSON
+Schema), a description written for an LLM, and a risk. Three things share it:
+
+- **⌘K (Ctrl+K)** anywhere in `/console`: type in plain words ("build a dashboard of coupon usage per hour for
+  trail-shop", "send 200 shoppers then step the loop", "roll back to gen 3", "why are agents leaving?") or pick a
+  suggestion. `POST /api/command { text, page }` turns the words into a plan (the LLM when a key is set, else a
+  deterministic parser), every step is validated, and the steps run as a live checklist. Rollback and ship/stop
+  ask you first, inline.
+- **WebMCP**: when the browser exposes the proposed W3C `navigator.modelContext`, the same commands are registered
+  as tools (`darwin_navigate`, `darwin_build_dashboard`, `darwin_rollback`, …), so an AI agent running in your
+  browser can drive Darwin with no CLI or MCP server. Tools that change what shoppers see still stop for a human
+  in the page.
+- **`window.darwin`** for automation and devtools:
+
+```js
+window.darwin.commands                       // ["navigate", "build_dashboard", "simulate_traffic", …]
+window.darwin.manifest()                     // names, descriptions, risk, JSON Schemas
+await window.darwin.run("simulate_traffic", { humans: 200, agents: 20 })  // → { ok, text, href?, data? }
+await window.darwin.plan("roll back to gen 2")                             // plan only, nothing runs
+await window.darwin.do("send 200 shoppers then open the top issue")        // plan + run (confirms still ask)
+```
+
+`GET /api/command` returns the registry (admin-gated like the rest of mission control). Numbers in results come
+from Darwin's APIs, and simulated traffic is always labelled.
+
+Setup and demo commands (same registry, so also `darwin_<name>` over MCP and the CLI):
+`start_demo` ("watch Darwin improve the demo store": simulated shoppers + autopilot), `watch_fix` ("watch Darwin
+fix it": the Overview's watch run, `/console?watch=1`; headless it steps the loop phase by phase),
+`check_install` ("test my install on shop.example.com": waiting / installed / verified), `save_setup` ("save my
+setup as jo@example.com": returns a 30-day resume link, nothing is emailed), `which_store` (demo store or your
+repo / sites), `detect_platform` ("what platform is shop.example.com on?") and `research_competitors`
+("research competitors for trail running shoes in the UK").
+
+### Drive Darwin with an agent: MCP server and CLI
+
+The same commands also run headless (`lib/commands/server-run.ts`), through Darwin's own API routes, so any
+agent can drive the whole console: create dashboards and personalizations, send shoppers, step the loop, browse
+every page, ask questions, ship or roll back.
+
+- **MCP server** at `/api/darwin/mcp` (Streamable HTTP, JSON-RPC). Tools: `darwin_state` (loop, KPIs, running
+  tests), `darwin_pages` (every page with its URL), `darwin_whats_left` (the roadmap) and every command as
+  `darwin_<name>`. Risky tools (`darwin_rollback`, `darwin_act_on_briefing`) first return the question to ask the
+  merchant; they run only when called again with `confirm: true`.
+
+```bash
+# Claude Code (add --header "Authorization: Bearer $DARWIN_ADMIN_TOKEN" when a token is set)
+claude mcp add --transport http darwin http://localhost:3000/api/darwin/mcp
+```
+
+```json
+// Cursor: ~/.cursor/mcp.json
+{ "mcpServers": { "darwin": { "url": "http://localhost:3000/api/darwin/mcp",
+  "headers": { "Authorization": "Bearer <DARWIN_ADMIN_TOKEN, if set>" } } } }
+```
+
+- **CLI** (`apps/web/scripts/darwin.ts`, no extra dependencies). `DARWIN_URL` defaults to
+  `http://localhost:3000`; `DARWIN_TOKEN` is the admin key. Add `--json` for machine output.
+
+```bash
+cd apps/web
+npm run darwin -- commands                                      # every command and its risk
+npx tsx scripts/darwin.ts state                                 # loop, KPIs, running tests
+npx tsx scripts/darwin.ts run simulate_traffic --humans 200 --agents 20
+npx tsx scripts/darwin.ts run build_dashboard --json '{"request":"coupon usage per hour","site":"trail-shop-co-uk"}'
+npx tsx scripts/darwin.ts do "send 200 shoppers then open the top issue"   # plans, then runs each step
+npx tsx scripts/darwin.ts run rollback --generation 2 --yes     # risky: asks y/N unless --yes
+npx tsx scripts/darwin.ts open experiments                      # prints the page's URL
 ```
 
 ### Honest notes

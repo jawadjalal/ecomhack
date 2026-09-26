@@ -11,10 +11,23 @@ import { cn } from "@/components/ui/cn";
 export const EASE = [0.2, 0.8, 0.2, 1] as const;
 
 /** Card entrance: fade + rise, staggered by `i`. */
-export function Rise({ i = 0, className, style, children }: { i?: number; className?: string; style?: CSSProperties; children: ReactNode }) {
+export function Rise({
+  i = 0,
+  className,
+  style,
+  item,
+  children,
+}: {
+  i?: number;
+  className?: string;
+  style?: CSSProperties;
+  item?: boolean;
+  children: ReactNode;
+}) {
   const reduce = useReducedMotion();
   return (
     <motion.div
+      data-deck-item={item ? "" : undefined}
       className={className}
       style={style}
       initial={reduce ? false : { opacity: 0, y: 18, scale: 0.985 }}

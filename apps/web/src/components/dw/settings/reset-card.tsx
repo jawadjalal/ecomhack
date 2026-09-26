@@ -7,9 +7,9 @@ import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, PillButton } from "../ui";
+import { Card, DEPTH, PillButton } from "../ui";
 
-/** Danger zone: put the store back to Gen 0 (inline confirm, no modal). */
+/** Danger zone: put the store back to the original page (inline confirm, no modal). */
 export function ResetCard({ className }: { className?: string }) {
   const { reset, loop, mock } = useDarwin();
   const experiments = useExperiments();
@@ -34,18 +34,18 @@ export function ResetCard({ className }: { className?: string }) {
   const gen = loop?.generation ?? 0;
   const tests = experiments?.length ?? 0;
   const facts = [
-    gen > 0 ? `${gen} shipped generation${gen === 1 ? "" : "s"}` : undefined,
+    gen > 0 ? `${gen} shipped version${gen === 1 ? "" : "s"}` : undefined,
     tests > 0 ? `${tests} test${tests === 1 ? "" : "s"}` : undefined,
     loop?.insights.length ? `${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"}` : undefined,
   ].filter(Boolean);
 
   return (
-    <Card tone="sand" shape="analyst" corner="br" hover={false} className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Start over">
+    <Card tone="sand" shape="analyst" corner="br" hover={false} className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Start over">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-[36rem]">
-          <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Start over</h2>
+          <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Start over</h2>
           <p className="mt-1.5 text-[14.5px] leading-snug text-dw-ink/75">
-            Puts {mock ? "this demo" : "the store"} back to the original page, Gen 0, and forgets every recorded visit, test and issue
+            Puts {mock ? "this demo" : "the store"} back to the original page (version 0) and forgets every recorded visit, test and issue
             {facts.length ? <> (right now: {facts.join(", ")})</> : null}. Your GitHub and Whop connections stay.
           </p>
         </div>
@@ -99,11 +99,11 @@ export function ResetCard({ className }: { className?: string }) {
 export function DemoCard({ className }: { className?: string }) {
   const { mock } = useDarwin();
   return (
-    <Card tone="lilac" shape="experimenter" corner="br" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Demo mode">
+    <Card tone="lilac" shape="experimenter" corner="br" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Demo mode">
       <div className="flex items-start gap-4">
-        <Mascot kind="experimenter" size={48} frame active />
+        <Mascot kind="experimenter" size={48} frame active title="Ada, the tester" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Demo mode</h2>
+          <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Demo mode</h2>
           <p className="mt-1.5 text-[14.5px] leading-snug text-[#3B3263]">
             {mock ? "You're in it: the whole loop is running in your browser, no server." : "Runs the whole loop in your browser, no server. Handy for showing Darwin off."}
           </p>

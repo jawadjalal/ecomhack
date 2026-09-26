@@ -11,13 +11,13 @@ import { PageHead } from "../ui";
 
 /**
  * Settings (opened from the avatar): how much Darwin may do on its own, what it's plugged into,
- * who each test is judged on, where it reports back, and the way back to Gen 0.
+ * who each test is judged on, where it reports back, and the way back to the original page.
  * Card rows alternate 1.7fr/1fr and 1fr/1.7fr (never equal boxes).
  */
 export function SettingsScreen() {
   return (
     <MotionConfig reducedMotion="user">
-      <PageHead title="Settings" lede="How much Darwin may do on its own, and where it reports back." />
+      <PageHead title="Settings" lede="How much the crew may do on its own, what Darwin is plugged into, and where Grok reports back." />
 
       <div className="grid items-stretch gap-4 lg:grid-cols-[1.7fr_1fr]">
         <Rise i={0}>
@@ -55,7 +55,11 @@ function Rise({ i, children }: { i: number; children: ReactNode }) {
       className="min-w-0"
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.04 + i * 0.06, duration: 0.45, ease: [0.2, 0.8, 0.2, 1] }}
+      transition={{
+        delay: 0.04 + i * 0.06,
+        duration: 0.45,
+        ease: [0.2, 0.8, 0.2, 1],
+      }}
     >
       {children}
     </motion.div>

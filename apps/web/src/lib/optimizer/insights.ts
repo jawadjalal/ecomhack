@@ -16,6 +16,7 @@ import { SHIPPING_FEE } from "@/lib/catalog/products";
 import { formatGBP } from "@/lib/money";
 import { generateJson, llmAvailable } from "@/lib/llm/client";
 import { num, numbersIn, pct, round1, withTimeout } from "./util";
+import { UNAVAILABLE, describeElement, elementPhrase, rageClickTitle } from "./humanize";
 
 /* ------------------------------------------------------------------ kinds */
 
@@ -364,15 +365,19 @@ function ctaRageClicks(ctx: Ctx): Insight | undefined {
   const downstream = addN ? at(H, "order_completed") / addN : 0.3;
   const impact = per1k(hit.count * 0.3 * downstream, ctx);
   const where = hit.detail ?? hit.location;
+  const el = describeElement(where);
+  const what = el ? `the ${elementPhrase(where)}` : `"${where}"`;
   return make("cta_rage_clicks", {
-    title: `${num(hit.count)} shoppers rage-clicked "${where}"`,
+    title: rageClickTitle(num(hit.count), where),
     audience: "human",
     stage: "product page",
-    detail: `${pct(hit.share)} of human visitors hammered "${where}" (${hit.location}) repeatedly: the button isn't where they expect it, or doesn't respond fast enough.`,
+    detail: el?.disabled
+      ? `${pct(hit.share)} of human visitors ${UNAVAILABLE(what)}`
+      : `${pct(hit.share)} of human visitors hammered ${what}${el ? "" : ` (${hit.location})`} repeatedly: the button isn't where they expect it, or doesn't respond fast enough.`,
     evidence: [
       { label: "Rage clickers", value: num(hit.count) },
       { label: "Share of shoppers", value: pct(hit.share) },
-      { label: "Element", value: where },
+      { label: "Element", value: el ? elementPhrase(where) : where },
     ],
     impact,
   });

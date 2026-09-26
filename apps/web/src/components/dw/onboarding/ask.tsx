@@ -4,15 +4,16 @@
  * Onboarding, screen 2: Darwin asks two questions in a chat (what to track, where), and the answers are
  * appended to the prompt that goes to POST /api/onboarding/plan, so the plan is personalised.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, Globe, Plus } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "@/components/dw/mascot";
 import { PillButton, Typing } from "@/components/dw/ui";
+import { Gel } from "@/components/dw/gel";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { WhopLogo } from "@/components/dw/brand-logos";
-import { AgentBubble, BrainChip, CheckPop, EASE, YouBubble, type Brain } from "./bits";
+import { AgentBubble, CheckPop, EASE, YouBubble } from "./bits";
 
 export interface Answers {
   track: string[];
@@ -112,7 +113,6 @@ export function AskChat({
   prompt,
   connectedTo,
   whop,
-  brain,
   initial,
   onBack,
   onDone,
@@ -121,7 +121,6 @@ export function AskChat({
   /** "acme/storefront" or "trail-shop.co.uk". */
   connectedTo: string;
   whop?: string;
-  brain: Brain | null;
   initial?: Answers;
   onBack: () => void;
   onDone: (a: Answers) => void;
@@ -129,9 +128,10 @@ export function AskChat({
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [typing, setTyping] = useState(true);
   const [heard] = useState<string[]>(() => TRACK_OPTIONS.filter((o) => o.match.test(prompt.toLowerCase())).map((o) => o.id));
-  const [track, setTrack] = useState<string[]>(() => initial?.track ?? heard);
+  // AI shoppers are ticked from the start: they're half of what Darwin is for.
+  const [track, setTrack] = useState<string[]>(() => initial?.track ?? [...heard, ...(heard.includes("agents") ? [] : ["agents"])]);
   const [note, setNote] = useState(initial?.note ?? "");
-  const [where, setWhere] = useState<string[]>(() => initial?.where ?? ["website", ...(whop ? ["whop"] : [])]);
+  const [where, setWhere] = useState<string[]>(() => initial?.where ?? ["website", "agents", ...(whop ? ["whop"] : [])]);
 
   // Darwin "types" for a beat before each question.
   useEffect(() => {
@@ -147,10 +147,21 @@ export function AskChat({
     setStep(1);
     setTyping(true);
   };
+  /** Nothing ticked is not a dead end: Darwin starts with the website (the recommended setup). */
+  const whereOrDefault = where.length ? where : ["website"];
   const finish = () => {
+    if (!where.length) setWhere(whereOrDefault);
     setStep(2);
-    setTimeout(() => onDone(answers), 450);
+    setTimeout(() => onDone({ ...answers, where: whereOrDefault }), 450);
   };
+
+  // Question 2's button can land under the fold: bring it into view as soon as the question is asked.
+  const cta = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (step !== 1 || typing) return;
+    const t = setTimeout(() => cta.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 120);
+    return () => clearTimeout(t);
+  }, [step, typing]);
 
   const trackChips = [...TRACK_OPTIONS.filter((o) => track.includes(o.id)).map((o) => o.label), ...(note.trim() ? [note.trim()] : [])];
 
@@ -164,7 +175,22 @@ export function AskChat({
             <div className="text-[13.5px] text-dw-ink/60">Your store&apos;s analyst</div>
           </div>
         </div>
-        <BrainChip brain={brain} />
+        {step < 2 && (
+          <button
+            type="button"
+            onClick={() => {
+              const recommended: Answers = { track: [...heard, ...(heard.includes("agents") ? [] : ["agents"])], note: "", where: ["website", "agents", ...(whop ? ["whop"] : [])] };
+              setTrack(recommended.track);
+              setNote("");
+              setWhere(recommended.where);
+              setStep(2);
+              onDone(recommended);
+            }}
+            className="h-9 rounded-full px-3.5 text-[13.5px] font-medium text-dw-ink/65 underline decoration-dw-ink/25 underline-offset-[3px] transition-colors hover:bg-dw-sand hover:text-dw-ink hover:decoration-dw-ink/60 focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+          >
+            Skip, use the recommended setup
+          </button>
+        )}
       </div>
 
       {prompt.trim() && <YouBubble text={prompt.trim()} />}
@@ -178,7 +204,7 @@ export function AskChat({
               and <b className="font-semibold text-dw-ink">{whop}</b> on Whop
             </>
           ) : null}
-          . Two quick questions, so I plan the right things.
+          . Two quick questions <span className="text-dw-ink/50">(optional)</span>.
         </AgentBubble>
       </motion.div>
 
@@ -203,8 +229,8 @@ export function AskChat({
                       </Chip>
                     ))}
                   </div>
-                  {heard.length > 0 && <p className="text-[13px] text-dw-ink/55">I ticked what I heard in your message. Change anything.</p>}
-                  <div className="flex items-center gap-2 rounded-full border border-dw-hairline bg-white py-1 pr-1 pl-4 focus-within:border-dw-ink/40">
+                  {heard.length > 0 && <p className="text-[13px] text-dw-ink/55">Ticked from your message. Change anything.</p>}
+                  <div className="flex items-center gap-2 rounded-full border border-dw-hairline bg-white py-1 pr-1 pl-4 focus-within:border-dw-ink/40 max-sm:border-dw-ink/10 max-sm:bg-dw-bg">
                     <input
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
@@ -213,9 +239,9 @@ export function AskChat({
                       maxLength={200}
                       className="h-9 min-w-0 flex-1 bg-transparent text-[14.5px] outline-none placeholder:text-dw-ink/35"
                     />
-                    <PillButton type="submit" size="sm">
+                    <Gel type="submit" h={34} fontSize={13.5}>
                       Next <ArrowRight />
-                    </PillButton>
+                    </Gel>
                   </div>
                 </form>
               )}
@@ -248,7 +274,7 @@ export function AskChat({
                           onClick={() => setWhere((w) => flip(w, o.id))}
                           className={cn(
                             "dw-row flex w-full items-center gap-3 rounded-[18px] px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none",
-                            on ? "bg-dw-ink text-white" : "bg-dw-sand/80 text-dw-ink hover:bg-dw-sand",
+                            on ? "bg-dw-ink text-white" : "bg-dw-sand/80 text-dw-ink hover:bg-dw-sand max-sm:bg-dw-bg",
                           )}
                         >
                           <span
@@ -279,16 +305,17 @@ export function AskChat({
                         </button>
                       );
                     })}
-                    <div className="mt-1 flex justify-end">
-                      <PillButton onClick={finish} disabled={!where.length}>
+                    <div ref={cta} className="relative z-10 mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-2 scroll-mb-6">
+                      {!where.length && <span className="mr-auto text-[13px] text-dw-ink/60">Nothing ticked: Darwin starts with your website.</span>}
+                      <Gel h={46} onClick={finish} className="max-sm:w-full">
                         Make my plan <ArrowRight />
-                      </PillButton>
+                      </Gel>
                     </div>
                   </div>
                 )}
               </AgentBubble>
             )}
-            {step > 1 && <YouBubble chips={WHERE_OPTIONS.filter((o) => where.includes(o.id)).map((o) => o.label)} />}
+            {step > 1 && <YouBubble chips={WHERE_OPTIONS.filter((o) => whereOrDefault.includes(o.id)).map((o) => o.label)} />}
           </motion.div>
         )}
       </AnimatePresence>
@@ -310,7 +337,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       onClick={onClick}
       className={cn(
         "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-[background-color,color,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none",
-        on ? "bg-dw-ink text-white" : "border border-dw-hairline bg-white text-dw-ink/80 hover:border-dw-ink/25 hover:text-dw-ink",
+        on ? "bg-dw-ink text-white" : "border border-dw-hairline bg-white text-dw-ink/80 hover:border-dw-ink/25 hover:text-dw-ink max-sm:border-dw-ink/15 max-sm:bg-transparent",
       )}
     >
       {on ? (

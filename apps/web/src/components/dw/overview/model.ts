@@ -6,6 +6,7 @@ import type { AgentSessionSummary, AnalyticsEvent, AnalyticsSummary, Experiment,
 import { getProduct } from "@/lib/catalog/products";
 import { describeEvent, money, productName } from "@/lib/console/format";
 import { agentBrand, type AgentBrand } from "../agent-tile";
+import { latestWin } from "../experiments/model";
 import type { MascotKind } from "../mascot";
 
 /** Mirrors the optimizer (lib/optimizer/loop.ts loopConfigFromEnv): B ships at P(B beats A) ≥ 97.5%. */
@@ -57,9 +58,11 @@ export interface TestView {
 /** The experiment the loop is running, else the latest one. Rates on the audience the decision uses. */
 export function testView(loop: LoopState | undefined, experiments: Experiment[] | undefined): TestView | undefined {
   if (!experiments?.length) return undefined;
+  // Running test first; otherwise lead with the latest shipped winner, not whatever finished last.
   const exp =
     experiments.find((e) => e.id === loop?.experimentId && e.status === "running") ??
     experiments.find((e) => e.status === "running") ??
+    latestWin(experiments, loop) ??
     [...experiments].sort((x, y) => Date.parse(y.createdAt) - Date.parse(x.createdAt))[0];
   const r = exp?.result;
   if (!exp || !r) return exp ? { experiment: exp, running: exp.status === "running", audience: "all", a: 0, b: 0, aShoppers: 0, bShoppers: 0 } : undefined;
