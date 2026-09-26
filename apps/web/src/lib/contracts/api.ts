@@ -90,7 +90,9 @@ export type CertifyResponse = ReadinessCertificate;
 //      ResearchStreamEvent lines (steps, then the report). No TAVILY_API_KEY → a labelled demo report.
 // GET  /api/research       → { reports: ResearchListItem[], status: ResearchStatus }  (admin)
 // GET  /api/research/[id]  → ResearchReport                                          (admin)
-// POST /api/assistant  { messages, confirm?, context? } → AssistantResponse   (admin)
+// POST /api/assistant  { messages, confirm?, context?, agent? } → AssistantResponse   (admin)
+//      `agent` (a CrewId) talks to one crew member directly; without it Darwin (the lead) answers and may consult
+//      the others with ask_agent (their exchanges come back as `threads`).
 //      Darwin, the merchant's managing assistant: runs tools over the public module APIs.
 //      Side-effecting tools (ship_winner, set_autopilot, reset_loop, run_simulation, and step_loop when the next
 //      step ships or rolls back) come back as `pendingConfirm`; send `confirm: { tool, args, approved }` to run
@@ -107,6 +109,29 @@ export interface AssistantAction {
   /** The result involves simulated (synthetic) traffic or buyers. */
   synthetic?: boolean;
   link?: { label: string; href: string };
+  /** Set by the `navigate` tool: the UI should open `link.href` (a console path starting with "/"). */
+  navigate?: boolean;
+}
+
+/** The Darwin crew (names, roles, mascots: lib/crew). "darwin" is the lead; the others are specialists. */
+export type CrewId = "darwin" | "iris" | "theo" | "ada" | "max" | "mika" | "grok";
+
+/** One message in an agent-to-agent exchange. `from` / `to` are crew names ("Darwin", "Mika", "Shopper"). */
+export interface AgentThreadMessage {
+  from: string;
+  to: string;
+  text: string;
+  /** ISO-8601. */
+  at: string;
+}
+/** An agent-to-agent exchange run during a turn (Darwin consulting a specialist, a simulated shopper talking to Mika…). */
+export interface AgentThread {
+  id: string;
+  /** Crew names in the exchange, lead first, e.g. ["Darwin", "Mika"]. */
+  agents: string[];
+  messages: AgentThreadMessage[];
+  /** Involves a simulated shopper or simulated data: label it. */
+  synthetic?: boolean;
 }
 export interface AssistantPendingConfirm {
   tool: string;
@@ -119,6 +144,8 @@ export interface AssistantRequest {
   confirm?: { tool: string; args?: Record<string, unknown>; approved: boolean };
   /** Where the merchant is asking from (console path, darwin.js site). */
   context?: { path?: string; site?: string };
+  /** Talk to one crew member directly (its persona and its own tools, same confirm rules). Omitted or "darwin": the lead answers and may consult the others. */
+  agent?: CrewId;
 }
 export interface AssistantResponse {
   reply: string;
@@ -130,6 +157,10 @@ export interface AssistantResponse {
   source?: "ai" | "rules";
   /** Follow-up prompts to offer as chips. */
   suggestions?: string[];
+  /** Agent-to-agent exchanges run this turn (ask_agent), in order. */
+  threads?: AgentThread[];
+  /** Who answered: "darwin" (the lead) or the crew member the request was addressed to. */
+  agent?: CrewId;
 }
 
 export type { PageSpec };
