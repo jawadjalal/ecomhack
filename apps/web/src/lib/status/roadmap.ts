@@ -61,10 +61,10 @@ export const ROADMAP: RoadmapArea[] = [
     route: "/console",
     status: "in-progress",
     inProgress: "above-the-fold pass",
-    done: "Impact strip (before Darwin vs now), conversion, A vs B, which agents buy, live shoppers joined to their journey, the Ask Darwin chat. The four cards sit in an even 2-up grid (no more mirrored bento layout), and their numbers/bars no longer replay their entrance animation on every live poll — only on real changes.",
+    done: "Impact strip (before Darwin vs now), conversion, A vs B, which agents buy, live shoppers joined to their journey, the Ask Darwin chat. The four cards sit in an even 2-up grid (no more mirrored bento layout), and their numbers/bars no longer replay their entrance animation on every live poll — only on real changes. Crew mascots follow what Darwin is doing (lib/mascot/state): the one whose loop step runs works or thinks, a fresh ship or reject flashes success or error, everyone sleeps with autopilot off, and the Ask Darwin face thinks while a reply is in flight.",
     leftToDo: ["Both card rows above the fold at 1440×900", "Make the chat the lead agent on every screen, able to navigate and run any action", "The live feed's row-reorder animation still runs on a short interval — revisit if still jittery"],
     limitations: ["People rows need store traffic on (the events route has no store-only filter).", "With ?mock=1 the chat still answers from the server."],
-    nextIdeas: ["A daily “what changed” digest card", "Pin a shopper journey to an issue"],
+    nextIdeas: ["A daily “what changed” digest card", "Pin a shopper journey to an issue", "Drive mascot poses from server events (SSE) instead of the 1s clock + loop poll, so success/error flashes never get missed between polls"],
   },
   {
     key: "issues",

@@ -1,30 +1,31 @@
 /**
- * Which animated mascot stands for each crew role, and which pose matches what the app is doing.
+ * Which pose a crew mascot should hold, from what the app is actually doing (loop phase, autopilot, the latest
+ * activity line, a chat reply in flight). Pure functions, client-safe; the art is components/mascots.
  *
- * Assets: public/mascots/{kind}-{state}.svg (served, not inlined).
- * leader is Darwin (red crowned squircle). The other five are the crew.
+ * One crew naming (lib/crew, lib/team/roster): Darwin is the red crowned leader, Iris (observer) watches shoppers
+ * and finds where they get stuck, Pixel (designer) drafts the fix, Fizz (experimenter) runs and judges the A/B
+ * test, Dash (shipper) ships the winner. The loop log still says "analyst" for the diagnose step: that is Iris.
  */
+import type { MascotKind, MascotState } from "@/lib/contracts/team";
 
-export const CREW_ROLES = ["observer", "analyst", "designer", "experimenter", "shipper"] as const;
+export type { MascotKind, MascotState };
 
-export type CrewRole = (typeof CREW_ROLES)[number];
+/** The crew members who own a loop phase. */
+export const LOOP_CREW = ["observer", "designer", "experimenter", "shipper"] as const;
 
-/** Animated character. `leader` is Darwin itself. */
-export type MascotKind = CrewRole | "leader";
-
-export type MascotState = "idle" | "working" | "thinking" | "success" | "error" | "sleeping";
-
-export const MASCOT_KINDS: MascotKind[] = ["leader", ...CREW_ROLES];
-
-export const MASCOT_STATES: MascotState[] = ["idle", "working", "thinking", "success", "error", "sleeping"];
+export type CrewRole = (typeof LOOP_CREW)[number];
 
 /** Loop actors and other speakers → a mascot. Unknown names fall back to Darwin. */
 const ACTOR_MASCOT: Record<string, MascotKind> = {
   observer: "observer",
-  analyst: "analyst",
+  analyst: "observer",
+  iris: "observer",
   designer: "designer",
+  pixel: "designer",
   experimenter: "experimenter",
+  fizz: "experimenter",
   shipper: "shipper",
+  dash: "shipper",
   leader: "leader",
   darwin: "leader",
   system: "leader",
@@ -40,9 +41,8 @@ export function mascotForActor(actor: string | null | undefined): MascotKind {
 export function phaseRole(phase: string | null | undefined): CrewRole | null {
   switch (phase) {
     case "observe":
-      return "observer";
     case "diagnose":
-      return "analyst";
+      return "observer";
     case "propose":
       return "designer";
     case "experiment":
@@ -97,26 +97,27 @@ export interface CrewStateInput {
 
 const FLASH_MS = 1800;
 
+function freshOutcome(entry: { message: string; at: string }, now: number): "success" | "error" | null {
+  if (now <= 0) return null;
+  const age = now - Date.parse(entry.at);
+  if (!Number.isFinite(age) || age < 0 || age >= FLASH_MS) return null;
+  return outcomeFromMessage(entry.message);
+}
+
 /**
  * Pose for one crew member.
- * Running phase → working. LLM / judgement phases → thinking.
- * A fresh ship or failure on that actor → success or error, briefly.
- * Autopilot off (and not mid-step) → sleeping. Otherwise idle.
+ * A fresh ship or failure on that member → success or error, briefly. A live test → the tester works.
+ * Autopilot off (and not mid-step) → sleeping. Their phase running → working; judgement phases → thinking.
+ * Otherwise idle. Darwin (leader) owns no phase: it rests, sleeps with autopilot off, and flashes on its own lines.
  */
-export function crewMascotState(role: CrewRole, input: CrewStateInput = {}): MascotState {
-  const now = input.now ?? 0;
+export function crewMascotState(role: MascotKind, input: CrewStateInput = {}): MascotState {
   const last = input.lastEntry;
-  if (last && last.actor === role && now > 0) {
-    const at = Date.parse(last.at);
-    const age = now - at;
-    if (Number.isFinite(age) && age >= 0 && age < FLASH_MS) {
-      const outcome = outcomeFromMessage(last.message);
-      if (outcome) return outcome;
-    }
+  if (last && mascotForActor(last.actor) === role) {
+    const outcome = freshOutcome(last, input.now ?? 0);
+    if (outcome) return outcome;
   }
   if (role === "experimenter" && input.experimentRunning) return "working";
-  const paused = input.autopilot === false && !input.stepping;
-  if (paused) return "sleeping";
+  if (input.autopilot === false && !input.stepping) return "sleeping";
   const phase = input.phase ?? "idle";
   if (phaseRole(phase) !== role) return "idle";
   return moodForPhase(phase);
@@ -136,14 +137,8 @@ export function activityMascotState(
   input: { isLatest: boolean; now?: number; autopilot?: boolean; stepping?: boolean },
 ): MascotState {
   if (!input.isLatest) return "idle";
-  const now = input.now ?? 0;
-  if (now > 0) {
-    const age = now - Date.parse(entry.at);
-    if (Number.isFinite(age) && age >= 0 && age < FLASH_MS) {
-      const outcome = outcomeFromMessage(entry.message);
-      if (outcome) return outcome;
-    }
-  }
+  const outcome = freshOutcome(entry, input.now ?? 0);
+  if (outcome) return outcome;
   if (input.autopilot === false && !input.stepping) return "sleeping";
   return moodForPhase(entry.phase);
 }

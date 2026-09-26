@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/components/ui/cn";
 import { PHASE_META } from "@/lib/console/format";
 import { TRAFFIC_BATCH, useExperiments } from "@/lib/console/hooks";
+import { CrewFace } from "../crew-face";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { Card, DEPTH, LiveDot, pct0 } from "../ui";
@@ -38,7 +39,7 @@ export function AutopilotCard({ className }: { className?: string }) {
   return (
     <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Autopilot">
       <div className="flex items-start gap-4">
-        <Mascot kind="shipper" size={60} frame active={autopilot} title="Dash, the shipper" />
+        <CrewFace kind="shipper" size={60} title="Dash, the shipper" />
         <div className="min-w-0 flex-1">
           <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Autopilot</h2>
           <p className="mt-1 flex items-center gap-2 text-[14px] text-[#4F4417]" aria-live="polite">
@@ -80,7 +81,7 @@ export function AutopilotCard({ className }: { className?: string }) {
       </div>
 
       <div className="mt-2.5 flex items-center gap-4 rounded-[20px] bg-white/60 p-4 ring-1 ring-white/50">
-        <Mascot kind="observer" size={40} active={trafficOn} title="Iris, the watcher" />
+        <Mascot kind="observer" size={40} state={trafficOn ? "working" : "sleeping"} title="Iris, the watcher" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 text-[15px] font-semibold">
             Simulated shoppers

@@ -10,7 +10,7 @@ import { ArrowRight } from "lucide-react";
 import type { Experiment, LoopState } from "@/lib/contracts";
 import { PHASE_META } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
-import { Mascot } from "../mascot";
+import { CrewFace } from "../crew-face";
 import { DEPTH } from "../ui";
 import { CountUp, Grow } from "./fx";
 import { Swap } from "./swap";
@@ -148,7 +148,7 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
         )}
       >
         <div className="flex min-w-0 items-center gap-3.5 sm:col-span-2 lg:flex-1">
-          <Mascot kind="shipper" size={42} frame active={loop.autopilot} />
+          <CrewFace kind="shipper" size={42} />
           <div className="flex min-w-0 flex-col">
             {measured ? (
               <>

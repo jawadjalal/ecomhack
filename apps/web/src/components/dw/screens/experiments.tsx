@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { LoaderCircle } from "lucide-react";
 import { count, pct, sourceBadge } from "@/lib/console/format";
 import { useExperiments, useNow, useSamples } from "@/lib/console/hooks";
+import { CrewFace } from "../crew-face";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { StartDemo } from "../first-run";
@@ -98,7 +99,7 @@ export function ExperimentsScreen() {
   if (!experiments || !loop) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Fizz is loading the tests <Typing /></span>} />
+        <PageHead mascot={<Mascot kind="experimenter" size={52} frame state="thinking" />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Fizz is loading the tests <Typing /></span>} />
         <div className="h-[92px] animate-pulse rounded-[22px] bg-dw-surface sm:h-[100px]" aria-hidden />
         <div className={LIST_DETAIL} aria-hidden>
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
@@ -111,10 +112,10 @@ export function ExperimentsScreen() {
   if (!exp || !view) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="No tests yet" lede="When Pixel has a fix worth trying, Fizz shows half your shoppers the new version and counts who buys." />
+        <PageHead mascot={<CrewFace kind="experimenter" />} title="No tests yet" lede="When Pixel has a fix worth trying, Fizz shows half your shoppers the new version and counts who buys." />
         <Card tone="pink" shape="experimenter" hover={false} className={`rounded-[28px] ${DEPTH}`}>
           <Empty
-            mascot={<Mascot kind="experimenter" size={88} frame active />}
+            mascot={<CrewFace kind="experimenter" size={88} />}
             action={
               autopilot ? (
                 <span className="inline-flex items-center gap-2 text-[14px] text-dw-ink/75">
@@ -281,7 +282,7 @@ export function ExperimentsScreen() {
 
   return (
     <>
-      <PageHead mascot={<Mascot kind="experimenter" size={52} frame active={Boolean(liveTest)} />} title={pageTitle} lede={pageLede} right={actions} />
+      <PageHead mascot={<CrewFace kind="experimenter" />} title={pageTitle} lede={pageLede} right={actions} />
 
       <SummaryStrip
         items={[

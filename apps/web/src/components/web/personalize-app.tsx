@@ -19,7 +19,7 @@ import type {
 import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { INSTALL_STATUS_LABEL, installStatus } from "@/lib/web/install-status";
 import { cn } from "@/components/ui/cn";
-import { Mascot, type MascotKind } from "@/components/dw/mascot";
+import { Mascot, type MascotKind, type MascotState } from "@/components/dw/mascot";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { Card, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
 import { BrowserFrame, CardHead, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
@@ -945,7 +945,7 @@ function RuleRow({
       )}
     >
       <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <Mascot kind={mascot} size={40} frame active={rule.status === "running"} className="max-sm:hidden" />
+        <Mascot kind={mascot} size={40} frame state={rule.status === "running" ? "working" : rule.status === "draft" ? "thinking" : "idle"} className="max-sm:hidden" />
         <div className="min-w-0 flex-1">
           <div className="text-[15px] leading-snug font-semibold">{rule.name}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -1180,6 +1180,16 @@ const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: st
   waiting: { mascot: "observer", who: "Iris" },
 };
 
+/** The latest decision's pose: a ship celebrates, a stop is an error, waiting thinks; older lines rest. */
+function decisionPose(kind: WebAutopilotEntry["kind"], latest: boolean, on: boolean): MascotState {
+  if (!latest) return "idle";
+  if (!on || kind === "off") return "sleeping";
+  if (kind === "shipped") return "success";
+  if (kind === "stopped") return "error";
+  if (kind === "waiting") return "thinking";
+  return "working";
+}
+
 function DecisionLog({ state }: { state: WebAutopilotState }) {
   const entries = state.log.slice(0, 25);
   return (
@@ -1203,7 +1213,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
           return (
             <li key={`${e.at}-${i}`} className="relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 pb-3.5 last:pb-0">
               {i < entries.length - 1 && <span className="absolute top-9 bottom-0 left-[1.1rem] w-px bg-dw-ink/15" aria-hidden />}
-              <Mascot kind={actor.mascot} size={36} frame active={i === 0 && state.on} title={actor.who} />
+              <Mascot kind={actor.mascot} size={36} frame state={decisionPose(e.kind, i === 0, state.on)} title={actor.who} />
               <div className="min-w-0 pt-0.5">
                 <div className="flex items-baseline gap-2 text-[12.5px]">
                   <span className="font-semibold">{actor.who}</span>

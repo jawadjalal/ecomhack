@@ -20,7 +20,8 @@ import type { AgentThread, AssistantAction, AssistantMessage, AssistantPendingCo
 import { CREW, crewMember, SIMULATED_SHOPPER, type CrewMember } from "@/lib/crew";
 import { BrandGlyph } from "@/components/dw/brand-logos";
 import { cn } from "@/components/ui/cn";
-import { Mascot, MASCOT_CSS, type MascotKind } from "./mascot";
+import { useChatMascot } from "@/components/mascots/use-chat-mascot";
+import { Mascot, MASCOT_CSS, type MascotKind, type MascotState } from "./mascot";
 import { LevelMeter, MicButton, SpeakerToggle, useRecorder, useSpeaker, useVoiceStatus } from "./voice";
 import { hasAgentView, ModeSwitch } from "@/components/dw/agent-mode/toggle";
 
@@ -70,9 +71,9 @@ const AGENT_KEY = "darwin.assistant.agent";
 const crewById = (id: CrewId): CrewMember => CREW.find((c) => c.id === id) ?? CREW[0];
 
 /** A crew member's face: their mascot, or a round badge for Mika (the store) and Grok. */
-function CrewAvatar({ member, size = 26, active, thinking }: { member?: CrewMember; size?: number; active?: boolean; thinking?: boolean }) {
+function CrewAvatar({ member, size = 26, active, thinking, state }: { member?: CrewMember; size?: number; active?: boolean; thinking?: boolean; state?: MascotState }) {
   const m = member ?? CREW[0];
-  if (m.mascot) return <Mascot kind={m.mascot as MascotKind} size={size} active={active} thinking={thinking} label={m.name} />;
+  if (m.mascot) return <Mascot kind={m.mascot as MascotKind} size={size} active={active} thinking={thinking} state={state} label={m.name} />;
   const tone = m.brand === "grok" ? { bg: INK, fg: CREAM } : { bg: "#D5CCF5", fg: INK };
   return (
     <span role="img" aria-label={m.name} className="inline-block shrink-0" style={{ width: size, height: size }}>
@@ -284,6 +285,9 @@ export function AssistantPanel() {
   const items = useMemo(() => byAgent[agent] ?? [], [byAgent, agent]);
   const setItemsFor = useCallback((who: CrewId, fn: (all: ChatItem[]) => ChatItem[]) => setByAgent((m) => ({ ...m, [who]: fn(m[who] ?? []) })), []);
   const member = crewById(agent);
+  const lastItem = items.at(-1);
+  /** The bar's face follows the reply: thinking while it's in flight, then a short success or error. */
+  const mood = useChatMascot(busy, !!lastItem && lastItem.role === "assistant" && !!lastItem.error);
   const [followUps, setFollowUps] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const { mutate } = useSWRConfig();
@@ -713,7 +717,7 @@ export function AssistantPanel() {
             data-ask-bar
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-full" style={{ background: "rgba(247,241,229,0.10)" }}>
-              <CrewAvatar member={member} size={30} active={!busy} thinking={busy} />
+              <CrewAvatar member={member} size={30} active={!busy} thinking={busy} state={mood} />
             </span>
             <label htmlFor="dw-ask" className="sr-only">
               Ask Darwin
@@ -968,7 +972,7 @@ function ResultCards({ actions, reply }: { actions: AssistantAction[]; reply: st
         return (
           <div key={i} className="flex min-w-0 flex-col gap-2.5 rounded-[20px] px-5 py-4" style={{ background: a.ok ? s.bg : "#FBE7D3" }}>
             <div className="flex min-w-0 items-center gap-2.5">
-              <Mascot kind={s.mascot} size={26} />
+              <Mascot kind={s.mascot} size={26} state={a.ok ? undefined : "error"} />
               <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{s.label}</span>
               {!a.ok && <Pill tone="warn">didn&apos;t work</Pill>}
               {a.synthetic && <Pill tone="sand">simulated</Pill>}
@@ -1012,7 +1016,7 @@ function ConfirmCard({
   return (
     <div className="flex flex-col gap-2.5 rounded-[20px] bg-[#F3EDE0] px-5 py-4 sm:max-w-[520px]">
       <div className="flex items-center gap-2.5">
-        <Mascot kind={s.mascot} size={26} active={!resolved} />
+        <Mascot kind={s.mascot} size={26} active={!resolved} state={resolved ? undefined : "thinking"} />
         <span className="flex-1 text-[15px] font-semibold">{s.label}</span>
         {resolved ? <Pill tone={resolved === "confirmed" ? "win" : "sand"}>{resolved}</Pill> : <Pill tone="warn">needs your OK</Pill>}
       </div>

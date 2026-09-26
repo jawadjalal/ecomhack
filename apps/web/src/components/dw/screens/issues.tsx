@@ -5,6 +5,7 @@ import { MotionConfig } from "motion/react";
 import { useExperiments, useSessions, useSummary } from "@/lib/console/hooks";
 import { count } from "@/lib/console/format";
 import { useDarwin } from "../provider";
+import { CrewFace } from "../crew-face";
 import { Mascot } from "../mascot";
 import { LOOP_SPLIT, PageHead, SummaryStrip, type SummaryItem } from "../ui";
 import { IssueDetail } from "../issues/issue-detail";
@@ -83,7 +84,7 @@ function Issues() {
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="observer" size={52} frame active />}
+        mascot={<CrewFace kind="observer" />}
         title={n ? `${n} thing${n === 1 ? "" : "s"} stop${n === 1 ? "s" : ""} shoppers buying` : "Iris is re-checking your store"}
         right={
           <StatusPill who="observer" live={busy}>
