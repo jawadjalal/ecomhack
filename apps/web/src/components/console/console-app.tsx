@@ -7,6 +7,7 @@ import { TriangleAlert, X } from "lucide-react";
 import type { LoopPhase } from "@/lib/contracts";
 import { createConsoleApi } from "@/lib/console/api";
 import { prsByGeneration, sourceBadge, withStatusPrs, type PrInfo } from "@/lib/console/format";
+import { setLive } from "@/lib/console/live";
 import {
   ApiContext,
   useApi,
@@ -135,6 +136,11 @@ function Console({ mock }: { mock: boolean }) {
     [api, mutateLoop, notify],
   );
   useAutopilotDriver(autopilot, step);
+
+  // Tiles, funnels and agent sessions only poll while the shared live switch is on (off by default).
+  useEffect(() => {
+    if (autopilot || trafficOn) setLive(true);
+  }, [autopilot, trafficOn]);
 
   /* peek at a phase (resets when the live phase moves on) */
   const livePhase: LoopPhase = loop?.phase ?? "idle";
