@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Flame, FlaskConical, Gauge, Globe, LayoutDashboard, ListChecks, Smartphone, Sparkles, TrendingUp } from "lucide-react";
+import { Bot, Flame, FlaskConical, Gauge, Globe, LayoutDashboard, ListChecks, Smartphone, Sparkles, TrendingUp, X } from "lucide-react";
 import type { DashboardData, DashboardKind, SeriesPoint } from "@/lib/contracts";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Badge } from "@/components/ui/badge";
@@ -22,21 +22,35 @@ const pct = (x: number | undefined, d = 1) => (x === undefined ? "–" : `${(x *
 const gbp = (pence: number) => `£${(pence / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`;
 
 /** Every dashboard in a plan, laid out in a responsive grid. `compact` for the onboarding preview. */
-export function DashboardGrid({ dashboards, compact = false }: { dashboards: DashboardData[]; compact?: boolean }) {
+export function DashboardGrid({ dashboards, compact = false, onRemove }: { dashboards: DashboardData[]; compact?: boolean; onRemove?: (id: string) => void }) {
   return (
     <div className={cn("grid grid-cols-1 gap-4", compact ? "md:grid-cols-2" : "lg:grid-cols-2 2xl:grid-cols-3")}>
       {dashboards.map((d) => (
-        <DashboardCard key={d.id} d={d} compact={compact} />
+        <DashboardCard key={d.id} d={d} compact={compact} onRemove={d.custom ? onRemove : undefined} />
       ))}
     </div>
   );
 }
 
-export function DashboardCard({ d, compact }: { d: DashboardData; compact?: boolean }) {
+export function DashboardCard({ d, compact, onRemove }: { d: DashboardData; compact?: boolean; onRemove?: (id: string) => void }) {
   const wide = d.kind === "kpis";
   return (
-    <Panel className={cn(wide && "md:col-span-2 2xl:col-span-3", "min-h-[11rem]")} data-dashboard={d.id}>
-      <PanelHeader icon={ICON[d.kind] ?? <LayoutDashboard />} title={d.title} right={d.empty ? <Badge tone="outline">Waiting for data</Badge> : undefined} />
+    <Panel className={cn(wide && "md:col-span-2 2xl:col-span-3", "min-h-[11rem]", d.custom && "border-brand/20")} data-dashboard={d.id}>
+      <PanelHeader
+        icon={ICON[d.kind] ?? <LayoutDashboard />}
+        title={d.title}
+        right={
+          <>
+            {d.custom && <Badge tone="brand">you asked</Badge>}
+            {d.empty && <Badge tone="outline">Waiting for data</Badge>}
+            {onRemove && (
+              <button onClick={() => onRemove(d.id)} className="text-white/35 hover:text-white" aria-label={`Remove ${d.title}`} title="Remove this chart">
+                <X className="size-4" />
+              </button>
+            )}
+          </>
+        }
+      />
       <div className="flex flex-1 flex-col gap-2 px-5 pb-5">
         {!compact && <p className="-mt-1 text-[0.78rem] text-white/45">{d.why}</p>}
         {d.empty ? <Waiting kind={d.kind} /> : <Body d={d} compact={compact} />}

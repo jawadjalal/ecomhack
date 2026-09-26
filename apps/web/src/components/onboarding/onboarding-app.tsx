@@ -739,6 +739,11 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
                 </div>
               );
             })}
+            {!!data && data.totalEvents - data.syntheticEvents > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-good/30 bg-good/[0.08] px-2.5 py-1.5 text-[0.76rem] text-[#a6efbf]">
+                <Radio className="size-3.5" /> Real visitors are arriving: {(data.totalEvents - data.syntheticEvents).toLocaleString("en-GB")} real {data.totalEvents - data.syntheticEvents === 1 ? "event" : "events"} so far.
+              </div>
+            )}
             {!!data?.syntheticEvents && (
               <div className="mt-2 rounded-lg border border-warn/25 bg-warn/[0.06] px-2.5 py-1.5 text-[0.74rem] text-[#ffd27a]">
                 {data.syntheticEvents.toLocaleString("en-GB")} of {data.totalEvents.toLocaleString("en-GB")} events are simulated{sent ? ` (${sent} shoppers sent)` : ""}.
