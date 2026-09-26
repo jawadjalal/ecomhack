@@ -46,18 +46,22 @@ export function DiffBlock({ lines, className }: { lines: string[]; className?: s
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.15 + i * 0.07 }}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-1 hover:bg-white/[0.03]"
+              className="grid grid-cols-[minmax(7rem,1fr)_minmax(0,auto)] items-center gap-3 rounded-md px-2 py-1 hover:bg-white/[0.03]"
             >
               <div className="min-w-0">
                 <div className="truncate text-[0.8rem] text-white/80">{humanizePath(d.path)}</div>
                 <div className="truncate font-mono text-[0.64rem] text-white/30">{d.path}</div>
               </div>
-              <div className="flex items-center gap-1.5 font-mono text-[0.76rem]">
+              <div className="flex min-w-0 items-center justify-end gap-1.5 font-mono text-[0.76rem]">
                 {d.before !== undefined && (
-                  <span className="rounded bg-bad/12 px-1.5 py-0.5 text-[#ff9b9b] line-through decoration-[#ff9b9b]/50">{prettyValue(d.before)}</span>
+                  <span className="max-w-[40%] truncate rounded bg-bad/12 px-1.5 py-0.5 text-[#ff9b9b] line-through decoration-[#ff9b9b]/50" title={d.before}>
+                    {prettyValue(d.before)}
+                  </span>
                 )}
                 <span className="text-white/30">→</span>
-                <span className="rounded bg-good/15 px-1.5 py-0.5 font-semibold text-[#8ff0b2]">{prettyValue(d.after)}</span>
+                <span className="min-w-0 truncate rounded bg-good/15 px-1.5 py-0.5 font-semibold text-[#8ff0b2]" title={d.after}>
+                  {prettyValue(d.after)}
+                </span>
               </div>
             </motion.div>
           );

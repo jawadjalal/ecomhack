@@ -101,7 +101,9 @@ export function TopBar({
         {github?.repo ? (
           <>
             <span className="max-w-[14rem] truncate text-white/85">{github.repo}</span>
-            {!github.configured && <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[0.65rem] tracking-wide text-white/50 uppercase">dry run</span>}
+            {((github as { dryRun?: boolean }).dryRun ?? !github.configured) && (
+              <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[0.65rem] tracking-wide text-white/50 uppercase">dry run</span>
+            )}
           </>
         ) : (
           <span className="text-brand">Connect repo</span>

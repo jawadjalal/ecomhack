@@ -3,8 +3,7 @@
 import { motion } from "motion/react";
 import { ArrowRight, ArrowUpRight, FileCode, GitBranch, GitPullRequest, PartyPopper } from "lucide-react";
 import type { GenerationRecord } from "@/lib/contracts";
-import type { PullRequestResult } from "@/lib/github";
-import { pct, prNumberFromUrl, signedPct } from "@/lib/console/format";
+import { pct, prNumberFromUrl, signedPct, type PrInfo } from "@/lib/console/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
@@ -46,10 +45,23 @@ export function Celebration({ runKey }: { runKey: string | number }) {
   );
 }
 
-export function PrCard({ pr, prUrl, onOpen, className }: { pr?: PullRequestResult; prUrl?: string; onOpen?: () => void; className?: string }) {
+export function PrCard({
+  pr,
+  prUrl,
+  fallbackTitle,
+  onOpen,
+  className,
+}: {
+  pr?: PrInfo;
+  prUrl?: string;
+  fallbackTitle?: string;
+  onOpen?: () => void;
+  className?: string;
+}) {
   const url = pr?.url ?? prUrl;
   const number = pr?.number ?? prNumberFromUrl(url);
   const dry = pr?.dryRun ?? !url;
+  const status = pr?.queued ? "Queued" : dry ? "Dry run" : "Open";
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -64,12 +76,13 @@ export function PrCard({ pr, prUrl, onOpen, className }: { pr?: PullRequestResul
         <div className="flex min-w-0 flex-col">
           <span className="text-[0.75rem] text-white/45">Pull request {number ? `#${number}` : ""}</span>
           <span className="flex items-center gap-1.5">
-            <Badge tone={dry ? "warn" : "good"}>{dry ? "Dry run" : "Open"}</Badge>
-            {dry && <span className="text-[0.72rem] text-white/35">no GITHUB_TOKEN: nothing pushed</span>}
+            <Badge tone={dry ? "warn" : "good"}>{status}</Badge>
+            {dry && <span className="text-[0.72rem] text-white/35">{pr?.repo ? `${pr.repo} · ` : ""}nothing pushed</span>}
           </span>
         </div>
       </div>
-      <div className="text-[1.15rem] leading-snug font-semibold text-white">{pr?.title ?? "Promote winning spec"}</div>
+      <div className="text-[1.15rem] leading-snug font-semibold text-white">{pr?.title ?? fallbackTitle ?? "Promote the winning spec"}</div>
+      {dry && pr?.note && !pr.title && <div className="line-clamp-2 text-[0.78rem] leading-relaxed text-white/45">{pr.note}</div>}
       {pr?.branch && (
         <div className="flex items-center gap-2 font-mono text-[0.74rem] text-white/50">
           <GitBranch className="size-3.5" />
@@ -96,11 +109,11 @@ export function PrCard({ pr, prUrl, onOpen, className }: { pr?: PullRequestResul
             </Button>
           </a>
         ) : null}
-        {pr && onOpen && (
+        {pr && onOpen && (pr.body || pr.files?.length) ? (
           <Button variant="secondary" size="sm" onClick={onOpen}>
             {url ? "Details" : "View PR body & diff"}
           </Button>
-        )}
+        ) : null}
       </div>
     </motion.div>
   );
@@ -113,7 +126,7 @@ export function ShipStage({
   previous,
   onOpenPr,
 }: {
-  pr?: PullRequestResult;
+  pr?: PrInfo;
   record?: GenerationRecord;
   baseline?: GenerationRecord;
   previous?: GenerationRecord;
@@ -169,7 +182,12 @@ export function ShipStage({
         )}
       </div>
       <div className="relative flex flex-col justify-center">
-        <PrCard pr={pr} prUrl={record?.prUrl} onOpen={onOpenPr} />
+        <PrCard
+          pr={pr}
+          prUrl={record?.prUrl}
+          fallbackTitle={record ? `Darwin Gen ${record.generation}: ${record.label.replace(/^Gen \d+:\s*/, "")}` : undefined}
+          onOpen={onOpenPr}
+        />
       </div>
     </div>
   );

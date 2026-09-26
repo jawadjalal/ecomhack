@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, GitPullRequest, TrendingUp } from "lucide-react";
-import type { Experiment, GenerationRecord, LoopLogEntry } from "@/lib/contracts";
-import { extractPr, pct, prNumberFromUrl, signedPct } from "@/lib/console/format";
+import type { Experiment, GenerationRecord } from "@/lib/contracts";
+import { pct, prNumberFromUrl, signedPct, type PrInfo } from "@/lib/console/format";
 import { useMeasure } from "@/lib/console/hooks";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { cn } from "@/components/ui/cn";
@@ -50,8 +50,8 @@ function Row({
   const s = SERIES[kind];
   const values = history.map((h) => h[s.key]);
   const cand = candidate?.[kind];
-  const max = niceMax(Math.max(0.001, ...values, cand ?? 0) * 1.18);
-  const top = 22;
+  const max = niceMax(Math.max(0.001, ...values, cand ?? 0) * 1.3);
+  const top = 30;
   const bottom = 6;
   const plotH = Math.max(10, height - top - bottom);
   const plotW = Math.max(10, width - padL - padR);
@@ -115,9 +115,8 @@ function Row({
             fill="#0b0d12"
             stroke={s.color}
             strokeWidth={2}
-            initial={false}
-            animate={{ cy: y(cand), opacity: [0.5, 1, 0.5] }}
-            transition={{ opacity: { duration: 1.6, repeat: Infinity }, cy: { duration: 0.6 } }}
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.6, repeat: Infinity }}
           />
           <text x={x(last + 1)} y={y(cand) - 10} textAnchor="middle" className="fill-white/55 tabular" style={{ fontSize: "0.7rem", fontWeight: 600 }}>
             {fmt(cand)}?
@@ -132,7 +131,7 @@ function Row({
               cx={px}
               cy={py}
               initial={{ r: 0 }}
-              animate={{ r: hover === i || i === last ? 6 : 4.5, cy: py }}
+              animate={{ r: hover === i || i === last ? 6 : 4.5 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               fill={s.color}
               stroke="#0b0d12"
@@ -140,10 +139,9 @@ function Row({
             />
             {showLabel && (
               <text
-                x={px}
-                y={py - 11}
-                textAnchor={i === 0 && slots > 1 ? "start" : "middle"}
-                dx={i === 0 && slots > 1 ? -6 : 0}
+                x={i === 0 ? px + 9 : px}
+                y={i === 0 ? py - 9 : py - 11}
+                textAnchor={i === 0 ? "start" : "middle"}
                 className={cn("tabular", i === last ? "fill-white" : "fill-white/65")}
                 style={{ fontSize: i === last ? "0.95rem" : "0.76rem", fontWeight: 600 }}
               >
@@ -160,12 +158,12 @@ function Row({
 export function EvolutionChart({
   history,
   experiment,
-  log,
+  prs,
   onOpenPr,
 }: {
   history: GenerationRecord[];
   experiment?: Experiment;
-  log: LoopLogEntry[];
+  prs: Map<number, PrInfo>;
   onOpenPr: (generation: number) => void;
 }) {
   const [ref, size] = useMeasure<HTMLDivElement>();
@@ -194,14 +192,10 @@ export function EvolutionChart({
     first && last && first[k] > 0 && history.length > 1 ? `${(last[k] / first[k]).toFixed(1)}×` : undefined;
 
   const prFor = (g: GenerationRecord) => {
-    if (g.prUrl) return { url: g.prUrl, number: prNumberFromUrl(g.prUrl), dryRun: false };
-    for (let i = log.length - 1; i >= 0; i--) {
-      const pr = extractPr(log[i]);
-      if (pr && (pr.title.includes(`Gen ${g.generation}:`) || pr.branch.includes(`gen-${g.generation}-`))) {
-        return { url: pr.url, number: pr.number ?? prNumberFromUrl(pr.url), dryRun: pr.dryRun };
-      }
-    }
-    return undefined;
+    const pr = prs.get(g.generation);
+    const url = g.prUrl ?? pr?.url;
+    if (!url && !pr) return undefined;
+    return { url, number: pr?.number ?? prNumberFromUrl(url), dryRun: pr?.dryRun ?? !url };
   };
 
   return (
@@ -284,7 +278,7 @@ export function EvolutionChart({
         </div>
 
         {/* generation log */}
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-y-auto scrollbar-thin">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-y-auto scrollbar-thin">
           {history.length === 0 && <div className="text-[0.8rem] text-white/30">Shipped generations and their PRs land here.</div>}
           {[...history].reverse().map((g) => {
             const i = history.indexOf(g);
@@ -298,7 +292,7 @@ export function EvolutionChart({
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors",
+                  "flex items-center gap-2.5 rounded-xl border px-3 py-1.5 transition-colors",
                   hover === i ? "border-white/15 bg-white/[0.05]" : "border-white/[0.05] bg-white/[0.02]",
                 )}
               >

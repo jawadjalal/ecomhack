@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronRight, Handshake } from "lucide-react";
+import { Bot, ChevronRight, Handshake, LoaderCircle, Send, X } from "lucide-react";
+import { useSWRConfig } from "swr";
 import type { AgentSessionSummary } from "@/lib/contracts";
 import { money, timeAgo } from "@/lib/console/format";
-import { useNow } from "@/lib/console/hooks";
+import { useApi, useHotkeys, useNow } from "@/lib/console/hooks";
+import { Kbd } from "@/components/ui/kbd";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Badge, Tag } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
@@ -132,9 +134,94 @@ function Detail({ s }: { s: AgentSessionSummary }) {
   );
 }
 
+const BRIEFS = [
+  "Trail shoes, UK 10, under £140, delivered by Friday",
+  "Carbon race shoe, UK 8, best price you can get",
+  "Hydration vest for an ultra, free returns only",
+];
+
+function ShopperBox({ onClose, onDone }: { onClose: () => void; onDone: (s: AgentSessionSummary) => void }) {
+  const api = useApi();
+  const [brief, setBrief] = useState(BRIEFS[0]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const send = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!brief.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { session } = await api.sendShopper(brief.trim());
+      onDone(session);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <motion.form
+      onSubmit={send}
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      className="flex flex-col gap-2 rounded-xl border border-agent/25 bg-agent/[0.05] p-3"
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
+    >
+      <div className="flex items-center justify-between text-[0.76rem] font-medium text-white/70">
+        <span className="flex items-center gap-1.5">
+          <Bot className="size-3.5 text-agent" /> Send an AI shopper with a brief
+        </span>
+        <button type="button" onClick={onClose} className="text-white/40 hover:text-white" aria-label="Close">
+          <X className="size-3.5" />
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <input
+          autoFocus
+          value={brief}
+          onChange={(e) => setBrief(e.target.value)}
+          className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 text-[0.82rem] text-white outline-none focus:border-agent/50"
+        />
+        <button
+          type="submit"
+          disabled={busy}
+          className="flex h-9 items-center gap-1.5 rounded-lg bg-agent px-3 text-[0.8rem] font-semibold text-white disabled:opacity-60"
+        >
+          {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+          {busy ? "Shopping…" : "Send"}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {BRIEFS.map((b) => (
+          <button
+            key={b}
+            type="button"
+            onClick={() => setBrief(b)}
+            className={cn(
+              "rounded-md px-1.5 py-0.5 text-[0.66rem] transition-colors",
+              b === brief ? "bg-white/12 text-white/85" : "bg-white/[0.04] text-white/45 hover:text-white/75",
+            )}
+          >
+            {b}
+          </button>
+        ))}
+      </div>
+      {error && <div className="text-[0.74rem] text-[#ff9b9b]">{error}</div>}
+    </motion.form>
+  );
+}
+
 export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
+  const api = useApi();
+  const { mutate } = useSWRConfig();
   const [pinned, setPinned] = useState<string | null>(null);
-  const list = sessions ?? [];
+  const [shopping, setShopping] = useState(false);
+  const [sent, setSent] = useState<AgentSessionSummary | null>(null);
+  useHotkeys({ s: () => setShopping(true) });
+  const fromServer = sessions ?? [];
+  // the shopper we just sent stays visible even before the sessions list refreshes
+  const list = sent && !fromServer.some((s) => s.sessionId === sent.sessionId) ? [sent, ...fromServer] : fromServer;
   // follow the most interesting recent session, but switch at most every 6s so it stays readable
   const candidate = pickDefault(list)?.sessionId;
   const [autoId, setAutoId] = useState<string | undefined>(undefined);
@@ -158,19 +245,43 @@ export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
         icon={<Handshake />}
         title="Agent-to-agent commerce"
         right={
-          list.length > 0 && (
-            <span className="text-[0.74rem] text-white/45 tabular">
-              <span className="font-semibold text-white/80">{purchased}</span>/{list.length} bought
-            </span>
-          )
+          <div className="flex items-center gap-2">
+            {list.length > 0 && (
+              <span className="text-[0.74rem] text-white/45 tabular">
+                <span className="font-semibold text-white/80">{purchased}</span>/{list.length} bought
+              </span>
+            )}
+            <button
+              onClick={() => setShopping((v) => !v)}
+              title="Send an AI shopper (S)"
+              className="flex h-7 items-center gap-1.5 rounded-lg border border-agent/30 bg-agent/10 px-2 text-[0.72rem] font-medium text-[#f5a6cb] hover:bg-agent/20"
+            >
+              <Bot className="size-3.5" /> Send shopper <Kbd className="h-4 min-w-4 text-[0.6rem]">S</Kbd>
+            </button>
+          </div>
         }
       />
-      {list.length === 0 ? (
+      <AnimatePresence>
+        {shopping && (
+          <motion.div key="shopper" className="px-5 pb-3" exit={{ opacity: 0 }}>
+            <ShopperBox
+              onClose={() => setShopping(false)}
+              onDone={(s) => {
+                setSent(s);
+                setPinned(s.sessionId);
+                setShopping(false);
+                void mutate((key) => Array.isArray(key) && key[0] === api.mode && key[1] === "sessions");
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {list.length === 0 && !shopping ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center text-[0.85rem] text-white/35">
           <Handshake className="size-6 text-white/15" />
           Buyer agents discover the store via llms.txt, shop over MCP and negotiate with Darwin&apos;s merchant agent.
         </div>
-      ) : (
+      ) : list.length === 0 ? null : (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-4">
           <div className="flex gap-1.5 overflow-hidden">
             {list.slice(0, 7).map((s) => {

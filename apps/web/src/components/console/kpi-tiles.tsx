@@ -63,8 +63,10 @@ export function Sparkline({
 
 function Delta({ value, label, format }: { value?: number; label?: string; format: (v: number) => string }) {
   if (value === undefined || !Number.isFinite(value)) return <span className="text-[0.78rem] text-white/30">{label ?? "baseline pending"}</span>;
-  const up = value > 0.00005;
-  const down = value < -0.00005;
+  const text = format(value);
+  const flat = text.startsWith("±");
+  const up = !flat && value > 0;
+  const down = !flat && value < 0;
   const Icon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
   return (
     <span className="inline-flex items-center gap-1.5 text-[0.8rem]">
@@ -75,7 +77,7 @@ function Delta({ value, label, format }: { value?: number; label?: string; forma
         )}
       >
         <Icon className="size-[0.85rem]" />
-        {format(value)}
+        {text}
       </span>
       {label && <span className="text-white/40">{label}</span>}
     </span>
@@ -108,10 +110,10 @@ function Tile({
         {label}
       </div>
       <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0 text-[2.5rem] leading-[1.05] font-semibold tracking-[-0.025em] text-white tabular">
+        <div className="min-w-0 text-[2.4rem] leading-[1.05] font-semibold tracking-[-0.025em] whitespace-nowrap text-white tabular">
           {value === undefined ? <span className="text-white/25">–</span> : <AnimatedNumber value={value} format={format} />}
         </div>
-        <Sparkline values={spark} color={sparkColor} className="mb-1.5 h-[2.4rem] w-[42%] max-w-[8rem] shrink-0" />
+        <Sparkline values={spark} color={sparkColor} className="mb-1.5 h-[2.4rem] w-[34%] max-w-[7rem] shrink-0" />
       </div>
       <div className="flex h-[1.4rem] items-center justify-between gap-2">
         {delta}
@@ -161,13 +163,14 @@ export function KpiTiles({
   const orderSpark = useSamples(orders, 40, gen === 0 && history.length === 0 ? "fresh" : "run");
 
   const crDelta = (v?: number, base?: number) =>
-    v !== undefined && base !== undefined && gen0 ? (
-      <Delta value={v - base} format={(d) => pp(d)} label={`${signedPct(base ? (v - base) / base : 0)} vs G0`} />
+    v !== undefined && base !== undefined && base > 0 && gen0 ? (
+      <span title={`${pp(v - base)} vs Gen 0`}>
+        <Delta value={(v - base) / base} format={(d) => signedPct(d)} label="vs Gen 0" />
+      </span>
     ) : (
       <Delta value={undefined} format={pct} label="baseline pending" />
     );
 
-  const sub = (n?: number) => (n !== undefined ? `n=${count(n)}` : `G${gen}`);
 
   return (
     <div className="grid h-full grid-cols-4 gap-4">
@@ -177,7 +180,6 @@ export function KpiTiles({
         value={human.value}
         format={(v) => pct(v, 1)}
         delta={crDelta(human.value, gen0?.humanConversionRate)}
-        sub={sub(human.n)}
         spark={humanSpark}
         sparkColor="#4c94f0"
       />
@@ -187,7 +189,6 @@ export function KpiTiles({
         value={agent.value}
         format={(v) => pct(v, 0)}
         delta={crDelta(agent.value, gen0?.agentConversionRate)}
-        sub={sub(agent.n)}
         spark={agentSpark}
         sparkColor="#e0609a"
       />
@@ -197,7 +198,7 @@ export function KpiTiles({
         format={(v) => money(v)}
         delta={
           rpv !== undefined && rpv0 !== undefined && gen > 0 ? (
-            <Delta value={(rpv - rpv0) / rpv0} format={(d) => signedPct(d)} label="vs G0" />
+            <Delta value={(rpv - rpv0) / rpv0} format={(d) => signedPct(d)} label="vs Gen 0" />
           ) : (
             <Delta value={undefined} format={pct} label="all visitors" />
           )

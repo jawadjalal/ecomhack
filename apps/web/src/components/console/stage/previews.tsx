@@ -67,11 +67,13 @@ export function StoreFrame({
   className?: string;
 }) {
   const [ref, size] = useMeasure<HTMLDivElement>();
-  const candidates = PAGE_PATHS[page].map((p) => `${p}?${query}`);
-  const { data: src, isLoading } = useSWR(["preview", ...candidates], () => firstReachable(candidates), {
+  // probe which storefront route exists once per page type, then add the spec query
+  const { data: path, isLoading } = useSWR(["preview-path", page], () => firstReachable(PAGE_PATHS[page]), {
     revalidateOnFocus: false,
-    dedupingInterval: 60_000,
+    revalidateIfStale: false,
+    dedupingInterval: 5 * 60_000,
   });
+  const src = path === undefined ? undefined : path === null ? null : `${path}?${query}`;
   const [loaded, setLoaded] = useState<string | null>(null);
   const scale = size.width ? size.width / FRAME_W : 0;
 

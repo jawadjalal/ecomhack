@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowUpRight, Check, FileCode, GitBranch, GitPullRequest, LoaderCircle, TriangleAlert } from "lucide-react";
 import type { GithubStatusResponse } from "@/lib/contracts";
 import type { PullRequestResult } from "@/lib/github";
+import type { PrInfo } from "@/lib/console/format";
 import { useApi } from "@/lib/console/hooks";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -12,17 +13,20 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { GithubMark } from "./brand";
 
-export function PrBody({ pr }: { pr: PullRequestResult }) {
+export function PrBody({ pr }: { pr: PrInfo }) {
+  const files = pr.files ?? [];
   const [open, setOpen] = useState(0);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={pr.dryRun ? "warn" : "good"}>{pr.dryRun ? "Dry run" : "Opened"}</Badge>
+        <Badge tone={pr.dryRun ? "warn" : "good"}>{pr.queued ? "Queued" : pr.dryRun ? "Dry run" : "Opened"}</Badge>
         {pr.number && <span className="text-[0.85rem] text-white/50">#{pr.number}</span>}
-        <span className="flex items-center gap-1.5 font-mono text-[0.75rem] text-white/50">
-          <GitBranch className="size-3.5" />
-          {pr.branch}
-        </span>
+        {pr.branch && (
+          <span className="flex items-center gap-1.5 font-mono text-[0.75rem] text-white/50">
+            <GitBranch className="size-3.5" />
+            {pr.branch}
+          </span>
+        )}
         {pr.url && (
           <a href={pr.url} target="_blank" rel="noreferrer" className="ml-auto">
             <Button size="sm" variant="primary">
@@ -31,14 +35,23 @@ export function PrBody({ pr }: { pr: PullRequestResult }) {
           </a>
         )}
       </div>
-      <div className="text-[1.1rem] font-semibold text-white">{pr.title}</div>
-      <pre className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 font-sans text-[0.85rem] leading-relaxed whitespace-pre-wrap text-white/65">
-        {pr.body}
-      </pre>
-      {pr.files.length > 0 && (
+      {pr.title && <div className="text-[1.1rem] font-semibold text-white">{pr.title}</div>}
+      {notesOf(pr).length > 0 && (
+        <ul className="flex flex-col gap-1 rounded-xl border border-warn/20 bg-warn/[0.05] px-4 py-3 text-[0.82rem] text-[#ffe2a8]/80">
+          {notesOf(pr).map((n) => (
+            <li key={n}>• {n}</li>
+          ))}
+        </ul>
+      )}
+      {(pr.body || pr.note) && (
+        <pre className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 font-sans text-[0.85rem] leading-relaxed whitespace-pre-wrap text-white/65">
+          {pr.body ?? pr.note}
+        </pre>
+      )}
+      {files.length > 0 && (
         <div className="flex flex-col gap-2">
-          <div className="text-[0.75rem] font-medium tracking-[0.14em] text-white/40 uppercase">Files ({pr.files.length})</div>
-          {pr.files.map((f, i) => (
+          <div className="text-[0.75rem] font-medium tracking-[0.14em] text-white/40 uppercase">Files ({files.length})</div>
+          {files.map((f, i) => (
             <div key={f.path} className="overflow-hidden rounded-xl border border-white/[0.07]">
               <button
                 onClick={() => setOpen(open === i ? -1 : i)}
@@ -64,7 +77,17 @@ export function PrBody({ pr }: { pr: PullRequestResult }) {
   );
 }
 
-export function PrModal({ pr, onClose }: { pr?: PullRequestResult; onClose: () => void }) {
+/** `notes` / `upToDate` / `detection` are extras the GitHub module adds beyond the base contract. */
+function notesOf(pr: PrInfo): string[] {
+  const x = pr as PrInfo & { notes?: unknown; upToDate?: unknown; existing?: unknown; detection?: { label?: unknown } };
+  const out = Array.isArray(x.notes) ? x.notes.filter((n): n is string => typeof n === "string") : [];
+  if (x.upToDate === true) out.unshift("Already up to date: nothing to change, no PR opened.");
+  if (x.existing === true) out.unshift("An open PR for this branch already existed and was updated.");
+  if (x.detection && typeof x.detection.label === "string") out.unshift(`Detected: ${x.detection.label}`);
+  return out;
+}
+
+export function PrModal({ pr, onClose }: { pr?: PrInfo; onClose: () => void }) {
   return (
     <Modal open={Boolean(pr)} onClose={onClose} title="Pull request" icon={<GitPullRequest />} className="max-w-[46rem]">
       {pr && <PrBody pr={pr} />}
@@ -139,7 +162,7 @@ export function ConnectRepoModal({
           {status?.repo && (
             <div className="flex items-center gap-2 rounded-xl border border-brand/25 bg-brand/[0.05] px-3 py-2 text-[0.85rem] text-white/75">
               <Check className="size-4 text-brand" /> Connected to <b>{status.repo}</b>
-              {!status.configured && <span className="text-white/40">(dry run: no GITHUB_TOKEN)</span>}
+              {((status as { dryRun?: boolean }).dryRun ?? !status.configured) && <span className="text-white/40">(dry run)</span>}
             </div>
           )}
           <label className="flex flex-col gap-2">

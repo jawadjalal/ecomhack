@@ -15,12 +15,15 @@ export const PHASE_ICONS: Record<Exclude<LoopPhase, "idle">, LucideIcon> = {
   ship: Rocket,
 };
 
+/** Round so server and browser trig agree to the digit (avoids hydration mismatches). */
+const r3 = (v: number) => Math.round(v * 1000) / 1000;
+
 const R = 35; // ring radius, % of box
-const CIRC = 2 * Math.PI * R;
+const CIRC = r3(2 * Math.PI * R);
 
 function nodePos(i: number) {
   const a = ((-90 + i * 60) * Math.PI) / 180;
-  return { x: 50 + R * Math.cos(a), y: 50 + R * Math.sin(a) };
+  return { x: r3(50 + R * Math.cos(a)), y: r3(50 + R * Math.sin(a)) };
 }
 
 export function LoopRing({
@@ -31,7 +34,6 @@ export function LoopRing({
   viewPhase,
   onSelectPhase,
   className,
-  compact,
   centerSlot,
 }: {
   phase: LoopPhase;
@@ -43,7 +45,6 @@ export function LoopRing({
   viewPhase?: LoopPhase;
   onSelectPhase?: (p: Exclude<LoopPhase, "idle">) => void;
   className?: string;
-  compact?: boolean;
   centerSlot?: React.ReactNode;
 }) {
   const idx = phaseIndex(phase);
@@ -51,7 +52,8 @@ export function LoopRing({
   const nextIdx = (idx + 1) % PHASES.length;
 
   return (
-    <div className={cn("relative aspect-square w-full select-none", className)}>
+    // sized in container units (cqw) so the ring scales cleanly from a phone to a projector
+    <div className={cn("@container relative aspect-square w-full select-none", className)}>
       <svg viewBox="0 0 100 100" className="absolute inset-0 size-full overflow-visible" aria-hidden>
         <defs>
           <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
@@ -76,10 +78,10 @@ export function LoopRing({
           return (
             <line
               key={i}
-              x1={50 + r1 * Math.cos(a)}
-              y1={50 + r1 * Math.sin(a)}
-              x2={50 + r2 * Math.cos(a)}
-              y2={50 + r2 * Math.sin(a)}
+              x1={r3(50 + r1 * Math.cos(a))}
+              y1={r3(50 + r1 * Math.sin(a))}
+              x2={r3(50 + r2 * Math.cos(a))}
+              y2={r3(50 + r2 * Math.sin(a))}
               stroke="white"
               strokeOpacity={i % 6 === 0 ? 0.16 : 0.07}
               strokeWidth={0.25}
@@ -145,9 +147,8 @@ export function LoopRing({
           >
             <span
               className={cn(
-                "relative flex items-center justify-center rounded-full border transition-colors duration-500",
-                compact ? "size-[2.6rem]" : "size-[3.5rem]",
-                state === "current" && "border-brand bg-brand text-[#0b1200] shadow-[0_0_0_0.35rem_rgba(182,240,90,0.12),0_0_2.5rem_0.4rem_rgba(182,240,90,0.45)]",
+                "relative flex size-[14.3cqw] items-center justify-center rounded-full border transition-colors duration-500",
+                state === "current" && "border-brand bg-brand text-[#0b1200] shadow-[0_0_0_1.4cqw_rgba(182,240,90,0.12),0_0_10cqw_1.6cqw_rgba(182,240,90,0.45)]",
                 state === "done" && "border-brand/45 bg-[#11160c] text-brand",
                 state === "todo" && "border-white/12 bg-[#0c0f15] text-white/40 group-hover:border-white/25 group-hover:text-white/70",
                 viewing && "ring-2 ring-white/60 ring-offset-2 ring-offset-[#07090d]",
@@ -163,18 +164,17 @@ export function LoopRing({
               )}
               {isNext && (
                 <motion.span
-                  className="absolute -inset-[0.3rem] rounded-full border-2 border-transparent border-t-brand/80"
+                  className="absolute -inset-[1.3cqw] rounded-full border-2 border-transparent border-t-brand/80"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
                 />
               )}
-              <Icon className={compact ? "size-[1.15rem]" : "size-[1.45rem]"} strokeWidth={state === "current" ? 2.2 : 1.8} />
+              <Icon className="size-[5.9cqw]" strokeWidth={state === "current" ? 2.2 : 1.8} />
             </span>
             <span
               className={cn(
-                "absolute top-full font-medium tracking-[0.12em] whitespace-nowrap uppercase transition-colors duration-500",
-                state === "current" ? "mt-[0.8rem]" : "mt-[0.5rem]",
-                compact ? "text-[0.6rem]" : "text-[0.7rem]",
+                "absolute top-full rounded-[1cqw] bg-[#080a0f]/85 px-[1.3cqw] py-[0.25cqw] text-[2.85cqw] font-medium tracking-[0.12em] whitespace-nowrap uppercase transition-colors duration-500",
+                state === "current" ? "mt-[3cqw]" : "mt-[1.6cqw]",
                 state === "current" ? "text-brand" : state === "done" ? "text-white/60" : "text-white/35",
               )}
             >
@@ -188,10 +188,10 @@ export function LoopRing({
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         {centerSlot ?? (
           <>
-            <div className={cn("font-medium tracking-[0.28em] text-white/40 uppercase", compact ? "text-[0.55rem]" : "text-[0.68rem]")}>
+            <div className="text-[2.8cqw] font-medium tracking-[0.28em] text-white/40 uppercase">
               Generation
             </div>
-            <div className={cn("relative w-full", compact ? "h-[3.5rem]" : "h-[5.4rem]")}>
+            <div className="relative h-[22.5cqw] w-full">
               <AnimatePresence initial={false}>
                 <motion.div
                   key={generation}
@@ -199,18 +199,15 @@ export function LoopRing({
                   animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
                   exit={{ y: "-45%", opacity: 0, filter: "blur(8px)" }}
                   transition={{ type: "spring", stiffness: 200, damping: 22 }}
-                  className={cn(
-                    "absolute inset-0 flex items-center justify-center bg-gradient-to-b from-white to-white/70 bg-clip-text font-semibold tracking-[-0.04em] text-transparent tabular",
-                    compact ? "text-[3.4rem]" : "text-[5.4rem]",
-                  )}
+                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-white to-white/70 bg-clip-text text-[22cqw] font-semibold tracking-[-0.04em] text-transparent tabular"
                   style={{ lineHeight: 1 }}
                 >
                   {generation}
                 </motion.div>
               </AnimatePresence>
             </div>
-            <div className={cn("mt-1 flex items-center gap-1.5 font-medium", compact ? "text-[0.72rem]" : "text-[0.9rem]")}>
-              <span className={cn("size-[0.45rem] rounded-full", idx < 0 ? "bg-white/30" : "bg-brand pulse-dot")} />
+            <div className="mt-[0.5cqw] flex items-center gap-[1.5cqw] text-[3.7cqw] font-medium">
+              <span className={cn("size-[1.8cqw] rounded-full", idx < 0 ? "bg-white/30" : "bg-brand pulse-dot")} />
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
                   key={phase}
@@ -224,8 +221,8 @@ export function LoopRing({
                 </motion.span>
               </AnimatePresence>
             </div>
-            {autopilot && !compact && (
-              <div className="mt-1.5 rounded-full border border-brand/30 bg-brand/10 px-2 py-0.5 text-[0.6rem] font-semibold tracking-[0.16em] text-brand uppercase">
+            {autopilot && (
+              <div className="mt-[1.6cqw] rounded-full border border-brand/30 bg-brand/10 px-[2cqw] py-[0.4cqw] text-[2.4cqw] font-semibold tracking-[0.16em] text-brand uppercase">
                 Autopilot
               </div>
             )}

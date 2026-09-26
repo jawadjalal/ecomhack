@@ -125,32 +125,103 @@ export function humanizePath(path: string): string {
 
 /* ------------------------------------------------------------------ pull requests */
 
-function isPr(v: unknown): v is PullRequestResult {
-  if (!v || typeof v !== "object") return false;
+/**
+ * A PR as the console shows it. The optimizer logs a full PullRequestResult when GitHub answers,
+ * or a partial `{ dryRun, queued, repo }` when it can't, so everything but dryRun is optional.
+ */
+export type PrInfo = Partial<PullRequestResult> & {
+  dryRun: boolean;
+  queued?: boolean;
+  repo?: string;
+  /** The log message that carried the PR (explains dry runs / failures). */
+  note?: string;
+  generation?: number;
+};
+
+function asPr(v: unknown): PrInfo | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
   const o = v as Record<string, unknown>;
-  return typeof o.title === "string" && (typeof o.url === "string" || typeof o.branch === "string");
+  const full = typeof o.title === "string" && (typeof o.url === "string" || typeof o.branch === "string");
+  const partial = typeof o.dryRun === "boolean" || (typeof o.url === "string" && o.url.includes("/pull/"));
+  if (!full && !partial) return undefined;
+  return { ...(o as Partial<PullRequestResult>), dryRun: typeof o.dryRun === "boolean" ? o.dryRun : !o.url };
 }
 
-/** Find the most recent PR payload in the loop log (duck-typed), if any. */
-export function findPullRequest(loop: Pick<LoopState, "log"> | undefined, sinceIndex = 0): PullRequestResult | undefined {
-  if (!loop) return undefined;
-  for (let i = loop.log.length - 1; i >= sinceIndex; i--) {
-    const pr = extractPr(loop.log[i]);
-    if (pr) return pr;
-  }
-  return undefined;
-}
-
-export function extractPr(entry: LoopLogEntry): PullRequestResult | undefined {
+export function extractPr(entry: LoopLogEntry): PrInfo | undefined {
   const d = entry.data;
-  if (isPr(d)) return d;
+  const direct = asPr(d);
+  if (direct) return { ...direct, note: entry.message };
   if (d && typeof d === "object") {
-    for (const key of ["pr", "pullRequest", "pull_request", "result"]) {
-      const inner = (d as Record<string, unknown>)[key];
-      if (isPr(inner)) return inner;
+    for (const key of ["pr", "pullRequest", "pull_request"]) {
+      const inner = asPr((d as Record<string, unknown>)[key]);
+      if (inner) return { ...inner, note: entry.message };
     }
   }
   return undefined;
+}
+
+function genFromText(s: string | undefined): number | undefined {
+  const m = s ? /(?:Gen |gen-)(\d+)/.exec(s) : null;
+  return m ? Number(m[1]) : undefined;
+}
+
+/** Every PR in the loop log, keyed by the generation it shipped. */
+export function prsByGeneration(loop: Pick<LoopState, "log" | "history" | "generation"> | undefined): Map<number, PrInfo> {
+  const out = new Map<number, PrInfo>();
+  if (!loop) return out;
+  let context: number | undefined;
+  for (const e of loop.log) {
+    const d = (e.data ?? {}) as Record<string, unknown>;
+    if (typeof d.specVersion === "number") {
+      const h = loop.history.find((x) => x.specVersion === d.specVersion);
+      if (h) context = h.generation;
+    }
+    const rec = d.generation as { generation?: unknown } | undefined;
+    if (rec && typeof rec === "object" && typeof rec.generation === "number") context = rec.generation;
+    const pr = extractPr(e);
+    if (!pr) continue;
+    const g = genFromText(pr.title) ?? genFromText(pr.branch) ?? context ?? loop.generation;
+    const prev = out.get(g);
+    // prefer the richest payload for a generation
+    if (!prev || (!prev.title && pr.title) || (!prev.url && pr.url)) out.set(g, { ...pr, generation: g });
+  }
+  return out;
+}
+
+/**
+ * Merge PRs the GitHub module reports in /api/github/status (`recentPullRequests`, beyond the
+ * base contract) into the per-generation map, so real PR links show even if the log lacks them.
+ */
+export function withStatusPrs(
+  prs: Map<number, PrInfo>,
+  status: unknown,
+  history: Pick<LoopState, "history">["history"],
+): Map<number, PrInfo> {
+  const list = (status as { recentPullRequests?: unknown } | undefined)?.recentPullRequests;
+  if (!Array.isArray(list)) return prs;
+  const out = new Map(prs);
+  for (const r of list as Record<string, unknown>[]) {
+    if (!r || r.kind !== "spec" || typeof r.specVersion !== "number") continue;
+    const g = history.find((h) => h.specVersion === r.specVersion)?.generation;
+    if (g === undefined) continue;
+    const prev = out.get(g);
+    out.set(g, {
+      ...prev,
+      dryRun: typeof r.dryRun === "boolean" ? r.dryRun : (prev?.dryRun ?? true),
+      url: (typeof r.url === "string" ? r.url : undefined) ?? prev?.url,
+      number: (typeof r.number === "number" ? r.number : undefined) ?? prev?.number,
+      title: prev?.title ?? (typeof r.title === "string" ? r.title : undefined),
+      branch: prev?.branch ?? (typeof r.branch === "string" ? r.branch : undefined),
+      repo: prev?.repo ?? (typeof r.repo === "string" ? r.repo : undefined),
+      generation: g,
+    });
+  }
+  return out;
+}
+
+/** The PR for the current generation (what the ship stage shows). */
+export function findPullRequest(loop: Pick<LoopState, "log" | "history" | "generation"> | undefined): PrInfo | undefined {
+  return prsByGeneration(loop).get(loop?.generation ?? -1);
 }
 
 export function prNumberFromUrl(url: string | undefined): number | undefined {

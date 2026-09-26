@@ -595,6 +595,7 @@ export class MockEngine {
   private sessions: AgentSessionSummary[] = [];
   private repo?: string;
   private prCounter = 11;
+  private nextShopper?: { agentName: string; goal: (typeof GOALS)[number] };
 
   constructor(opts: MockEngineOptions = {}) {
     this.rng = mulberry32(opts.seed ?? 20260926);
@@ -791,8 +792,9 @@ export class MockEngine {
     variant: string | undefined,
     at: number,
   ) {
-    const agentName = this.pick(AGENT_NAMES);
-    const goal = this.pick(GOALS);
+    const agentName = this.nextShopper?.agentName ?? this.pick(AGENT_NAMES);
+    const goal = this.nextShopper?.goal ?? this.pick(GOALS);
+    this.nextShopper = undefined;
     const product = PRODUCT_BY_ID.get(goal.productId) ?? PRODUCTS[0];
     const s = spec.agentSurface;
     const calls: AgentSessionSummary["toolCalls"] = [];
@@ -1313,6 +1315,43 @@ export class MockEngine {
     }
     const slice = this.events.slice(start).slice(-limit);
     return { events: structuredClone(slice), cursor: this.events.at(-1)?.uuid ?? after };
+  }
+
+  /** Mirrors POST /api/agent/shop: one scripted buyer agent against the live spec. */
+  async sendShopper(brief: string): Promise<{ session: AgentSessionSummary }> {
+    await this.wait(Math.max(this.latency, this.latency * 6));
+    const b = brief.toLowerCase();
+    const productId = /trail|fell|mud/.test(b)
+      ? "p_ridge"
+      : /race|carbon|marathon pb|fast/.test(b)
+        ? "p_velocity"
+        : /vest|hydration|ultra/.test(b)
+          ? "p_vest"
+          : /recovery|walk/.test(b)
+            ? "p_city"
+            : /tempo|light/.test(b)
+              ? "p_tempo"
+              : "p_aurora";
+    const base = GOALS.find((g) => g.productId === productId) ?? GOALS[0];
+    const size = /uk\s*(\d{1,2})/.exec(b)?.[1];
+    const budget = /£\s*(\d{2,4})/.exec(b)?.[1];
+    this.nextShopper = {
+      agentName: "grok-shopper",
+      goal: {
+        ...base,
+        brief,
+        size: size ?? base.size,
+        maxBudget: budget ? Number(budget) * 100 : base.maxBudget,
+        deadlineDays: /friday|tomorrow|by |deliver/.test(b) ? 3 : base.deadlineDays,
+        negotiates: /deal|discount|best price|cheap|negotiat/.test(b) || base.negotiates,
+        requiresFreeReturns: /free return/.test(b) || base.requiresFreeReturns,
+      },
+    };
+    const before = this.sessions[0];
+    this.runTraffic(0, 1, 1, 400);
+    const session = this.sessions[0];
+    if (!session || session === before) throw new Error("shopper did not start");
+    return { session: structuredClone(session) };
   }
 
   async getSessions(limit = 20): Promise<AgentSessionsResponse> {

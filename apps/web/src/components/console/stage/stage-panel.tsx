@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Activity, Check, CornerDownLeft, Radar } from "lucide-react";
 import type { AnalyticsSummary, Experiment, GenerationRecord, LoopPhase, LoopState } from "@/lib/contracts";
-import type { PullRequestResult } from "@/lib/github";
+import type { PrInfo } from "@/lib/console/format";
 import { PHASES, PHASE_META, phaseIndex } from "@/lib/console/format";
 import { Panel } from "@/components/ui/panel";
 import { Kbd } from "@/components/ui/kbd";
@@ -118,7 +118,7 @@ export function StagePanel({
   onBackToLive: () => void;
   summaryGen?: AnalyticsSummary;
   experiment?: Experiment;
-  pr?: PullRequestResult;
+  pr?: PrInfo;
   pending: boolean;
   mock: boolean;
   repo?: string;

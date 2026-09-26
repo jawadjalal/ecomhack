@@ -5,9 +5,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useSWRConfig } from "swr";
 import { TriangleAlert, X } from "lucide-react";
 import type { LoopPhase } from "@/lib/contracts";
-import type { PullRequestResult } from "@/lib/github";
 import { createConsoleApi } from "@/lib/console/api";
-import { extractPr, findPullRequest, sourceBadge } from "@/lib/console/format";
+import { prsByGeneration, sourceBadge, withStatusPrs, type PrInfo } from "@/lib/console/format";
 import {
   ApiContext,
   useApi,
@@ -34,6 +33,7 @@ import { AgentPanel } from "./agent-panel";
 import { ConfirmResetModal, ConnectRepoModal, PrModal } from "./modals";
 
 const FIRST_RUN_KEY = "darwin.console.connect-dismissed";
+const TRAFFIC_KEY = "darwin.console.traffic";
 
 interface Toast {
   id: number;
@@ -97,9 +97,27 @@ function Console({ mock }: { mock: boolean }) {
     }
   }, [api, mutateLoop, globalMutate, notify]);
 
-  /* traffic */
+  /* traffic (remembered for this tab, so a reload mid-demo keeps shoppers coming) */
   const [trafficOn, setTrafficOn] = useState(false);
   useTrafficDriver(trafficOn, notify);
+  useEffect(() => {
+    let on = false;
+    try {
+      on = sessionStorage.getItem(TRAFFIC_KEY) === "1";
+    } catch {
+      /* storage blocked */
+    }
+    if (!on) return;
+    const t = setTimeout(() => setTrafficOn(true), 0);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(TRAFFIC_KEY, trafficOn ? "1" : "0");
+    } catch {
+      /* storage blocked */
+    }
+  }, [trafficOn]);
 
   /* autopilot (server state is the source of truth; this tab drives the steps) */
   const autopilot = loop?.autopilot ?? false;
@@ -125,7 +143,7 @@ function Console({ mock }: { mock: boolean }) {
   /* modals */
   const [connectOpen, setConnectOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
-  const [prModal, setPrModal] = useState<PullRequestResult | undefined>(undefined);
+  const [prModal, setPrModal] = useState<PrInfo | undefined>(undefined);
   const firstRunChecked = useRef(false);
   useEffect(() => {
     if (!github || firstRunChecked.current) return;
@@ -186,18 +204,16 @@ function Console({ mock }: { mock: boolean }) {
     (loop?.experimentId && experiments?.find((e) => e.id === loop.experimentId)) ||
     (["experiment", "decide", "ship"].includes(livePhase) ? experiments?.at(-1) : undefined) ||
     undefined;
-  const pr = findPullRequest(loop);
+  const prs = withStatusPrs(prsByGeneration(loop), github, loop?.history ?? []);
+  const pr = loop ? prs.get(loop.generation) : undefined;
   const [lastSource, setLastSource] = useState<string | undefined>(undefined);
   const curSource = loop?.proposal?.source;
   if (curSource && curSource !== lastSource) setLastSource(curSource);
 
   const openPrForGeneration = (generation: number) => {
-    if (!loop) return;
-    for (let i = loop.log.length - 1; i >= 0; i--) {
-      const p = extractPr(loop.log[i]);
-      if (p && (p.title.includes(`Gen ${generation}:`) || p.branch.includes(`gen-${generation}-`))) return setPrModal(p);
-    }
-    notify(`No PR details recorded for Gen ${generation}`, "info");
+    const p = prs.get(generation);
+    if (p) setPrModal(p);
+    else notify(`No PR details recorded for Gen ${generation}`, "info");
   };
 
   return (
@@ -279,7 +295,7 @@ function Console({ mock }: { mock: boolean }) {
               />
             </div>
             <div className="h-[18.5rem] shrink-0">
-              <EvolutionChart history={loop?.history ?? []} experiment={experiment} log={loop?.log ?? []} onOpenPr={openPrForGeneration} />
+              <EvolutionChart history={loop?.history ?? []} experiment={experiment} prs={prs} onOpenPr={openPrForGeneration} />
             </div>
           </div>
 

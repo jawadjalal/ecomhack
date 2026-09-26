@@ -9,6 +9,7 @@
  *     re-probed every 20s, so the console switches to real data as soon as a route lands.
  */
 import type {
+  AgentSessionSummary,
   AgentSessionsResponse,
   AnalyticsEventsResponse,
   AnalyticsFilter,
@@ -29,10 +30,15 @@ export type ApiGroup = "optimizer" | "analytics" | "agents" | "simulator" | "git
 export const API_GROUP_ROUTES: Record<ApiGroup, string[]> = {
   optimizer: ["GET /api/loop", "POST /api/loop/step", "POST /api/loop/autopilot", "POST /api/loop/reset", "GET /api/experiments"],
   analytics: ["GET /api/analytics/summary", "GET /api/analytics/events"],
-  agents: ["GET /api/agent/sessions"],
+  agents: ["GET /api/agent/sessions", "POST /api/agent/shop"],
   simulator: ["POST /api/simulate"],
   github: ["GET /api/github/status", "POST /api/github/connect"],
 };
+
+/** POST /api/agent/shop → one in-process buyer agent (agent-commerce PR; mirrors its AgentShopResponse). */
+export interface AgentShopResponse {
+  session: AgentSessionSummary;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -89,6 +95,8 @@ export interface ConsoleApi {
   getSummary(filter?: Pick<AnalyticsFilter, "experimentId" | "variant" | "visitorKind" | "specVersion">): Promise<AnalyticsSummaryResponse>;
   getEvents(after?: string, limit?: number): Promise<AnalyticsEventsResponse>;
   getSessions(limit?: number): Promise<AgentSessionsResponse>;
+  /** Send one buyer agent shopping with a natural-language brief. */
+  sendShopper(brief: string, useLlm?: boolean): Promise<AgentShopResponse>;
   simulate(opts: SimulationOptions): Promise<SimulationResult>;
   getGithubStatus(): Promise<GithubStatusResponse>;
   connectRepo(repoUrl: string): Promise<PullRequestResult>;
@@ -168,6 +176,13 @@ export function createConsoleApi(mode: ApiMode = "auto", engineOrFactory: MockEn
 
     getSessions: (limit = 20) =>
       call("agents", () => request<AgentSessionsResponse>("GET", `/api/agent/sessions${qs({ limit })}`), () => eng().getSessions(limit)),
+
+    sendShopper: (brief, useLlm = true) =>
+      call(
+        "agents",
+        () => request<AgentShopResponse>("POST", "/api/agent/shop", { brief, useLlm }),
+        () => eng().sendShopper(brief),
+      ),
 
     simulate: (opts) => call("simulator", () => request<SimulationResult>("POST", "/api/simulate", opts), () => eng().simulate(opts)),
 

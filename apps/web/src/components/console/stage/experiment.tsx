@@ -73,6 +73,12 @@ export function ProbabilityGauge({ p, size = "lg" }: { p: number; size?: "lg" | 
   );
 }
 
+/** Optional `audience` (beyond the base contract): agent-only changes are measured on agents. */
+function measuredOn(r: ExperimentResult): string | undefined {
+  const a = (r as ExperimentResult & { audience?: string }).audience;
+  return a === "agent" ? "AI agents" : a === "human" ? "humans" : undefined;
+}
+
 /* ------------------------------------------------------------------ arms */
 
 function ArmBar({ stats, tone, max, label }: { stats: VariantStats; tone: "control" | "treatment"; max: number; label: string }) {
@@ -176,15 +182,18 @@ export function ExperimentStage({ experiment, compact }: { experiment?: Experime
   return (
     <div className={cn("grid h-full min-h-0 gap-6", compact ? "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" : "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]")}>
       <div className="flex min-h-0 flex-col gap-4">
-        <div className="flex items-center gap-2 text-[0.85rem] text-white/50">
-          <FlaskConical className="size-4 text-brand" />
-          <span className="truncate font-medium text-white/80">{experiment.name}</span>
+        <div className="flex items-center gap-2 text-[0.85rem] whitespace-nowrap text-white/50">
+          <FlaskConical className="size-4 shrink-0 text-brand" />
+          <span className="min-w-0 truncate font-medium text-white/80" title={experiment.name}>
+            {experiment.name}
+          </span>
           <span>·</span>
           <span className="tabular">
-            {Math.round((1 - experiment.allocation) * 100)}/{Math.round(experiment.allocation * 100)} split
+            {Math.round((1 - experiment.allocation) * 100)}/{Math.round(experiment.allocation * 100)}
           </span>
           <span>·</span>
           <span className="tabular">{count(total)} visitors</span>
+          {measuredOn(r) && <span className="rounded-md bg-agent/15 px-1.5 text-[0.72rem] text-[#f5a6cb]">measured on {measuredOn(r)}</span>}
           {experiment.status === "running" && (
             <span className="ml-auto flex items-center gap-1.5 text-[0.75rem] text-brand">
               <span className="size-1.5 rounded-full bg-brand pulse-dot" /> live
