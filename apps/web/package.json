@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "darwin": "tsx scripts/darwin.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
