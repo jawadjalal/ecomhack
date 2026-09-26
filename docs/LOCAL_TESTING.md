@@ -1,16 +1,22 @@
 # Local testing checklist (needs keys / network the cloud agent didn't have)
 
-The overnight build ran in a sandbox where **`openrouter.ai` and `api.x.ai` were blocked**, so every
-LLM-powered path was only tested in **heuristic mode** (no key). Everything below needs a quick local check.
+The overnight build ran in a sandbox where **`openrouter.ai` and `api.x.ai` were blocked**, so no real model was
+ever called. The LLM code paths are covered by tests with a **mocked model** (`src/lib/optimizer/llm.test.ts`,
+`src/lib/llm/client.test.ts`), but a real key still needs a quick local check.
 
-## What *was* tested overnight (no keys)
+## What *was* tested overnight
 
-- Full loop in heuristic mode: observe → diagnose → propose → experiment → decide → ship
-- Storefront pages + every PageSpec knob (Playwright screenshots in `apps/web/docs/screenshots/`)
-- Agent surface: REST tools, MCP JSON-RPC, `/llms.txt`, agent card, scripted buyer agents, negotiation
-- Simulator calibration (human + agent conversion bands)
-- GitHub PRs in **dry-run** mode (title/body/diff generated, nothing sent)
-- Unit tests + `next build` via CI
+- **Full loop, heuristic mode:** observe → diagnose → propose → experiment → decide → ship, in a real browser.
+  Autopilot ran 8–9 generations with 0 page errors (`npm start` and `npm run dev`).
+- **LLM paths with a mocked model:** proposals are validated, a lift answered as "12" becomes 12%, invalid, no-op and
+  repeated patches are rejected, rewrites with invented numbers are discarded, and the loop falls back to the playbook.
+- **Storefront:** every page and every PageSpec knob (screenshots in `apps/web/docs/screenshots/`).
+- **Agent surface:** REST tools, MCP JSON-RPC, `/llms.txt`, agent card, buyer agents, negotiation,
+  and `scripts/grok-shopper.ts` over MCP (scripted fallback).
+- **Simulator:** calibration of human and agent conversion.
+- **GitHub PRs in dry-run mode:** title, body and diff are generated and nothing is sent. They also fall back to a
+  preview when GitHub rejects the token.
+- **CI:** 286 unit tests, typecheck, lint and `next build`.
 
 ## Setup
 
@@ -42,6 +48,7 @@ Swap to Grok for the demo: `LLM_PROVIDER=xai`, `XAI_API_KEY=...`, `XAI_MODEL=<cu
 | 9 | Real GitHub PRs | `GITHUB_TOKEN=<fine-grained, contents+PR write on target repo>`, `DARWIN_TARGET_REPO=owner/repo`; ship one generation | A real PR appears editing `apps/web/storefront.config.json` with the results table |
 | 10 | Analytics install PR | Console → Connect repo → paste a test repo URL | Real PR adding the `darwin.js` snippet |
 | 11 | Cost sanity | Check OpenRouter usage page after a full autopilot run | A few cents at most |
+| 12 | Real human traffic | Open `/store` in a normal browser (or a phone on the same network), buy something | It shows in the console's live feed as 🧑 **without** the SYNTHETIC tag (posthog-js → `/ingest`) |
 
 > Use a **throwaway test repo** for 9–10, not `jawadjalal/ecomhack` main, unless you mean it.
 
