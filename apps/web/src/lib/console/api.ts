@@ -93,7 +93,7 @@ export interface ConsoleApi {
   resetLoop(): Promise<LoopResponse>;
   getExperiments(): Promise<ExperimentsResponse>;
   getSummary(filter?: Pick<AnalyticsFilter, "experimentId" | "variant" | "visitorKind" | "specVersion">): Promise<AnalyticsSummaryResponse>;
-  getEvents(after?: string, limit?: number): Promise<AnalyticsEventsResponse>;
+  getEvents(after?: string, limit?: number, opts?: { realOnly?: boolean }): Promise<AnalyticsEventsResponse>;
   getSessions(limit?: number): Promise<AgentSessionsResponse>;
   /** Send one buyer agent shopping with a natural-language brief. */
   sendShopper(brief: string, useLlm?: boolean): Promise<AgentShopResponse>;
@@ -167,11 +167,15 @@ export function createConsoleApi(mode: ApiMode = "auto", engineOrFactory: MockEn
           ),
         () => eng().getSummary(filter),
       ),
-    getEvents: (after, limit = 100) =>
+    getEvents: (after, limit = 100, opts) =>
       call(
         "analytics",
-        () => request<AnalyticsEventsResponse>("GET", `/api/analytics/events${qs({ after, limit })}`),
-        () => eng().getEvents(after, limit),
+        () =>
+          request<AnalyticsEventsResponse>(
+            "GET",
+            `/api/analytics/events${qs({ after, limit, ...(opts?.realOnly ? { synthetic: "0" } : {}) })}`,
+          ),
+        () => (opts?.realOnly ? Promise.resolve({ events: [] }) : eng().getEvents(after, limit)),
       ),
 
     getSessions: (limit = 20) =>

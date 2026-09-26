@@ -33,6 +33,11 @@ Keys: `space` step · `a` autopilot · `t` traffic · `s` send a shopper · `r` 
 | 2:15–2:35 | "And it ships like an engineer would: a pull request, with the evidence." | `space` → **Ship**: PR card (title with lift and P). |
 | 2:35–3:00 | "Then it does it again. Autopilot. Humans get a better page, agents get a better API, and every change is a PR you review." | Press `a`. Point at the evolution chart: both lines climb, with one PR per generation, and rejected ideas are never retried. |
 
+**Optional wow moment (+20s): a judge buys on their phone.** Before the demo, run the server on the LAN
+(`npm start -- -H 0.0.0.0`) and put a QR code for `http://<laptop-ip>:3000/store` on a slide (same Wi-Fi).
+When a judge buys something, it lands in the live feed pinned under **"Real visitors · just now"** with a green
+REAL tag, next to the synthetic traffic, and goes into the same analytics and experiments.
+
 **Closing line:** "Darwin is CRO for the agentic web: it experiments on humans and AI shoppers, and ships the winners as code."
 
 ## What typically happens (heuristic mode)

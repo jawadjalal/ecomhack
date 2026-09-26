@@ -20,7 +20,8 @@ const list = (v: string | null) =>
  * are returned (a live feed skips ahead instead of lagging). `cursor` is the uuid of the newest
  * event scanned, so filtered polls never rescan.
  *
- * Optional filters: `visitorKind=human|agent`, `events=a,b` (only these), `exclude=$autocapture,…`.
+ * Optional filters: `visitorKind=human|agent`, `events=a,b` (only these), `exclude=$autocapture,…`,
+ * `synthetic=0|1` (only real / only simulated events).
  */
 export function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
@@ -30,7 +31,9 @@ export function GET(req: NextRequest) {
   const kind = sp.get("visitorKind");
   const only = list(sp.get("events"));
   const exclude = list(sp.get("exclude"));
-  const filtered = Boolean((kind === "human" || kind === "agent") || only || exclude);
+  const syntheticRaw = sp.get("synthetic");
+  const synthetic = syntheticRaw === "0" || syntheticRaw === "false" ? false : syntheticRaw === "1" || syntheticRaw === "true" ? true : undefined;
+  const filtered = Boolean((kind === "human" || kind === "agent") || only || exclude || synthetic !== undefined);
 
   const store = eventStore();
   // Everything after the cursor (up to SCAN_MAX), or a recent window when there is no cursor.
@@ -42,6 +45,7 @@ export function GET(req: NextRequest) {
       if ((kind === "human" || kind === "agent") && (e.properties.visitor_kind ?? "human") !== kind) return false;
       if (only && !only.has(e.event)) return false;
       if (exclude?.has(e.event)) return false;
+      if (synthetic !== undefined && Boolean(e.properties.synthetic) !== synthetic) return false;
       return true;
     });
   }

@@ -118,6 +118,8 @@ export function useEventFeed() {
   const [synthetic, setSynthetic] = useState(false);
   const [rate, setRate] = useState(0);
   const cursor = useRef<string | undefined>(undefined);
+  /** Real (non-simulated) visitors are polled on their own cursor so they never drown in synthetic traffic. */
+  const realCursor = useRef<string | undefined>(undefined);
   const queue = useRef<FeedRow[]>([]);
   const primed = useRef(false);
   const generation = useRef(0);
@@ -125,6 +127,7 @@ export function useEventFeed() {
   const reset = useCallback(() => {
     generation.current += 1;
     cursor.current = undefined;
+    realCursor.current = undefined;
     queue.current = [];
     primed.current = false;
     setRows([]);
@@ -147,7 +150,11 @@ export function useEventFeed() {
         if (res.events.length) {
           cursor.current = res.cursor ?? res.events.at(-1)?.uuid ?? cursor.current;
           if (res.events.some((e) => e.properties.synthetic)) setSynthetic(true);
-          const described = res.events.map(describeEvent).filter((r) => r.priority > 0);
+          // Real visitors arrive through the dedicated poll below.
+          const described = res.events
+            .filter((e) => e.properties.synthetic)
+            .map(describeEvent)
+            .filter((r) => r.priority > 0);
           if (!primed.current) {
             // first load: show the most recent interesting rows immediately, no animation backlog
             primed.current = true;
@@ -167,6 +174,22 @@ export function useEventFeed() {
         } else {
           primed.current = true;
           setRate((r) => (r < 0.2 ? 0 : r * 0.6));
+        }
+      } catch {
+        /* keep polling */
+      }
+      try {
+        const real = await api.getEvents(realCursor.current, 50, { realOnly: true });
+        if (alive && gen === generation.current && real.events.length) {
+          realCursor.current = real.cursor ?? real.events.at(-1)?.uuid ?? realCursor.current;
+          const rows = real.events
+            .map(describeEvent)
+            .filter((r) => r.priority > 0)
+            .map((r) => ({ ...r, priority: 3 as const }));
+          // Newest first, straight to the top: a judge buying on their phone should see it land.
+          if (rows.length) setRows((r) => [...rows.reverse(), ...r].slice(0, FEED_MAX));
+        } else if (alive && gen === generation.current && real.cursor) {
+          realCursor.current = real.cursor;
         }
       } catch {
         /* keep polling */
