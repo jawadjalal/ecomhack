@@ -8,8 +8,8 @@ import { useExperiments, useNow, useSamples } from "@/lib/console/hooks";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { StartDemo } from "../first-run";
-import { Card, Empty, LiveDot, PageHead, PillButton, Typing, pct0 } from "../ui";
-import { DEPTH, LIST_DETAIL, SummaryStrip } from "../experiments/frame";
+import { Card, DEPTH, Empty, LiveDot, PageHead, PillButton, SummaryStrip, Typing, pct0 } from "../ui";
+import { LIST_DETAIL } from "../experiments/frame";
 import { ChanceCard, WhoBuysCard, type ChancePoint } from "../experiments/charts";
 import { PastExperiments, WhatChangesCard } from "../experiments/changes";
 import {
@@ -99,7 +99,7 @@ export function ExperimentsScreen() {
     return (
       <>
         <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Ada is loading the tests <Typing /></span>} />
-        <div className="h-[76px] animate-pulse rounded-[28px] bg-dw-surface" aria-hidden />
+        <div className="h-[92px] animate-pulse rounded-[22px] bg-dw-surface sm:h-[100px]" aria-hidden />
         <div className={LIST_DETAIL} aria-hidden>
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-pink/40" />
@@ -284,19 +284,25 @@ export function ExperimentsScreen() {
       <PageHead mascot={<Mascot kind="experimenter" size={52} frame active={Boolean(liveTest)} />} title={pageTitle} lede={pageLede} right={actions} />
 
       <SummaryStrip
-        label="Tests at a glance"
-        cells={[
-          { value: count(nTests), label: "A vs B tests run", tone: "pink", shape: "experimenter" },
-          { value: count(wins), label: "winners Max shipped", tone: "olive", shape: "shipper" },
+        items={[
+          { key: "tests", tone: "pink", value: count(nTests), label: "A vs B tests Ada ran", art: <Mascot kind="experimenter" size={44} frame active={Boolean(liveTest)} /> },
+          { key: "wins", tone: "olive", value: count(wins), label: "winners Max shipped", art: <Mascot kind="shipper" size={44} frame active={false} />, href: appHref("/console/changes", mock), ariaLabel: `${wins} winners shipped. See changes` },
           liveTest
-            ? { value: chance(liveTest.result?.probabilityToBeat), label: "chance the live test's new version is better", tone: "yellow", shape: "designer" }
-            : { value: count(dropped), label: "dropped, no clear gain", tone: "yellow", shape: "designer" },
-          { value: count(tested), label: `shoppers tested${synthetic ? " (simulated)" : ""}`, tone: "blue", shape: "observer" },
+            ? {
+                key: "live",
+                tone: "yellow",
+                value: chance(liveTest.result?.probabilityToBeat),
+                label: "chance the new version is better, live test",
+                art: <Mascot kind="designer" size={44} frame active />,
+                title: liveTest.name,
+              }
+            : { key: "dropped", tone: "sand", value: count(dropped), label: "dropped, no clear gain", art: <Mascot kind="designer" size={44} frame active={false} /> },
+          { key: "tested", tone: "blue", value: count(tested), label: `shoppers tested${synthetic ? " (simulated)" : ""}`, art: <Mascot kind="observer" size={44} frame active={false} /> },
         ]}
       />
 
       <div className={LIST_DETAIL}>
-        <motion.div {...stagger(1)} className="min-w-0 max-lg:order-2 lg:sticky lg:top-6">
+        <motion.div {...stagger(1)} className="min-w-0 max-lg:order-2">
           <PastExperiments
             experiments={past}
             loop={loop}

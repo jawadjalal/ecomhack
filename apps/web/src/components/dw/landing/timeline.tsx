@@ -35,7 +35,7 @@ const CREW_ROW: MascotKind[] = ["analyst", "observer", "designer", "experimenter
 
 function Win({ title, tag, children, className }: { title: string; tag?: string; children: ReactNode; className?: string }) {
   return (
-    <div className={cn(CARD, "w-full max-w-[440px] overflow-hidden", className)}>
+    <div className={cn(CARD, "w-full min-w-0 max-w-[440px] overflow-hidden", className)}>
       <div className="flex h-11 items-center gap-2 border-b border-dw-hairline px-4">
         <span aria-hidden className="flex gap-1.5">
           <i className="size-2.5 rounded-full bg-dw-pink-shape" />
@@ -197,7 +197,7 @@ function ShipPicture() {
 
 function LoopPicture() {
   return (
-    <div className={cn(CARD, "relative h-[250px] w-full max-w-[440px] overflow-hidden sm:h-[270px]")}>
+    <div className={cn(CARD, "relative h-[250px] w-full min-w-0 max-w-[440px] overflow-hidden sm:h-[270px]")}>
       <Art id="valley" position="50% 55%" sizes="(max-width: 640px) 92vw, 440px" />
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-5">
         <div className="flex items-end gap-2">

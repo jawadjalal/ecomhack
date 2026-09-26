@@ -7,8 +7,7 @@ import { ArrowRight } from "lucide-react";
 import type { ExperimentResult } from "@/lib/contracts";
 import { count, pct, signedPct } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
-import { LiveDot } from "../ui";
-import { DEPTH } from "./frame";
+import { DEPTH, LiveDot } from "../ui";
 import { audienceNoun, chance, measured, type Outcome } from "./model";
 import { Tip } from "./tip";
 

@@ -7,8 +7,8 @@ import type { Experiment, LoopState } from "@/lib/contracts";
 import { signedPct, timeAgo } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "../mascot";
-import { Card, Tag } from "../ui";
-import { DEPTH, ListCard } from "./frame";
+import { Card, DEPTH, Tag } from "../ui";
+import { ListCard } from "./frame";
 import { appHref, chance, historyFor, outcomeOf, type ChangeRow, type Outcome } from "./model";
 import { Tip } from "./tip";
 

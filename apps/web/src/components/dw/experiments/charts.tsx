@@ -3,8 +3,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import type { ExperimentResult } from "@/lib/contracts";
 import { count } from "@/lib/console/format";
-import { Card, CardTitle, pct0 } from "../ui";
-import { DEPTH } from "./frame";
+import { Card, CardTitle, DEPTH, pct0 } from "../ui";
 import { CARD_FILL, chance } from "./model";
 import { Tip } from "./tip";
 

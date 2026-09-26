@@ -40,7 +40,7 @@ const COLS: { title: string; rows: { label: string; href: string }[] }[] = [
 /** Who is on which letter of the name, and how. `x` is where along the letter, from its left, in percent. */
 const PERCH: Record<number, { kind: MascotKind; pose: "sit" | "peek" | "dot" | "tall"; x: number }> = {
   0: { kind: "observer", pose: "tall", x: 30 },
-  1: { kind: "designer", pose: "peek", x: 52 },
+  1: { kind: "designer", pose: "peek", x: 76 },
   2: { kind: "experimenter", pose: "sit", x: 40 },
   4: { kind: "analyst", pose: "dot", x: 50 },
   5: { kind: "shipper", pose: "sit", x: 56 },

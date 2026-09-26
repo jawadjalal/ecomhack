@@ -122,4 +122,5 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 14:37 UTC — words + crew pass (subagent).** Crew names in the app: Iris (Watcher), Darwin (Lead), Theo (Designer), Ada (Tester), Max (Shipper), Mika (store agent). Plain words on Settings, Store agent, Dashboards, Personalize, Traffic, More menu and landing leftovers (no "A/B", "Gen N", "synthetic", "pull request", provider/model names; protocol names kept small and muted for judges). Open: lib-generated sentences (lever reasons, autopilot log, dashboard titles) still use some old words; Next-run idea: move those strings to a shared plain-words helper.
 - **2026-09-26 13:40 UTC — lead agent.** Redesign of every screen (PR #37), Grok teammate, ACP/MCP agent checkout, rollback, owner bug list fixed (double payments, invented claims, rejected GitHub token, RPV tile, mobile overflow, dead store buttons). In progress: above-the-fold pass, lead agent (⌘K / chat / WebMCP), brutal judge review.

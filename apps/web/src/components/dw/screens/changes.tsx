@@ -10,9 +10,9 @@ import { BrandGlyph } from "../brand-logos";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { StartDemo } from "../first-run";
-import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing } from "../ui";
+import { Card, CardTitle, DEPTH, Empty, LiveDot, PageHead, PillButton, SummaryStrip, Typing, type SummaryItem } from "../ui";
 import { Timeline } from "../experiments/changes-parts";
-import { DEPTH, LIST_DETAIL, SummaryStrip, type StripCell } from "../experiments/frame";
+import { LIST_DETAIL } from "../experiments/frame";
 import { appHref, buildChanges, githubLive, indexLog, uplift, type ChangeEntry } from "../experiments/model";
 import { DiffCard, ProofCard } from "../experiments/pr-parts";
 import { setHash, useHash } from "../experiments/use-hash";
@@ -74,7 +74,7 @@ export function ChangesScreen() {
     return (
       <>
         <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Max is loading your changes <Typing /></span>} />
-        <div className="h-[76px] animate-pulse rounded-[28px] bg-dw-surface" aria-hidden />
+        <div className="h-[92px] animate-pulse rounded-[22px] bg-dw-surface sm:h-[100px]" aria-hidden />
         <div className={LIST_DETAIL} aria-hidden>
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-olive/40" />
@@ -126,32 +126,32 @@ export function ChangesScreen() {
       {synthetic ? " Simulated shoppers." : ""}
     </>
   );
-  const arrow = (a: string, b: string) => (
-    <>
-      <span className="text-dw-ink/55">{a}</span>
-      <ArrowRight className="size-4 self-center text-dw-ink/45" aria-label="to" />
-      <span>{b}</span>
-    </>
-  );
-  const lift = (x: number | undefined) => (x !== undefined ? `, ${signedPct(x)}` : "");
+  const was = (before: string, x: number | undefined) => `, was ${before}${x !== undefined ? ` (${signedPct(x)})` : ""}`;
   const perK = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x))}`;
-  const cells: StripCell[] = up
+  const items: SummaryItem[] = up
     ? [
         {
-          value: arrow(pct(up.all.before), pct(up.all.now)),
-          label: `of shoppers buy${lift(up.all.lift)}`,
+          key: "all",
           tone: "yellow",
-          shape: "shipper",
+          value: pct(up.all.now),
+          label: `of shoppers buy${was(pct(up.all.before), up.all.lift)}`,
+          art: <Mascot kind="shipper" size={44} frame active={false} />,
           title: "Weighted to your usual mix of people and AI agents, so it only moves when the store does, not when the traffic mix does.",
         },
-        { value: arrow(pct(up.human.before), pct(up.human.now)), label: `of people buy${lift(up.human.lift)}`, tone: "lilac", shape: "analyst" },
-        { value: arrow(pct(up.agent.before, 0), pct(up.agent.now, 0)), label: `of AI agents buy${lift(up.agent.lift)}`, tone: "blue", shape: "observer" },
-        { value: perK(up.all.per1000), label: `more buyers per 1,000 visitors${synthetic ? " (simulated)" : ""}`, tone: "olive", shape: "shipper" },
+        { key: "people", tone: "lilac", value: pct(up.human.now), label: `of people buy${was(pct(up.human.before), up.human.lift)}`, art: <PersonMark /> },
+        { key: "agents", tone: "blue", value: pct(up.agent.now, 0), label: `of AI agents buy${was(pct(up.agent.before, 0), up.agent.lift)}`, art: <Mascot kind="observer" size={44} frame active={false} /> },
+        {
+          key: "extra",
+          tone: "olive",
+          value: perK(up.all.per1000),
+          label: `more buyers per 1,000 visitors${synthetic ? " (simulated)" : ""}`,
+          art: <Mascot kind="shipper" size={44} frame active />,
+        },
       ]
     : [
-        { value: String(shipped), label: "winners Max shipped", tone: "olive", shape: "shipper" },
-        { value: String(rolledBack), label: "undone", tone: "sand" },
-        { value: `Version ${loop.generation}`, label: "live on your store now", tone: "yellow", shape: "designer" },
+        { key: "shipped", tone: "olive", value: shipped, label: "winners Max shipped", art: <Mascot kind="shipper" size={44} frame active={false} /> },
+        { key: "undone", tone: "sand", value: rolledBack, label: "undone" },
+        { key: "live", tone: "yellow", value: `Version ${loop.generation}`, label: "live on your store now", art: <Mascot kind="designer" size={44} frame active={false} /> },
       ];
 
   const actions = (
@@ -180,7 +180,7 @@ export function ChangesScreen() {
     <>
       <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title={title} lede={lede} right={actions} />
 
-      <SummaryStrip label="Before Darwin vs now" cells={cells} />
+      <SummaryStrip items={items} />
 
       <div className={LIST_DETAIL}>
         <motion.div {...stagger(1)} className="min-w-0">
@@ -233,5 +233,17 @@ export function ChangesScreen() {
         </motion.div>
       </div>
     </>
+  );
+}
+
+/** A plain person silhouette for human shoppers, in the lilac shape colour. */
+function PersonMark() {
+  return (
+    <span className="grid size-11 place-items-center rounded-[14px] bg-dw-lilac-shape">
+      <svg viewBox="0 0 24 24" className="size-7 text-dw-ink" aria-hidden>
+        <circle cx="12" cy="7.5" r="4" fill="currentColor" />
+        <path d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5z" fill="currentColor" />
+      </svg>
+    </span>
   );
 }

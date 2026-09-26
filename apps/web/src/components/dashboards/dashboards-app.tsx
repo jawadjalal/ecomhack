@@ -28,7 +28,7 @@ const MAX_RESEND = 2000;
 /** Don't retry a restore / re-send more often than this while polling. */
 const HEAL_EVERY_MS = 5000;
 
-const ASK_CHIPS = ["Wishlist adds per minute", "Mobile vs desktop", "Where do shoppers come from", "Revenue per minute"];
+const ASK_CHIPS = ["Orders per day by device", "How many orders today", "Do shoppers come back", "Where do people go after the product page", "When do people shop", "How long do people take to buy"];
 
 /** Where the plan's store lives, for people: "trail-shop.co.uk", "acme/storefront", or the site id. */
 function storeName(plan: TrackingPlan): string {

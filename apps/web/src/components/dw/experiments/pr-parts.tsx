@@ -4,8 +4,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { count, signedPct } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
-import { Card, Tag } from "../ui";
-import { DEPTH } from "./frame";
+import { Card, DEPTH, Tag } from "../ui";
 import { audienceNoun, CARD_FILL, chance, diffCode, measured, type PrRow } from "./model";
 import { Tip } from "./tip";
 

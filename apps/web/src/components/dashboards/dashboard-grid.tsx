@@ -7,6 +7,7 @@ import { cn } from "@/components/ui/cn";
 import { Card, CardTitle, HBar, LegendKey, LiveDot, Tag, TONE, type Tone } from "@/components/dw/ui";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { Pill, SmoothLine, Tip, TrackPill } from "@/components/dw/dashboards/charts";
+import { InsightBody } from "@/components/dashboards/cards/insight-cards";
 
 const pct = (x: number | undefined, d = 1) => (x === undefined || !Number.isFinite(x) ? "–" : `${(x * 100).toFixed(d)}%`);
 const gbp = (pence: number) => `£${(pence / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`;
@@ -23,11 +24,19 @@ const LOOK: Record<DashboardKind, { tone: Tone; shape: MascotKind; corner: "tr" 
   revenue: { tone: "yellow", shape: "shipper", corner: "br" },
   events: { tone: "white", shape: "observer", corner: "br" },
   devices: { tone: "blue", shape: "observer", corner: "br" },
+  trend: { tone: "white", shape: "analyst", corner: "br" },
+  number: { tone: "yellow", shape: "analyst", corner: "tr" },
+  retention: { tone: "olive", shape: "observer", corner: "br" },
+  paths: { tone: "blue", shape: "designer", corner: "tr" },
+  lifecycle: { tone: "lilac", shape: "observer", corner: "br" },
+  breakdown: { tone: "pink", shape: "analyst", corner: "tr" },
+  time_to_convert: { tone: "sand", shape: "shipper", corner: "br" },
+  hourly: { tone: "lilac", shape: "designer", corner: "tr" },
 };
 /** When two neighbours would share a colour, the second takes this one. */
 const ALT: Record<Tone, Tone> = { yellow: "white", pink: "lilac", olive: "sand", blue: "lilac", lilac: "blue", white: "sand", sand: "white" };
 /** How much a kind benefits from the wide (1.7fr) slot of a row. */
-const WEIGHT: Record<DashboardKind, number> = { kpis: 9, funnel: 3, revenue: 3, events: 3, heatmap: 2, sources: 2, experiments: 2, devices: 1, "humans-agents": 1 };
+const WEIGHT: Record<DashboardKind, number> = { kpis: 9, funnel: 3, revenue: 3, events: 3, heatmap: 2, sources: 2, experiments: 2, devices: 1, "humans-agents": 1, trend: 3, number: 1, retention: 3, paths: 2, lifecycle: 3, breakdown: 2, time_to_convert: 2, hourly: 3 };
 
 /**
  * Every dashboard in a plan. KPIs span the row; the rest pair up in rows that alternate 1.7fr/1fr and
@@ -116,19 +125,19 @@ export function DashboardCard({ d, compact, onRemove, tone }: { d: DashboardData
         <span className={cn(compact && "text-[19px]")}>{d.title}</span>
       </CardTitle>
       {!compact && <p className="mt-1 max-w-[40rem] text-[14px] leading-snug text-dw-ink/70">{d.why}</p>}
-      <div className={cn("flex flex-1 flex-col", compact ? "mt-3" : "mt-4")}>{d.empty ? <Waiting kind={d.kind} /> : <Body d={d} compact={compact} ring={TONE[t].bg} />}</div>
+      <div className={cn("flex flex-1 flex-col", compact ? "mt-3" : "mt-4")}>{d.empty ? <Waiting kind={d.kind} note={d.note} /> : <Body d={d} compact={compact} ring={TONE[t].bg} />}</div>
     </Card>
   );
 }
 
-function Waiting({ kind }: { kind: DashboardKind }) {
+function Waiting({ kind, note }: { kind: DashboardKind; note?: string }) {
   const look = LOOK[kind] ?? LOOK.events;
   return (
     <div className="flex flex-1 items-center gap-4 rounded-[20px] border-[1.5px] border-dashed border-dw-ink/20 bg-white/30 px-4 py-4">
       <Mascot kind={look.shape} size={44} frame active />
       <p className="flex items-center gap-2 text-[14px] text-dw-ink/70">
         <LiveDot />
-        {kind === "experiments" ? "No tests yet. Ada starts them once visitors arrive." : "Listening for the first events…"}
+        {note ?? (kind === "experiments" ? "No tests yet. Ada starts them once visitors arrive." : "Listening for the first events…")}
       </p>
     </div>
   );
@@ -151,6 +160,15 @@ function RowIcon({ children }: { children: ReactNode }) {
 
 function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring: string }) {
   switch (d.kind) {
+    case "trend":
+    case "number":
+    case "retention":
+    case "paths":
+    case "lifecycle":
+    case "breakdown":
+    case "time_to_convert":
+    case "hourly":
+      return <InsightBody d={d} compact={compact} />;
     case "kpis":
       return (
         <div className="grid grid-cols-2 gap-x-6 gap-y-5 @xl:flex @xl:flex-wrap @xl:gap-x-10 @4xl:justify-between">

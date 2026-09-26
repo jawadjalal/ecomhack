@@ -53,7 +53,8 @@
   animation-range: entry 10% cover 40%;
 }
 
-.dwf-p > div {
+/* The mascot draws at a pixel size; here it takes the perch's size, in the name's ems. */
+.dwf-p div {
   width: 100% !important;
   height: 100% !important;
 }
