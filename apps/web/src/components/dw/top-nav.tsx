@@ -8,6 +8,7 @@ import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
 import { AccountAvatar } from "./account-avatar";
 import { CommandPill } from "./command/pill";
+import { LiveSwitch } from "./live-switch";
 import { Mascot } from "./mascot";
 import { useDarwin } from "./provider";
 import { StoreChip } from "./store-context";
@@ -110,6 +111,7 @@ export function TopNav() {
           </span>
           {mock && <span className="text-[12px] text-dw-ink/50">(demo data)</span>}
         </button>
+        <LiveSwitch />
         <CommandPill />
         <MoreMenu />
         <AccountAvatar />

@@ -10,6 +10,7 @@ import { Card, Empty, PageHead, PillButton, Tag } from "@/components/dw/ui";
 import { SwitchPill } from "@/components/dw/agents/switch";
 import { recallLastSite, recallPlan, recallSimulated, rememberPlan, rememberSimulated, rememberSite } from "@/lib/tracking/remember";
 import { DashboardGrid } from "./dashboard-grid";
+import { useLiveInterval } from "@/lib/console/live";
 
 async function get<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
@@ -78,14 +79,15 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
     }
   }, [site]);
 
+  const every = useLiveInterval(5000);
   useEffect(() => {
     const first = setTimeout(load, 0);
-    const t = setInterval(load, 3000);
+    const t = every ? setInterval(load, every) : undefined;
     return () => {
       clearTimeout(first);
       clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   // The plan's goal events, as a stable string so the simulator callback doesn't change every poll.
   const goalsKey = (data?.plan?.events ?? [])
