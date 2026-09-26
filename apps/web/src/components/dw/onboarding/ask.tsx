@@ -13,7 +13,7 @@ import { PillButton, Typing } from "@/components/dw/ui";
 import { Gel } from "@/components/dw/gel";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { WhopLogo } from "@/components/dw/brand-logos";
-import { AgentBubble, BrainChip, CheckPop, EASE, YouBubble, type Brain } from "./bits";
+import { AgentBubble, CheckPop, EASE, YouBubble } from "./bits";
 
 export interface Answers {
   track: string[];
@@ -113,7 +113,6 @@ export function AskChat({
   prompt,
   connectedTo,
   whop,
-  brain,
   initial,
   onBack,
   onDone,
@@ -122,7 +121,6 @@ export function AskChat({
   /** "acme/storefront" or "trail-shop.co.uk". */
   connectedTo: string;
   whop?: string;
-  brain: Brain | null;
   initial?: Answers;
   onBack: () => void;
   onDone: (a: Answers) => void;
@@ -177,7 +175,6 @@ export function AskChat({
             <div className="text-[13.5px] text-dw-ink/60">Your store&apos;s analyst</div>
           </div>
         </div>
-        <BrainChip brain={brain} />
       </div>
 
       {prompt.trim() && <YouBubble text={prompt.trim()} />}

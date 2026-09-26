@@ -41,7 +41,6 @@ import { Gel, GelLink } from "@/components/dw/gel";
 import { Sticker } from "@/components/dw/sticker";
 import {
   AgentBubble,
-  BrainChip,
   CheckPop,
   Drawer,
   EASE,
@@ -51,7 +50,6 @@ import {
   StageArt,
   Stepper,
   YouBubble,
-  brainOf,
   inputCls,
   linkCls,
   useIsPhone,
@@ -149,8 +147,6 @@ export function OnboardingApp() {
   const [snippet, setSnippet] = useState<string | null>(null);
   const [whopStatus, setWhopStatus] = useState<WhopStatus | null>(null);
   const [whop, setWhop] = useState<WhopConnection | null>(null);
-  /** Which brain Darwin plans with (GET /api/loop → designer). */
-  const [designer, setDesigner] = useState<string | undefined>();
   const [answers, setAnswers] = useState<Answers | undefined>();
 
   const [plan, setPlan] = useState<TrackingPlan | null>(null);
@@ -292,7 +288,6 @@ export function OnboardingApp() {
   /** A valid address typed but not yet added still counts: Continue adds it. */
   const draftSite = website || repo ? null : storeOrigin(urlDraft);
   const connected = !!repo || !!website || !!draftSite;
-  const brain = brainOf(designer);
 
   /** "Paste your store URL" → the chip (Enter or Add). The script-tag path: no GitHub needed. */
   const addUrl = (focusNext = true) => {
@@ -408,10 +403,6 @@ export function OnboardingApp() {
     http<GithubStatusResponse>("GET", "/api/github/status").then(setGhStatus, () => {});
     http<WhopStatus>("GET", "/api/whop/status").then(setWhopStatus, () => {});
     http<AuthSession>("GET", "/api/auth/session").then(setAuth, () => {});
-    http<{ designer?: string }>("GET", "/api/loop").then(
-      (l) => setDesigner(l.designer ?? "heuristic"),
-      () => {},
-    );
     const params = new URLSearchParams(window.location.search);
     const t = setTimeout(() => {
       // 1. Pick up where the merchant left off (a reload lands on the same stage).
@@ -815,7 +806,6 @@ export function OnboardingApp() {
                       prompt={prompt}
                       connectedTo={connectedTo}
                       whop={whop?.title}
-                      brain={brain}
                       initial={answers}
                       onBack={() => setStage("connect")}
                       onDone={(a) => void toPlan(a)}
@@ -829,7 +819,6 @@ export function OnboardingApp() {
                       mascot={plan ? "designer" : "observer"}
                       title={plan ? "Here's what Darwin will record" : "Darwin is reading your store"}
                       lede={plan ? "Turn anything off, or tell Darwin what else to track." : "Checking what's there, then planning what to measure."}
-                      right={<BrainChip brain={brain} />}
                     />
                     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] lg:grid-rows-[auto_1fr] lg:gap-x-7">
                       <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
@@ -1210,7 +1199,6 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
           hint={plan.existingAnalytics?.some((a) => !a.startsWith("Darwin")) ? "darwin.js runs alongside" : undefined}
         />
         {!!plan.goals?.length && <Fact label="Heard" value={plan.goals.join(", ")} brand />}
-        {plan.author.startsWith("llm:") && <Fact label="Planned by" value={plan.author.slice(4)} />}
       </div>
 
       <Card tone="yellow" shape="observer" corner="tr" className="p-5 sm:p-6">
