@@ -14,6 +14,7 @@ import { humanizeInsightText } from "@/lib/optimizer/humanize";
 import { cn } from "@/components/ui/cn";
 import { useDarwin } from "../provider";
 import { countText, liftText, pctSmart } from "./model";
+import { setLive } from "@/lib/console/live";
 
 /** Safety cap: a test can need several rounds, and a "keep A" verdict sends Darwin back to diagnose. */
 const MAX_STEPS = 14;
@@ -139,6 +140,7 @@ export function useWatchRun() {
     const id = ++run.current;
     seen.current = loopRef.current?.log.length ?? 0;
     setRunning(true);
+    setLive(true); // the cards follow the run while it plays
     if (!trafficOn) setTrafficOn(true);
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const startLen = loopRef.current?.log.length ?? 0;
