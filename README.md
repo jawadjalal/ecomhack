@@ -27,7 +27,9 @@ npm run build && npm start     # or: npm run dev
 | URL | What |
 |---|---|
 | http://localhost:3000 | Landing page |
+| http://localhost:3000/onboarding | **Set up a store**: tell Darwin about it, connect GitHub (+ Whop) → it plans what to record, opens the install PR, builds your dashboards |
 | http://localhost:3000/console | **Mission control**: the loop, live traffic, experiments, PRs |
+| http://localhost:3000/console/dashboards | The dashboards Darwin built from a store's tracking plan, live |
 | http://localhost:3000/console?mock=1 | Same UI, fully simulated in the browser (offline fallback) |
 | http://localhost:3000/store | The demo store (PACE running shoes) |
 | http://localhost:3000/console/personalize | **Personalize any store**: change a page per traffic source (ChatGPT, Google, Instagram, ads) and search query, A/B tested |
@@ -71,6 +73,24 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 
 Overall conversion (at the Gen 0 traffic mix) goes 4.5% → 10.4%: humans about 2.1% → 4.4%, agents 35% → 87%. Shipping needs ≥97.5% posterior probability (99.5% to stop early), and bad ideas are
 rejected and never retried.
+
+### Onboarding: Darwin asks, installs, builds your dashboards
+
+1. **Connect**: describe the store in one line ("trail running shoes; checkout feels slow on mobile") and connect its
+   GitHub repo (Whop is optional and adds payments).
+2. **Plan**: Darwin reads the repo (framework, site id) and your words, and proposes a tracking plan with a reason for
+   every event: automatic ones darwin.js records with no code, the shopping funnel, and events for *your* worry
+   (checkout steps and errors, sizing, search…). Change it by chatting ("also track wishlist adds", "don't track
+   rage clicks") or with toggles; the dashboards update as you go.
+3. **Install**: one pull request adds darwin.js and commits the plan as `DARWIN_TRACKING.md`, with the one line each
+   event needs.
+4. **Live**: the dashboards are built from the plan and fill as events arrive, with a checklist of what's been
+   recorded. Simulated shoppers are available for a demo, and always labelled.
+
+Darwin runs on its own onboarding (site `darwin-onboarding`): each step is an event, so its funnel shows up in
+`/console/dashboards?site=darwin-onboarding` and can be A/B tested like any store.
+
+![Onboarding A (before) vs B (now)](apps/web/docs/screenshots/onboarding/onboarding-A-vs-B.jpg)
 
 ### Personalize any store
 

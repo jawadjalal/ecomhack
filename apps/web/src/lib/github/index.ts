@@ -240,11 +240,40 @@ function record(kind: PullRequestRecord["kind"], result: PullRequestResult, extr
 /* ------------------------------------------------------------------ install PR */
 
 /** Onboarding: open a PR that installs Darwin analytics into the connected storefront repo. */
-export async function openAnalyticsInstallPR(repo: RepoRef, opts: { host: string; siteId?: string }): Promise<PullRequestResult> {
+export interface InstallOptions {
+  host: string;
+  siteId?: string;
+  /**
+   * The merchant's tracking plan (onboarding): committed as DARWIN_TRACKING.md next to the install,
+   * and summarised in the PR body.
+   */
+  tracking?: { doc: string; summary: string };
+}
+
+export async function openAnalyticsInstallPR(repo: RepoRef, opts: InstallOptions): Promise<PullRequestResult> {
   return withOfflineFallback((mode) => installPR(repo, opts, mode));
 }
 
-async function installPR(repo: RepoRef, opts: { host: string; siteId?: string }, mode: GithubMode): Promise<PullRequestResult> {
+const TRACKING_DOC = "DARWIN_TRACKING.md";
+
+/** Add the tracking plan (file + PR body section) to an install plan's result. */
+function withTracking<T extends { files: { path: string; content: string }[]; body: string }>(result: T, opts: InstallOptions, root: string): T {
+  if (!opts.tracking) return result;
+  const path = root ? `${root}/${TRACKING_DOC}` : TRACKING_DOC;
+  return {
+    ...result,
+    files: [...result.files.filter((f) => f.path !== path), { path, content: opts.tracking.doc }],
+    body: `${result.body}
+
+## What Darwin will record
+
+${opts.tracking.summary}
+
+The full plan, with the one line per event your store sends, is in \`${path}\`.`,
+  };
+}
+
+async function installPR(repo: RepoRef, opts: InstallOptions, mode: GithubMode): Promise<PullRequestResult> {
   const fullName = `${repo.owner}/${repo.repo}`;
   const snippet = { src: `${normalizeHost(opts.host)}/darwin.js`, siteId: opts.siteId ?? siteIdFor(repo) };
   const commitMessage = `Install Darwin analytics\n\nLoads darwin.js (site id "${snippet.siteId}") to measure how human shoppers and AI shopping agents use the store.`;
@@ -252,20 +281,27 @@ async function installPR(repo: RepoRef, opts: { host: string; siteId?: string },
   if (mode === "offline") {
     const detection = assumedDetection();
     const plan = planInstall(detection, { [detection.targets[0]]: REPRESENTATIVE_LAYOUT }, snippet);
-    return record("install", {
-      dryRun: true,
-      branch: INSTALL_BRANCH,
-      title: INSTALL_TITLE,
-      body: buildInstallPrBody({ repo: fullName, detection, plan, snippet, mode }),
-      files: plan.files,
-      repo: fullName,
-      base: repo.base,
-      detection,
-      notes: [
-        "Dry run: GITHUB_TOKEN is not set, so the repository was not read and no PR was opened.",
-        `Assumed ${detection.label} with ${detection.targets[0]} (representative layout).`,
-      ],
-    });
+    return record(
+      "install",
+      withTracking(
+        {
+          dryRun: true,
+          branch: INSTALL_BRANCH,
+          title: INSTALL_TITLE,
+          body: buildInstallPrBody({ repo: fullName, detection, plan, snippet, mode }),
+          files: plan.files,
+          repo: fullName,
+          base: repo.base,
+          detection,
+          notes: [
+            "Dry run: GITHUB_TOKEN is not set, so the repository was not read and no PR was opened.",
+            `Assumed ${detection.label} with ${detection.targets[0]} (representative layout).`,
+          ],
+        },
+        opts,
+        detection.root,
+      ),
+    );
   }
 
   const gh = githubClient(mode);
@@ -288,19 +324,23 @@ async function installPR(repo: RepoRef, opts: { host: string; siteId?: string },
   if (tree.truncated) notes.push("GitHub truncated the repository tree; detection used a partial file list.");
   if (plan.manual) notes.push("Could not inject automatically; the PR adds DARWIN.md with manual instructions.");
 
-  const result: PullRequestResult = {
-    dryRun: mode !== "live",
-    branch: INSTALL_BRANCH,
-    title: INSTALL_TITLE,
-    body: buildInstallPrBody({ repo: canonical, detection, plan, snippet, mode }),
-    files: plan.files,
-    repo: canonical,
-    base,
-    detection,
-    notes,
-  };
+  const result: PullRequestResult = withTracking(
+    {
+      dryRun: mode !== "live",
+      branch: INSTALL_BRANCH,
+      title: INSTALL_TITLE,
+      body: buildInstallPrBody({ repo: canonical, detection, plan, snippet, mode }),
+      files: plan.files,
+      repo: canonical,
+      base,
+      detection,
+      notes,
+    },
+    opts,
+    detection.root,
+  );
 
-  if (!plan.files.length) {
+  if (!result.files.length) {
     notes.push(
       plan.alreadyInstalled.length
         ? `darwin.js is already loaded (${plan.alreadyInstalled.join(", ")}); no PR needed.`
@@ -317,7 +357,7 @@ async function installPR(repo: RepoRef, opts: { host: string; siteId?: string },
     branch: INSTALL_BRANCH,
     title: INSTALL_TITLE,
     body: result.body,
-    files: plan.files,
+    files: result.files,
     commitMessage,
     labels: ["darwin", "analytics"],
   });
@@ -455,8 +495,31 @@ async function specPR(repo: RepoRef, spec: PageSpec, ctx: SpecPRContext, mode: G
 
 /* ------------------------------------------------------------------ higher-level helpers for routes / optimizer */
 
+/** What Darwin can tell about a repo before opening anything: its site id and framework. Never throws for GitHub errors. */
+export async function inspectRepository(repoUrl: string): Promise<{ repo: string; siteId: string; framework: string; assumed: boolean; mode: GithubMode; note?: string }> {
+  const coords = parseRepoUrl(repoUrl);
+  if (!coords) {
+    throw new GithubIntegrationError(`"${repoUrl}" is not a GitHub repository. Use https://github.com/owner/repo or owner/repo.`, 400);
+  }
+  const base = { repo: `${coords.owner}/${coords.repo}`, siteId: siteIdFor(coords) };
+  const mode = githubMode();
+  const assumed = () => ({ ...base, framework: assumedDetection().label, assumed: true, mode });
+  if (mode === "offline") return { ...assumed(), note: "Darwin isn't connected to GitHub yet (no GITHUB_TOKEN), so I assumed a Next.js store and the pull request will be a preview." };
+  try {
+    const gh = githubClient(mode);
+    const { baseSha, fullName } = await resolveBase(gh, { ...coords });
+    const tree = await gh.getTree(coords.owner, coords.repo, baseSha);
+    const detection = detectFramework(tree.entries.filter((e) => e.type === "blob").map((e) => e.path));
+    return { ...base, repo: fullName, framework: detection.label, assumed: false, mode };
+  } catch (err) {
+    const status = err instanceof GitHubError ? err.status : 0;
+    const why = status === 401 ? "Darwin's GitHub access isn't working" : status === 404 ? "it's private or doesn't exist" : "GitHub didn't answer";
+    return { ...assumed(), note: `I couldn't read ${base.repo} (${why}), so I assumed a Next.js store. The pull request will be a preview until that's fixed.` };
+  }
+}
+
 /** Parse a repo URL, open the install PR, and remember the repo as connected. */
-export async function connectRepository(repoUrl: string, opts: { host: string; base?: string }): Promise<PullRequestResult> {
+export async function connectRepository(repoUrl: string, opts: { host: string; base?: string; tracking?: InstallOptions["tracking"] }): Promise<PullRequestResult> {
   const coords = parseRepoUrl(repoUrl);
   if (!coords) {
     throw new GithubIntegrationError(`"${repoUrl}" is not a GitHub repository. Use https://github.com/owner/repo or owner/repo.`, 400);
@@ -464,7 +527,7 @@ export async function connectRepository(repoUrl: string, opts: { host: string; b
   const repo: RepoRef = { ...coords, base: opts.base };
   const siteId = siteIdFor(coords);
   const host = normalizeHost(opts.host);
-  const result = await openAnalyticsInstallPR(repo, { host, siteId });
+  const result = await openAnalyticsInstallPR(repo, { host, siteId, tracking: opts.tracking });
   const detection = result.detection ?? assumedDetection();
   const [owner, name] = (result.repo ?? `${coords.owner}/${coords.repo}`).split("/");
   saveConnection({

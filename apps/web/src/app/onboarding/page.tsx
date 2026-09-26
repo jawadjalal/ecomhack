@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { OnboardingApp } from "@/components/onboarding/onboarding-app";
 
 export const metadata: Metadata = {
   title: "Darwin · Set up",
-  description: "Connect Whop and GitHub, choose what Darwin collects, and pick your dashboards.",
+  description: "Tell Darwin about your store, connect GitHub (and Whop), and it plans what to record, installs it and builds your dashboards.",
 };
 
-/** /onboarding — first-run setup: connect → analytics install PR → dashboards → mission control. */
+/**
+ * /onboarding — first-run setup: connect → plan (Darwin asks) → install PR → live dashboards.
+ * Darwin runs on its own onboarding (site "darwin-onboarding"): every step is an event, so the same
+ * dashboards, heatmap and A/B tests work on it.
+ */
 export default function OnboardingPage() {
-  return <OnboardingApp />;
+  return (
+    <>
+      <Script src="/darwin.js" data-darwin-site="darwin-onboarding" strategy="afterInteractive" />
+      <OnboardingApp />
+    </>
+  );
 }
