@@ -55,7 +55,8 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
   const [ideas, setIdeas] = useState(false);
   const [restoredNote, setRestoredNote] = useState<string>();
   const ticking = useRef(false);
-  const healedAt = useRef(0);
+  const restoredAt = useRef(0);
+  const resentAt = useRef(0);
 
   // No ?site=: open on the site this browser set up last (lib/tracking/remember.ts), not an empty box.
   useEffect(() => {
@@ -109,19 +110,18 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
       rememberPlan(data.plan);
       rememberSite(site, data.plan.siteUrl);
     }
-    if (Date.now() - healedAt.current < HEAL_EVERY_MS) return;
     if (!data.plan) {
       const saved = recallPlan(site);
-      if (!saved) return;
-      healedAt.current = Date.now();
+      if (!saved || Date.now() - restoredAt.current < HEAL_EVERY_MS) return;
+      restoredAt.current = Date.now();
       get<{ restored: boolean; plan: TrackingPlan }>("/api/onboarding/restore", { plan: saved })
         .then(() => load())
         .catch(() => undefined);
       return;
     }
     const sims = recallSimulated(site);
-    if (data.totalEvents > 0 || sims <= 0) return;
-    healedAt.current = Date.now();
+    if (data.totalEvents > 0 || sims <= 0 || Date.now() - resentAt.current < HEAL_EVERY_MS) return;
+    resentAt.current = Date.now();
     const goals = data.plan.events.filter((e) => e.enabled && e.category === "goal").map((e) => e.name).slice(0, 12);
     get<WebSimulateResponse>("/api/web/simulate", { site, visitors: Math.min(sims, MAX_RESEND), events: goals })
       .then((res) => {
