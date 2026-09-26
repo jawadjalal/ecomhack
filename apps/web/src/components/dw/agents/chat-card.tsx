@@ -183,33 +183,35 @@ function StoreBubble({ line, demo }: { line: ChatLine; demo: boolean }) {
       )}
     >
       <p className="text-[14px] leading-[1.45] break-words whitespace-pre-line">{line.text}</p>
-      {!!line.offers?.length && (
-        <div className="flex flex-col gap-1.5">
+      {(!!line.offers?.length || !!line.facts?.length) && (
+        <div className="flex flex-col gap-2 border-t border-dw-hairline pt-2.5">
           <span className="text-[12px] text-dw-ink/55">In the data part, for agents that read it</span>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {line.offers.map((o, i) => (
-              <div key={o.id} className="dw-row flex min-w-0 flex-col gap-0.5 rounded-[14px] bg-dw-sand/70 px-3 py-2.5">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 truncate text-[13.5px] font-semibold">
-                    <span className="mr-1 font-dwmono text-[11.5px] font-normal text-dw-ink/50">{i + 1}</span>
-                    {o.title}
-                  </span>
-                  <span className="num shrink-0 font-dwmono text-[12.5px]">{o.priceLabel}</span>
+          {!!line.offers?.length && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {line.offers.map((o, i) => (
+                <div key={o.id} className="dw-row flex min-w-0 flex-col gap-0.5 rounded-[14px] bg-dw-sand/70 px-3 py-2.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 truncate text-[13.5px] font-semibold">
+                      <span className="mr-1 font-dwmono text-[11.5px] font-normal text-dw-ink/50">{i + 1}</span>
+                      {o.title}
+                    </span>
+                    <span className="num shrink-0 font-dwmono text-[12.5px]">{o.priceLabel}</span>
+                  </div>
+                  <span className="truncate font-dwmono text-[11px] text-dw-ink/45">{o.id}</span>
                 </div>
-                <span className="truncate font-dwmono text-[11px] text-dw-ink/45">{o.id}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+          {!!line.facts?.length && (
+            <ul className="flex flex-wrap gap-1.5">
+              {line.facts.map((f) => (
+                <li key={f} className="inline-flex items-center gap-1.5 rounded-full bg-dw-win-bg px-2.5 py-1 text-[12px] text-dw-win">
+                  <Check className="size-3 shrink-0" /> {f}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
-      {!!line.facts?.length && (
-        <ul className="flex flex-col gap-1">
-          {line.facts.map((f) => (
-            <li key={f} className="flex items-start gap-2 text-[13px] text-dw-ink/75">
-              <Check className="mt-0.5 size-3.5 shrink-0" /> {f}
-            </li>
-          ))}
-        </ul>
       )}
       {line.checkout && (
         <div className="flex flex-wrap items-center gap-3 rounded-[16px] bg-dw-sand p-3">
