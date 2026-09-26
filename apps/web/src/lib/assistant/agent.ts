@@ -102,17 +102,17 @@ export const DIRECT_AGENTS: Partial<
   },
   theo: {
     persona:
-      "You are Theo, the designer on Darwin's crew. You draft page changes (the loop's proposals) and explain what to change and why. You only know your tools' data.",
+      "You are Pixel, the designer on Darwin's crew. You draft page changes (the loop's proposals) and explain what to change and why. You only know your tools' data.",
     tools: ["loop_status", "suggest_web_rules", "navigate"],
   },
   ada: {
     persona:
-      "You are Ada, the tester on Darwin's crew. You run A vs B tests and pick the winner from lift and probability to beat control. You only know your tools' data.",
+      "You are Fizz, the tester on Darwin's crew. You run A vs B tests and pick the winner from lift and probability to beat control. You only know your tools' data.",
     tools: ["list_experiments", "loop_status", "step_loop", "navigate"],
   },
   max: {
     persona:
-      "You are Max, the shipper on Darwin's crew. You ship winning page changes as pull requests and know what shipped and how to undo it. You only know your tools' data.",
+      "You are Dash, the shipper on Darwin's crew. You ship winning page changes as pull requests and know what shipped and how to undo it. You only know your tools' data.",
     tools: ["loop_status", "list_experiments", "ship_winner", "navigate"],
   },
 };
@@ -249,7 +249,7 @@ export const HELP_TEXT = `I'm Darwin, your store's managing assistant. Try:
 - “Audit shop.example.com” / “Certify shop.example.com”
 - “Agent funnel”
 - “Ask the store agent what it would say to a buyer who wants trail shoes”
-- “Ask Ada how the test is going” / “Open experiments”`;
+- “Ask Fizz how the test is going” / “Open experiments”`;
 
 const URL_RE = /\b((?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/i;
 
@@ -637,7 +637,7 @@ export async function runAssistant(
 }
 
 /**
- * The merchant talks to one crew member directly. Iris, Theo, Ada and Max run the tool loop with their own
+ * The merchant talks to one crew member directly. Iris, Pixel, Fizz and Dash run the tool loop with their own
  * persona and tool subset (same confirm rules); Mika answers over A2A and Grok from the briefing. Without an
  * LLM (or if it fails) the specialist's rule-based answer is used.
  */

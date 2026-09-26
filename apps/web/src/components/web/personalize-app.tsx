@@ -381,9 +381,9 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="designer" size={50} active title="Theo, the designer" />}
+        mascot={<Mascot kind="designer" size={50} active title="Pixel, the designer" />}
         title="Personalize"
-        lede="Theo changes the page for each traffic source. Ada runs an A vs B test to decide."
+        lede="Pixel changes the page for each traffic source. Fizz runs an A vs B test to decide."
         right={
           <div className={HEAD_CONTROLS}>
             <SiteSelect value={site} options={siteOptions} onChange={switchSite} />
@@ -397,7 +397,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
               onChange={setAutopilot}
               busy={busy === "autopilot"}
               label="Autopilot"
-              title="Ada tests one idea per traffic source (biggest gap first). Max ships winners, losers stop, and the next idea starts."
+              title="Fizz tests one idea per traffic source (biggest gap first). Dash ships winners, losers stop, and the next idea starts."
             />
           </div>
         }
@@ -793,8 +793,8 @@ function DraftCard({
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="designer" size={34} active title="Theo, the designer" />
-          Theo&apos;s draft
+          <Mascot kind="designer" size={34} active title="Pixel, the designer" />
+          Pixel&apos;s draft
         </span>
       </CardHead>
       <div className="mt-4 flex flex-col gap-4">
@@ -862,7 +862,7 @@ function DraftCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it. Ada compares orders against your current page.">
+          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it. Fizz compares orders against your current page.">
             {busy === "test" ? <LoaderCircle className="animate-spin" /> : <FlaskConical />}
             Start a test
           </PillButton>
@@ -1169,11 +1169,11 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
 
 /** Which crew member speaks for each autopilot decision. */
 const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: string }> = {
-  on: { mascot: "analyst", who: "Darwin" },
-  off: { mascot: "analyst", who: "Darwin" },
-  started: { mascot: "experimenter", who: "Ada" },
-  shipped: { mascot: "shipper", who: "Max" },
-  stopped: { mascot: "experimenter", who: "Ada" },
+  on: { mascot: "leader", who: "Darwin" },
+  off: { mascot: "leader", who: "Darwin" },
+  started: { mascot: "experimenter", who: "Fizz" },
+  shipped: { mascot: "shipper", who: "Dash" },
+  stopped: { mascot: "experimenter", who: "Fizz" },
   waiting: { mascot: "observer", who: "Iris" },
 };
 

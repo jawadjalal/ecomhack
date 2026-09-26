@@ -77,7 +77,7 @@ export function liftText(f: FixRow, long = false): string {
 
 /* ------------------------------------------------------------------ source chip */
 
-/** How Theo wrote the fix: with AI, or from Darwin's built-in rules. Honest either way, no model names. */
+/** How Pixel wrote the fix: with AI, or from Darwin's built-in rules. Honest either way, no model names. */
 export function SourceChip({ source }: { source?: string }) {
   const b = sourceBadge(source);
   if (!b) return null;
@@ -85,7 +85,7 @@ export function SourceChip({ source }: { source?: string }) {
   return (
     <span className="inline-flex h-7 max-w-full items-center gap-1.5 self-start rounded-full bg-dw-surface/85 pr-2.5 pl-1 text-[12px] font-medium text-dw-ink/80 shadow-[inset_0_0_0_1px_rgba(20,20,19,0.06)]">
       <Mascot kind="designer" size={20} active={false} />
-      <span className="truncate">{rules ? "Theo used Darwin's rules" : "Theo wrote it with AI"}</span>
+      <span className="truncate">{rules ? "Pixel used Darwin's rules" : "Pixel wrote it with AI"}</span>
     </span>
   );
 }

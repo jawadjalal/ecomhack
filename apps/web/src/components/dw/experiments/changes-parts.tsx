@@ -98,7 +98,7 @@ function proofLine(e: ChangeEntry, synthetic: boolean): string {
     const m = measured(r);
     return `${signedPct(e.record.lift ?? r.lift)} more ${audienceNoun(m.audience)} bought · ${chance(r.probabilityToBeat)} chance it's better · ${count(m.visitors)} tested${synthetic ? " (simulated)" : ""}`;
   }
-  return e.record.lift !== undefined ? `${signedPct(e.record.lift)} more buyers in its test` : "Shipped by Max";
+  return e.record.lift !== undefined ? `${signedPct(e.record.lift)} more buyers in its test` : "Shipped by Dash";
 }
 
 export interface TimelineProps {
@@ -130,7 +130,7 @@ export function Timeline(props: TimelineProps) {
             </span>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 rounded-[18px] px-3.5 py-2.5">
               <span className="min-w-0 text-[15px]">
-                <span className="text-dw-ink/60">Ada is testing:</span> <span className="font-semibold">{testing.name}</span>
+                <span className="text-dw-ink/60">Fizz is testing:</span> <span className="font-semibold">{testing.name}</span>
                 {testing.p !== undefined && <span className="text-dw-ink/60"> · {chance(testing.p)} chance it&apos;s better so far</span>}
               </span>
               <Link
@@ -205,7 +205,7 @@ export function Timeline(props: TimelineProps) {
                             Put version {e.undoTo} of your store back live? Shoppers see it right away
                             {newer > 0 ? `, and the ${newer} newer change${newer === 1 ? "" : "s"} above ${newer === 1 ? "goes" : "go"} too` : ""}.
                             {testing ? ` The running test stops without a verdict.` : ""}
-                            {githubLive ? " Max also opens a code change on GitHub." : ""}
+                            {githubLive ? " Dash also opens a code change on GitHub." : ""}
                           </p>
                           <div className="flex shrink-0 gap-2">
                             <PillButton tone="ghost" size="sm" className="text-white/80 hover:bg-white/10 hover:text-white" onClick={() => onConfirm(undefined)} disabled={rollingBack}>

@@ -52,7 +52,7 @@ export function Landing() {
         {/* quiet nav */}
         <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-4 pt-4 sm:px-7">
           <Link href="/" className="flex items-center gap-2.5 rounded-full focus-visible:outline-2 focus-visible:outline-dw-ink" aria-label="Darwin home">
-            <Mascot kind="analyst" size={32} active />
+            <Mascot kind="leader" size={32} active />
             <span className={`text-[22px] font-semibold tracking-[-0.02em] ${ON_ART}`}>darwin</span>
           </Link>
           <nav aria-label="Main" className="flex items-center gap-1.5">

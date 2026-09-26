@@ -12,9 +12,9 @@ import { cn } from "@/components/ui/cn";
 export const ACTORS: Record<LoopLogEntry["actor"], { name: string; icon: LucideIcon; cls: string }> = {
   observer: { name: "Iris", icon: Eye, cls: "bg-human/15 text-[#9cc5ff]" },
   analyst: { name: "Darwin", icon: ScanSearch, cls: "bg-warn/15 text-[#ffd27a]" },
-  designer: { name: "Theo", icon: WandSparkles, cls: "bg-agent/15 text-[#f5a6cb]" },
-  experimenter: { name: "Ada", icon: FlaskConical, cls: "bg-brand/15 text-brand" },
-  shipper: { name: "Max", icon: Rocket, cls: "bg-good/15 text-[#7ee2a0]" },
+  designer: { name: "Pixel", icon: WandSparkles, cls: "bg-agent/15 text-[#f5a6cb]" },
+  experimenter: { name: "Fizz", icon: FlaskConical, cls: "bg-brand/15 text-brand" },
+  shipper: { name: "Dash", icon: Rocket, cls: "bg-good/15 text-[#7ee2a0]" },
   system: { name: "Darwin", icon: Cpu, cls: "bg-white/[0.08] text-white/60" },
 };
 

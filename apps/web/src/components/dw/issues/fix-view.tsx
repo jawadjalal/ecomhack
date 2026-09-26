@@ -52,7 +52,7 @@ export function FixList({
     >
       <div className="flex items-baseline justify-between px-1 pb-1">
         <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">
-          Theo&apos;s fixes
+          Pixel&apos;s fixes
         </h2>
         <span className="text-[12.5px] text-[#8A8478]">newest first</span>
       </div>
@@ -119,7 +119,7 @@ export function FixList({
                       : "",
                 )}
                 title={
-                  l.kind === "expected" ? "Theo's guess before testing" : "measured in its test"
+                  l.kind === "expected" ? "Pixel's guess before testing" : "measured in its test"
                 }
               >
                 {liftText(f)}
@@ -137,7 +137,7 @@ export function FixList({
       <div className="mt-auto flex items-center gap-2 px-1 pt-4 text-[13px] text-[#8A8478]">
         <Mascot kind="designer" size={20} active={false} />
         <span>
-          Every fix stays here, winners and losers, so Theo never repeats a
+          Every fix stays here, winners and losers, so Pixel never repeats a
           loser.
         </span>
       </div>
@@ -380,7 +380,7 @@ function Body({
             )}
             {fix.status === "drafted" && !canStart && autopilot && (
               <span className="text-[13px] text-[#3B2F6B]">
-                Ada starts the test on autopilot&apos;s next step.
+                Fizz starts the test on autopilot&apos;s next step.
               </span>
             )}
             {fix.status === "shipped" && (
@@ -390,7 +390,7 @@ function Body({
             )}
             {(fix.status === "rejected" || fix.status === "shelved") && (
               <span className="text-[13px] text-[#3B2F6B]">
-                Theo won&apos;t try this change again.
+                Pixel won&apos;t try this change again.
               </span>
             )}
           </div>

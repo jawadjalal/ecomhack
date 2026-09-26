@@ -383,7 +383,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="analyst" size={34} active={!!busy} title="Darwin" />
+          <Mascot kind="leader" size={34} active={!!busy} title="Darwin" />
           What to improve
         </span>
       </CardHead>
@@ -401,7 +401,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
             <LoaderCircle className="size-4 animate-spin" aria-hidden /> Reading the numbers…
           </p>
         )}
-        {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="analyst" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
+        {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="leader" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
         <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-3">
           {shown.map((i) => (
             <InsightCard key={i.id} insight={i} site={site} />

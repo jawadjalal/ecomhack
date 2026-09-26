@@ -286,7 +286,7 @@ function Sheet({ mock }: { mock: boolean }) {
     <div className="flex min-h-0 flex-col" onKeyDown={onKey}>
       {/* input */}
       <div className="flex h-[68px] shrink-0 items-center gap-3 px-3.5 sm:h-[76px] sm:gap-3.5 sm:px-5">
-        <Mascot kind="analyst" size={44} frame active={busy || query.length > 0} title="Darwin" />
+        <Mascot kind="leader" size={44} frame active={busy || query.length > 0} title="Darwin" />
         <label htmlFor={`${listId}-input`} className="sr-only">
           Tell Darwin what to do
         </label>

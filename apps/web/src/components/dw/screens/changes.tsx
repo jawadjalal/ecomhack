@@ -18,7 +18,7 @@ import { DiffCard, ProofCard } from "../experiments/pr-parts";
 import { setHash, useHash } from "../experiments/use-hash";
 
 /**
- * Changes: every winner Max shipped (list left) and the proof and settings behind the selected one
+ * Changes: every winner Dash shipped (list left) and the proof and settings behind the selected one
  * (detail right), plus undo. Every change goes live on the store directly; a code change on GitHub
  * is an optional extra when GitHub is connected.
  */
@@ -60,7 +60,7 @@ export function ChangesScreen() {
       void mutate((key) => Array.isArray(key) && (key[1] === "experiments" || key[1] === "github"));
       setConfirming(undefined);
       select(`gen-${next.generation}`);
-      notify(`Max put version ${entry.undoTo} back live.`, "info");
+      notify(`Dash put version ${entry.undoTo} back live.`, "info");
     } catch (e) {
       notify(`Undo failed: ${(e as Error).message}`);
     } finally {
@@ -73,7 +73,7 @@ export function ChangesScreen() {
   if (!loop) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Max is loading your changes <Typing /></span>} />
+        <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Dash is loading your changes <Typing /></span>} />
         <div className="h-[92px] animate-pulse rounded-[22px] bg-dw-surface sm:h-[100px]" aria-hidden />
         <div className={LIST_DETAIL} aria-hidden>
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
@@ -92,7 +92,7 @@ export function ChangesScreen() {
         <PageHead
           mascot={<Mascot kind="shipper" size={52} frame active />}
           title="No changes yet"
-          lede="When one of Ada's tests wins, Max puts the change live on your store and shows you what it did to sales. He can undo any change."
+          lede="When one of Fizz's tests wins, Dash puts the change live on your store and shows you what it did to sales. Dash can undo any change."
         />
         <Card tone="olive" shape="shipper" corner="br" hover={false} className={`rounded-[28px] ${DEPTH}`}>
           <Empty
@@ -100,15 +100,15 @@ export function ChangesScreen() {
             action={
               autopilot ? (
                 <span className="inline-flex items-center gap-2 text-[14px] text-dw-ink/80">
-                  <LiveDot /> Ada is testing fixes <Typing />
+                  <LiveDot /> Fizz is testing fixes <Typing />
                 </span>
               ) : (
-                <StartDemo />
+                <StartDemo agent="dash" />
               )
             }
           >
             <span className="text-dw-ink/80">
-              {running ? `Ada's first test, “${running.name}”, is running now.` : "The first winning test lands here, with the numbers that prove it."}
+              {running ? `Fizz's first test, “${running.name}”, is running now.` : "The first winning test lands here, with the numbers that prove it."}
             </span>
           </Empty>
         </Card>
@@ -121,7 +121,7 @@ export function ChangesScreen() {
   const title = `${shipped} winning change${shipped === 1 ? "" : "s"} shipped`;
   const lede: ReactNode = (
     <>
-      Max shipped {shipped === 1 ? "one winner" : `${shipped} winners`} from Ada&apos;s tests, each live the moment it won.
+      Dash shipped {shipped === 1 ? "one winner" : `${shipped} winners`} from Fizz&apos;s tests, each live the moment it won.
       {rolledBack ? ` He undid ${rolledBack === 1 ? "one" : rolledBack}.` : ""} He can undo any of them.
       {synthetic ? " Simulated shoppers." : ""}
     </>
@@ -149,7 +149,7 @@ export function ChangesScreen() {
         },
       ]
     : [
-        { key: "shipped", tone: "olive", value: shipped, label: "winners Max shipped", art: <Mascot kind="shipper" size={44} frame active={false} /> },
+        { key: "shipped", tone: "olive", value: shipped, label: "winners Dash shipped", art: <Mascot kind="shipper" size={44} frame active={false} /> },
         { key: "undone", tone: "sand", value: rolledBack, label: "undone" },
         { key: "live", tone: "yellow", value: `Version ${loop.generation}`, label: "live on your store now", art: <Mascot kind="designer" size={44} frame active={false} /> },
       ];

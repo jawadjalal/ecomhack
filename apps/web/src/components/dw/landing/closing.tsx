@@ -13,7 +13,7 @@ import { GelLink } from "@/components/dw/gel";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { EASE, RIM, Sel } from "./bits";
 
-const CREW_ROW: MascotKind[] = ["observer", "designer", "analyst", "experimenter", "shipper"];
+const CREW_ROW: MascotKind[] = ["observer", "designer", "leader", "experimenter", "shipper"];
 
 export function Closing() {
   return (
@@ -60,7 +60,7 @@ export function Closing() {
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 + i * 0.07, duration: 0.5, ease: EASE }}
               >
-                <Mascot kind={k} size={k === "analyst" ? 44 : 36} />
+                <Mascot kind={k} size={k === "leader" ? 44 : 36} />
               </motion.span>
             ))}
           </div>

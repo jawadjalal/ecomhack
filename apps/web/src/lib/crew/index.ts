@@ -10,8 +10,9 @@ import type { CrewId } from "@/lib/contracts";
 
 export type { CrewId };
 
-/** Mascot art in components/dw/mascot.tsx. */
+/** Mascot art in components/dw/mascot.tsx ("leader" is Darwin's red crowned mascot). */
 export type CrewMascot =
+  | "leader"
   | "analyst"
   | "observer"
   | "designer"
@@ -37,7 +38,7 @@ export const CREW: readonly CrewMember[] = [
     name: "Darwin",
     role: "Lead",
     oneLiner: "Talks to you and runs the team",
-    mascot: "analyst",
+    mascot: "leader",
   },
   {
     id: "iris",
@@ -48,21 +49,21 @@ export const CREW: readonly CrewMember[] = [
   },
   {
     id: "theo",
-    name: "Theo",
+    name: "Pixel",
     role: "Designer",
     oneLiner: "Drafts page changes",
     mascot: "designer",
   },
   {
     id: "ada",
-    name: "Ada",
+    name: "Fizz",
     role: "Tester",
     oneLiner: "Runs A vs B tests and picks the winner",
     mascot: "experimenter",
   },
   {
     id: "max",
-    name: "Max",
+    name: "Dash",
     role: "Shipper",
     oneLiner: "Ships winners, and can undo them",
     mascot: "shipper",
@@ -108,6 +109,10 @@ export const CREW_ALIASES: Readonly<Record<string, SpecialistId>> = {
   tester: "ada",
   experimenter: "ada",
   shipper: "max",
+  // One crew naming across the app: the ids stay theo / ada / max, the names are Pixel / Fizz / Dash.
+  pixel: "theo",
+  fizz: "ada",
+  dash: "max",
   store_agent: "mika",
   "store-agent": "mika",
   store: "mika",

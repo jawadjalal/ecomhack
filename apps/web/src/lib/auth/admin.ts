@@ -30,6 +30,7 @@ export const PROTECTED_PREFIXES = [
   "/api/store-agent/stats",
   "/api/store-agent/buyer",
   "/api/assistant",
+  "/api/team",
   "/api/research",
   "/api/store-agent/tests",
   "/api/briefing",

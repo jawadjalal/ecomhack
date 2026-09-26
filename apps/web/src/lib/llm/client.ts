@@ -861,3 +861,9 @@ export async function runToolLoop(
   /* unreachable: the last step always returns */
   return { text: "", mode, steps: maxSteps + 1, calls, stopped: false };
 }
+
+/* ------------------------------------------------------------------ internals for lib/llm/team */
+
+/** Shared pieces the agent team's routed tool loop (lib/llm/team) builds on, so both use one client setup. */
+export const llmInternals = { modelFor, openaiClient, reasoningExtra, logAnswer, errorLine, isRateLimit, retryAfterMs, coolingUntil, timed };
+export type { OpenAiProvider };

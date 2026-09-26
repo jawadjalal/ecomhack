@@ -222,10 +222,10 @@ export function StepList({ steps, current, finished, className, reveal }: { step
 /* ------------------------------------------------------------------ chat */
 
 /** Darwin talking: the framed 3D analyst as the avatar, a white bubble. */
-export function AgentBubble({ children, working, className }: { children: ReactNode; working?: boolean; className?: string }) {
+export function AgentBubble({ children, working, thinking, className }: { children: ReactNode; working?: boolean; thinking?: boolean; className?: string }) {
   return (
     <div className={cn("flex items-start gap-3 max-sm:gap-2.5", className)}>
-      <Mascot kind="analyst" frame size={40} active={working ?? true} title="Darwin" />
+      <Mascot kind="leader" frame size={40} active={working ?? true} state={thinking ? "thinking" : undefined} title="Darwin" />
       <div className="min-w-0 flex-1 rounded-[22px] rounded-tl-[8px] border border-dw-hairline bg-dw-surface px-4 py-3 text-[15px] leading-relaxed text-dw-ink/85 shadow-[0_1px_0_rgba(20,20,19,0.03),0_12px_30px_-22px_rgba(20,20,19,0.35)] max-sm:border-0 max-sm:bg-dw-sand max-sm:shadow-none">
         {children}
       </div>
