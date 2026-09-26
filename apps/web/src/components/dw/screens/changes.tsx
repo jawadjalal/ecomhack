@@ -163,7 +163,7 @@ export function ChangesScreen() {
       )}
       {!live && (
         <PillButton tone={running ? "ink" : "sand"} size="lg" href="/onboarding">
-          <BrandGlyph brand="github" /> Connect GitHub for code changes
+          <BrandGlyph brand="github" /> Connect GitHub<span className="max-sm:hidden"> for code changes</span>
           <ArrowRight aria-hidden />
         </PillButton>
       )}
