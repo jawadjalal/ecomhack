@@ -32,9 +32,9 @@ const FILL = "[&>div]:flex [&>div]:h-full [&>div]:flex-col";
 
 function CardHead({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{title}</h2>
-      {right && <div className="flex shrink-0 items-center gap-3.5 text-[12px]">{right}</div>}
+      {right && <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-[12px]">{right}</div>}
     </div>
   );
 }
@@ -188,6 +188,7 @@ export function ConversionCard({
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.4, delay: 0.8, ease: EASE }}
               >
+                <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-dw-ink/40 [animation-duration:2.2s] motion-reduce:animate-none" />
                 <span className="absolute top-1/2 right-4 -translate-y-1/2 rounded-full bg-dw-ink px-2 py-0.5 text-[12px] font-semibold whitespace-nowrap text-white">
                   {seriesText(chart.vals[chart.vals.length - 1], tab)}
                 </span>
@@ -369,10 +370,10 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
       {!any ? (
         <CardEmpty kind="analyst">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
       ) : (
-        <div className="mt-3.5 grid min-h-[150px] flex-1 grid-cols-4 gap-3">
+        <div className="mt-3.5 grid min-h-[150px] flex-1 grid-cols-4 gap-1.5 sm:gap-3">
           {steps.map((s, i) => (
             <div key={s.label} className="flex flex-col gap-2">
-              <div className="flex flex-1 items-end justify-center gap-2">
+              <div className="flex flex-1 items-end justify-center gap-1 sm:gap-2">
                 {(["people", "agents"] as const).map((k, j) => {
                   const v = s[k];
                   if (v === undefined) return <span key={k} className="w-[26px]" />;
@@ -386,7 +387,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                         size={Math.max(26, Math.round(v * 104))}
                         delay={0.3 + i * 0.07 + j * 0.04}
                         className={cn(
-                          "w-[26px] rounded-full transition-[filter,background-color] duration-200",
+                          "w-[22px] rounded-full transition-[filter,background-color] duration-200 sm:w-[26px]",
                           k === "people" ? "bg-dw-ink group-hover:brightness-75" : "border-[1.5px] border-dashed border-dw-ink group-hover:bg-dw-ink/10",
                         )}
                       />
@@ -394,7 +395,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                   );
                 })}
               </div>
-              <span className={cn("text-center text-[13px] whitespace-nowrap", i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]")}>{s.label}</span>
+              <span className={cn("text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap", i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]")}>{s.label}</span>
             </div>
           ))}
         </div>

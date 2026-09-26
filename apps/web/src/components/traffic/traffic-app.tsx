@@ -151,9 +151,9 @@ export function TrafficApp() {
             Visitors
           </CardTitle>
           <div className="mt-3 flex flex-wrap items-end gap-x-10 gap-y-4">
-            <BigStat value={t ? t.visitors.toLocaleString() : "–"} label="visitors" />
-            <BigStat value={t ? t.humans.toLocaleString() : "–"} label="people" small />
-            <BigStat value={t ? t.agents.toLocaleString() : "–"} label="AI agents" small />
+            <BigStat value={t ? t.visitors.toLocaleString() : undefined} label="visitors" />
+            <BigStat value={t ? t.humans.toLocaleString() : undefined} label="people" small />
+            <BigStat value={t ? t.agents.toLocaleString() : undefined} label="AI agents" small />
           </div>
           <Split humans={t?.humans ?? 0} agents={t?.agents ?? 0} />
         </Card>
@@ -161,9 +161,9 @@ export function TrafficApp() {
         <Card tone="pink" shape="shipper" corner="br">
           <CardTitle>Ordered</CardTitle>
           <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-4">
-            <BigStat value={t ? pct(t.conversionRate) : "–"} label={t ? `${t.conversions.toLocaleString()} orders` : "orders"} />
-            <BigStat value={t ? gbp(t.revenue) : "–"} label="revenue" small />
-            <BigStat value={t ? String(t.countries) : "–"} label="countries" small />
+            <BigStat value={t ? pct(t.conversionRate) : undefined} label={t ? `${t.conversions.toLocaleString()} orders` : "orders"} />
+            <BigStat value={t ? gbp(t.revenue) : undefined} label="revenue" small />
+            <BigStat value={t ? String(t.countries) : undefined} label="countries" small />
           </div>
           <p className="mt-5 flex items-center gap-1.5 text-[13px] text-dw-ink/65">
             <ShoppingBag className="size-3.5" aria-hidden /> % = share of visitors who ordered
@@ -221,10 +221,14 @@ export function TrafficApp() {
 
 /* ------------------------------------------------------------------ pieces */
 
-function BigStat({ value, label, small }: { value: string; label: string; small?: boolean }) {
+function BigStat({ value, label, small }: { value?: string; label: string; small?: boolean }) {
   return (
     <div className="flex flex-col">
-      <span className={cn("num leading-none font-semibold tracking-[-0.03em]", small ? "text-[26px]" : "text-[46px]")}>{value}</span>
+      {value === undefined ? (
+        <span className={cn("block animate-pulse rounded-full bg-dw-ink/10", small ? "h-[26px] w-20" : "h-[46px] w-36")} aria-label="Loading" />
+      ) : (
+        <span className={cn("num leading-none font-semibold tracking-[-0.03em]", small ? "text-[26px]" : "text-[46px]")}>{value}</span>
+      )}
       <span className="mt-1.5 text-[13px] text-dw-ink/65">{label}</span>
     </div>
   );

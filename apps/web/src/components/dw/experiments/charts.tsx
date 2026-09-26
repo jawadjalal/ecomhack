@@ -114,8 +114,8 @@ export function ChanceCard({
           const last = i === pts.length - 1;
           if (!last && points.length > 8) return null;
           return (
-            <span key={last ? "now" : i} className="absolute z-10 transition-[left,top] duration-500" style={{ left: `${x / 10}%`, top: `${py}%` }}>
-              <Tip tip={`${points[i].label} · ${chance(points[i].p)}`} align={i === 0 ? "start" : "center"} className="-translate-x-1/2 -translate-y-1/2">
+            <span key={last ? "now" : i} className="absolute z-10 flex size-0 items-center justify-center transition-[left,top] duration-500" style={{ left: `${x / 10}%`, top: `${py}%` }}>
+              <Tip tip={`${points[i].label} · ${chance(points[i].p)}`} align={i === 0 ? "start" : "center"} className="shrink-0">
                 <motion.span
                   tabIndex={0}
                   aria-label={`${points[i].label}: ${chance(points[i].p)}`}

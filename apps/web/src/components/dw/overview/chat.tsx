@@ -249,7 +249,7 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                           initial={reduce ? false : { opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.4, ease: EASE, delay: 0.08 * i }}
-                          className="group flex min-h-[92px] flex-col items-start justify-between gap-3 rounded-[20px] px-[18px] py-4 text-left text-[16px] font-medium transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
+                          className="group flex min-h-[60px] items-center gap-3 rounded-[20px] px-[18px] py-3 text-left text-[15px] font-medium sm:min-h-[92px] sm:flex-col sm:items-start sm:justify-between sm:py-4 sm:text-[16px] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
                           style={{ background: s.tone }}
                         >
                           <span className="transition-transform duration-300 group-hover:-rotate-6">

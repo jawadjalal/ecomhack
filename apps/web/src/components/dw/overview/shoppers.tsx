@@ -70,6 +70,8 @@ export function LiveShoppers({
     return list;
   }, [frozen, all, filter, agents, people, picked]);
 
+  // Follow the first shopper once, then stay with them as new shoppers arrive (no jumping panel).
+  if (!picked && rows[0]) setPicked(rows[0].id);
   const selIdx = Math.max(0, rows.findIndex((s) => s.id === picked));
   const sel = rows[selIdx];
   const liveCount = [...agents, ...people].filter((s) => s.status === "live").length;
@@ -94,6 +96,7 @@ export function LiveShoppers({
             onChange={(v) => {
               setFilter(v);
               setFrozen(null);
+              setPicked(undefined);
             }}
             options={[
               { value: "all", label: "All" },
@@ -250,7 +253,7 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
 
   return (
     <>
-      <div className="relative flex items-center gap-3.5">
+      <div className="relative flex flex-wrap items-center gap-3.5 sm:flex-nowrap">
         <span className="relative flex shrink-0">
           <Mascot kind={s.mascot} size={58} frame active title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
           {s.kind === "agent" && <AgentTile brand={s.brand} size={24} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
@@ -261,7 +264,7 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
             {duration} on the store{s.synthetic ? " · simulated" : ""}
           </span>
         </div>
-        <span className={cn("flex h-[34px] shrink-0 items-center rounded-full px-4 text-[14px] font-semibold", won ? "bg-dw-ink text-white" : "bg-white text-dw-ink")}>{s.outcome}</span>
+        <span className={cn("flex h-[34px] shrink-0 items-center rounded-full px-4 text-[14px] font-semibold max-sm:basis-full max-sm:self-start max-sm:justify-self-start", won ? "bg-dw-ink text-white" : "bg-white text-dw-ink")}>{s.outcome}</span>
       </div>
 
       <div className="relative flex flex-col gap-2.5">
@@ -287,10 +290,10 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
                   animate={{ scaleX: 1 }}
                   transition={{ duration: 0.45, ease: EASE, delay: 0.05 + i * 0.07 }}
                 />
-                <span className={cn("flex items-center truncate text-[13px] whitespace-nowrap", reached || here ? "font-semibold text-dw-ink" : "text-[#8A6275]")}>
+                <span className={cn("flex items-center truncate text-[11.5px] whitespace-nowrap sm:text-[13px]", reached || here ? "font-semibold text-dw-ink" : "text-[#8A6275]")}>
                   <span
                     className={cn(
-                      "mr-1.5 inline-block size-2 shrink-0 rounded-[2px]",
+                      "mr-1.5 hidden size-2 shrink-0 rounded-[2px] sm:inline-block",
                       reached ? "bg-dw-ink" : live ? "dw-live-dot bg-dw-hot" : here ? "border-[1.5px] border-dw-ink" : "bg-dw-ink/[0.14]",
                     )}
                   />

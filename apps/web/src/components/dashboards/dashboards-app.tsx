@@ -153,7 +153,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
         title="Your dashboards"
         lede={lede}
         right={
-          <>
+          <div className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2.5">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -168,7 +168,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
             >
               <Globe className="size-4 shrink-0" />
               <span className="hidden sm:inline">Site</span>
-              <input name="site" defaultValue={site} placeholder="site id" className="w-36 min-w-0 bg-transparent font-medium text-dw-ink outline-none placeholder:text-dw-ink/40 sm:w-44" aria-label="Site" />
+              <input name="site" defaultValue={site} placeholder="site id" className="w-32 min-w-0 bg-transparent font-medium text-dw-ink outline-none placeholder:text-dw-ink/40 sm:w-44" aria-label="Site" />
               <button type="submit" aria-label="Show this site" className="grid size-8 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink">
                 <ArrowRight className="size-4" />
               </button>
@@ -178,7 +178,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
                 <WandSparkles /> Personalize
               </PillButton>
             )}
-          </>
+          </div>
         }
       />
 

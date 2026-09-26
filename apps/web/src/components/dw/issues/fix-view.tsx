@@ -63,10 +63,10 @@ export function FixList({ fixes, rows, selected, onSelect, panelId }: { fixes: F
           );
         })}
       </div>
-      <p className="mt-auto flex items-center gap-2 px-1 pt-4 text-[13px] text-[#8A8478]">
+      <div className="mt-auto flex items-center gap-2 px-1 pt-4 text-[13px] text-[#8A8478]">
         <Mascot kind="shipper" size={20} active={false} />
-        Darwin keeps every fix it tried, winners and losers, so it never repeats a loser.
-      </p>
+        <span>Darwin keeps every fix it tried, winners and losers, so it never repeats a loser.</span>
+      </div>
     </section>
   );
 }
