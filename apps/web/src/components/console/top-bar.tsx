@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, Bot, Cpu, FlaskRound, LoaderCircle, Maximize, Radar, RotateCcw, Sparkles, StepForward, Store, WandSparkles } from "lucide-react";
+import { Activity, Bot, Cpu, FlaskRound, LayoutDashboard, LoaderCircle, Maximize, Radar, RotateCcw, Sparkles, StepForward, Store, WandSparkles } from "lucide-react";
 import type { GithubStatusResponse } from "@/lib/contracts";
 import type { ApiGroup } from "@/lib/console/api";
 import { API_GROUP_ROUTES } from "@/lib/console/api";
@@ -112,6 +112,15 @@ export function TopBar({
       >
         <Radar />
         Traffic
+      </Link>
+
+      <Link
+        href="/console/dashboards"
+        title="The dashboards Darwin built from your tracking plan (set one up in /onboarding)"
+        className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-[0.82rem] font-medium whitespace-nowrap text-white/80 transition-colors hover:bg-white/[0.08] [&_svg]:size-[0.95rem]"
+      >
+        <LayoutDashboard />
+        Dashboards
       </Link>
 
       <Chip onClick={onConnect} title={github?.repo ? "Connected repository (click for details)" : "Connect a GitHub repo"}>

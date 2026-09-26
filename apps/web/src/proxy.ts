@@ -95,5 +95,7 @@ export const config = {
     "/api/web/autopilot/:path*",
     "/api/web/autopilot",
     "/api/web/heatmap",
+    "/api/onboarding/:path*",
+    "/api/dashboards",
   ],
 };

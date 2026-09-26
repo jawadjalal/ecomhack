@@ -84,6 +84,21 @@ pointed at `http://localhost:3000` (it reads the agent card) shows as REAL.
 
 **Closing line:** "Darwin is CRO for the agentic web: it experiments on humans and AI shoppers, and ships the winners as code."
 
+### Onboarding (60 s): "Darwin asks, then builds"
+
+Open `/onboarding`. Type *"We sell trail running shoes; checkout feels slow on mobile and people ask about sizing"*,
+connect GitHub (any `owner/repo`; without a token the PR is a labelled preview), press ↑.
+
+1. Darwin reads the repo and replies with a plan: *"You mentioned checkout, mobile and sizing, so I added…"*. The
+   green rows are "from what you said".
+2. Click **Also track wishlist adds**: it's added, with its one line of code, and "Your goals" appears in the
+   dashboards list.
+3. **Looks good: install it** → **Open pull request**: darwin.js + `DARWIN_TRACKING.md`.
+4. **Start recording** → **Send 300 simulated shoppers** twice: the checklist ticks off, the dashboards fill
+   (funnel, checkout drop-off, mobile vs desktop…). **Open my dashboards**.
+5. Line: *"It asked what matters to you, installed exactly that, and built the dashboards. It even tracks its own
+   onboarding."* (`/console/dashboards?site=darwin-onboarding`)
+
 ### Personalize any store (45 s)
 
 Open `/console/personalize` (top bar → **Personalize**). The preview is `/demo/north-trail`, a plain-HTML store with

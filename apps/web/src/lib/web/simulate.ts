@@ -15,6 +15,8 @@ import { EXPOSURE_EVENT } from "./results";
 import { assignWebVariant, classifySource, fillValue, matchesAudience, type Segment } from "./segment";
 
 export const MAX_SIM_VISITORS = 2000;
+/** Share of simulated visitors that are AI shopping agents. */
+const AGENT_SHARE = 0.04;
 
 const MIX: [TrafficSource, number][] = [
   ["search", 0.3],
@@ -90,8 +92,18 @@ interface Targets {
   checkout?: PageElement;
 }
 
-/** Real elements from the page's outline for synthetic visitors to click. */
+/** Typical storefront elements, clicked when the real page can't be read (simulated, like everything here). */
+const TYPICAL: PageElement[] = [
+  { selector: "button.close", tag: "button", text: "×" },
+  { selector: "h1", tag: "h1", text: "Headline" },
+  { selector: "a.shop-now", tag: "a", text: "Shop now" },
+  { selector: "button.add-to-cart", tag: "button", text: "Add to cart" },
+  { selector: "button#checkout", tag: "button", text: "Checkout" },
+];
+
+/** Real elements from the page's outline for synthetic visitors to click (typical ones when there's no outline). */
 function clickTargets(outline: PageElement[]): Targets {
+  if (!outline.length) outline = TYPICAL;
   const bySelector = (sel: string) => outline.find((e) => e.selector === sel);
   const cartSel = pickSelector("button", outline);
   return {
@@ -144,6 +156,8 @@ export function simulateWebTraffic(opts: {
   url: string;
   /** The page's elements (outline.ts): when given, visitors also click them (for the heatmap). */
   outline?: PageElement[];
+  /** Extra custom events the store sends (a tracking plan's goal events): visitors send them now and then. */
+  extraEvents?: string[];
   seed?: number;
   now?: number;
 }): WebSimulateResponse {
@@ -157,6 +171,23 @@ export function simulateWebTraffic(opts: {
   let orders = 0;
 
   for (let i = 0; i < n; i++) {
+    // A few visitors are AI shopping agents: no JavaScript experiments or clicks, but they buy far more often.
+    if (rand() < AGENT_SHARE) {
+      const id = `v_sim_${batch}_${i}`;
+      const at = (k: number) => new Date(start + i * 5 + k).toISOString();
+      const props = { visitor_kind: "agent" as const, agent_name: "ChatGPT-Agent", synthetic: true, persona: "web-sim:agent", darwin_site: opts.site, $lib: "darwin-sim", $current_url: opts.url, $pathname: new URL(opts.url).pathname };
+      events.push({ event: "$pageview", distinct_id: id, timestamp: at(0), properties: props });
+      events.push({ event: "product_viewed", distinct_id: id, timestamp: at(1), properties: { ...props, product_id: "p1", price: 11900 } });
+      if (rand() < 0.45) {
+        events.push({ event: "product_added", distinct_id: id, timestamp: at(2), properties: { ...props, product_id: "p1", price: 11900, quantity: 1 } });
+        events.push({ event: "checkout_started", distinct_id: id, timestamp: at(2), properties: { ...props, value: 11900 } });
+        if (rand() < 0.7) {
+          orders++;
+          events.push({ event: "order_completed", distinct_id: id, timestamp: at(3), properties: { ...props, revenue: 11900 } });
+        }
+      }
+      continue;
+    }
     let r = rand();
     const source = MIX.find(([, w]) => (r -= w) < 0)?.[0] ?? "direct";
     const land = landing(source, opts.url, rand);
@@ -164,7 +195,10 @@ export function simulateWebTraffic(opts: {
     const pathname = new URL(land.url).pathname;
     const distinctId = `v_sim_${batch}_${i}`;
     const ts = (k: number) => new Date(start + i * 5 + k).toISOString();
+    const dr = rand();
+    const device = dr < 0.6 ? ("Mobile" as const) : dr < 0.95 ? ("Desktop" as const) : ("Tablet" as const);
     const base = {
+      $device_type: device,
       visitor_kind: "human" as const,
       synthetic: true,
       persona: `web-sim:${seg.source}`,
@@ -207,18 +241,32 @@ export function simulateWebTraffic(opts: {
       click(targets.hero, 1, "$rageclick");
     }
 
-    const p = Math.min(0.5, BASE[seg.source] * Math.min(lift, 1.9));
-    const addToCart = rand() < Math.min(0.9, p * 3.2);
+    // Mobile shoppers convert a bit worse than desktop, as in most stores.
+    const p = Math.min(0.5, BASE[seg.source] * Math.min(lift, 1.9) * (device === "Mobile" ? 0.8 : device === "Desktop" ? 1.3 : 1));
+    const addRate = Math.min(0.9, p * 3.2);
+    const addToCart = rand() < addRate;
+    const emit = (event: string, k: number, props: Record<string, unknown> = {}) =>
+      events.push({ event, distinct_id: distinctId, timestamp: ts(k), properties: { ...base, ...props } });
+    if (addToCart || rand() < 0.45) emit("product_viewed", 1, { product_id: "p1", price: 11900 });
     if (addToCart) {
       click(targets.cart, 2);
-      events.push({ event: "product_added", distinct_id: distinctId, timestamp: ts(2), properties: { ...base } });
+      emit("product_added", 2, { product_id: "p1", price: 11900, quantity: 1 });
     }
-    if (addToCart && rand() < p / Math.min(0.9, p * 3.2)) {
+    // Of those who add to cart, some start checkout; of those, some order (overall order rate stays p).
+    const startRate = Math.min(1, Math.max(p / addRate, 0.55));
+    const started = addToCart && rand() < startRate;
+    if (started) emit("checkout_started", 2, { value: 11900 });
+    for (const name of opts.extraEvents ?? []) {
+      const rate = name.startsWith("checkout_") ? (started ? (name === "checkout_error" ? 0.25 : 0.9) : 0) : name.startsWith("search") ? 0.15 : 0.06;
+      if (rand() < rate) emit(name, 2, { step: name === "checkout_step_viewed" || name === "checkout_error" ? 1 + Math.floor(rand() * 3) : undefined });
+    }
+    if (started && rand() < p / addRate / startRate) {
       click(targets.checkout, 3);
       orders++;
       const revenue = 8000 + Math.floor(rand() * 8) * 500;
       events.push({ event: "order_completed", distinct_id: distinctId, timestamp: ts(3), properties: { ...base, revenue } });
     }
+    emit("$pageleave", 4);
   }
   track(events);
   return { site: opts.site, visitors: n, orders, synthetic: true };
