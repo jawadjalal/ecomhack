@@ -135,7 +135,7 @@ export function ShipStage({
   onOpenPr: () => void;
 }) {
   return (
-    <div className="relative grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
+    <div className="relative grid min-h-0 grid-cols-1 gap-6 sm:h-full sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <Celebration runKey={record?.generation ?? 0} />
       <div className="relative flex flex-col justify-center gap-4">
         <motion.div

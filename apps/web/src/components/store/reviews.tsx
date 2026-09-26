@@ -14,7 +14,7 @@ export function Reviews({ product }: { product: Product }) {
   return (
     <section id="reviews" className="scroll-mt-24 border-t border-(--line) bg-(--surface-2) py-16 sm:py-20" data-darwin="reviews">
       <Container>
-        <div className="grid gap-12 lg:grid-cols-[320px_1fr] lg:gap-20">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-20">
           <div>
             <h2 className="pace-display text-3xl font-bold sm:text-4xl">Reviews</h2>
             <div className="mt-6 flex items-end gap-3">
@@ -47,7 +47,7 @@ export function Reviews({ product }: { product: Product }) {
               </div>
             </div>
           </div>
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {reviews.map((r) => (
               <li key={r.author} className="pace-card border border-(--line) bg-white p-6">
                 <Stars rating={r.rating} />

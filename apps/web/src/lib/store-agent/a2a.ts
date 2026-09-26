@@ -55,6 +55,8 @@ export async function handleA2a(body: unknown, opts: { origin: string; agentName
 export async function storeAgentCard(origin: string) {
   const catalog = await getCatalog();
   const url = `${origin}/a2a/whop`;
+  const acp = `${origin}/acp/checkout_sessions`;
+  const mcp = `${origin}/api/store-agent/mcp`;
   return {
     name: `${catalog.business} · store agent`,
     description: `Ask what ${catalog.business} sells, with prices and billing, and get a checkout link to buy. Payments happen on Whop.${catalog.source === "demo" ? " (Demo catalog: no real charges.)" : ""}`,
@@ -82,6 +84,25 @@ export async function storeAgentCard(origin: string) {
         tags: ["checkout", "purchase"],
         examples: ["Buy the first one", "Buy Race-Day Pack"],
       },
+      {
+        id: "checkout_acp",
+        name: "Checkout via ACP",
+        description: `Agentic Commerce Protocol checkout sessions at ${acp}: POST { items: [{ id, quantity }] } with offer ids, then /complete. Amounts in minor units.`,
+        tags: ["checkout", "acp", "agentic-commerce-protocol"],
+        examples: [`POST ${acp} {"items":[{"id":"${catalog.offers[0]?.id ?? "plan_…"}","quantity":1}]}`],
+      },
+      {
+        id: "mcp_tools",
+        name: "MCP tools",
+        description: `The same store as MCP tools at ${mcp} (Streamable HTTP, JSON-RPC): search_offers, get_offer, create_checkout, store_info.`,
+        tags: ["mcp", "tools", "checkout"],
+        examples: ["search_offers { query: 'coaching under £40 a month' }", "create_checkout { offer_id }"],
+      },
+    ],
+    /** Other ways to buy: ACP checkout sessions and MCP tools (same catalog, same funnel). */
+    links: [
+      { type: "acp", url: acp, description: "Agentic Commerce Protocol checkout sessions" },
+      { type: "mcp", url: mcp, description: "MCP server (Streamable HTTP, JSON responses)" },
     ],
   };
 }

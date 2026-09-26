@@ -100,7 +100,7 @@ export function BeforeAfterModal({
           <StoreFrame page={page} query={specQuery(live)} label={`Gen ${gen} · live now`} tone="treatment" badge={String(gen)} />
         </div>
 
-        <div className="grid grid-cols-[1fr_1.3fr] gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1.3fr]">
           <AgentSurfaceDiff control={DEFAULT_SPEC} treatment={live} />
           <div className="flex min-w-0 flex-col gap-1.5">
             <div className="text-[0.76rem] font-medium text-white/70">Shipped, one PR per generation</div>

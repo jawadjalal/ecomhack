@@ -28,7 +28,7 @@ export type ApiMode = "live" | "mock" | "auto";
 export type ApiGroup = "optimizer" | "analytics" | "agents" | "simulator" | "github";
 
 export const API_GROUP_ROUTES: Record<ApiGroup, string[]> = {
-  optimizer: ["GET /api/loop", "POST /api/loop/step", "POST /api/loop/autopilot", "POST /api/loop/reset", "GET /api/experiments"],
+  optimizer: ["GET /api/loop", "POST /api/loop/step", "POST /api/loop/autopilot", "POST /api/loop/reset", "POST /api/loop/rollback", "GET /api/experiments"],
   analytics: ["GET /api/analytics/summary", "GET /api/analytics/events"],
   agents: ["GET /api/agent/sessions", "POST /api/agent/shop"],
   simulator: ["POST /api/simulate"],
@@ -91,6 +91,8 @@ export interface ConsoleApi {
   stepLoop(): Promise<LoopResponse>;
   setAutopilot(on: boolean): Promise<LoopResponse>;
   resetLoop(): Promise<LoopResponse>;
+  /** Put generation `generation`'s store back live (400 unknown generation, 409 nothing to change). */
+  rollback(generation: number): Promise<LoopResponse>;
   getExperiments(): Promise<ExperimentsResponse>;
   getSummary(filter?: Pick<AnalyticsFilter, "experimentId" | "variant" | "visitorKind" | "specVersion">): Promise<AnalyticsSummaryResponse>;
   getEvents(after?: string, limit?: number, opts?: { realOnly?: boolean }): Promise<AnalyticsEventsResponse>;
@@ -149,6 +151,8 @@ export function createConsoleApi(mode: ApiMode = "auto", engineOrFactory: MockEn
     setAutopilot: (on) =>
       call("optimizer", () => request<LoopResponse>("POST", "/api/loop/autopilot", { on }), () => eng().setAutopilot(on)),
     resetLoop: () => call("optimizer", () => request<LoopResponse>("POST", "/api/loop/reset", {}), () => eng().resetLoop()),
+    rollback: (generation) =>
+      call("optimizer", () => request<LoopResponse>("POST", "/api/loop/rollback", { generation }), () => eng().rollback(generation)),
     getExperiments: () =>
       call("optimizer", () => request<ExperimentsResponse>("GET", "/api/experiments"), () => eng().getExperiments()),
 

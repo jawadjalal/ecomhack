@@ -1,25 +1,31 @@
 /**
- * What's on a page that a rule could change: headings, buttons, popups, prices. Found in the raw
- * HTML with a few regexes (no DOM), so drafts point at real selectors on any store, not guesses.
+ * What's on a page that a rule could change: headings, buttons, popups, prices, and the strips where a
+ * store states its facts (delivery, returns, reviews). Found in the raw HTML with a few regexes (no DOM),
+ * so drafts point at real selectors on any store, not guesses, and reuse the page's own words (claims.ts).
  */
 import type { PageElement } from "@/lib/contracts";
 import { safeFetch } from "@/lib/readiness";
 
 const MAX_ELEMENTS = 30;
 /** Class names that say what an element is for. Preferred when building a selector. */
-const MEANINGFUL = /hero|title|head|sub|tagline|lede|cta|cart|buy|add|checkout|popup|modal|newsletter|promo|announce|banner|price|badge|review|rating/i;
-const INTERESTING_CLASS = /popup|modal|newsletter|promo|announce|banner|price|hero|sub(title|head)|tagline|lede|review|rating/i;
+const MEANINGFUL = /hero|title|head|sub|tagline|lede|cta|cart|buy|add|checkout|popup|modal|newsletter|promo|announce|banner|price|badge|review|rating|usp|benefit|perk|trust|guarantee|shipping|delivery|returns/i;
+const INTERESTING_CLASS = /popup|modal|newsletter|promo|announce|banner|price|hero|sub(title|head)|tagline|lede|review|rating|usp|benefit|perk|trust|guarantee|shipping|delivery|returns|testimonial/i;
+/** Closing block tags: kept as " · " so "<div>Free returns</div><div>Ships in 24h</div>" stays two statements. */
+const BLOCK_END = /<\/(?:div|p|li|dt|dd|td|th|tr|h[1-6]|section|aside|header|footer|article|button|label|ul|ol)\s*>|<br\s*\/?>/gi;
 
+/** Visible text, at most 80 characters; a cut text ends in "…" (so nothing reads a half claim as whole). */
 function clean(html: string): string {
-  return html
+  const text = html
+    .replace(BLOCK_END, " · ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&nbsp;/g, " ")
     .replace(/&#39;|&apos;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
+    .replace(/(?:\s*·\s*){2,}/g, " · ")
+    .replace(/^[\s·]+|[\s·]+$/g, "");
+  return text.length > 80 ? `${text.slice(0, 79).replace(/[\s·]+$/, "")}…` : text;
 }
 
 function attr(attrs: string, name: string): string | undefined {

@@ -20,6 +20,16 @@ afterEach(() => {
 const cookieOf = (res: Response, name: string) => res.headers.getSetCookie().find((c) => c.startsWith(`${name}=`))?.split(";")[0].split("=").slice(1).join("=");
 
 describe("GitHub sign-in", () => {
+  it("comes back to the host it started on, even when DARWIN_PUBLIC_URL points elsewhere", async () => {
+    process.env.DARWIN_PUBLIC_URL = "https://darwin-storefront.vercel.app/";
+    const begin = start(new Request("http://localhost:3000/api/auth/github/start?return=/onboarding"));
+    const to = new URL(begin.headers.get("location")!);
+    expect(to.searchParams.get("redirect_uri")).toBe("http://localhost:3000/api/auth/github/callback");
+    const stateCookie = cookieOf(begin, "darwin_oauth_state")!;
+    const res = await callback(new Request(`http://localhost:3000/api/auth/github/callback?error=access_denied&state=x`, { headers: { cookie: `darwin_oauth_state=${stateCookie}` } }));
+    expect(res.headers.get("location")).toMatch(/^http:\/\/localhost:3000\/onboarding\?github_error=/);
+  });
+
   it("keeps tokens encrypted and only returns to same-site paths", () => {
     const sealed = seal("gho_secret");
     expect(sealed).not.toContain("gho_secret");

@@ -2,6 +2,9 @@
 
 Read this before changing code (humans, Cursor, Claude — everyone).
 
+> **Demo laptop (Jawad): before judging, run [`docs/DEMO-LAPTOP.md`](docs/DEMO-LAPTOP.md) step by step.** It sets up keys,
+> a production build, demo traffic and a page-by-page check. The live Vercel site is not reliable for the demo.
+
 ## What we're building
 
 **Darwin: the storefront that improves itself.** Connect a store's git repo → Darwin opens a PR installing
@@ -56,6 +59,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | onboarding | `app/onboarding/**`, `components/onboarding/**`, `lib/whop/**`, `/api/whop/**`, `public/onboarding/**` | `connectWhop`, `getWhopStatus` |
 | store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel`, `stepAgentTests`, `agentTestsView` |
 | tracking | `lib/tracking/**`, `/api/onboarding/**`, `/api/dashboards`, `app/console/dashboards`, `components/dashboards/**` | `heuristicPlan`, `amendPlan`, `getPlan`, `savePlan`, `computeDashboards`, `trackingDoc` |
+| briefing | `lib/briefing/**`, `/api/briefing/**` | `getBriefing`, `actOnBriefing` |
 | research | `lib/research/**`, `/api/research/**`, `app/console/research`, `components/research/**`, `contracts/research.ts` | `researchCompetitors`, `askResearch`, `listReports`, `getReport` |
 | assistant | `lib/assistant/**`, `/api/assistant`, `components/console/assistant-panel.tsx`, `components/console/mascot.tsx`, `app/console/layout.tsx` | `runAssistant`, `TOOLS`, `runTool` (add a tool: one entry in `lib/assistant/tools.ts`, wrapping another area's public API) |
 
@@ -74,6 +78,18 @@ Cross-module calls go through the public API above, never deep imports into anot
   then `ANTHROPIC_API_KEY`. Agentic features use `runToolLoop` (native tool calling, JSON fallback).
 - No new dependencies without a reason in the PR description (they're pre-installed in the scaffold).
 - Before pushing: `cd apps/web && npm run typecheck && npm run lint && npm test && npm run build`.
+
+## After every run (every agent, every teammate)
+
+1. **Update `docs/STATUS.md`** before you finish: for each product area you touched, update *Done*, *Left to do*,
+   *Limitations* and *Next-run ideas*, adjust the brutal judge scorecard if your work moves a score, and add one line on
+   top of the **Run log** (`date UTC — who: what shipped, what's still open`). Keep it honest; no invented numbers.
+2. **Mirror it for the in-app lead agent**: the same per-area "left to do" lives in `src/lib/status/roadmap.ts`, which
+   the bottom prompt-bar chat reads to answer "what's left on this page?". Update both.
+3. **Every user-facing action is a command**: if you add something a merchant can *do* (a button, an API action), register
+   it in `src/lib/commands` so the lead agent (bottom chat, ⌘K and WebMCP browser agents) can do it too — navigate, build
+   dashboards, start/stop tests, roll back, anything. Risky actions are `risk: "confirm"`.
+4. Brainstorm at least one limitation you could fix next run and write it under *Next-run ideas*.
 
 ## Running
 

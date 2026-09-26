@@ -113,7 +113,7 @@ export function ProductDetail({ product, delivery }: ProductDetailProps) {
 
   return (
     <>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-14">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-14">
         {/* Gallery */}
         <div className="lg:sticky lg:top-24 lg:self-start">
           <ProductArt
@@ -308,7 +308,7 @@ export function ProductDetail({ product, delivery }: ProductDetailProps) {
           <div className="mt-8 border-t border-(--line) pt-7">
             <h2 className="text-sm font-semibold">Description</h2>
             <p className="mt-2 text-[15px] leading-relaxed text-(--ink)/85">{product.description}</p>
-            <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+            <ul className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {product.features.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm">
                   <Check className="size-4 shrink-0 text-(--muted)" aria-hidden /> {f}

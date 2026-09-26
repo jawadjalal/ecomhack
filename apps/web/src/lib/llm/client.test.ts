@@ -48,6 +48,8 @@ describe("provider selection", () => {
     for (const k of [
       "LLM_PROVIDER",
       "XAI_API_KEY",
+      "APINEX_API_KEY",
+      "APINEX_MODEL",
       "ANTHROPIC_API_KEY",
       "OPENROUTER_API_KEY",
       "OPENROUTER_MODEL",

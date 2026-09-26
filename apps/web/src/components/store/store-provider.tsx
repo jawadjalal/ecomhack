@@ -49,6 +49,20 @@ export function StoreLink({ href, ...rest }: Omit<ComponentProps<typeof Link>, "
   return <Link href={withPersist(href, persist)} {...rest} />;
 }
 
+/** Fires one event when it mounts (give it a new `key` to fire again, e.g. per search query). */
+export function TrackEvent({ event, props }: { event: string; props?: EventProperties }) {
+  const track = useTrack();
+  const fired = useRef(false);
+  useEffect(() => {
+    if (fired.current) return;
+    fired.current = true;
+    track(event, props);
+    // Fire once per mount; remount (key) to fire again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 /** Fires `$pageview` (plus any extra events) once when the page mounts. */
 export function PageView({ page, events = [] }: { page: string; events?: { event: string; props?: EventProperties }[] }) {
   const track = useTrack();

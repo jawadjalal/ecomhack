@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 
-export function DemoCheckout({ offer, refId }: { offer?: { id: string; title: string; description?: string; price: string }; refId: string }) {
-  const [state, setState] = useState<"idle" | "paying" | "paid" | "error">("idle");
+export function DemoCheckout({ offer, refId, alreadyPaid = false }: { offer?: { id: string; title: string; description?: string; price: string }; refId: string; alreadyPaid?: boolean }) {
+  const [state, setState] = useState<"idle" | "paying" | "paid" | "already" | "error">(alreadyPaid ? "already" : "idle");
   const pay = async () => {
     setState("paying");
     const res = await fetch("/api/store-agent/demo-pay", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer: offer?.id, ref: refId }) });
-    setState(res.ok ? "paid" : "error");
+    const body = (await res.json().catch(() => ({}))) as { alreadyPaid?: boolean };
+    setState(!res.ok ? "error" : body.alreadyPaid ? "already" : "paid");
   };
   return (
     <main className="grid min-h-screen place-items-center bg-[#f6f5f2] p-6 text-[#15171a]">
@@ -24,6 +25,15 @@ export function DemoCheckout({ offer, refId }: { offer?: { id: string; title: st
               <p className="mt-5 rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800" role="status">
                 Paid (demo). The store agent&apos;s dashboard now shows this sale.
               </p>
+            ) : state === "already" ? (
+              <>
+                <button disabled className="mt-5 h-11 w-full rounded-xl bg-[#15171a] font-semibold text-white disabled:opacity-50">
+                  Already paid
+                </button>
+                <p className="mt-3 text-[0.85rem] text-black/60" role="status">
+                  This checkout is already paid. Each checkout link can be paid once.
+                </p>
+              </>
             ) : (
               <button onClick={pay} disabled={state === "paying"} className="mt-5 h-11 w-full rounded-xl bg-[#15171a] font-semibold text-white disabled:opacity-50">
                 {state === "paying" ? "Paying…" : "Pay (demo)"}

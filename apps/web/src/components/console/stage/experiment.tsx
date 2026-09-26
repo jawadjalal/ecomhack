@@ -206,7 +206,7 @@ export function ExperimentStage({ experiment, compact }: { experiment?: Experime
   const max = Math.max(control.conversionRate, treatment.conversionRate, 0.0001) * 1.08;
   const total = r.control.visitors + r.treatment.visitors;
   return (
-    <div className={cn("grid h-full min-h-0 gap-6", compact ? "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" : "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]")}>
+    <div className={cn("grid min-h-0 grid-cols-1 gap-6 sm:h-full", compact ? "sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" : "sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]")}>
       <div className="flex min-h-0 flex-col gap-4">
         <div className="flex items-center gap-2 text-[0.85rem] whitespace-nowrap text-white/50">
           <FlaskConical className="size-4 shrink-0 text-brand" />
@@ -289,7 +289,7 @@ export function DecideStage({ experiment }: { experiment?: Experiment }) {
         initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 220, damping: 20 }}
-        className={cn("flex items-center gap-5 rounded-2xl border bg-gradient-to-r px-6 py-4", v.cls)}
+        className={cn("flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border bg-gradient-to-r px-4 py-4 sm:flex-nowrap sm:px-6", v.cls)}
       >
         <motion.div initial={{ rotate: -30, scale: 0.4 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 14, delay: 0.1 }}>
           <Icon className="size-[3.2rem]" strokeWidth={2.2} />

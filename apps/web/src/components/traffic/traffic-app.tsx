@@ -1,33 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  Bot,
-  FlaskConical,
-  Lightbulb,
-  Sparkles,
-  ExternalLink,
-  Globe,
-  Link2,
-  LoaderCircle,
-  MapPin,
-  Megaphone,
-  MonitorSmartphone,
-  Radar,
-  Search,
-  ShoppingBag,
-  Users,
-} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ArrowUpRight, Bot, ExternalLink, FlaskConical, LoaderCircle, ShoppingBag, Sparkles, Users } from "lucide-react";
 import type { InsightCategory, InsightsResponse, TrafficDimension, TrafficInsight, TrafficReport, TrafficRow } from "@/lib/traffic";
-import { Panel, PanelHeader } from "@/components/ui/panel";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Toggle } from "@/components/ui/switch";
 import { cn } from "@/components/ui/cn";
-import { DarwinWordmark } from "@/components/console/brand";
+import { Mascot, type MascotKind } from "@/components/dw/mascot";
+import { Card, Empty, LegendKey, PageHead, PillButton, Tag, type Tone } from "@/components/dw/ui";
+import { CardHead, DwSwitch, HEAD_CONTROLS, SiteSelect } from "@/components/dw/personalize/kit";
+import { SourceMark } from "@/components/dw/traffic/source-mark";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -56,26 +37,35 @@ const TRY_LINKS: { label: string; href: string }[] = [
   { label: "Store search: “racing”", href: "/store?q=racing" },
 ];
 
-const PANELS: { dim: TrafficDimension; title: string; icon: ReactNode; empty: string; note?: string }[] = [
-  { dim: "source", title: "Channels", icon: <Radar />, empty: "No visitors yet." },
-  { dim: "referrer", title: "Referring sites", icon: <Link2 />, empty: "No referrers yet." },
+const PANELS: { dim: TrafficDimension; title: string; empty: string; note?: string; tone: Tone; shape?: MascotKind }[] = [
+  { dim: "source", title: "Channels", empty: "No visitors yet.", tone: "olive", shape: "observer" },
+  { dim: "referrer", title: "Referring sites", empty: "No referrers yet.", tone: "white" },
   {
     dim: "query",
     title: "Search queries",
-    icon: <Search />,
     empty: "No search visitors yet.",
     note: "From paid-ad keywords (utm_term) and store search. Google and Bing hide organic search terms, so those count as “(not provided)”.",
+    tone: "blue",
+    shape: "analyst",
   },
-  { dim: "campaign", title: "Campaigns (UTM)", icon: <Megaphone />, empty: "No tagged links yet. Try one of the links above." },
+  { dim: "campaign", title: "Campaigns (UTM)", empty: "No tagged links yet. Try one of the links above.", tone: "white" },
   {
     dim: "country",
     title: "Countries",
-    icon: <MapPin />,
     empty: "No visitors yet.",
     note: "From the host's geo headers (e.g. Vercel). Local visits show as Unknown; we never guess.",
+    tone: "lilac",
+    shape: "shipper",
   },
-  { dim: "landing", title: "Landing pages", icon: <Globe />, empty: "No page views yet." },
-  { dim: "device", title: "Devices", icon: <MonitorSmartphone />, empty: "No visitors yet." },
+  { dim: "landing", title: "Landing pages", empty: "No page views yet.", tone: "white" },
+  { dim: "device", title: "Devices", empty: "No visitors yet.", tone: "sand" },
+];
+
+/** Card rows, 1.7fr / 1fr alternating (never four equal boxes). Each cell is one panel or a stack of two. */
+const LAYOUT: { cols: string; cells: TrafficDimension[][] }[] = [
+  { cols: "lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]", cells: [["source"], ["device"]] },
+  { cols: "lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]", cells: [["referrer"], ["query", "campaign"]] },
+  { cols: "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]", cells: [["landing"], ["country"]] },
 ];
 
 /* ------------------------------------------------------------------ app */
@@ -119,154 +109,219 @@ export function TrafficApp() {
   };
 
   const t = data?.totals;
+  const panel = (dim: TrafficDimension) => {
+    const p = PANELS.find((x) => x.dim === dim)!;
+    return <DimensionPanel key={dim} {...p} rows={data?.dimensions[dim]} avg={t?.conversionRate ?? 0} />;
+  };
 
   return (
-    <div data-darwin-dark className="darwin-bg relative min-h-screen w-full text-white">
-      <div className="darwin-grid pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto flex max-w-[110rem] flex-col gap-4 p-4">
-        {/* header */}
-        <header className="flex flex-wrap items-center gap-3">
-          <Link href="/console" className="flex items-center gap-2 rounded-lg pr-2 text-white/60 hover:text-white" title="Back to mission control">
-            <ArrowLeft className="size-4" />
-            <DarwinWordmark sub="traffic" />
-          </Link>
-          <div className="h-7 w-px bg-white/10" />
-          <label className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-[0.82rem] text-white/60">
-            <Globe className="size-4 text-white/45" />
-            Site
-            <select
-              value={site}
-              onChange={(e) => setSite(e.target.value)}
-              className="bg-transparent font-medium text-white/90 outline-none [&>option]:bg-[#0b0d12]"
-              aria-label="Site"
-            >
-              {["all", ...(data?.sites ?? [])].map((s) => (
-                <option key={s} value={s}>
-                  {s === "all" ? "All sites" : s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="flex-1" />
-          <p className="hidden text-[0.82rem] text-white/45 2xl:block">Where every visitor came from, human or AI agent, and whether they bought.</p>
-          <Toggle on={synthetic} onChange={setSynthetic} label="Include simulated" icon={<Bot />} />
-          <Button onClick={addTestTraffic} disabled={busy} title="Simulated shoppers and agents. Every event is labelled synthetic.">
-            {busy ? <LoaderCircle className="animate-spin" /> : <Users />}
-            +470 test visitors
-          </Button>
-        </header>
+    <>
+      <PageHead
+        mascot={<Mascot kind="observer" size={50} active />}
+        title="Traffic"
+        lede="Where every visitor came from, human or AI agent, and whether they bought."
+        right={
+          <div className={HEAD_CONTROLS}>
+            <SiteSelect value={site} onChange={setSite} options={["all", ...(data?.sites ?? [])].map((s) => ({ value: s, label: s === "all" ? "All sites" : s }))} />
+            <DwSwitch on={synthetic} onChange={setSynthetic} label="Include simulated" title="Count visitors generated by Darwin's simulators (labelled synthetic)" />
+            <PillButton onClick={addTestTraffic} disabled={busy} title="Simulated shoppers and agents. Every event is labelled synthetic.">
+              {busy ? <LoaderCircle className="animate-spin" /> : <Users />}
+              Send 470 test visitors
+            </PillButton>
+          </div>
+        }
+      />
 
-        {error && <div className="rounded-xl border border-bad/30 bg-bad/[0.08] px-3 py-2 text-[0.85rem] text-[#ffb4b4]">{error}</div>}
+      {error && <div className="rounded-[22px] bg-dw-warn-bg px-5 py-3 text-[14px] text-dw-warn">{error}</div>}
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <Kpi label="Visitors" value={t ? t.visitors.toLocaleString() : "–"} sub={t && t.synthetic > 0 ? <Badge tone="warn">{t.synthetic.toLocaleString()} simulated</Badge> : undefined} />
-          <Kpi label="Humans" value={t ? t.humans.toLocaleString() : "–"} tone="human" />
-          <Kpi label="AI agents" value={t ? t.agents.toLocaleString() : "–"} tone="agent" />
-          <Kpi label="Ordered" value={t ? pct(t.conversionRate) : "–"} sub={t ? <span className="text-white/45">{t.conversions.toLocaleString()} orders</span> : undefined} />
-          <Kpi label="Revenue" value={t ? gbp(t.revenue) : "–"} />
-          <Kpi label="Countries" value={t ? String(t.countries) : "–"} />
-        </div>
+      {/* totals: who came (1.7fr) and what they bought (1fr) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <Card tone="yellow" shape="observer" corner="tr">
+          <CardHead
+            right={
+              t && t.synthetic > 0 ? (
+                <span title="Visitors generated by Darwin's simulators (properties.synthetic = true)">
+                  <Tag tone="white">
+                    <Bot className="size-3" aria-hidden /> {t.synthetic.toLocaleString()} simulated
+                  </Tag>
+                </span>
+              ) : undefined
+            }
+          >
+            Visitors
+          </CardHead>
+          <div className="mt-3 flex flex-wrap items-end gap-x-10 gap-y-4">
+            <BigStat value={t ? t.visitors.toLocaleString() : undefined} label="visitors" />
+            <BigStat value={t ? t.humans.toLocaleString() : undefined} label="people" small />
+            <BigStat value={t ? t.agents.toLocaleString() : undefined} label="AI agents" small />
+          </div>
+          <Split humans={t?.humans ?? 0} agents={t?.agents ?? 0} />
+        </Card>
 
+        <Card tone="pink" shape="shipper" corner="br">
+          <CardHead>Ordered</CardHead>
+          <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-4">
+            <BigStat value={t ? pct(t.conversionRate) : undefined} label={t ? `${t.conversions.toLocaleString()} orders` : "orders"} />
+            <BigStat value={t ? gbp(t.revenue) : undefined} label="revenue" small />
+            <BigStat value={t ? String(t.countries) : undefined} label="countries" small />
+          </div>
+          <p className="mt-5 flex items-center gap-1.5 text-[13px] text-dw-ink/65">
+            <ShoppingBag className="size-3.5" aria-hidden /> % = share of visitors who ordered
+          </p>
+        </Card>
+      </div>
+
+      {/* what to do (1.7fr) and try it (1fr) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <InsightsPanel site={site} synthetic={synthetic} visitors={t?.visitors ?? 0} />
 
-        {/* try it */}
-        <Panel>
-          <PanelHeader icon={<ExternalLink />} title="Try it: visit the store as if you came from…" />
-          <div className="flex flex-wrap gap-2 px-5 pb-4">
+        <Card tone="blue" shape="observer" corner="br">
+          <CardHead>Visit the store as if you came from…</CardHead>
+          <p className="mt-1.5 text-[14px] text-dw-ink/65">Open one, then look back here.</p>
+          <div className="mt-4 flex flex-col gap-2">
             {TRY_LINKS.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
                 target="_blank"
                 rel="noreferrer"
-                className="flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 text-[0.8rem] text-white/80 transition-colors hover:border-brand/40 hover:text-white"
+                className="dw-row group flex h-11 items-center gap-3 rounded-full bg-white/60 pr-4 pl-1.5 text-[14px] font-medium transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-dw-ink"
               >
-                {l.label} <ExternalLink className="size-3 text-white/40" />
+                <span className="dw-tilt">
+                  <SourceMark label={l.label} size={32} />
+                </span>
+                <span className="min-w-0 flex-1 truncate">{l.label}</span>
+                <ExternalLink className="size-3.5 shrink-0 text-dw-ink/40 group-hover:text-dw-ink" aria-hidden />
               </a>
             ))}
           </div>
-        </Panel>
+        </Card>
+      </div>
 
-        {/* dimensions */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-          {PANELS.map((p) => (
-            <DimensionPanel key={p.dim} {...p} rows={data?.dimensions[p.dim]} avg={t?.conversionRate ?? 0} />
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 pt-2">
+        <h2 className="mr-auto text-[22px] font-semibold tracking-[-0.02em] max-sm:basis-full">Where they came from</h2>
+        <LegendKey>People</LegendKey>
+        <LegendKey dashed>AI agents</LegendKey>
+        <span className="text-[12px] text-dw-ink/60">visitors · share who ordered</span>
+      </div>
+
+      {/* dimensions */}
+      {LAYOUT.map((row, i) => (
+        <div key={i} className={cn("grid grid-cols-1 gap-4", row.cols)}>
+          {row.cells.map((cell) => (
+            <div key={cell.join("+")} className="flex min-w-0 flex-col gap-4 [&>section:last-child]:flex-1">
+              {cell.map(panel)}
+            </div>
           ))}
         </div>
-
-        <p className="flex items-center gap-4 px-1 text-[0.75rem] text-white/40">
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-human" /> humans
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-agent" /> AI agents
-          </span>
-          <span className="flex items-center gap-1.5">
-            <ShoppingBag className="size-3" /> % = share of visitors who ordered
-          </span>
-        </p>
-      </div>
-    </div>
+      ))}
+    </>
   );
 }
 
 /* ------------------------------------------------------------------ pieces */
 
-function Kpi({ label, value, sub, tone }: { label: string; value: string; sub?: ReactNode; tone?: "human" | "agent" }) {
+function BigStat({ value, label, small }: { value?: string; label: string; small?: boolean }) {
   return (
-    <Panel className="px-5 py-4">
-      <span className="text-[0.72rem] font-medium tracking-[0.14em] text-white/45 uppercase">{label}</span>
-      <span className={cn("mt-1 font-mono text-[1.7rem] leading-none font-semibold tabular", tone === "human" ? "text-[#9cc5ff]" : tone === "agent" ? "text-[#f5a6cb]" : "text-white")}>
-        {value}
-      </span>
-      {sub && <span className="mt-2 text-[0.75rem]">{sub}</span>}
-    </Panel>
+    <div className="flex flex-col">
+      {value === undefined ? (
+        <span className={cn("block animate-pulse rounded-full bg-dw-ink/10", small ? "h-[26px] w-20" : "h-[46px] w-36")} aria-label="Loading" />
+      ) : (
+        <span className={cn("num leading-none font-semibold tracking-[-0.03em]", small ? "text-[26px]" : "text-[46px]")}>{value}</span>
+      )}
+      <span className="mt-1.5 text-[13px] text-dw-ink/65">{label}</span>
+    </div>
   );
 }
 
-function DimensionPanel({ title, icon, rows, empty, note, avg }: { title: string; icon: ReactNode; rows?: TrafficRow[]; empty: string; note?: string; avg: number }) {
-  const max = Math.max(1, ...(rows ?? []).map((r) => r.visitors));
+/** People vs agents as one ink bar: solid = people, dashed = agents. */
+function Split({ humans, agents }: { humans: number; agents: number }) {
+  const total = humans + agents;
+  const h = total ? humans / total : 0;
   return (
-    <Panel>
-      <PanelHeader icon={icon} title={title} right={rows?.length ? <span className="text-[0.72rem] text-white/40">visitors · ordered</span> : undefined} />
-      <div className="flex flex-col gap-1.5 px-5 pb-4">
-        {rows === undefined && <p className="text-[0.85rem] text-white/40">Loading…</p>}
-        {rows?.length === 0 && <p className="text-[0.85rem] text-white/45">{empty}</p>}
+    <div className="mt-6">
+      <div className="flex h-4 gap-1" role="img" aria-label={total ? `${Math.round(h * 100)}% people, ${Math.round((1 - h) * 100)}% AI agents` : "No visitors yet"}>
+        {total ? (
+          <>
+            <span className="rounded-full bg-dw-ink transition-[width] duration-700" style={{ width: `${Math.max(2, h * 100)}%` }} />
+            <span className="flex-1 rounded-full border-[1.5px] border-dashed border-dw-ink/80" />
+          </>
+        ) : (
+          <span className="flex-1 rounded-full border-[1.5px] border-dashed border-dw-ink/30" />
+        )}
+      </div>
+      <div className="mt-2 flex justify-between text-[13px] text-dw-ink/70">
+        <LegendKey>People {total ? `${Math.round(h * 100)}%` : ""}</LegendKey>
+        <LegendKey dashed>AI agents {total ? `${Math.round((1 - h) * 100)}%` : ""}</LegendKey>
+      </div>
+    </div>
+  );
+}
+
+function DimensionPanel({
+  dim,
+  title,
+  rows,
+  empty,
+  note,
+  avg,
+  tone,
+  shape,
+}: {
+  dim: TrafficDimension;
+  title: string;
+  rows?: TrafficRow[];
+  empty: string;
+  note?: string;
+  avg: number;
+  tone: Tone;
+  shape?: MascotKind;
+}) {
+  const max = Math.max(1, ...(rows ?? []).map((r) => r.visitors));
+  const marks = dim === "source" || dim === "referrer" || dim === "campaign";
+  return (
+    <Card tone={tone} shape={shape} corner="br" hover={false}>
+      <CardHead right={rows?.length ? <span>visitors · ordered</span> : undefined}>{title}</CardHead>
+      <div className="mt-4 flex flex-col gap-1">
+        {rows === undefined && (
+          <p className="flex items-center gap-2 py-4 text-[14px] text-dw-ink/55">
+            <LoaderCircle className="size-4 animate-spin" aria-hidden /> Loading…
+          </p>
+        )}
+        {rows?.length === 0 && <Empty mascot={<Mascot kind="observer" size={44} active={false} />}>{empty}</Empty>}
         {rows?.map((r) => {
           const below = r.visitors >= 20 && r.conversionRate < avg * 0.75;
           const above = r.visitors >= 20 && r.conversionRate > avg * 1.25;
           return (
-            <div key={r.key} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_7rem] items-center gap-3 text-[0.8rem]">
-              <span className="truncate text-white/75" title={r.label}>
-                {r.label}
+            <div key={r.key} className="grid min-h-9 grid-cols-[minmax(0,10rem)_minmax(0,1fr)_7.5rem] items-center gap-3 text-[13.5px] max-sm:grid-cols-[minmax(0,7rem)_minmax(0,1fr)_6.5rem]">
+              <span className="flex min-w-0 items-center gap-2" title={r.label}>
+                {marks && <SourceMark label={r.label} agents={r.agents > 0 && r.agents === r.visitors} size={24} />}
+                <span className="min-w-0 truncate">{r.label}</span>
               </span>
-              <div className="flex h-2 overflow-hidden rounded-full bg-white/[0.06]" title={`${r.humans} humans · ${r.agents} agents${r.synthetic ? ` · ${r.synthetic} simulated` : ""}`}>
-                <div className="h-full bg-human/75" style={{ width: `${(r.humans / max) * 100}%` }} />
-                <div className="h-full bg-agent/75" style={{ width: `${(r.agents / max) * 100}%` }} />
-              </div>
-              <span
-                className={cn("text-right font-mono tabular", below ? "text-[#ffb37a]" : above ? "text-[#7ee2a0]" : "text-white/60")}
-                title={below ? "Converts well below average" : above ? "Converts well above average" : undefined}
-              >
-                {r.visitors.toLocaleString()} · {pct(r.conversionRate)}
+              <span className="flex h-3 gap-0.5" title={`${r.humans} humans · ${r.agents} agents${r.synthetic ? ` · ${r.synthetic} simulated` : ""}`}>
+                {r.humans > 0 && <span className="rounded-full bg-dw-ink" style={{ width: `${Math.max(1.5, (r.humans / max) * 100)}%` }} />}
+                {r.agents > 0 && <span className="rounded-full border-[1.5px] border-dashed border-dw-ink/85" style={{ width: `${Math.max(3, (r.agents / max) * 100)}%` }} />}
+              </span>
+              <span className="num flex items-center justify-end gap-1.5 text-right whitespace-nowrap" title={below ? "Converts well below average" : above ? "Converts well above average" : undefined}>
+                <span className="text-dw-ink/60">{r.visitors.toLocaleString()} ·</span>
+                <span className={cn("font-semibold", below ? "rounded-full bg-dw-warn-bg px-1.5 text-dw-warn" : above ? "rounded-full bg-dw-win-bg px-1.5 text-dw-win" : "")}>{pct(r.conversionRate)}</span>
               </span>
             </div>
           );
         })}
-        {note && <p className="mt-2 text-[0.72rem] leading-snug text-white/35">{note}</p>}
+        {note && <p className="mt-3 text-[12.5px] leading-snug text-dw-ink/55">{note}</p>}
       </div>
-    </Panel>
+    </Card>
   );
 }
 
 /* ------------------------------------------------------------------ insights */
 
-const CATEGORY: Record<InsightCategory, { label: string; tone: "info" | "good" | "agent" | "neutral" }> = {
-  seo: { label: "SEO", tone: "info" },
-  conversion: { label: "Conversion", tone: "good" },
-  agents: { label: "AI agents", tone: "agent" },
-  tracking: { label: "Tracking", tone: "neutral" },
+const CATEGORY: Record<InsightCategory, { label: string; mascot: MascotKind }> = {
+  seo: { label: "SEO", mascot: "observer" },
+  conversion: { label: "Conversion", mascot: "analyst" },
+  agents: { label: "AI agents", mascot: "experimenter" },
+  tracking: { label: "Tracking", mascot: "designer" },
 };
 
 /** Sites whose pages run darwin.js, so a suggestion can become a personalization A/B test. */
@@ -299,36 +354,53 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
   }, [ask, hasTraffic]);
 
   const total = (res?.insights ?? []).reduce((n, i) => n + (i.impact?.orders ?? 0), 0);
+  const [all, setAll] = useState(false);
+  const FIRST = 4;
+  const shown = all ? (res?.insights ?? []) : (res?.insights ?? []).slice(0, FIRST);
+  const more = (res?.insights.length ?? 0) - FIRST;
 
   return (
-    <Panel glow>
-      <PanelHeader
-        icon={<Lightbulb />}
-        title="What to improve"
+    <Card tone="white" hover={false}>
+      <CardHead
         right={
-          <>
-            {res && (
-              <span className="hidden text-[0.75rem] text-white/45 md:inline">
-                {res.source === "llm" ? `Written by ${res.author.replace(/^llm:/, "")}` : "Built-in rules"}
-                {total > 0 && ` · up to +${total} orders at today's traffic`}
-              </span>
-            )}
-            <Button size="sm" variant="primary" onClick={() => ask(true)} disabled={!!busy} title="Send this report to Darwin's AI model (DeepSeek via OpenRouter / Grok / Claude) for suggestions">
-              {busy === "llm" ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-              Ask Darwin
-            </Button>
-          </>
+          <PillButton size="sm" onClick={() => ask(true)} disabled={!!busy} title="Send this report to Darwin's AI model for suggestions">
+            {busy === "llm" ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+            Ask Darwin
+          </PillButton>
         }
-      />
-      <div className="px-5 pb-5">
-        {error && <p className="mb-3 text-[0.85rem] text-[#ffb4b4]">{error}</p>}
-        {res?.note && <p className="mb-3 text-[0.75rem] text-white/40">{res.note}</p>}
-        {!res && <p className="text-[0.85rem] text-white/40">Reading the numbers…</p>}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
-          {res?.insights.map((i) => <InsightCard key={i.id} insight={i} site={site} />)}
+      >
+        <span className="flex items-center gap-3">
+          <Mascot kind="analyst" size={34} active={!!busy} />
+          What to improve
+        </span>
+      </CardHead>
+      {res && (
+        <p className="mt-2 text-[13.5px] text-dw-ink/60">
+          {res.source === "llm" ? `Written by ${res.author.replace(/^llm:/, "")}` : "Built-in rules"}
+          {total > 0 && ` · up to +${total} orders at today's traffic`}
+        </p>
+      )}
+      <div className="mt-4">
+        {error && <p className="mb-3 rounded-2xl bg-dw-warn-bg px-4 py-2.5 text-[14px] text-dw-warn">{error}</p>}
+        {res?.note && <p className="mb-3 text-[13px] text-dw-ink/55">{res.note}</p>}
+        {!res && (
+          <p className="flex items-center gap-2 text-[14px] text-dw-ink/55">
+            <LoaderCircle className="size-4 animate-spin" aria-hidden /> Reading the numbers…
+          </p>
+        )}
+        {res && res.insights.length === 0 && <Empty mascot={<Mascot kind="analyst" size={48} frame />}>Nothing stands out yet. Send some visitors and Darwin will read the numbers again.</Empty>}
+        <div className="grid grid-cols-1 gap-2.5 xl:grid-cols-2">
+          {shown.map((i) => (
+            <InsightCard key={i.id} insight={i} site={site} />
+          ))}
         </div>
+        {more > 0 && (
+          <PillButton tone="sand" size="sm" className="mt-3" onClick={() => setAll((a) => !a)} aria-expanded={all}>
+            {all ? "Show fewer" : `Show ${more} more`}
+          </PillButton>
+        )}
       </div>
-    </Panel>
+    </Card>
   );
 }
 
@@ -352,48 +424,52 @@ function InsightCard({ insight: i, site }: { insight: TrafficInsight; site: stri
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+    <div className="dw-row flex flex-col gap-2 rounded-[22px] bg-dw-sand p-4">
       <div className="flex items-center gap-2">
-        <Badge tone={cat.tone}>{cat.label}</Badge>
+        <span className="dw-tilt">
+          <Mascot kind={cat.mascot} size={28} active={false} />
+        </span>
+        <Tag tone="white">{cat.label}</Tag>
         {i.confidence === "low" && (
-          <span className="text-[0.7rem] text-white/35" title="Small sample: treat as a hint">
+          <span className="text-[12px] text-dw-ink/50" title="Small sample: treat as a hint">
             small sample
           </span>
         )}
         {i.impact && i.impact.orders > 0 && (
-          <span className="ml-auto font-mono text-[0.75rem] text-[#7ee2a0] tabular" title="If this group converted at the site average, at today's traffic">
+          <span className="num ml-auto rounded-full bg-dw-win-bg px-2 py-0.5 text-[12px] font-semibold text-dw-win" title="If this group converted at the site average, at today's traffic">
             +{i.impact.orders} orders{i.impact.revenue > 0 ? ` · ${gbp(i.impact.revenue)}` : ""}
           </span>
         )}
       </div>
-      <h3 className="text-[0.95rem] leading-snug font-semibold text-white/90">{i.title}</h3>
-      <p className="font-mono text-[0.75rem] leading-relaxed text-white/50">{i.evidence}</p>
-      <p className="text-[0.83rem] leading-relaxed text-white/70">{i.action}</p>
+      <h3 className="text-[16px] leading-snug font-semibold">{i.title}</h3>
+      <p className="font-dwmono text-[12px] leading-relaxed text-dw-ink/60">{i.evidence}</p>
+      <p className="text-[14px] leading-snug text-dw-ink/80">{i.action}</p>
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
         {i.testPrompt &&
           (testableSite(site) ? (
             state === "done" ? (
-              <Link href={`/console/personalize?site=${encodeURIComponent(site)}`} className="flex items-center gap-1 text-[0.8rem] font-medium text-brand hover:underline">
+              <Link href={`/console/personalize?site=${encodeURIComponent(site)}`} className="flex items-center gap-1 text-[13px] font-semibold text-dw-win hover:underline">
                 Draft saved: review in Personalize <ArrowUpRight className="size-3.5" />
               </Link>
             ) : (
-              <Button size="sm" onClick={draftTest} disabled={state === "busy"} title={i.testPrompt}>
+              <PillButton size="sm" tone="white" onClick={draftTest} disabled={state === "busy"} title={i.testPrompt}>
                 {state === "busy" ? <LoaderCircle className="animate-spin" /> : <FlaskConical />}
                 Draft A/B test
-              </Button>
+              </PillButton>
             )
           ) : (
-            <span className="text-[0.72rem] text-white/35" title={i.testPrompt}>
+            <span className="text-[12.5px] text-dw-ink/50" title={i.testPrompt}>
               Pick a darwin.js site above to test this
             </span>
           ))}
         {i.link && (
-          <Link href={i.link.href} className="flex items-center gap-1 text-[0.8rem] text-white/60 hover:text-white">
+          <Link href={i.link.href} className="flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium text-dw-ink/70 hover:bg-white/60 hover:text-dw-ink">
             {i.link.label} <ArrowUpRight className="size-3.5" />
           </Link>
         )}
-        {state === "error" && <span className="text-[0.75rem] text-[#ffb4b4]">{msg}</span>}
+        {state === "error" && <span className="text-[12.5px] text-dw-warn">{msg}</span>}
       </div>
     </div>
   );
 }
+

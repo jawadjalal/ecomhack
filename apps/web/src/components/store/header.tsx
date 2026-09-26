@@ -1,18 +1,20 @@
 "use client";
 
-import { Lock, Menu, Search, ShoppingBag, X } from "lucide-react";
+import { Lock, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useState } from "react";
 import { SHIPPING_FEE } from "@/lib/catalog/products";
 import { formatGBP } from "@/lib/money";
 import { useCart } from "@/lib/storefront/cart";
 import { CATEGORIES } from "@/lib/storefront/products";
 import { BrandWordmark } from "./logo";
+import { SearchForm } from "./search-form";
 import { StoreLink, useStore } from "./store-provider";
 
 export function StoreHeader({ chrome, brand }: { chrome: "full" | "checkout"; brand: string }) {
   const { count, hydrated } = useCart();
   const { spec } = useStore();
   const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
   const promo = spec.announcement.enabled ? spec.announcement.text.trim() : "";
 
   if (chrome === "checkout") {
@@ -59,7 +61,10 @@ export function StoreHeader({ chrome, brand }: { chrome: "full" | "checkout"; br
             className="pace-focus -ml-2 inline-flex size-10 items-center justify-center lg:hidden"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
+            onClick={() => {
+              setOpen((o) => !o);
+              setSearching(false);
+            }}
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -75,13 +80,29 @@ export function StoreHeader({ chrome, brand }: { chrome: "full" | "checkout"; br
           <BrandWordmark brand={brand} />
         </StoreLink>
         <div className="flex items-center justify-end gap-4">
-          <StoreLink
-            href="/store#collection"
-            className="pace-focus hidden items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] sm:inline-flex"
-            aria-label="Browse collection"
+          <button
+            type="button"
+            className="pace-focus inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em]"
+            aria-label={searching ? "Close search" : "Search products"}
+            aria-expanded={searching}
+            aria-controls="pace-search"
+            data-darwin="nav-search"
+            onClick={() => {
+              setSearching((v) => !v);
+              setOpen(false);
+            }}
           >
-            <Search className="size-[15px]" />
+            {searching ? <X className="size-[15px]" /> : <Search className="size-[15px]" />}
             <span className="hidden md:inline">Search</span>
+          </button>
+          <StoreLink
+            href="/store/account"
+            className="pace-focus hidden items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] sm:inline-flex"
+            aria-label="Account and orders"
+            data-darwin="nav-account"
+          >
+            <User className="size-[15px]" />
+            <span className="hidden md:inline">Account</span>
           </StoreLink>
           <StoreLink
             href="/store/cart"
@@ -94,6 +115,13 @@ export function StoreHeader({ chrome, brand }: { chrome: "full" | "checkout"; br
           </StoreLink>
         </div>
       </div>
+      {searching && (
+        <div id="pace-search" className="border-t border-black/10 bg-[#f6f4f1]">
+          <div className="mx-auto max-w-[720px] px-4 py-3 sm:px-6">
+            <SearchForm autoFocus onDone={() => setSearching(false)} />
+          </div>
+        </div>
+      )}
       {open && (
         <div className="border-t border-black/10 bg-[#f6f4f1] lg:hidden">
           <nav className="mx-auto flex max-w-[1440px] flex-col px-4 py-2 sm:px-6" aria-label="Mobile">
@@ -110,6 +138,13 @@ export function StoreHeader({ chrome, brand }: { chrome: "full" | "checkout"; br
                 {c.label}
               </StoreLink>
             ))}
+            <StoreLink
+              href="/store/account"
+              className="border-t border-black/10 py-3 text-[13px] font-medium uppercase tracking-[0.16em]"
+              onClick={() => setOpen(false)}
+            >
+              Account &amp; orders
+            </StoreLink>
           </nav>
         </div>
       )}
