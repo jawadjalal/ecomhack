@@ -9,7 +9,7 @@ export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Accept, Authorization, X-Agent-Id, X-Agent-Name, X-Agent-Session, X-Darwin-Synthetic, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID",
+    "Content-Type, Accept, Authorization, X-Agent-Id, X-Agent-Name, X-Agent-Session, X-Darwin-Synthetic, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID, A2A-Version, X-A2A-Extensions",
   "Access-Control-Expose-Headers": "X-Agent-Id, X-Agent-Session, Mcp-Session-Id",
   "Access-Control-Max-Age": "86400",
 };
