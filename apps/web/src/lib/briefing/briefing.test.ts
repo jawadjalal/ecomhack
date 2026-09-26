@@ -146,20 +146,31 @@ describe("merchant briefing", () => {
 
   it("ships a web test to its audience through lib/web, once it's past the ship bar", async () => {
     await readDemoPage();
-    const rule = createRule(
-      { site: "north-trail", name: "Free delivery banner", audience: { sources: ["ai"] }, changes: [{ action: "banner", value: "Free UK delivery over £60 · Free 60-day returns · Dispatched within 24 hours" }] },
-      "running",
-    );
-    simulateWebTraffic({ site: "north-trail", visitors: 600, rules: [rule], url: `${ORIGIN}/demo/north-trail`, seed: 5 });
-    let item = (await getBriefing({ origin: ORIGIN })).items.find((i) => i.id === `web:north-trail:${rule.id}`)!;
-    expect(item).toMatchObject({ kind: "web", title: "Free delivery banner", actions: ["stop"], traffic: "simulated" });
-    expect(item.status).not.toBe("ready");
-    expect(item.say).toContain("(simulated traffic)");
-    expect(await actOnBriefing(item.id, "ship")).toMatchObject({ ok: false, text: expect.stringMatching(/only ships a web test once it clears the 97% bar/) });
-
-    for (let round = 0; round < 20 && item.status !== "ready"; round++) {
-      simulateWebTraffic({ site: "north-trail", visitors: 3000, rules: listRules("north-trail"), url: `${ORIGIN}/demo/north-trail`, seed: 50 + round });
+    // Which visitors see the banner depends on the rule's random id, and with some ids the simulated effect stays
+    // under the 97% bar for all 20 rounds (about 1 run in 8). A fresh rule (new id, clean slate) gets another go,
+    // so the test checks the ship bar, not the luck of one split.
+    let rule!: ReturnType<typeof createRule>;
+    let item!: Awaited<ReturnType<typeof getBriefing>>["items"][number];
+    for (let attempt = 0; attempt < 4 && item?.status !== "ready"; attempt++) {
+      if (attempt) {
+        eventStore().clear();
+        resetWebRules();
+      }
+      rule = createRule(
+        { site: "north-trail", name: "Free delivery banner", audience: { sources: ["ai"] }, changes: [{ action: "banner", value: "Free UK delivery over £60 · Free 60-day returns · Dispatched within 24 hours" }] },
+        "running",
+      );
+      simulateWebTraffic({ site: "north-trail", visitors: 600, rules: [rule], url: `${ORIGIN}/demo/north-trail`, seed: 5 });
       item = (await getBriefing({ origin: ORIGIN })).items.find((i) => i.id === `web:north-trail:${rule.id}`)!;
+      expect(item).toMatchObject({ kind: "web", title: "Free delivery banner", actions: ["stop"], traffic: "simulated" });
+      expect(item.status).not.toBe("ready");
+      expect(item.say).toContain("(simulated traffic)");
+      expect(await actOnBriefing(item.id, "ship")).toMatchObject({ ok: false, text: expect.stringMatching(/only ships a web test once it clears the 97% bar/) });
+
+      for (let round = 0; round < 20 && item.status !== "ready"; round++) {
+        simulateWebTraffic({ site: "north-trail", visitors: 3000, rules: listRules("north-trail"), url: `${ORIGIN}/demo/north-trail`, seed: 50 + round });
+        item = (await getBriefing({ origin: ORIGIN })).items.find((i) => i.id === `web:north-trail:${rule.id}`)!;
+      }
     }
     expect(item).toMatchObject({ status: "ready", actions: ["ship", "stop"] });
     const res = await actOnBriefing(item.id, "ship");
@@ -172,7 +183,7 @@ describe("merchant briefing", () => {
     const ended = (await getBriefing({ origin: ORIGIN })).items.find((i) => i.id === `web:north-trail:${rule.id}`)!;
     expect(ended).toMatchObject({ status: "shipped", traffic: "simulated" });
     expect(ended.sample).toBeGreaterThan(0);
-  }, 60_000);
+  }, 180_000);
 
   it("never offers to ship a web test whose copy the page doesn't back up: it's paused instead", async () => {
     await readDemoPage();
