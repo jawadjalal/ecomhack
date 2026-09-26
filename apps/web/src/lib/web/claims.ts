@@ -185,6 +185,22 @@ export function draftNeedsMerchant(draft: Pick<WebRuleDraft, "changes">): boolea
   return draft.changes.some((c) => needsMerchant(c.value));
 }
 
+/** A text in a rule that states something the page doesn't: the text, and the claims in it the page doesn't make. */
+export interface UnbackedText {
+  value: string;
+  claims: string[];
+}
+
+/** The texts in these changes with a claim the page doesn't make, word for word (style changes state nothing). */
+export function unbackedTexts(changes: readonly WebChange[], outline: readonly PageElement[]): UnbackedText[] {
+  const sources = pageTexts(outline);
+  return changes.flatMap((c) => {
+    if (c.action === "style" || !c.value || needsMerchant(c.value)) return [];
+    const claims = unverifiedClaims(c.value, sources);
+    return claims.length ? [{ value: c.value, claims }] : [];
+  });
+}
+
 /** Autopilot may start (or keep live) this copy on its own: nothing to fill in, and every claim is on the page. */
 export function readyToPublish(draft: Pick<WebRuleDraft, "changes">, outline: readonly PageElement[]): boolean {
   if (draftNeedsMerchant(draft)) return false;

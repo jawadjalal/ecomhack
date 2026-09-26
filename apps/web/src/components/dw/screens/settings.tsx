@@ -11,7 +11,7 @@ import { PageHead } from "../ui";
 
 /**
  * Settings (opened from the avatar): how much Darwin may do on its own, what it's plugged into,
- * who each test is judged on, where it reports back, and the way back to Gen 0.
+ * who each test is judged on, where it reports back, and the way back to the original page.
  * Card rows alternate 1.7fr/1fr and 1fr/1.7fr (never equal boxes).
  */
 export function SettingsScreen() {

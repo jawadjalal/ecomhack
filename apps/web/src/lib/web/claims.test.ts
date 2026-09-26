@@ -1,14 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PageElement, WebRuleDraft } from "@/lib/contracts";
+import type { PageElement, WebRule, WebRuleDraft } from "@/lib/contracts";
 import { eventStore } from "@/lib/analytics/store";
+import { kvUpdate } from "@/lib/db/json-store";
 import { GET as demoPage } from "@/app/demo/north-trail/route";
+import { POST as createRoute } from "@/app/api/web/rules/route";
+import { GET as runtimeRoute } from "@/app/api/web/runtime.js/route";
 import { findClaims, NEEDS, needsMerchant, pageTexts, readyToPublish, unverifiedClaims } from "./claims";
 import {
   AUTOPILOT,
   computeSite,
   createRule,
   draftRule,
+  endRule,
   FOLLOW_UPS,
+  forgetPages,
   getAutopilot,
   heuristicDraft,
   ideaDraft,
@@ -16,6 +21,7 @@ import {
   listRules,
   outlineFromHtml,
   PLAYBOOK,
+  rememberPage,
   resetAutopilot,
   resetWebRules,
   retractUnbackedCopy,
@@ -24,6 +30,7 @@ import {
   stepAutopilot,
   suggestRules,
   updateRule,
+  webState,
   WebRuleError,
 } from ".";
 
@@ -44,6 +51,7 @@ let demo: PageElement[] = [];
 beforeEach(async () => {
   resetWebRules();
   resetAutopilot();
+  forgetPages();
   eventStore().clear();
   llm.on = false;
   llm.out = undefined;
@@ -53,7 +61,16 @@ beforeEach(async () => {
 afterEach(() => {
   resetWebRules();
   resetAutopilot();
+  forgetPages();
 });
+
+/** A rule an older Darwin (or anyone, before the honesty gate) put live: saved as a draft, then forced live. */
+function legacyLive(draft: WebRuleDraft | Record<string, unknown>, status: "running" | "shipped" = "running"): WebRule {
+  const rule = createRule(draft, "draft");
+  const live = { ...rule, status, startedAt: new Date().toISOString(), ...(status === "shipped" ? { shippedAt: new Date().toISOString() } : {}) };
+  kvUpdate<WebRule[]>("web-rules", () => [], (all) => all.map((r) => (r.id === rule.id ? live : r)));
+  return live;
+}
 
 /** Every claim-like phrase in a rule's copy that the page doesn't make, ignoring text left for the merchant. */
 function invented(rule: Pick<WebRuleDraft, "changes">, outline: PageElement[]): string[] {
@@ -136,8 +153,12 @@ describe("playbook: only the page's own facts, the visitor's context, or neutral
     expect(() => createRule(draft, "running")).toThrow(WebRuleError);
     const saved = createRule(draft, "draft");
     expect(() => updateRule(saved.id, { status: "running" })).toThrow(/bracketed|fill in|confirm/i);
+    // Filled in with a rating the page doesn't show: still not publishable, whoever typed it.
     const filled = updateRule(saved.id, { changes: [{ action: "badge", selector: draft.changes[0].selector, value: "★ 4.6 from 310 reviews" }] });
-    expect(updateRule(filled.id, { status: "running" }).status).toBe("running");
+    expect(() => updateRule(filled.id, { status: "running" }, { outline: demo })).toThrow(/nothing on your page backs that up/);
+    // In the page's own words, it can go live.
+    updateRule(filled.id, { changes: [{ action: "badge", selector: draft.changes[0].selector, value: "Free 60-day returns" }] });
+    expect(updateRule(filled.id, { status: "running" }, { outline: demo }).status).toBe("running");
   });
 });
 
@@ -166,13 +187,18 @@ describe("autopilot never publishes an invented claim", () => {
   }, 60_000);
 
   it("takes down a live autopilot rule whose copy the page doesn't back up (the old ★ 4.8/5 badge)", () => {
-    const old = createRule(
-      { site: SITE, name: "Reviews badge for social visitors", audience: { sources: ["social"] }, changes: [{ action: "badge", selector: "button.add-to-cart", value: "★ 4.8/5 from 2,000+ customers" }], mode: "test", author: "autopilot" },
-      "running",
-    );
+    const old = legacyLive({
+      site: SITE,
+      name: "Reviews badge for social visitors",
+      audience: { sources: ["social"] },
+      changes: [{ action: "badge", selector: "button.add-to-cart", value: "★ 4.8/5 from 2,000+ customers" }],
+      mode: "test",
+      author: "autopilot",
+    });
     const honest = createRule(
       { site: SITE, name: "Delivery & returns banner for AI assistants", audience: { sources: ["ai"] }, changes: [{ action: "banner", value: "Free 60-day returns" }], mode: "test", author: "autopilot" },
       "running",
+      { outline: demo },
     );
     setAutopilot(SITE, true);
     const { actions } = stepAutopilot(SITE, demo);
@@ -183,16 +209,108 @@ describe("autopilot never publishes an invented claim", () => {
   });
 
   it("takes it down when autopilot is switched off too (no step needed), but not when the page can't be read", () => {
-    const old = createRule(
-      { site: SITE, name: "Offer banner for ad clicks", audience: { sources: ["paid"] }, changes: [{ action: "banner", value: "Free delivery on your first order" }], mode: "test", author: "autopilot" },
-      "running",
-    );
+    const old = legacyLive({
+      site: SITE,
+      name: "Offer banner for ad clicks",
+      audience: { sources: ["paid"] },
+      changes: [{ action: "banner", value: "Free delivery on your first order" }],
+      mode: "test",
+      author: "autopilot",
+    });
     setAutopilot(SITE, false);
     expect(retractUnbackedCopy(SITE, []).log.some((e) => e.ruleId === old.id)).toBe(false);
     expect(listRules(SITE)[0].status).toBe("running");
     const state = retractUnbackedCopy(SITE, demo);
     expect(state.log[0]).toMatchObject({ kind: "stopped", ruleId: old.id });
     expect(listRules(SITE)[0].status).toBe("paused");
+  });
+});
+
+describe("honesty gate: no rule goes live with a claim the page doesn't make, whoever wrote it", () => {
+  const fake = (author: string, value = "4.8★ from 2,000+ customers") => ({
+    site: SITE,
+    name: `Social proof (${author})`,
+    audience: { sources: ["social"] },
+    changes: [{ action: "badge", selector: "button.add-to-cart", value }],
+    mode: "test",
+    author,
+  });
+
+  it("refuses to start or ship it on every path: create, start, ship-the-winner", () => {
+    rememberPage(SITE, demo);
+    for (const author of ["manual", "autopilot", "llm:test", "suggestion"]) {
+      expect(() => createRule(fake(author), "running"), author).toThrow(WebRuleError);
+      const draft = createRule(fake(author), "draft");
+      expect(() => updateRule(draft.id, { status: "running" }), author).toThrow(/“4\.8★”.*nothing on your page backs that up/);
+      expect(() => updateRule(draft.id, { status: "shipped" }), author).toThrow(WebRuleError);
+      expect(() => endRule(draft.id, { decision: "shipped", reason: "97% chance better", at: new Date().toISOString(), by: "manual" }), author).toThrow(WebRuleError);
+    }
+    for (const value of ["Ships in 24h", "{query}, ships today", "15% off your first order"]) {
+      expect(() => createRule(fake("manual", value), "running"), value).toThrow(/nothing on your page backs that up/);
+    }
+    expect(listRules(SITE).every((r) => r.status === "draft")).toBe(true);
+    // The page's own words go live.
+    expect(createRule(fake("manual", "Dispatched within 24 hours"), "running").status).toBe("running");
+  });
+
+  it("with no page read yet, a claim can't go live (it can't be checked), but claim-free copy can", () => {
+    try {
+      createRule(fake("manual"), "running");
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(WebRuleError);
+      expect((err as WebRuleError).status).toBe(422);
+      expect((err as Error).message).toMatch(/couldn't read your page/);
+    }
+    expect(createRule(fake("manual", "Picked for Instagram shoppers"), "running").status).toBe("running");
+  });
+
+  it("POST /api/web/rules answers 422 for a live rule with an unbacked claim", async () => {
+    rememberPage("shop-x", demo);
+    const post = (value: string) =>
+      createRoute(new Request("http://localhost/api/web/rules", { method: "POST", body: JSON.stringify({ rule: { ...fake("manual", value), site: "shop-x" }, status: "running" }) }));
+    const bad = await post("Ships in 24h");
+    expect(bad.status).toBe(422);
+    expect((await bad.json()).error).toMatch(/“Ships in 24h”/);
+    expect((await post("Free 60-day returns")).status).toBe(201);
+  });
+
+  it("pauses live rules the page doesn't back up when the web state loads, any author, and logs why in plain English", async () => {
+    const fakes = ["manual", "llm:test", "suggestion", "autopilot"].map((author) => legacyLive(fake(author)));
+    const shipped = legacyLive(fake("manual", "Ships in 24h"), "shipped");
+    const honest = legacyLive(fake("manual", "Free 60-day returns"));
+    const pending = legacyLive(fake("manual", NEEDS.reviews));
+    rememberPage(SITE, demo);
+
+    // runtime.js (what browsers get) never serves them.
+    const js = await (await runtimeRoute(new Request(`http://localhost/api/web/runtime.js?site=${SITE}`))).text();
+    expect(js).not.toContain("2,000+");
+    expect(js).not.toContain("Ships in 24h");
+    expect(js).toContain("Free 60-day returns");
+
+    const state = webState(SITE);
+    for (const r of [...fakes, shipped, pending]) expect(state.rules.find((x) => x.id === r.id)?.status, r.author).toBe("paused");
+    expect(state.rules.find((x) => x.id === honest.id)?.status).toBe("running");
+    const log = state.autopilot.log.find((e) => e.ruleId === fakes[0].id)!;
+    expect(log).toMatchObject({ kind: "stopped" });
+    expect(log.message).toContain("it claimed “4.8★ from 2,000+ customers” and nothing on your site backs that up");
+    expect(state.rules.find((x) => x.id === fakes[0].id)?.outcome).toMatchObject({
+      decision: "stopped",
+      reason: "Paused: it claimed “4.8★ from 2,000+ customers” and nothing on your site backs that up",
+      traffic: "real",
+      sample: 0,
+    });
+    expect(state.autopilot.log.find((e) => e.ruleId === pending.id)?.message).toMatch(/only you can fill in/);
+  });
+
+  it("stamps the traffic a decision was made on, so it stays labelled after simulated visitors are gone", () => {
+    const rule = createRule({ ...fake("manual", "Free 60-day returns"), audience: {} }, "running", { outline: demo });
+    simulateWebTraffic({ site: SITE, visitors: 400, rules: listRules(SITE), url: "https://n.example/", seed: 3 });
+    const ended = endRule(rule.id, { decision: "stopped", reason: "stopped by the merchant", at: new Date().toISOString(), by: "manual" });
+    expect(ended.outcome).toMatchObject({ traffic: "simulated", sample: expect.any(Number) });
+    expect(ended.outcome!.sample).toBeGreaterThan(0);
+    eventStore().clear(); // a restart: simulated events aren't kept on disk
+    expect(listRules(SITE)[0].outcome).toMatchObject({ traffic: "simulated", sample: ended.outcome!.sample });
   });
 });
 

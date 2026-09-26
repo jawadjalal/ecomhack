@@ -1,24 +1,21 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Play } from "lucide-react";
 import { PHASE_META } from "@/lib/console/format";
 import { useDarwin } from "../provider";
-import { getAgent } from "@/lib/team/roster";
+import { StartDemo, loopIsFresh } from "../first-run";
 import { Mascot, type MascotKind } from "../mascot";
-import { PageHead, PillButton, Typing } from "../ui";
+import { PageHead, Typing } from "../ui";
 import { Panel } from "./panel";
 
-/** The loop's five steps, each done by a member of Darwin's team (names from lib/team/roster). */
-const CREW: { kind: MascotKind; who: string; label: string; phases: string[] }[] = [
-  { kind: "observer", who: getAgent("iris").name, label: "Watch", phases: ["idle", "observe"] },
-  { kind: "leader", who: getAgent("darwin").name, label: "Find leaks", phases: ["diagnose"] },
-  { kind: "designer", who: getAgent("pixel").name, label: "Draft a fix", phases: ["propose"] },
-  { kind: "experimenter", who: getAgent("fizz").name, label: "Test it", phases: ["experiment", "decide"] },
-  { kind: "shipper", who: getAgent("dash").name, label: "Ship it", phases: ["ship"] },
+const CREW: { kind: MascotKind; label: string; phases: string[] }[] = [
+  { kind: "observer", label: "Iris watches", phases: ["idle", "observe", "diagnose"] },
+  { kind: "designer", label: "Pixel drafts", phases: ["propose"] },
+  { kind: "experimenter", label: "Fizz tests", phases: ["experiment", "decide"] },
+  { kind: "shipper", label: "Dash ships", phases: ["ship"] },
 ];
 
-/** The five-step loop as the team, the current step lifted and breathing, the rest holding still. */
+/** The loop as the crew, the current step lifted and bobbing. */
 function Crew({ phase }: { phase?: string }) {
   return (
     <ol className="flex flex-wrap items-start justify-center gap-x-1 gap-y-3" aria-label="How Darwin works">
@@ -33,14 +30,11 @@ function Crew({ phase }: { phase?: string }) {
             className="flex items-center gap-1"
             aria-current={on ? "step" : undefined}
           >
-            <span className="flex w-[74px] flex-col items-center gap-1.5">
+            <span className="flex w-[84px] flex-col items-center gap-1.5">
               <span className={on ? "" : "opacity-55 saturate-50"}>
-                <Mascot kind={c.kind} size={40} frame active={on} title={c.who} />
+                <Mascot kind={c.kind} size={40} frame active={on} />
               </span>
-              <span className="flex flex-col items-center leading-tight">
-                <span className={on ? "text-[12px] font-semibold" : "text-[12px] font-medium text-dw-ink/70"}>{c.who}</span>
-                <span className={on ? "text-[11.5px] text-dw-ink/75" : "text-[11.5px] text-dw-ink/50"}>{c.label}</span>
-              </span>
+              <span className={on ? "text-[12px] font-semibold" : "text-[12px] text-dw-ink/60"}>{c.label}</span>
             </span>
             {i < CREW.length - 1 && <span className="mb-5 h-px w-4 bg-dw-ink/20" aria-hidden />}
           </motion.li>
@@ -52,7 +46,7 @@ function Crew({ phase }: { phase?: string }) {
 
 /**
  * Friendly empty state while the loop has nothing to show yet: a big framed mascot, one line, and
- * "Let Darwin run" (turns autopilot on). With autopilot already on, it shows Darwin at work instead.
+ * the one-click start (<StartDemo />: autopilot + simulated shoppers). With autopilot on, it shows Darwin at work.
  */
 export function WatchingEmpty({
   mascot = "observer",
@@ -68,14 +62,16 @@ export function WatchingEmpty({
   /** Replaces the default "Let Darwin run" action. */
   action?: React.ReactNode;
 }) {
-  const { loop, autopilot, setAutopilot, stepping } = useDarwin();
+  const { loop, autopilot } = useDarwin();
   const diagnosed = loop && loop.phase !== "idle" && loop.phase !== "observe";
-  const t = title ?? (diagnosed ? "Nothing is stopping shoppers right now" : "Darwin is still watching shoppers");
+  // Paused before the first shopper: don't claim Darwin is watching; offer the demo store instead.
+  const fresh = !autopilot && loopIsFresh(loop);
+  const t = title ?? (diagnosed ? "Nothing is stopping shoppers right now" : fresh ? "Iris hasn’t watched any shoppers yet" : "Iris is still watching shoppers");
   const l =
     lede ??
     (diagnosed
-      ? "Darwin read the latest sessions and found no clear leak. It will try a creative idea next."
-      : "Issues show up here once Darwin has watched enough people and AI agents shop to see where they drop off.");
+      ? "Iris read the latest visits and found nothing clear. Pixel will try a fresh idea next."
+      : "Issues show up here once Iris has watched enough people and AI agents shop to see where they get stuck.");
   const tone = mascot === "designer" ? "yellow" : mascot === "shipper" ? "olive" : "blue";
 
   return (
@@ -90,7 +86,9 @@ export function WatchingEmpty({
         >
           <Mascot kind={mascot} size={112} frame active />
           <p className="max-w-[30rem] text-[18px] leading-snug">
-            {autopilot ? `${PHASE_META[loop?.phase ?? "observe"].blurb}. This page fills in by itself.` : (line ?? "Darwin works in small steps, and each one shows up here.")}
+            {autopilot
+              ? `${PHASE_META[loop?.phase ?? "observe"].blurb}. This page fills in by itself.`
+              : (line ?? (fresh ? "Start the demo store and each step shows up here as the crew takes it." : "The crew works in small steps, and each one shows up here."))}
           </p>
           <Crew phase={loop?.phase} />
           {autopilot ? (
@@ -98,11 +96,7 @@ export function WatchingEmpty({
               <Typing /> {PHASE_META[loop?.phase ?? "observe"].verb}
             </span>
           ) : (
-            (action ?? (
-              <PillButton size="lg" onClick={() => void setAutopilot(true)} disabled={stepping || !loop}>
-                <Play /> Let Darwin run
-              </PillButton>
-            ))
+            (action ?? <StartDemo />)
           )}
         </motion.div>
       </Panel>

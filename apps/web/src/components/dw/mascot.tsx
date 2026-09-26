@@ -16,6 +16,10 @@ import { AnimatedMascot, mascotName } from "@/components/mascots/animated-mascot
 
 export type { MascotKind, MascotState };
 
+/** Crew names (one naming across the app, from lib/team/roster): Darwin leads; the others have their own names and roles. */
+export const CREW_NAMES: Record<MascotKind, string> = { leader: "Darwin", observer: "Iris", analyst: "Darwin", designer: "Pixel", experimenter: "Fizz", shipper: "Dash" };
+export const CREW_ROLES: Record<MascotKind, string> = { leader: "Lead", observer: "Watcher", analyst: "Lead", designer: "Designer", experimenter: "Tester", shipper: "Shipper" };
+
 export const MASCOT_SHADE: Record<MascotKind, [string, string, string]> = {
   leader: ["#ff7a7a", "#e23b3b", "#b81f2e"],
   observer: ["#4aa2ff", "#2f86ff", "#1c66e0"],

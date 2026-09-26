@@ -1,0 +1,280 @@
+/*
+ * The two tactile pieces ported from Wayari's site (wayari-site/src/app/ui): the gel button and the peel
+ * sticker, in the dw palette. Imported by gel.tsx and sticker.tsx.
+ */
+
+/* In the components layer, so Tailwind utilities on the same element (max-sm:…, h-11, p-0) win. */
+@layer components {
+  /* ── the gel: a glossy capsule. <button class="dw-gel"><span class="dw-gel-gloss"/>label</button> ── */
+
+  .dw-gel {
+    --gel: linear-gradient(#fff3f8 0%, #ffd8e8 18%, #f8a9ca 50%, #f29cc0 80%, #f6b0cd 100%);
+    --gel-bd: #7a1d45;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    height: var(--gel-h, 48px);
+    padding: 0 calc(var(--gel-h, 48px) * 0.46) 1px;
+    border-radius: 999px;
+    border: 1px solid var(--gel-bd);
+    background: var(--gel);
+    color: #141413;
+    font-size: var(--gel-fs, 17px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    text-shadow: 0 2px 2px rgba(255, 255, 255, 0.8);
+    box-shadow: 0 10px 24px rgba(20, 20, 19, 0.12);
+    cursor: pointer;
+    transition:
+      transform 0.14s cubic-bezier(0.2, 0.7, 0.2, 1),
+      filter 0.15s,
+      opacity 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dw-gel > * {
+    position: relative;
+    z-index: 2;
+  }
+
+  .dw-gel svg {
+    width: 1.05em;
+    height: 1.05em;
+    flex-shrink: 0;
+  }
+
+  /* the lit lower lip */
+  .dw-gel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    box-shadow: inset 0 -15px 2px -12px rgba(255, 255, 255, 0.25);
+  }
+
+  /* the rim */
+  .dw-gel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    mix-blend-mode: color-burn;
+    box-shadow: inset 0 -8px 0 4px #b3b3b3;
+  }
+
+  .dw-gel:hover {
+    filter: brightness(1.04) saturate(1.06);
+  }
+
+  .dw-gel:active {
+    transform: scale(0.97);
+  }
+
+  .dw-gel:focus-visible {
+    outline: 2px solid #141413;
+    outline-offset: 3px;
+  }
+
+  /* the gloss: a bright band across the top */
+  .dw-gel .dw-gel-gloss {
+    position: absolute;
+    z-index: 1;
+    top: 3px;
+    left: 12px;
+    right: 12px;
+    height: min(12px, 26%);
+    border-radius: 999px;
+    background: linear-gradient(rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.78) 50%, rgba(255, 255, 255, 0.2));
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+    pointer-events: none;
+  }
+
+  .dw-gel.is-round {
+    width: var(--gel-h, 48px);
+    padding: 0;
+  }
+
+  .dw-gel.is-round .dw-gel-gloss {
+    left: 22%;
+    right: 22%;
+  }
+
+  .dw-gel.is-ghost {
+    --gel: linear-gradient(#ffffff 0%, #fdfbf6 40%, #eee9de 100%);
+    --gel-bd: #a19b8f;
+  }
+
+  .dw-gel.is-dark {
+    --gel: linear-gradient(#4b4a46 0%, #2b2a28 30%, #151514 70%, #1f1e1c 100%);
+    --gel-bd: #000;
+    color: #fff;
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  .dw-gel.is-dark::after {
+    mix-blend-mode: normal;
+    box-shadow: inset 0 -10px 10px -8px rgba(0, 0, 0, 0.5);
+  }
+
+  .dw-gel.is-dark .dw-gel-gloss {
+    opacity: 0.35;
+  }
+
+  .dw-gel:disabled,
+  .dw-gel[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: default;
+    filter: none;
+    transform: none;
+  }
+
+  /* ── the sticker: a die-cut label that lifts a corner when you point at it ────────────────────── */
+
+  .dw-stk {
+    --peel: 16px;
+    --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    rotate: var(--r, 0deg);
+    filter: drop-shadow(0 1px 1px rgba(20, 20, 19, 0.2)) drop-shadow(0 5px 9px rgba(20, 20, 19, 0.14));
+    transition:
+      rotate 0.35s var(--spring),
+      translate 0.35s var(--spring),
+      scale 0.14s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The face carries its own white die-cut edge (a border, so the corner cut takes it too). */
+  .dw-stk-face {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 3px solid #fff;
+    clip-path: polygon(0 0, 100% 0, 100% 0, 100% 100%, 0 100%);
+    transition: clip-path 0.35s var(--spring);
+  }
+
+  /* The flap: the back of the lifted corner, folded over the face. */
+  .dw-stk-flap {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--peel);
+    height: var(--peel);
+    pointer-events: none;
+    filter: drop-shadow(-1px 2px 1.5px rgba(20, 20, 19, 0.22));
+    transform: scale(0);
+    transform-origin: 100% 0;
+    transition: transform 0.35s var(--spring);
+  }
+
+  .dw-stk-flap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(225deg, #ffffff 0%, #f4efe4 55%, #ddd4c2 100%);
+    clip-path: polygon(0 0, 100% 100%, 0 100%);
+    border-bottom-left-radius: 5px;
+  }
+
+  @media (hover: hover) {
+    .dw-stk.is-peel:hover {
+      translate: 0 -2px;
+      rotate: calc(var(--r, 0deg) + 1.5deg);
+    }
+    .dw-stk.is-peel:hover .dw-stk-face {
+      clip-path: polygon(0 0, calc(100% - var(--peel)) 0, 100% var(--peel), 100% 100%, 0 100%);
+    }
+    .dw-stk.is-peel:hover .dw-stk-flap {
+      transform: none;
+    }
+  }
+
+  .dw-stk.is-peel:focus-visible .dw-stk-face {
+    clip-path: polygon(0 0, calc(100% - var(--peel)) 0, 100% var(--peel), 100% 100%, 0 100%);
+  }
+
+  .dw-stk.is-peel:focus-visible .dw-stk-flap {
+    transform: none;
+  }
+
+  .dw-stk:active {
+    scale: 0.97;
+  }
+
+  /* Pressed flat: a sticker that is doing its job (drawer open) lies flat on the page. */
+  .dw-stk.is-flat {
+    rotate: 0deg;
+  }
+
+  .dw-stk:focus-visible {
+    outline: none;
+  }
+
+  .dw-stk:focus-visible .dw-stk-face {
+    outline: 2px solid #141413;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dw-gel,
+    .dw-stk,
+    .dw-stk-face,
+    .dw-stk-flap {
+      transition: none;
+    }
+    .dw-gel:active,
+    .dw-stk:active {
+      transform: none;
+      scale: none;
+    }
+  }
+
+  /* Background stickers (landing): a crisp paper edge, no soft cast shadow, and a slow few-pixel float. */
+  .dw-stk.is-quiet {
+    filter: drop-shadow(0 1px 0.5px rgba(20, 20, 19, 0.22));
+  }
+
+  .dw-stk-float {
+    animation: dw-stk-float 6.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes dw-stk-float {
+    from {
+      transform: translateY(-3px);
+    }
+    to {
+      transform: translateY(3px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dw-stk-float {
+      animation: none;
+    }
+  }
+
+  /* ── the bevel: a crisp surface with a lit top edge and a one-pixel lip ────────────────────────── */
+
+  .dw-bevel {
+    background: linear-gradient(180deg, #fffefb 0%, #fdfaf3 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 1),
+      inset 0 -1px 0 rgba(20, 20, 19, 0.05),
+      0 0 0 1px rgba(20, 20, 19, 0.13),
+      0 1.5px 0 1px rgba(20, 20, 19, 0.07),
+      0 18px 36px -18px rgba(20, 20, 19, 0.38);
+  }
+}

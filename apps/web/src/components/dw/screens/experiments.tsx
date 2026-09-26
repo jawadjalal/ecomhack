@@ -7,7 +7,9 @@ import { count, pct, sourceBadge } from "@/lib/console/format";
 import { useExperiments, useNow, useSamples } from "@/lib/console/hooks";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing, pct0 } from "../ui";
+import { StartDemo } from "../first-run";
+import { Card, DEPTH, Empty, LiveDot, PageHead, PillButton, SummaryStrip, Typing, pct0 } from "../ui";
+import { LIST_DETAIL } from "../experiments/frame";
 import { ChanceCard, WhoBuysCard, type ChancePoint } from "../experiments/charts";
 import { PastExperiments, WhatChangesCard } from "../experiments/changes";
 import {
@@ -26,6 +28,7 @@ import {
   pageFor,
   pickExperiment,
 } from "../experiments/model";
+import { ResultStrip } from "../experiments/result-strip";
 import { SpecMock } from "../experiments/spec-mock";
 import { Tip } from "../experiments/tip";
 import { setHash, useHash } from "../experiments/use-hash";
@@ -33,14 +36,14 @@ import { setHash, useHash } from "../experiments/use-hash";
 const newestFirst = (a: { createdAt: string }, b: { createdAt: string }) => Date.parse(b.createdAt) - Date.parse(a.createdAt);
 const shipPct = (x: number) => `${Math.round(x * 1000) / 10}%`;
 
-/** Who wrote the idea, for honesty: Darwin's playbook (heuristic) or a named LLM. */
+/** Who drafted the idea, for honesty, without model names: AI or Darwin's rules. */
 function ideaSource(source: string | undefined): string | undefined {
   const b = sourceBadge(source);
   if (!b) return undefined;
-  return b.label === "Heuristic" ? "Idea from Darwin's playbook" : `Idea from ${b.label}`;
+  return b.label === "Heuristic" ? "Pixel drafted it from Darwin's rules" : "Pixel drafted it with AI";
 }
 
-/** Experiments: the A/B test Darwin is running (or the latest), its evidence, and every test so far. */
+/** Experiments: every A vs B test Fizz ran (list left) and the selected one with its evidence (detail right). */
 export function ExperimentsScreen() {
   const { loop, mock, step, stepping, autopilot, setAutopilot } = useDarwin();
   const experiments = useExperiments();
@@ -51,7 +54,8 @@ export function ExperimentsScreen() {
 
   const idx = useMemo(() => indexLog(loop), [loop]);
   const auto = pickExperiment(experiments, loop);
-  const want = picked ?? (hash.startsWith("exp_") ? hash : undefined);
+  // The URL fragment wins (deep links while the page is open); `picked` is the fallback.
+  const want = (hash.startsWith("exp_") && experiments?.some((e) => e.id === hash) ? hash : undefined) ?? picked;
   const exp = (want ? experiments?.find((e) => e.id === want) : undefined) ?? auto;
   const result = exp?.result;
   const running = exp?.status === "running";
@@ -94,10 +98,11 @@ export function ExperimentsScreen() {
   if (!experiments || !loop) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Loading the tests <Typing /></span>} />
-        <div className="grid gap-4 lg:grid-cols-2" aria-hidden>
-          <div className="h-[390px] animate-pulse rounded-[26px] bg-dw-surface" />
-          <div className="h-[390px] animate-pulse rounded-[26px] bg-dw-yellow/40" />
+        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Fizz is loading the tests <Typing /></span>} />
+        <div className="h-[92px] animate-pulse rounded-[22px] bg-dw-surface sm:h-[100px]" aria-hidden />
+        <div className={LIST_DETAIL} aria-hidden>
+          <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
+          <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-pink/40" />
         </div>
       </>
     );
@@ -106,21 +111,21 @@ export function ExperimentsScreen() {
   if (!exp || !view) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="No tests yet" lede="When Darwin has a fix worth trying, it shows half your shoppers the new version and measures who buys." />
-        <Card tone="pink" shape="experimenter" hover={false}>
+        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="No tests yet" lede="When Pixel has a fix worth trying, Fizz shows half your shoppers the new version and counts who buys." />
+        <Card tone="pink" shape="experimenter" hover={false} className={`rounded-[28px] ${DEPTH}`}>
           <Empty
             mascot={<Mascot kind="experimenter" size={88} frame active />}
             action={
               autopilot ? (
                 <span className="inline-flex items-center gap-2 text-[14px] text-dw-ink/75">
-                  <LiveDot /> Darwin is looking for the first fix <Typing />
+                  <LiveDot /> Iris is looking for the first problem to fix <Typing />
                 </span>
               ) : (
-                <PillButton onClick={() => void setAutopilot(true)}>Let Darwin run</PillButton>
+                <StartDemo />
               )
             }
           >
-            The first A/B test starts right after Darwin finds a leak and designs a fix for it.
+            The first A vs B test starts right after Iris finds a problem and Pixel drafts a fix for it.
           </Empty>
         </Card>
       </>
@@ -133,53 +138,68 @@ export function ExperimentsScreen() {
   const noun = audienceNoun(m?.audience ?? "all");
   const sim = synthetic ? " (simulated)" : "";
   const P = result ? <b className="font-semibold text-dw-ink">{chance(result.probabilityToBeat)} chance</b> : null;
+  const ver = view.record ? ` as version ${view.record.generation}` : "";
   let lede: ReactNode;
-  if (!result || !m) lede = "The test just started: half of your shoppers see B. The first results land after one round of shoppers.";
+  if (!result || !m) lede = "Fizz just started this test: half of your shoppers see the new version. The first results land after one round of shoppers.";
   else if (running)
     lede = (
       <>
-        Test B has a {P} of beating A after {count(m.visitors)} {noun}
-        {sim}. Darwin ships it at {shipPct(rules.ship)}.
+        {P} the new version is better after {count(m.visitors)} {noun}
+        {sim}. Fizz ships it once it&apos;s {shipPct(rules.ship)} sure.
       </>
     );
   else if (view.outcome === "shipped")
     lede = (
       <>
-        B won with a {P} of beating A after {count(m.visitors)} {noun}
-        {sim}. Darwin shipped it{view.record ? ` as Gen ${view.record.generation}` : ""}.
+        The new version won with a {P} of being better after {count(m.visitors)} {noun}
+        {sim}. Dash shipped it{ver}.
       </>
     );
   else if (view.outcome === "lost")
     lede = (
       <>
-        B lost: only a {P} of beating A after {count(m.visitors)} {noun}
-        {sim}, so Darwin dropped it.
+        The new version lost: only a {P} of being better after {count(m.visitors)} {noun}
+        {sim}, so Fizz dropped it.
       </>
     );
   else if (view.outcome === "unclear")
     lede = (
       <>
         No clear winner after {count(m.visitors)} {noun}
-        {sim} ({P} for B), so the store stayed on A.
+        {sim} ({P} for the new version), so your store kept its current page.
       </>
     );
   else
     lede = (
       <>
         Stopped after {count(m.visitors)} {noun}
-        {sim} with a {P} for B.
+        {sim} with a {P} for the new version.
       </>
     );
 
   /* ---------------------------------------------------------------- actions (real APIs only) */
 
   const isLoopTest = running && loop.experimentId === exp.id;
+  const nextStep: { text: string; href?: string } =
+    view.outcome === "shipped" && view.record
+      ? { text: `Live as version ${view.record.generation}`, href: appHref(`/console/changes#gen-${view.record.generation}`, mock) }
+      : view.outcome === "lost"
+        ? { text: "Dropped. Your current page stayed" }
+        : view.outcome === "unclear"
+          ? { text: "Your current page stayed" }
+          : view.outcome === "stopped"
+            ? { text: "Stopped before a verdict" }
+            : isLoopTest && autopilot
+              ? { text: "Fizz reads the next round on autopilot" }
+              : isLoopTest
+                ? { text: "Next round when you let Fizz decide" }
+                : { text: "Waiting for the next round" };
   const canDecide = isLoopTest && (loop.phase === "experiment" || loop.phase === "decide");
   let actions: ReactNode = null;
   if (canDecide && autopilot) {
     actions = (
       <>
-        <span className="inline-flex h-12 items-center gap-2 rounded-full bg-dw-surface px-5 text-[15px] shadow-[0_0_0_1px_#EDE4D2]">
+        <span className={`inline-flex h-12 items-center gap-2 rounded-full bg-dw-surface px-5 text-[15px] ${DEPTH}`}>
           <LiveDot /> Autopilot is deciding
         </span>
         <PillButton tone="sand" size="lg" onClick={() => void setAutopilot(false)}>
@@ -197,11 +217,11 @@ export function ExperimentsScreen() {
           wide
           side="bottom"
           align="end"
-          tip={`Sends the next round of shoppers and reads the result. Darwin never ships early: B goes live only once it's ${shipPct(rules.ship)} sure, and gets dropped under ${pct0(rules.drop)}.`}
+          tip={`Sends the next round of shoppers and reads the result. Fizz never ships early: the new version goes live only once it's ${shipPct(rules.ship)} sure, and gets dropped under ${pct0(rules.drop)}.`}
         >
           <PillButton size="lg" onClick={() => void step()} disabled={stepping} aria-busy={stepping}>
             {stepping && <LoaderCircle className="animate-spin" aria-hidden />}
-            Let Darwin decide
+            Let Fizz decide
           </PillButton>
         </Tip>
       </>
@@ -234,57 +254,55 @@ export function ExperimentsScreen() {
     return (
       <>
         <span className={arm === "B" ? "font-semibold text-dw-ink" : ""}>{pct(s.conversionRate)} buy</span> · {count(s.visitors)} {noun}
+        {sim}
       </>
     );
   };
 
   const past = [...experiments].sort(newestFirst);
+  const wins = past.filter((e) => outcomeOf(e, loop) === "shipped").length;
+  const dropped = past.filter((e) => {
+    const o = outcomeOf(e, loop);
+    return o === "lost" || o === "unclear";
+  }).length;
+  const liveTest = auto?.status === "running" ? auto : undefined;
+  const tested = past.reduce((sum, e) => sum + (e.result ? measured(e.result).visitors : 0), 0);
+  const nTests = past.length;
+  const pageTitle = `${nTests} test${nTests === 1 ? "" : "s"}, ${wins} winner${wins === 1 ? "" : "s"}`;
+  const pageLede = liveTest
+    ? `Fizz is testing “${liveTest.name}” right now. Dash shipped ${wins} winner${wins === 1 ? "" : "s"} so far.`
+    : `Fizz ran ${nTests} test${nTests === 1 ? "" : "s"} and Dash shipped ${wins} winner${wins === 1 ? "" : "s"}.${dropped ? ` Fizz dropped ${dropped} that didn't clearly help.` : ""}`;
   const stagger = (i: number) => ({
     initial: reduce ? false : { opacity: 0, y: 14 },
     animate: { opacity: 1, y: 0 },
     transition: { delay: 0.05 + i * 0.07, duration: 0.45, ease: [0.2, 0.8, 0.2, 1] as const },
   });
+  const armCard = `h-full rounded-[28px] px-5 py-5 sm:px-6 ${CARD_FILL} ${DEPTH} [&>.relative]:gap-3`;
 
   return (
     <>
-      <PageHead mascot={<Mascot kind="experimenter" size={52} frame active={running} />} title={exp.name} lede={lede} right={actions} />
+      <PageHead mascot={<Mascot kind="experimenter" size={52} frame active={Boolean(liveTest)} />} title={pageTitle} lede={pageLede} right={actions} />
 
-      <div key={exp.id} className="flex flex-col gap-4">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <motion.div {...stagger(0)} className="min-w-0">
-            <Card tone="white" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="A, today">
-              <CardTitle right={<span className="text-[14px]">{armLine("A")}</span>}>A · {running ? "today" : "before"}</CardTitle>
-              <div className="flex flex-1 flex-col [&>*]:flex-1">
-                <SpecMock spec={view.control} other={exp.treatmentSpec} arm="A" page={view.page} />
-              </div>
-            </Card>
-          </motion.div>
-          <motion.div {...stagger(1)} className="min-w-0">
-            <Card tone="yellow" shape="designer" className={`h-full px-5 sm:px-6 ${CARD_FILL} [&>.relative]:gap-4`} aria-label="B, the fix">
-              <CardTitle right={<span className="text-[14px] text-[#4F4417]">{armLine("B")}</span>}>B · the fix</CardTitle>
-              <div className="flex flex-1 flex-col [&>*]:flex-1">
-                <SpecMock spec={exp.treatmentSpec} other={view.control} arm="B" page={view.page} />
-              </div>
-            </Card>
-          </motion.div>
-        </div>
+      <SummaryStrip
+        items={[
+          { key: "tests", tone: "pink", value: count(nTests), label: "A vs B tests Fizz ran", art: <Mascot kind="experimenter" size={44} frame active={Boolean(liveTest)} /> },
+          { key: "wins", tone: "olive", value: count(wins), label: "winners Dash shipped", art: <Mascot kind="shipper" size={44} frame active={false} />, href: appHref("/console/changes", mock), ariaLabel: `${wins} winners shipped. See changes` },
+          liveTest
+            ? {
+                key: "live",
+                tone: "yellow",
+                value: chance(liveTest.result?.probabilityToBeat),
+                label: "chance the new version is better, live test",
+                art: <Mascot kind="designer" size={44} frame active />,
+                title: liveTest.name,
+              }
+            : { key: "dropped", tone: "sand", value: count(dropped), label: "dropped, no clear gain", art: <Mascot kind="designer" size={44} frame active={false} /> },
+          { key: "tested", tone: "blue", value: count(tested), label: `shoppers tested${synthetic ? " (simulated)" : ""}`, art: <Mascot kind="observer" size={44} frame active={false} /> },
+        ]}
+      />
 
-        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <motion.div {...stagger(2)} className="min-w-0">
-            <ChanceCard points={points} shipAt={rules.ship} early={rules.early} drop={rules.drop} decided={result && result.decision !== "running" ? result.decision : undefined} live={running} />
-          </motion.div>
-          <motion.div {...stagger(3)} className="min-w-0">
-            <WhoBuysCard result={result} audience={m?.audience ?? "all"} synthetic={synthetic} />
-          </motion.div>
-        </div>
-
-        <motion.div {...stagger(4)}>
-          <WhatChangesCard rows={view.rows} source={ideaSource(view.proposal?.source)} />
-        </motion.div>
-      </div>
-
-      {past.length > 1 && (
-        <motion.div {...stagger(5)}>
+      <div className={LIST_DETAIL}>
+        <motion.div {...stagger(1)} className="min-w-0 max-lg:order-2">
           <PastExperiments
             experiments={past}
             loop={loop}
@@ -297,7 +315,53 @@ export function ExperimentsScreen() {
             }}
           />
         </motion.div>
-      )}
+
+        <div key={exp.id} id="dw-exp-detail" className="flex min-w-0 flex-col gap-4">
+          <motion.div {...stagger(0)}>
+            <ResultStrip title={exp.name} lede={lede} result={result} outcome={view.outcome} rules={rules} synthetic={synthetic} next={nextStep} />
+          </motion.div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <motion.div {...stagger(1)} className="min-w-0">
+              <Card tone="white" className={armCard} aria-label="Your current page">
+                <ArmHead title="Your current page" line={armLine("A")} />
+                <div className="flex flex-1 flex-col [&>*]:flex-1">
+                  <SpecMock spec={view.control} other={exp.treatmentSpec} arm="A" page={view.page} />
+                </div>
+              </Card>
+            </motion.div>
+            <motion.div {...stagger(2)} className="min-w-0">
+              <Card tone="yellow" shape="designer" className={armCard} aria-label="The new version">
+                <ArmHead title="The new version" line={<span className="text-[#4F4417]">{armLine("B")}</span>} />
+                <div className="flex flex-1 flex-col [&>*]:flex-1">
+                  <SpecMock spec={exp.treatmentSpec} other={view.control} arm="B" page={view.page} />
+                </div>
+              </Card>
+            </motion.div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <motion.div {...stagger(3)} className="min-w-0">
+              <ChanceCard points={points} shipAt={rules.ship} early={rules.early} drop={rules.drop} decided={result && result.decision !== "running" ? result.decision : undefined} live={running} />
+            </motion.div>
+            <motion.div {...stagger(4)} className="min-w-0">
+              <WhoBuysCard result={result} audience={m?.audience ?? "all"} synthetic={synthetic} />
+            </motion.div>
+          </div>
+
+          <motion.div {...stagger(5)}>
+            <WhatChangesCard rows={view.rows} source={ideaSource(view.proposal?.source)} />
+          </motion.div>
+        </div>
+      </div>
     </>
+  );
+}
+
+function ArmHead({ title, line }: { title: string; line: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{title}</h2>
+      <p className="num text-[13px] text-dw-ink/70">{line}</p>
+    </div>
   );
 }

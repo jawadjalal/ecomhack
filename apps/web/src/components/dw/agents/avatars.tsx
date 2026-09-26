@@ -22,7 +22,7 @@ export function BuyerAvatar({ name, size = 28, className }: { name: string; size
   return <Mascot kind={personaMascot(name)} size={size} frame active={false} title={name} className={className} />;
 }
 
-/** The store agent itself: the green shipper, framed in glass. */
+/** Mika, the store agent itself: the green mascot, framed in glass. */
 export function StoreAvatar({ size = 34, active = true }: { size?: number; active?: boolean }) {
-  return <Mascot kind="shipper" size={size} frame active={active} title="Your store agent" />;
+  return <Mascot kind="shipper" size={size} frame active={active} title="Mika, your store agent" />;
 }

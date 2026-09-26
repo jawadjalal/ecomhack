@@ -9,7 +9,7 @@ import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { Card, PillButton } from "../ui";
 
-/** Danger zone: put the store back to Gen 0 (inline confirm, no modal). */
+/** Danger zone: put the store back to the original page (inline confirm, no modal). */
 export function ResetCard({ className }: { className?: string }) {
   const { reset, loop, mock } = useDarwin();
   const experiments = useExperiments();
@@ -34,7 +34,7 @@ export function ResetCard({ className }: { className?: string }) {
   const gen = loop?.generation ?? 0;
   const tests = experiments?.length ?? 0;
   const facts = [
-    gen > 0 ? `${gen} shipped generation${gen === 1 ? "" : "s"}` : undefined,
+    gen > 0 ? `${gen} shipped version${gen === 1 ? "" : "s"}` : undefined,
     tests > 0 ? `${tests} test${tests === 1 ? "" : "s"}` : undefined,
     loop?.insights.length ? `${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"}` : undefined,
   ].filter(Boolean);
@@ -45,7 +45,7 @@ export function ResetCard({ className }: { className?: string }) {
         <div className="max-w-[36rem]">
           <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Start over</h2>
           <p className="mt-1.5 text-[14.5px] leading-snug text-dw-ink/75">
-            Puts {mock ? "this demo" : "the store"} back to the original page, Gen 0, and forgets every recorded visit, test and issue
+            Puts {mock ? "this demo" : "the store"} back to the original page (version 0) and forgets every recorded visit, test and issue
             {facts.length ? <> (right now: {facts.join(", ")})</> : null}. Your GitHub and Whop connections stay.
           </p>
         </div>
@@ -101,7 +101,7 @@ export function DemoCard({ className }: { className?: string }) {
   return (
     <Card tone="lilac" shape="experimenter" corner="br" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Demo mode">
       <div className="flex items-start gap-4">
-        <Mascot kind="experimenter" size={48} frame active />
+        <Mascot kind="experimenter" size={48} frame active title="Fizz, the tester" />
         <div className="min-w-0 flex-1">
           <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Demo mode</h2>
           <p className="mt-1.5 text-[14.5px] leading-snug text-[#3B3263]">

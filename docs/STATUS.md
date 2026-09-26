@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 14:30 UTC (demo-mode agent, PR "Demo store mode")
+Last updated: 2026-09-26 15:00 UTC (Telegram tools via runAssistant)
 
 ---
 
@@ -105,6 +105,12 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Done:** `GET /api/briefing`, `POST /api/briefing/act`, `docs/GROK_BOT.md`, xAI → OpenRouter fallback.
 - **Left to do:** set `XAI_API_KEY` on Vercel and run the real bot; a loop test can't be shipped from chat while running (needs `POST /api/loop/decide`).
 
+### Telegram  🟡
+- **Done:** `POST /api/telegram` accepts Bot API updates. Chats in `TELEGRAM_ALLOWED_CHAT_IDS` go through `runAssistant` (the console assistant, `POST /api/assistant`): every message, same tools, yes/no before ship / autopilot / reset, tool summaries as text. With the allowlist empty, messages stay on `ask()` (`POST /api/ask`) and `/help` says tools are off. Secret header, one reply with the chat id when a chat is not listed, typing, MarkdownV2, 4096 split, `/start` and `/help`. History per chat (including a pending confirm) in the process KV, and in Supabase `telegram_chats` when configured (migration `0002`; errors fall back to memory). `npm run telegram:setup` and `GET /api/telegram` register the webhook.
+- **Left to do:** set the three env vars on Vercel (put your chat id in the allowlist), apply `0002_telegram_chats.sql` if history should survive cold starts, register the webhook, send `/start`. `src/lib/status/roadmap.ts` is not on main, so the in-app "what's left" mirror was not updated.
+- **Limitations:** without Supabase, history and an unanswered yes/no reset across serverless instances. An empty allowlist still lets any chat spend the LLM key on answers. Tool use requires the allowlist, so a public bot cannot step the loop.
+- **Next-run ideas:** inline Yes/No buttons instead of a text reply; edit one message in place when the answer is long.
+
 ### Lead agent: ⌘K, bottom chat, WebMCP  🟡
 - **In progress:** one typed command layer (`src/lib/commands`) used by ⌘K, the bottom prompt-bar chat on every screen, and WebMCP (`navigator.modelContext`) so a browser agent can navigate, build dashboards, simulate traffic, roll back, draft personalizations, ship/stop tests. `window.darwin.run(name, input)` for automation.
 - **Left to do:** every new user-facing action must be added as a command (rule in AGENTS.md).
@@ -138,12 +144,13 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 15:15 UTC — merge #46 into main.** One crew naming everywhere: Darwin (Lead), Iris (Watcher), Pixel (Designer), Fizz (Tester), Dash (Shipper); Mika (store agent) and Grok (teammate) unchanged. Main's redesigned screens kept; `components/dw/mascot.tsx` renders the animated set with the same API.
+- **2026-09-26 15:00 UTC — telegram.** Allowlisted Telegram chats now call `runAssistant` (same tools as the console assistant): step the loop, experiments, ship, autopilot, reset, with yes/no before side effects. Empty allowlist stays answer-only via `ask()` and `/help` says so. Still open: set the allowlist on Vercel.
+- **2026-09-26 14:45 UTC — telegram.** Text Darwin from Telegram through the Overview Ask Darwin chat (`ask` / `POST /api/ask` from merged PR #37), not a second assistant. Webhook secret, chat allowlist, typing, MarkdownV2, 4096 split, per-chat history (KV, Supabase when configured). Still open: set env on Vercel and register the webhook; not connected to the tool-using `/api/assistant` (PR #36). `roadmap.ts` is not on main.
+- **2026-09-26 14:37 UTC — words + crew pass (subagent).** Crew names in the app: Iris (Watcher), Darwin (Lead), Pixel (Designer), Fizz (Tester), Dash (Shipper), Mika (store agent). Plain words on Settings, Store agent, Dashboards, Personalize, Traffic, More menu and landing leftovers (no "A/B", "Gen N", "synthetic", "pull request", provider/model names; protocol names kept small and muted for judges). Open: lib-generated sentences (lever reasons, autopilot log, dashboard titles) still use some old words; Next-run idea: move those strings to a shared plain-words helper.
 - **2026-09-26 UTC — mascots (main session).** Every screen now uses the animated team mascots: `components/dw/mascot.tsx` keeps its API but renders the animated SVGs (same body size, so no layout moved). Darwin is the crowned leader everywhere the purple disc stood for him (logo, chats, empty states, "Built-in rules"); the loop crew on Issues reads Iris · Darwin · Pixel · Fizz · Dash; Darwin thinks while the bottom chat, the Overview chat, dashboards and traffic wait on an answer; clicking any mascot plays its tap reaction; `active={false}` holds a still pose. Favicon, `icon.svg` and `apple-icon.png` are Darwin's crowned logo. Open: shopper/buyer avatars still borrow crew shapes (e.g. a ChatGPT buyer shows the shipper diamond); the analyst disc is only a persona avatar now.
-
 - **2026-09-26 UTC — team (agent team backend).** Shipped `lib/team` (roster, per-agent tools, orchestrator with concurrent delegation, group chats, ask, confirm gate), `/api/team/**` NDJSON API, `runToolLoop` + OpenRouter/APINex routing in `lib/llm/client.ts` (default model now `deepseek/deepseek-v4.1-flash`), repo editing in `lib/github/edit.ts`. Open: panel UI, command-layer registration, live LLM check outside the sandbox.
-
 - **2026-09-26 UTC — onboarding (main session).** Onboarding now talks only through Darwin (the new red crowned leader mascot), with a "Meet your team" stage that introduces the four specialists and their tools; the handoff's animated mascots are in `public/mascots` with a calm idle (`scripts/mascots/calm-idle.mjs`). Open: the console screens still use the old static crew.
-
 - **2026-09-26 14:30 UTC — demo-mode agent.** Demo store mode: /store is PACE end to end (no Whop strip / "STORE" brand), boot fills the console with labelled simulated shoppers (fresh → Gen 1 + test live; restart → one refill round), onboarding "Skip: explore with the demo store", "Demo store · Connect your site" note on every console page, dashboards default to the demo store's plan, North Trail seeded for Personalize/Traffic, Whop server key counts as connected, store agent never named `biz_…`, `explore_demo_store` assistant tool. Not touched (other agent's files): Overview lede while paused, conversion card sources, `roadmap.ts`. Still open: curl/headless hits on the agent API show as agent sessions.
 - **2026-09-26 13:59 UTC — readiness agent.** `/readiness` + certificate page restyled to the cream design (hero, loading crew, error state, score / agents-can-do / fixes / CTA to onboarding, Grok certify panel from #36 kept and restyled); screenshots at 1440×900 and 390×844, no horizontal overflow. Open: readiness command for the lead agent, prefill onboarding with the audited URL.
 - **2026-09-26 13:40 UTC — lead agent.** Redesign of every screen (PR #37), Grok teammate, ACP/MCP agent checkout, rollback, owner bug list fixed (double payments, invented claims, rejected GitHub token, RPV tile, mobile overflow, dead store buttons). In progress: above-the-fold pass, lead agent (⌘K / chat / WebMCP), brutal judge review.
