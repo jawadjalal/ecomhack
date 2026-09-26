@@ -96,7 +96,9 @@ only the darwin.js tag.
 3. **Send 500 test visitors** two or three times (labelled synthetic) → the tests fill with results and a chance-to-beat.
 4. Or just flip **Autopilot** (it turns simulated **Traffic** on if the site has none): within a minute Darwin starts a
    test per traffic source, ships the first winner and logs why in *Darwin's decisions*; the preview reloads as it goes.
-5. Line: *"Same loop, but on any store: one script tag, and the page adapts to where each shopper came from."*
+5. Flip **Heatmap** and switch between **Social** and **AI assistants**: social visitors poke the headline (rage clicks)
+   and close the popup; AI-referred visitors go straight for the buy buttons.
+6. Line: *"Same loop, but on any store: one script tag, and the page adapts to where each shopper came from."*
 
 ## What typically happens (heuristic mode)
 

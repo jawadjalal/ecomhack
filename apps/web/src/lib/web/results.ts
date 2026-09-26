@@ -41,8 +41,9 @@ function siteOf(e: AnalyticsEvent): string | undefined {
   return typeof s === "string" ? s : undefined;
 }
 
-const PREVIEW = /[?&]darwin_(source|variant|q)=/;
-const isPreview = (u: unknown) => typeof u === "string" && PREVIEW.test(u);
+const PREVIEW = /[?&]darwin_(source|variant|q|preview)=/;
+/** Pages opened by the console's "view as" previews: not real visits. */
+export const isPreview = (u: unknown) => typeof u === "string" && PREVIEW.test(u);
 
 function isSource(v: unknown): v is TrafficSource {
   return typeof v === "string" && (TRAFFIC_SOURCES as readonly string[]).includes(v);

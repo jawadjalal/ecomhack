@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { errorResponse, listRules, MAX_SIM_VISITORS, readJson, requestOrigin, SiteSchema, simulateWebTraffic, siteUrl, webState } from "@/lib/web";
+import { errorResponse, listRules, MAX_SIM_VISITORS, pageOutline, readJson, requestOrigin, SiteSchema, simulateWebTraffic, siteUrl, webState } from "@/lib/web";
 
 const SimSchema = z.object({ site: SiteSchema, visitors: z.number().int().min(1).max(MAX_SIM_VISITORS).default(500) });
 
@@ -13,7 +13,8 @@ export async function POST(req: Request) {
   try {
     const { site, visitors } = SimSchema.parse(body);
     const url = siteUrl(site, requestOrigin(req), webState(site).overview.url) ?? `https://${site}/`;
-    return Response.json(simulateWebTraffic({ site, visitors, rules: listRules(site), url }));
+    const outline = await pageOutline(url); // cached 5 min; lets simulated visitors click real elements
+    return Response.json(simulateWebTraffic({ site, visitors, rules: listRules(site), url, outline }));
   } catch (err) {
     return errorResponse(err);
   }

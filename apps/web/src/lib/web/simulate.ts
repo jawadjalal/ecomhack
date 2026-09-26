@@ -8,8 +8,9 @@
  *
  * This is a model, not evidence. Every event is marked `synthetic: true` and the console labels it.
  */
-import type { AnalyticsEventInput, TrafficSource, WebChange, WebRule, WebSimulateResponse } from "@/lib/contracts";
+import type { AnalyticsEventInput, PageElement, TrafficSource, WebChange, WebRule, WebSimulateResponse } from "@/lib/contracts";
 import { track } from "@/lib/analytics/store";
+import { pickSelector } from "./drafts";
 import { EXPOSURE_EVENT } from "./results";
 import { assignWebVariant, classifySource, fillValue, matchesAudience, type Segment } from "./segment";
 
@@ -70,6 +71,38 @@ export function changeEffect(change: WebChange, seg: Segment): number {
   }
 }
 
+/** How likely each source is to click things other than buying (the heatmap differs by source). */
+const CLICKS: Record<TrafficSource, { popup: number; nav: number; hero: number; rage: number }> = {
+  ai: { popup: 0.08, nav: 0.12, hero: 0.05, rage: 0.01 },
+  search: { popup: 0.22, nav: 0.3, hero: 0.1, rage: 0.02 },
+  social: { popup: 0.38, nav: 0.12, hero: 0.28, rage: 0.06 },
+  paid: { popup: 0.3, nav: 0.2, hero: 0.2, rage: 0.04 },
+  email: { popup: 0.04, nav: 0.35, hero: 0.08, rage: 0.01 },
+  referral: { popup: 0.25, nav: 0.25, hero: 0.12, rage: 0.02 },
+  direct: { popup: 0.15, nav: 0.3, hero: 0.06, rage: 0.02 },
+};
+
+interface Targets {
+  popup?: PageElement;
+  nav?: PageElement;
+  hero?: PageElement;
+  cart?: PageElement;
+  checkout?: PageElement;
+}
+
+/** Real elements from the page's outline for synthetic visitors to click. */
+function clickTargets(outline: PageElement[]): Targets {
+  const bySelector = (sel: string) => outline.find((e) => e.selector === sel);
+  const cartSel = pickSelector("button", outline);
+  return {
+    popup: outline.find((e) => e.tag === "button" && (/close|dismiss/i.test(e.selector) || e.text === "×")),
+    nav: outline.find((e) => e.tag === "a"),
+    hero: outline.find((e) => e.tag === "h1"),
+    cart: bySelector(cartSel),
+    checkout: outline.find((e) => /checkout/i.test(e.text) && e.selector !== cartSel),
+  };
+}
+
 function landing(source: TrafficSource, base: string, rand: () => number): { url: string; referrer?: string } {
   const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
   const u = new URL(base);
@@ -104,13 +137,23 @@ function landing(source: TrafficSource, base: string, rand: () => number): { url
  * Send `visitors` synthetic visitors through the site's live rules. `rules` are the site's rules
  * (only running and shipped ones are live, as in the runtime); `url` is the page they land on.
  */
-export function simulateWebTraffic(opts: { site: string; visitors: number; rules: WebRule[]; url: string; seed?: number; now?: number }): WebSimulateResponse {
+export function simulateWebTraffic(opts: {
+  site: string;
+  visitors: number;
+  rules: WebRule[];
+  url: string;
+  /** The page's elements (outline.ts): when given, visitors also click them (for the heatmap). */
+  outline?: PageElement[];
+  seed?: number;
+  now?: number;
+}): WebSimulateResponse {
   const n = Math.max(1, Math.min(MAX_SIM_VISITORS, Math.floor(opts.visitors)));
   const rand = mulberry32(opts.seed ?? Date.now());
   const live = opts.rules.filter((r) => r.status === "running" || r.status === "shipped");
   const start = opts.now ?? Date.now();
   const batch = Math.floor(rand() * 1e9).toString(36);
   const events: AnalyticsEventInput[] = [];
+  const targets = clickTargets(opts.outline ?? []);
   let orders = 0;
 
   for (let i = 0; i < n; i++) {
@@ -146,10 +189,32 @@ export function simulateWebTraffic(opts: { site: string; visitors: number; rules
       });
       if (variant === "treatment") for (const c of rule.changes) lift *= changeEffect(c, seg);
     }
+    const click = (t: PageElement | undefined, k: number, event = "$autocapture") =>
+      t &&
+      events.push({
+        event,
+        distinct_id: distinctId,
+        timestamp: ts(k),
+        properties: { ...base, $event_type: "click", $el_tag: t.tag, $el_text: t.text.slice(0, 64), $selector: t.selector },
+      });
+    const c = CLICKS[seg.source];
+    if (rand() < c.popup) click(targets.popup, 1);
+    if (rand() < c.nav) click(targets.nav, 1);
+    if (rand() < c.hero) click(targets.hero, 1);
+    if (rand() < c.rage && targets.hero) {
+      // Three quick clicks on something that isn't a link: a "dead click" frustration signal.
+      for (let k = 0; k < 3; k++) click(targets.hero, 1);
+      click(targets.hero, 1, "$rageclick");
+    }
+
     const p = Math.min(0.5, BASE[seg.source] * Math.min(lift, 1.9));
     const addToCart = rand() < Math.min(0.9, p * 3.2);
-    if (addToCart) events.push({ event: "product_added", distinct_id: distinctId, timestamp: ts(2), properties: { ...base } });
+    if (addToCart) {
+      click(targets.cart, 2);
+      events.push({ event: "product_added", distinct_id: distinctId, timestamp: ts(2), properties: { ...base } });
+    }
     if (addToCart && rand() < p / Math.min(0.9, p * 3.2)) {
+      click(targets.checkout, 3);
       orders++;
       const revenue = 8000 + Math.floor(rand() * 8) * 500;
       events.push({ event: "order_completed", distinct_id: distinctId, timestamp: ts(3), properties: { ...base, revenue } });

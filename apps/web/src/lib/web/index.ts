@@ -26,7 +26,8 @@ export {
   WebRulePatchSchema,
   MAX_RULES_PER_SITE,
 } from "./store";
-export { computeSite, knownSites, stripPreviewParams, EXPOSURE_EVENT } from "./results";
+export { computeSite, knownSites, stripPreviewParams, isPreview, EXPOSURE_EVENT } from "./results";
+export { computeHeatmap, MAX_HEATMAP_ELEMENTS } from "./heatmap";
 export { draftRule, heuristicDraft, suggestRules, rankSources, ideaDraft, ideasFor, PLAYBOOK, FOLLOW_UPS } from "./drafts";
 export { getAutopilot, setAutopilot, stepAutopilot, resetAutopilot, judge, AUTOPILOT } from "./autopilot";
 export { pageOutline, outlineFromHtml } from "./outline";

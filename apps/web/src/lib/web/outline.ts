@@ -57,7 +57,7 @@ export function outlineFromHtml(html: string): PageElement[] {
     const attrs = m[2];
     const cls = attr(attrs, "class") ?? "";
     if (m[1].toLowerCase() === "input" && /type\s*=\s*["']?submit/i.test(attrs)) add(m.index ?? 0, "input", attrs, attr(attrs, "value") ?? "");
-    if (m[1].toLowerCase() === "a" && /\b(btn|button|cta)\b/i.test(cls)) {
+    if (m[1].toLowerCase() === "a" && /\b(btn|button|cta)\b|shop|buy/i.test(cls)) {
       const inner = body.slice((m.index ?? 0) + m[0].length).split(/<\/a>/i)[0];
       add(m.index ?? 0, "a", attrs, inner);
     }
