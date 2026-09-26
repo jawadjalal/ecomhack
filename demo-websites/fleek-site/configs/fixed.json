@@ -1,0 +1,56 @@
+{
+  "version": 6,
+  "label": "Gen 6: example of every fix Darwin can ship",
+  "hero": {
+    "headline": "Vintage stock, by the bundle",
+    "subheadline": "Wholesale bundles from verified vintage suppliers. Up to 50% off this week across hundreds of bundles.",
+    "ctaText": "Shop bestsellers",
+    "layout": "fullbleed",
+    "showSocialProof": true
+  },
+  "announcement": {
+    "enabled": true,
+    "text": "Free UK freight on orders over £300 · customs handled"
+  },
+  "productGrid": {
+    "columns": 4,
+    "showRatings": true,
+    "showQuickAdd": true,
+    "sort": "bestselling"
+  },
+  "productPage": {
+    "ctaText": "Add bundle to cart",
+    "ctaPosition": "sticky",
+    "showReviews": true,
+    "showSizeGuide": true,
+    "showDeliveryEstimate": true,
+    "showReturnsPolicy": true,
+    "urgency": "low-stock",
+    "trustBadges": true
+  },
+  "cart": {
+    "showShippingUpfront": true,
+    "freeShippingThreshold": 30000,
+    "upsell": true
+  },
+  "checkout": {
+    "steps": 1,
+    "guestCheckout": true,
+    "expressPay": true
+  },
+  "theme": {
+    "accent": "#f8c642",
+    "radius": "md"
+  },
+  "agentSurface": {
+    "structuredData": true,
+    "exposeStock": true,
+    "exposeDeliveryEta": true,
+    "exposeReturnPolicy": true,
+    "exposeLandedPrice": true,
+    "negotiation": {
+      "enabled": true,
+      "maxDiscountPct": 10
+    }
+  }
+}
