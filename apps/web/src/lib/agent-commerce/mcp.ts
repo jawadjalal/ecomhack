@@ -33,6 +33,8 @@ interface McpSession {
 }
 
 const MAX_MCP_SESSIONS = 1000;
+/** JSON-RPC batch limit: enough for any real client, small enough that one request can't flood the store. */
+const MAX_BATCH = 20;
 const g = globalThis as unknown as { __darwinMcpSessions?: Map<string, McpSession> };
 const sessions = (): Map<string, McpSession> => (g.__darwinMcpSessions ??= new Map());
 
@@ -240,6 +242,7 @@ export async function handleMcpPost(rawBody: string, headers: Headers): Promise<
 
   if (Array.isArray(parsed)) {
     if (!parsed.length) return out(400, err(null, RPC.invalidRequest, "Invalid Request: empty batch"));
+    if (parsed.length > MAX_BATCH) return out(400, err(null, RPC.invalidRequest, `Invalid Request: batch too large (max ${MAX_BATCH})`));
     const responses: JsonRpcResponse[] = [];
     // Sequential on purpose: tool calls share a cart.
     for (const msg of parsed) {

@@ -40,7 +40,7 @@ import { getExperiment, listExperiments, resetExperiments, saveExperiment } from
 import { eventStore } from "@/lib/analytics/store";
 import { getAnalyticsSummary } from "@/lib/analytics/summary";
 import { simulateTraffic, type SimulationOptions, type SimulationResult } from "@/lib/simulator";
-import { openSpecPR, type PullRequestResult, type RepoRef } from "@/lib/github";
+import { getTargetRepo, openSpecPR, type PullRequestResult, type RepoRef } from "@/lib/github";
 import { AGENT_KV_KEYS } from "@/lib/agent-commerce";
 import { llmAvailable, llmLabel } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
@@ -110,7 +110,8 @@ export function loopConfigFromEnv(): LoopConfig {
     interimRejectThreshold: 0.02,
     allocation: 0.5,
     exploreEvery: envNum("DARWIN_EXPLORE_EVERY", 3),
-    targetRepo: process.env.DARWIN_TARGET_REPO?.trim() || "jawadjalal/ecomhack",
+    // Unset by default: winners go to the repo the merchant connected (see shipTarget()).
+    targetRepo: undefined,
     seed: envNum("DARWIN_SEED", 42),
   };
 }
@@ -143,6 +144,14 @@ function resolveDeps(o: LoopOverrides = {}): LoopDeps {
     useLlm: o.useLlm ?? llmAvailable(),
     config: { ...loopConfigFromEnv(), ...o.config },
   };
+}
+
+/** Placeholder repo for dry-run PR previews when no repo is connected (never a real team repo). */
+const DEMO_REPO: RepoRef = { owner: "pace-running", repo: "storefront" };
+
+/** Where winners ship: an explicit config override, else the connected repo / DARWIN_TARGET_REPO, else a demo preview. */
+function shipTarget(config: LoopConfig): RepoRef {
+  return (config.targetRepo ? parseRepo(config.targetRepo) : undefined) ?? getTargetRepo() ?? DEMO_REPO;
 }
 
 export function parseRepo(input: string): RepoRef | undefined {
@@ -718,9 +727,9 @@ async function ship(ctx: Persisted, deps: LoopDeps, exp: Experiment, result: Exp
   });
 
   let prUrl: string | undefined;
-  const repo = deps.config.targetRepo ? parseRepo(deps.config.targetRepo) : undefined;
+  const repo: RepoRef | undefined = shipTarget(deps.config);
   if (!repo) {
-    say(ctx, "shipper", "No DARWIN_TARGET_REPO configured, so no pull request this time.");
+    say(ctx, "shipper", "No repository connected, so no pull request this time.");
   } else {
     try {
       const pr = await deps.openSpecPR(repo, promoted, {

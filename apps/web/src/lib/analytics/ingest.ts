@@ -24,7 +24,7 @@ export class IngestError extends Error {
   }
 }
 
-const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
+const MAX_DECOMPRESSED_BYTES = 5 * 1024 * 1024;
 
 /** Events we accept but never store (too heavy / not behavioural). */
 export const DROPPED_EVENTS = new Set(["$snapshot", "$snapshot_items", "$$heatmap", "$heatmap", "$performance_event"]);

@@ -10,6 +10,7 @@
  *
  * Every event is classified server-side (human vs agent) before it is stored.
  */
+import { allowIngest, sanitizeClientEvents } from "@/lib/analytics/trust";
 import type { NextRequest } from "next/server";
 import { track } from "@/lib/analytics/store";
 import { classifyRequest } from "@/lib/analytics/classify";
@@ -29,7 +30,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-const MAX_BODY_BYTES = 20 * 1024 * 1024;
+const MAX_BODY_BYTES = 1024 * 1024;
 /** Where lazy-loaded posthog-js bundles (surveys.js, recorder.js…) live, as in PostHog's reverse-proxy setup. */
 const ASSET_HOST = (process.env.POSTHOG_ASSET_HOST || "https://us-assets.i.posthog.com").replace(/\/$/, "");
 const CAPTURE_PATHS = new Set(["e", "i/v0/e", "batch", "capture", "track", "engage"]);
@@ -66,7 +67,8 @@ async function capture(req: NextRequest, payload: () => Promise<unknown> | unkno
       userAgent: req.headers.get("user-agent"),
       sentAt,
     });
-    if (mapped.length) track(mapped);
+    // Over the per-IP budget: answer OK (posthog-js retries errors) but keep nothing.
+    if (mapped.length && allowIngest(req, mapped.length)) track(sanitizeClientEvents(mapped, "storefront"));
     return json(req, { status: 1 });
   } catch (err) {
     if (err instanceof IngestError) {

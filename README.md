@@ -88,6 +88,10 @@ npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
 
 ### Honest notes
 
+- **Security:** mission control and every state-changing API (loop, GitHub PRs, simulator, LLM shoppers, raw
+  analytics) sit behind `DARWIN_ADMIN_TOKEN` (sign in at `/console?key=…`). Set it on any public deploy. Browser
+  events can't claim to be synthetic or pick an experiment arm (attribution is re-derived server-side), and ingest is
+  size- and rate-limited.
 - **Simulated traffic in the demo:** the demo runs on simulated traffic, labelled everywhere. The simulator's behaviour model is
   documented in `src/lib/simulator/behavior-model.ts`, and `GET /api/simulate` returns it.
 - **Stricter bar for early stops:** experiments stop early only at 99.5% certainty; the final round uses 97.5%.

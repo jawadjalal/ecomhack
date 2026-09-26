@@ -9,6 +9,8 @@
  * - `?debug=1` shows the spec pill.
  * Any preview disables analytics so console iframes never pollute experiment data.
  */
+import { cookies } from "next/headers";
+import { ADMIN_COOKIE, isAdminCredential } from "@/lib/auth/admin";
 import type { PageSpec } from "@/lib/contracts";
 import type { StoreAnalyticsConfig } from "./analytics";
 import { attributionProps } from "@/lib/spec/resolve";
@@ -41,7 +43,9 @@ export async function getStoreContext(searchParams?: Promise<SearchParams> | Sea
 
   const forced = query.variant === "control" || query.variant === "treatment" ? query.variant : undefined;
   const visitor = await getVisitor(forced ?? null);
-  const previewSpec = decodePreviewSpec(query.previewSpec);
+  // Previews render arbitrary copy on the store's own URL, so only mission control (admin) may use them.
+  const admin = isAdminCredential((await cookies()).get(ADMIN_COOKIE)?.value);
+  const previewSpec = admin ? decodePreviewSpec(query.previewSpec) : null;
   const spec = previewSpec ?? visitor.spec;
   const preview = Boolean(previewSpec || forced || query.preview === "1");
   const debug = query.debug === "1";

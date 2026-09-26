@@ -23,20 +23,48 @@ const DATA_DIR = process.env.DARWIN_DATA_DIR || path.join(process.cwd(), ".data"
 const FILE = path.join(DATA_DIR, "events.ndjson");
 const PERSIST = process.env.DARWIN_PERSIST !== "0";
 const PERSIST_SYNTHETIC = process.env.DARWIN_PERSIST_SYNTHETIC === "1";
+/** Events bigger than this (serialized) are dropped: nothing we track legitimately comes close. */
+export const MAX_EVENT_BYTES = 32 * 1024;
+/** The NDJSON file is rewritten from memory once it holds this many lines, so it can't grow forever. */
+const MAX_FILE_LINES = Math.max(MAX_EVENTS * 1.5, 1000);
+/** A file bigger than this is set aside on start instead of being read (a huge readFileSync throws). */
+const MAX_FILE_BYTES = 256 * 1024 * 1024;
 
 class MemoryEventStore implements EventStore {
   private events: AnalyticsEvent[] = [];
   private index = new Map<string, number>(); // uuid -> absolute position
   private offset = 0; // absolute position of events[0]
+  private fileLines = 0;
 
   constructor() {
     if (!PERSIST) return;
     try {
+      if (fs.statSync(FILE).size > MAX_FILE_BYTES) {
+        fs.renameSync(FILE, `${FILE}.${Date.now()}.bak`);
+        console.warn("[events] events.ndjson was too large to load; moved it aside and started fresh");
+        return;
+      }
       const lines = fs.readFileSync(FILE, "utf8").split("\n").filter(Boolean);
-      for (const line of lines.slice(-MAX_EVENTS)) this.push(JSON.parse(line));
+      this.fileLines = lines.length;
+      for (const line of lines.slice(-MAX_EVENTS)) {
+        try {
+          this.push(JSON.parse(line));
+        } catch {
+          /* skip a corrupt line */
+        }
+      }
     } catch {
       /* no file yet */
     }
+  }
+
+  /** Rewrite the file with just the events still in memory (keeps it bounded). */
+  private compact() {
+    const keep = PERSIST_SYNTHETIC ? this.events : this.events.filter((e) => !e.properties.synthetic);
+    const tmp = `${FILE}.tmp`;
+    fs.writeFileSync(tmp, keep.length ? keep.map((e) => JSON.stringify(e)).join("\n") + "\n" : "");
+    fs.renameSync(tmp, FILE);
+    this.fileLines = keep.length;
   }
 
   private push(e: AnalyticsEvent) {
@@ -53,10 +81,15 @@ class MemoryEventStore implements EventStore {
   append(inputs: AnalyticsEventInput[]): AnalyticsEvent[] {
     const now = new Date().toISOString();
     const out: AnalyticsEvent[] = [];
+    let oversized = 0;
     for (const i of inputs) {
       // SDK retries resend the same uuid; keep the first copy.
       if (i.uuid && this.index.has(i.uuid)) continue;
       const e = { ...i, uuid: i.uuid ?? uuid(), timestamp: i.timestamp ?? now, properties: i.properties ?? {} };
+      if (JSON.stringify(e).length > MAX_EVENT_BYTES) {
+        oversized++;
+        continue;
+      }
       this.push(e);
       out.push(e);
     }
@@ -67,10 +100,13 @@ class MemoryEventStore implements EventStore {
       try {
         fs.mkdirSync(DATA_DIR, { recursive: true });
         fs.appendFileSync(FILE, toPersist.map((e) => JSON.stringify(e)).join("\n") + "\n");
+        this.fileLines += toPersist.length;
+        if (this.fileLines > MAX_FILE_LINES) this.compact();
       } catch (err) {
         console.warn("[events] persist failed", err);
       }
     }
+    if (oversized) console.warn(`[events] dropped ${oversized} event(s) over ${MAX_EVENT_BYTES} bytes`);
     if (out.length) mirrorEvents(out);
     return out;
   }

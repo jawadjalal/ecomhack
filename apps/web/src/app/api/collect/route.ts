@@ -1,3 +1,4 @@
+import { allowIngest, sanitizeClientEvents } from "@/lib/analytics/trust";
 import { z } from "zod";
 import type { AnalyticsEventInput } from "@/lib/contracts";
 import { classifyVisitor } from "@/lib/analytics/classify";
@@ -94,6 +95,8 @@ export async function POST(req: Request) {
       },
     };
   });
-  const stored = track(events);
+  if (!allowIngest(req, events.length)) return json({ error: "Too many events" }, 429);
+  // Other sites' events never count towards Darwin's experiments.
+  const stored = track(sanitizeClientEvents(events, "external"));
   return json({ ok: true, count: stored.length });
 }
