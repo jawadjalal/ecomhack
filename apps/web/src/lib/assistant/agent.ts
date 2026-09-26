@@ -217,6 +217,7 @@ export function routeIntent(message: string): RoutedIntent {
     const brief = text.match(/\b(?:for|looking for|to buy|wants?)\s+(.{3,200})$/i)?.[1];
     return { calls: [{ tool: "send_test_shopper", args: brief ? { brief } : {} }] };
   }
+  if (/\bdemo (store|mode|data)\b|\bis (this|it|any of this) real\b|\bconnect(ed)? (my|a|your) (site|store)\b/.test(t)) return { calls: [{ tool: "explore_demo_store", args: {} }] };
   if (/\bagent (funnel|sales|conversations?)\b|\ba2a\b|\bstore agent\b/.test(t)) return { calls: [{ tool: "agent_funnel", args: {} }] };
 
   if (/\b(step|advance|next phase|run the loop|run loop|kick off|start the loop|run a generation|next generation|improve)\b/.test(t)) {
@@ -262,7 +263,7 @@ function safeSnapshot(): StateSnapshot | undefined {
 }
 
 /** After these, a "what to do next in the loop" hint helps; after anything else it's noise. */
-const LOOP_TOOLS = new Set(["get_kpis", "loop_status", "step_loop", "list_experiments", "run_simulation", "reset_loop"]);
+const LOOP_TOOLS = new Set(["get_kpis", "loop_status", "step_loop", "list_experiments", "run_simulation", "reset_loop", "explore_demo_store"]);
 
 /** Reply built only from tool summaries + a next-step hint (heuristic path, and LLM failure fallback). */
 function composeReply(actions: ActionWithData[], snapshot: StateSnapshot | undefined, lead?: string): string {

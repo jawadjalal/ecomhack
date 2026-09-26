@@ -575,6 +575,7 @@ export function OnboardingApp() {
                       </button>
                     </div>
                   </div>
+                  <SkipToDemo onSkip={() => track("demo_store_chosen")} />
                 </motion.section>
               )}
 
@@ -1627,6 +1628,50 @@ const hostOf = (url: string) => {
     return url;
   }
 };
+
+/** Same key the console's provider reads: simulated shoppers keep arriving while the tab is open. */
+const CONSOLE_TRAFFIC_KEY = "darwin.console.traffic";
+/** Don't hold the merchant on this screen: the console shows the loop catching up if seeding takes longer. */
+const SKIP_WAIT_MS = 8000;
+
+/**
+ * "Skip: explore with the demo store". Fills the demo store with labelled simulated shoppers (POST /api/demo:
+ * Gen 1 live and a test running on a fresh store), turns the console's simulated traffic on, opens the console.
+ */
+function SkipToDemo({ onSkip }: { onSkip: () => void }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const skip = async () => {
+    if (busy) return;
+    setBusy(true);
+    onSkip();
+    try {
+      sessionStorage.setItem(CONSOLE_TRAFFIC_KEY, "1");
+    } catch {
+      /* storage blocked: the console offers "Send shoppers" instead */
+    }
+    const seed = fetch("/api/demo", { method: "POST", cache: "no-store" }).catch(() => undefined);
+    await Promise.race([seed, new Promise((r) => setTimeout(r, SKIP_WAIT_MS))]);
+    router.push("/console");
+  };
+  return (
+    <div className="flex flex-col items-center gap-1.5 text-center">
+      <button
+        type="button"
+        onClick={() => void skip()}
+        disabled={busy}
+        className="inline-flex h-10 items-center gap-2 rounded-full px-4 text-[14.5px] font-semibold text-dw-ink underline decoration-dw-ink/30 underline-offset-[4px] transition-colors hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none disabled:no-underline disabled:opacity-70"
+      >
+        {busy ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
+        {busy ? "Setting up the demo store…" : "Skip: explore with the demo store"}
+      </button>
+      <span className="max-w-[34rem] text-[13px] leading-snug text-dw-ink/55">
+        PACE, a running-shoe store (<Link href="/store" className="underline decoration-dw-ink/25 underline-offset-2 hover:decoration-dw-ink" target="_blank" rel="noreferrer">see it</Link>)
+        with simulated shoppers, labelled as such. Connect your own site any time.
+      </span>
+    </div>
+  );
+}
 
 /** The ways in that don't need GitHub. */
 function NoGithub({ onChoose }: { onChoose: () => void }) {

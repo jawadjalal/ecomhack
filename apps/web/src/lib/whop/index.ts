@@ -150,12 +150,26 @@ export async function connectWhop(opts: { apiKey?: string } = {}): Promise<WhopC
   return kvSet<WhopConnection>(KEY, {
     mode: "live",
     accountId,
-    title: title ?? accountId ?? "Whop business",
+    // Never the raw business id: the title becomes the store agent's public name.
+    title: title ?? "Whop business",
     // Whop doesn't always honour company_id for every key type: keep only this business's products.
     products: toProducts(raw.filter((p) => !accountId || !p.account?.id || str(p.account.id) === accountId)),
     connectedAt: now,
     notes,
   });
+}
+
+/**
+ * A WHOP_API_KEY on the server counts as connected, without the merchant pasting it again in onboarding:
+ * looks the business up once, so Settings says "Connected" and the store agent uses the business's name.
+ * No-op without a server key or when a live connection is already stored. Throws what connectWhop throws.
+ */
+export async function connectServerWhop(): Promise<WhopConnection | undefined> {
+  if (!serverKey()) return undefined;
+  const existing = getWhopStatus().connection;
+  // Older connections could be titled with the raw id: look the business up again.
+  if (existing?.mode === "live" && existing.title !== existing.accountId) return existing;
+  return connectWhop();
 }
 
 export function getWhopStatus(): WhopStatus {
