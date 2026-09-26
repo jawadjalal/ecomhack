@@ -175,6 +175,22 @@ export function AskChat({
             <div className="text-[13.5px] text-dw-ink/60">Your store&apos;s analyst</div>
           </div>
         </div>
+        {step < 2 && (
+          <button
+            type="button"
+            onClick={() => {
+              const recommended: Answers = { track: [...heard, ...(heard.includes("agents") ? [] : ["agents"])], note: "", where: ["website", "agents", ...(whop ? ["whop"] : [])] };
+              setTrack(recommended.track);
+              setNote("");
+              setWhere(recommended.where);
+              setStep(2);
+              onDone(recommended);
+            }}
+            className="h-9 rounded-full px-3.5 text-[13.5px] font-medium text-dw-ink/65 underline decoration-dw-ink/25 underline-offset-[3px] transition-colors hover:bg-dw-sand hover:text-dw-ink hover:decoration-dw-ink/60 focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+          >
+            Skip, use the recommended setup
+          </button>
+        )}
       </div>
 
       {prompt.trim() && <YouBubble text={prompt.trim()} />}
