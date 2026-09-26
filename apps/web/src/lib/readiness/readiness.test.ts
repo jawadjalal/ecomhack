@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { evaluate, type Artifacts, type Fetched } from "./checks";
-import { assertPublicUrl, blockedReason } from "./fetcher";
+import {
+  assertPublicUrl,
+  blockedReason,
+  expandIpv6,
+  safeFetch,
+} from "./fetcher";
 import { isAllowed, parseRobots } from "./robots";
 import { normaliseStoreUrl } from "./index";
 
@@ -217,6 +222,87 @@ describe("safety", () => {
     expect(blockedReason("fd00::1")).toMatch(/private/);
     expect(blockedReason("8.8.8.8")).toBeNull();
     expect(blockedReason("2606:4700::1111")).toBeNull();
+  });
+
+  it("judges IPv6 forms that embed an IPv4 address by that address (no ::ffff: bypass)", async () => {
+    vi.stubEnv("DARWIN_READINESS_ALLOW_LOCAL", "0");
+    try {
+      // The URL parser rewrites [::ffff:127.0.0.1] to [::ffff:7f00:1]: both notations must be blocked.
+      expect(new URL("http://[::ffff:169.254.169.254]/").hostname).toBe(
+        "[::ffff:a9fe:a9fe]",
+      );
+      for (const ip of [
+        "::ffff:127.0.0.1",
+        "::ffff:7f00:1",
+        "::ffff:a9fe:a9fe",
+        "0:0:0:0:0:ffff:a9fe:a9fe",
+        "::ffff:0:a00:1",
+        "::a9fe:a9fe",
+        "::127.0.0.1",
+        "64:ff9b::a9fe:a9fe",
+        "2002:a9fe:a9fe::1",
+        "2002:7f00:1::",
+        "::1",
+        "::",
+        "fe80::1%eth0",
+        "fec0::1",
+        "ff02::1",
+        "2001:0:4136:e378::1",
+        "not-an-ip",
+      ])
+        expect(blockedReason(ip), ip).not.toBeNull();
+      expect(blockedReason("::ffff:8.8.8.8")).toBeNull();
+      expect(blockedReason("64:ff9b::808:808")).toBeNull();
+      expect(blockedReason("2a00:1450:4009:81f::200e")).toBeNull();
+      expect(expandIpv6("::ffff:127.0.0.1")).toEqual([
+        0, 0, 0, 0, 0, 0xffff, 0x7f00, 1,
+      ]);
+      expect(expandIpv6("1:2:3")).toBeNull();
+      await expect(
+        assertPublicUrl("http://[::ffff:169.254.169.254]/latest"),
+      ).rejects.toThrow(/can't be checked/);
+      await expect(
+        assertPublicUrl("http://[::ffff:127.0.0.1]:3000/"),
+      ).rejects.toThrow(/loopback/);
+      await expect(assertPublicUrl("http://0x7f000001/")).rejects.toThrow(
+        /loopback/,
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("re-checks every redirect hop: a public page redirecting to a private address is never fetched", async () => {
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input);
+      seen.push(url);
+      if (url.startsWith("http://93.184.216.34/start"))
+        return new Response(null, {
+          status: 302,
+          headers: { location: "http://93.184.216.34/next" },
+        });
+      if (url.startsWith("http://93.184.216.34/next"))
+        return new Response(null, {
+          status: 301,
+          headers: {
+            location: "http://[::ffff:169.254.169.254]/latest/meta-data",
+          },
+        });
+      return new Response("SECRET", { status: 200 });
+    });
+    try {
+      const r = await safeFetch("http://93.184.216.34/start");
+      expect(seen).toEqual([
+        "http://93.184.216.34/start",
+        "http://93.184.216.34/next",
+      ]);
+      expect(r.status).toBe(0);
+      expect(r.body).toBe("");
+      expect(r.error).toMatch(/can't be checked/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("rejects non-http URLs and credentials, and normalises bare domains", async () => {

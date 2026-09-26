@@ -45,30 +45,79 @@ function allowLoopback(): boolean {
   );
 }
 
-/** Why an address may not be fetched, or null when it's public. */
+function v4Reason(v4: string): string | null {
+  if (inRange(v4, "127.0.0.0/8"))
+    return allowLoopback() ? null : "loopback address";
+  return PRIVATE_V4.some((c) => inRange(v4, c))
+    ? "private or reserved address"
+    : null;
+}
+
+/** Expand an IPv6 address (any notation, incl. a dotted IPv4 tail and a zone id) to 8 hextets, or null. */
+export function expandIpv6(ip: string): number[] | null {
+  let s = ip
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/%.*$/, "");
+  const dotted = s.match(/(\d+\.\d+\.\d+\.\d+)$/);
+  if (dotted) {
+    if (isIP(dotted[1]) !== 4) return null;
+    const n = ipv4ToInt(dotted[1]);
+    s = `${s.slice(0, -dotted[1].length)}${(n >>> 16).toString(16)}:${(n & 0xffff).toString(16)}`;
+  }
+  const halves = s.split("::");
+  if (halves.length > 2) return null;
+  const part = (x: string) => (x ? x.split(":") : []);
+  const head = part(halves[0]);
+  const tail = halves.length === 2 ? part(halves[1]) : [];
+  const fill = 8 - head.length - tail.length;
+  if (halves.length === 2 ? fill < 1 : fill !== 0) return null;
+  const all = [...head, ...Array(Math.max(0, fill)).fill("0"), ...tail];
+  if (all.length !== 8 || !all.every((h) => /^[0-9a-f]{1,4}$/.test(h)))
+    return null;
+  return all.map((h) => parseInt(h, 16));
+}
+
+const hextetsToV4 = (hi: number, lo: number) =>
+  [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join(".");
+
+/**
+ * Why an address may not be fetched, or null when it's public. IPv6 forms that embed an IPv4 address
+ * (mapped `::ffff:a.b.c.d` in any notation, compatible `::a.b.c.d`, translated, NAT64 `64:ff9b::/96`, 6to4
+ * `2002::/16`) are judged by the IPv4 address they carry, so `[::ffff:169.254.169.254]` (which the URL parser
+ * rewrites to `::ffff:a9fe:a9fe`) is blocked like the plain address.
+ */
 export function blockedReason(ip: string): string | null {
-  const v4 = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
-  if (isIP(v4) === 4) {
-    if (inRange(v4, "127.0.0.0/8"))
-      return allowLoopback() ? null : "loopback address";
-    return PRIVATE_V4.some((c) => inRange(v4, c))
-      ? "private or reserved address"
-      : null;
-  }
-  const v6 = ip.toLowerCase();
-  if (v6 === "::1") return allowLoopback() ? null : "loopback address";
+  if (isIP(ip) === 4) return v4Reason(ip);
+  const h = expandIpv6(ip);
+  if (!h) return "unrecognised address";
+  const zeros = (from: number, to: number) =>
+    h.slice(from, to).every((x) => x === 0);
+  if (zeros(0, 8)) return "private or reserved address"; // ::
+  if (zeros(0, 7) && h[7] === 1)
+    return allowLoopback() ? null : "loopback address"; // ::1
+  // IPv4-mapped ::ffff:0:0/96, IPv4-compatible ::/96, IPv4-translated ::ffff:0:0:0/96
+  if (zeros(0, 5) && (h[5] === 0xffff || h[5] === 0))
+    return v4Reason(hextetsToV4(h[6], h[7]));
+  if (zeros(0, 4) && h[4] === 0xffff && h[5] === 0)
+    return v4Reason(hextetsToV4(h[6], h[7]));
+  // NAT64 64:ff9b::/96 and 64:ff9b:1::/48
+  if (h[0] === 0x64 && h[1] === 0xff9b)
+    return (
+      v4Reason(hextetsToV4(h[6], h[7])) ??
+      (h[2] === 1 ? "private or reserved address" : null)
+    );
+  // 6to4 2002::/16 carries the IPv4 address in the next 32 bits
+  if (h[0] === 0x2002) return v4Reason(hextetsToV4(h[1], h[2]));
+  // Teredo 2001::/32 (obfuscated IPv4), unique-local fc00::/7, link-local fe80::/10, site-local fec0::/10, multicast ff00::/8
+  if (h[0] === 0x2001 && h[1] === 0) return "private or reserved address";
   if (
-    v6 === "::" ||
-    v6.startsWith("fc") ||
-    v6.startsWith("fd") ||
-    v6.startsWith("fe8") ||
-    v6.startsWith("fe9") ||
-    v6.startsWith("fea") ||
-    v6.startsWith("feb") ||
-    v6.startsWith("ff")
-  ) {
+    (h[0] & 0xfe00) === 0xfc00 ||
+    (h[0] & 0xffc0) === 0xfe80 ||
+    (h[0] & 0xffc0) === 0xfec0 ||
+    (h[0] & 0xff00) === 0xff00
+  )
     return "private or reserved address";
-  }
   return null;
 }
 
