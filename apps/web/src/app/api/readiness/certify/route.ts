@@ -3,12 +3,12 @@ import { z } from "zod";
 import { BlockedUrlError, certifyStore, clientKey, normaliseStoreUrl, recentCertificate, takeToken } from "@/lib/readiness";
 
 export const dynamic = "force-dynamic";
-/** Audit (~10s) + a bounded Grok trial (≤ 45s budget). */
+/** Audit (~10s) + a bounded AI agent trial (≤ 45s budget). */
 export const maxDuration = 90;
 
 const Body = z.object({ url: z.string().min(1).max(500) });
 
-/** Same URL within 10 minutes → the existing certificate (Grok costs credits). */
+/** Same URL within 10 minutes → the existing certificate (LLM calls cost credits). */
 const REUSE_MS = 10 * 60_000;
 const WINDOW_MS = 10 * 60_000;
 const MAX_PER_IP = 5;
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Too many certificates from this address. Try again in a few minutes." }, { status: 429 });
   }
   if (!takeToken("certify-global", "all", MAX_GLOBAL, GLOBAL_WINDOW_MS)) {
-    return Response.json({ error: "Grok is issuing a lot of certificates right now. Try again later." }, { status: 429 });
+    return Response.json({ error: "Darwin is issuing a lot of certificates right now. Try again later." }, { status: 429 });
   }
 
   try {

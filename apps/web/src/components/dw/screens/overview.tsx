@@ -12,7 +12,8 @@ import { PHASE_META } from "@/lib/console/format";
 import { useExperiments, useNow, useSessions, useSummary } from "@/lib/console/hooks";
 import { useDarwin } from "../provider";
 import { AbCard, AgentsCard, ConversionCard, FunnelCard } from "../overview/cards";
-import { DarwinChat, type Suggestion } from "../overview/chat";
+import { AssistantSuggestions } from "@/components/console/assistant-panel";
+import type { Suggestion } from "../overview/chat";
 import { EASE, Rise } from "../overview/fx";
 import { useFirstName, usePeopleEvents } from "../overview/hooks";
 import { ImpactStrip } from "../overview/impact";
@@ -205,7 +206,7 @@ export function OverviewScreen() {
         </>
       )}
 
-      <DarwinChat suggestions={suggestions} />
+      <AssistantSuggestions suggestions={suggestions} />
     </div>
   );
 }

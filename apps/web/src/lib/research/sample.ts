@@ -12,9 +12,24 @@ const S = (path: string) => `https://example.com/sample/${path}`;
 
 export function sampleSteps(): ResearchStep[] {
   return [
-    { id: "search", label: "Searching the web", status: "skipped", detail: "No TAVILY_API_KEY" },
-    { id: "read", label: "Reading competitor sites", status: "skipped", detail: "Sample data" },
-    { id: "summarise", label: "Summarising", status: "done", detail: "Sample data" },
+    {
+      id: "search",
+      label: "Searching the web",
+      status: "skipped",
+      detail: "No TAVILY_API_KEY",
+    },
+    {
+      id: "read",
+      label: "Reading competitor sites",
+      status: "skipped",
+      detail: "Sample data",
+    },
+    {
+      id: "summarise",
+      label: "Summarising",
+      status: "done",
+      detail: "Sample data",
+    },
   ];
 }
 
@@ -57,7 +72,10 @@ export function sampleReport(store: string, query: string): ResearchReport {
         strengths: ["Lowest prices in the set", "Frequent promo codes"],
         weaknesses: ["Shipping cost only revealed at checkout"],
         tactics: ["Discounts and promo codes", "Buy now, pay later"],
-        agentReadiness: { llmsTxt: true, notes: ["Publishes /llms.txt for AI agents"] },
+        agentReadiness: {
+          llmsTxt: true,
+          notes: ["Publishes /llms.txt for AI agents"],
+        },
         sources: [S("trailhead")],
       },
       {
@@ -75,28 +93,37 @@ export function sampleReport(store: string, query: string): ResearchReport {
       },
     ],
     trends: [
-      { text: "Sample trend: shoppers expect a delivery date, not just 'free shipping', before they add to bag.", sources: [S("trend-delivery")] },
-      { text: "Sample trend: AI assistants now shortlist products for shoppers and favour stores with machine-readable stock and delivery.", sources: [S("trend-agents")] },
+      {
+        text: "Sample trend: shoppers expect a delivery date, not just 'free shipping', before they add to bag.",
+        sources: [S("trend-delivery")],
+      },
+      {
+        text: "Sample trend: AI assistants now shortlist products for shoppers and favour stores with machine-readable stock and delivery.",
+        sources: [S("trend-agents")],
+      },
     ],
     suggestions: [
       {
         title: "Show the delivery date before the bag",
         why: "Two of three sample competitors lead with delivery.",
-        testIdea: "Show a free delivery banner with the threshold and delivery date above the add to cart button",
+        testIdea:
+          "Show a free delivery banner with the threshold and delivery date above the add to cart button",
         audience: "both",
         sources: [S("stridewell"), S("cadence")],
       },
       {
         title: "Give AI agents plain-text stock and delivery",
         why: "Only one sample competitor publishes llms.txt.",
-        testIdea: "For AI agent visitors, show price, stock and delivery date as plain text at the top of the product page",
+        testIdea:
+          "For AI agent visitors, show price, stock and delivery date as plain text at the top of the product page",
         audience: "agents",
         sources: [S("trailhead")],
       },
       {
         title: "Put the returns promise next to the price",
         why: "Generous returns are the sample leader's main hook.",
-        testIdea: "Add a line under the price: free 60-day returns, even if worn",
+        testIdea:
+          "Add a line under the price: free 60-day returns, even if worn",
         audience: "humans",
         sources: [S("stridewell")],
       },

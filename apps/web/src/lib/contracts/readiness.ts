@@ -60,7 +60,7 @@ export interface ReadinessReport {
 
 export type CertificateLevel = "gold" | "silver" | "bronze" | "none";
 
-/** One tool call Grok made during an MCP shopping trial. */
+/** One tool call the AI agent made during an MCP shopping trial. */
 export interface CertificateTrialStep {
   tool: string;
   args: Record<string, unknown>;
@@ -81,7 +81,7 @@ export interface CertificateCriterion {
 }
 
 export interface CertificateTrial {
-  /** "mcp": Grok shopped over the store's MCP endpoint. "page": Grok read the storefront pages. */
+  /** "mcp": the AI agent shopped over the store's MCP endpoint. "page": it read the storefront pages. */
   mode: "mcp" | "page";
   passed: boolean;
   summary: string;
@@ -104,7 +104,7 @@ export interface ReadinessCertificate {
   verdict: string;
   /** Absent for heuristic certificates (no LLM key, or the trial failed to run). */
   trial?: CertificateTrial;
-  /** llmLabel() of the model that judged it ("llm:grok-4"), or "heuristic". */
+  /** llmLabel() of the model that judged it ("llm:deepseek/deepseek-v4-flash"), or "heuristic". */
   model: string;
   /** True when the level comes from the audit score alone. */
   heuristic: boolean;

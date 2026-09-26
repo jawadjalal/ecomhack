@@ -13,7 +13,10 @@ export const MASCOT_CSS = `@keyframes dm-bob{0%,100%{transform:translateY(0)}50%
 .dm-bob{animation:dm-bob 2.6s ease-in-out infinite}
 .dm-eyes{transform-box:fill-box;transform-origin:center}
 .dm-live .dm-eyes{animation:dm-blink 4.4s ease-in-out infinite}
-@media (prefers-reduced-motion: reduce){.dm-bob,.dm-live .dm-eyes{animation:none}}`;
+@keyframes dm-think{0%,100%{transform:rotate(-7deg) translateY(0)}50%{transform:rotate(7deg) translateY(-6%)}}
+.dm-think{animation:dm-think .9s ease-in-out infinite;transform-origin:50% 80%}
+.dm-thinking .dm-eyes{animation:dm-blink 1.4s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.dm-bob,.dm-think,.dm-live .dm-eyes,.dm-thinking .dm-eyes{animation:none}}`;
 
 const n2 = (v: number) => Math.round(v * 100) / 100;
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -139,18 +142,41 @@ function layersFor(kind: MascotKind, simple: boolean): Layer[] {
   }
 }
 
-export function Mascot({ kind = "analyst", size = 32, active = false, className }: { kind?: MascotKind; size?: number; active?: boolean; className?: string }) {
+/** `active` bobs and blinks; `thinking` sways while the agent works (both off under prefers-reduced-motion). */
+export function Mascot({
+  kind = "analyst",
+  size = 32,
+  active = false,
+  thinking = false,
+  label,
+  className,
+}: {
+  kind?: MascotKind;
+  size?: number;
+  active?: boolean;
+  thinking?: boolean;
+  label?: string;
+  className?: string;
+}) {
   const [s0, s1, s2] = SHADES[kind];
   const layers = layersFor(kind, size < 20);
   return (
     <span
       role="img"
-      aria-label={NAMES[kind]}
+      aria-label={label ?? NAMES[kind]}
       className={cn("relative inline-block shrink-0", className)}
       style={{ width: size, height: size, filter: `drop-shadow(0 ${Math.max(1, Math.round(size / 40))}px ${Math.max(1, Math.round(size / 30))}px rgba(20,26,74,0.18))` }}
     >
-      <span className={cn("block size-full", active && "dm-bob")}>
-        <svg className={active ? "dm-live" : undefined} width="100%" height="100%" viewBox="-4 -4 108 108" style={{ overflow: "visible" }} aria-hidden>
+      <span className={cn("block size-full", thinking ? "dm-think" : active && "dm-bob")}>
+        <svg
+          className={cn((active || thinking) && "dm-live", thinking && "dm-thinking")}
+          width="100%"
+          height="100%"
+          viewBox="-4 -4 108 108"
+          shapeRendering="geometricPrecision"
+          style={{ overflow: "visible", display: "block" }}
+          aria-hidden
+        >
           <defs>
             <radialGradient id={`dm-shade-${kind}`} cx=".36" cy=".28" r=".8">
               <stop offset="0" stopColor={s0} />

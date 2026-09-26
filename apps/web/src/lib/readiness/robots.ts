@@ -13,7 +13,10 @@ interface Group {
   rules: Rule[];
 }
 
-export function parseRobots(text: string): { groups: Group[]; sitemaps: string[] } {
+export function parseRobots(text: string): {
+  groups: Group[];
+  sitemaps: string[];
+} {
   const groups: Group[] = [];
   const sitemaps: string[] = [];
   let current: Group | null = null;
@@ -59,19 +62,26 @@ function patternToRegex(pattern: string): RegExp {
 /** The group that applies to `agent` (a product token like "GPTBot"): its own group, else `*`. */
 function groupFor(groups: Group[], agent: string): Group[] {
   const token = agent.toLowerCase();
-  const own = groups.filter((g) => g.agents.some((a) => a !== "*" && token.includes(a)));
+  const own = groups.filter((g) =>
+    g.agents.some((a) => a !== "*" && token.includes(a)),
+  );
   if (own.length) return own;
   return groups.filter((g) => g.agents.includes("*"));
 }
 
-export function isAllowed(robots: ReturnType<typeof parseRobots>, agent: string, path: string): boolean {
+export function isAllowed(
+  robots: ReturnType<typeof parseRobots>,
+  agent: string,
+  path: string,
+): boolean {
   const rules = groupFor(robots.groups, agent).flatMap((g) => g.rules);
   let best: Rule | undefined;
   for (const rule of rules) {
     if (!patternToRegex(rule.pattern).test(path)) continue;
     const len = rule.pattern.replace(/\$$/, "").length;
     const bestLen = best ? best.pattern.replace(/\$$/, "").length : -1;
-    if (len > bestLen || (len === bestLen && rule.allow && !best!.allow)) best = rule;
+    if (len > bestLen || (len === bestLen && rule.allow && !best!.allow))
+      best = rule;
   }
   return best ? best.allow : true;
 }
@@ -84,9 +94,20 @@ export const ASSISTANT_AGENTS = [
   { token: "Claude-User", name: "Claude (browsing for a user)" },
   { token: "PerplexityBot", name: "Perplexity" },
   { token: "Perplexity-User", name: "Perplexity (browsing for a user)" },
-  { token: "Googlebot", name: "Google (incl. AI Overviews and Gemini shopping)" },
+  {
+    token: "Googlebot",
+    name: "Google (incl. AI Overviews and Gemini shopping)",
+  },
   { token: "Applebot", name: "Apple (Siri, Spotlight)" },
 ] as const;
 
 /** Model-training crawlers: blocking these is a legitimate business choice, so it isn't scored. */
-export const TRAINING_AGENTS = ["GPTBot", "ClaudeBot", "Google-Extended", "Applebot-Extended", "CCBot", "meta-externalagent", "Bytespider"] as const;
+export const TRAINING_AGENTS = [
+  "GPTBot",
+  "ClaudeBot",
+  "Google-Extended",
+  "Applebot-Extended",
+  "CCBot",
+  "meta-externalagent",
+  "Bytespider",
+] as const;
