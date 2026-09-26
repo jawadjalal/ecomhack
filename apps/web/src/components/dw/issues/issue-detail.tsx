@@ -249,7 +249,7 @@ function DetailBody({
               kind="designer"
               size={30}
               frame
-              active={row.status !== "queued"}
+              state={row.status === "test" ? "working" : row.status === "drafted" ? "thinking" : "idle"}
             />
             <span className="text-[14px] font-semibold">Pixel&apos;s fix</span>
             {row.status === "test" && (

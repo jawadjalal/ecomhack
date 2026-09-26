@@ -29,7 +29,7 @@ const messages = () => kvGet<Record<string, ChatMessage[]>>(MESSAGES_KEY, () => 
 export const directChatId = (agent: AgentId) => `chat_direct_${agent}`;
 
 function publicChat(c: StoredChat): Chat {
-  return { id: c.id, kind: c.kind, title: c.title, members: c.members, createdBy: c.createdBy, createdAt: c.createdAt, status: c.status };
+  return { id: c.id, kind: c.kind, title: c.title, members: c.members, createdBy: c.createdBy, createdAt: c.createdAt, status: c.status, ...(c.pinned ? { pinned: true } : {}) };
 }
 
 export function getChat(chatId: string): Chat | undefined {
@@ -104,7 +104,28 @@ export function listChatSummaries(): ChatSummary[] {
       const unread = msgs.filter((m) => m.from !== "user" && (!c.readAt || m.at > c.readAt)).length;
       return { ...publicChat(c), lastMessage: msgs.at(-1), messageCount: msgs.length, unread };
     })
-    .sort((a, b) => (b.lastMessage?.at ?? b.createdAt).localeCompare(a.lastMessage?.at ?? a.createdAt));
+    .sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || (b.lastMessage?.at ?? b.createdAt).localeCompare(a.lastMessage?.at ?? a.createdAt));
+}
+
+/** Darwin's Inbox: the pinned direct chat proactive messages land in. */
+export const INBOX_CHAT_ID = "chat_inbox";
+
+export function ensureInboxChat(): Chat {
+  const existing = chats().find((c) => c.id === INBOX_CHAT_ID);
+  if (existing) {
+    if (!existing.pinned) kvUpdate<StoredChat[]>(CHATS_KEY, () => [], (all) => all.map((c) => (c.id === INBOX_CHAT_ID ? { ...c, pinned: true } : c)));
+    return publicChat({ ...existing, pinned: true });
+  }
+  return saveChat({
+    id: INBOX_CHAT_ID,
+    kind: "direct",
+    title: "Inbox",
+    members: ["darwin"],
+    createdBy: "darwin",
+    createdAt: new Date().toISOString(),
+    status: "active",
+    pinned: true,
+  });
 }
 
 /* ------------------------------------------------------------------ pending confirms (kept on their message) */

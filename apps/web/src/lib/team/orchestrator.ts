@@ -19,6 +19,7 @@ import { stateSnapshot, type ToolContext } from "@/lib/assistant/tools";
 import { llmAvailable } from "@/lib/llm/client";
 import { routeLabel, runToolLoop, type LlmRoute, type LoopMessage, type LoopToolDef } from "@/lib/llm/team";
 import { id } from "@/lib/ids";
+import { DARWIN_VOICE } from "./persona";
 import { SPECIALISTS, TEAM, TEAM_BY_ID } from "./roster";
 import { isGreeting, isIntroAsk, ownerFor, routePart, splitAsk, type RoutedCall } from "./router";
 import {
@@ -33,6 +34,8 @@ import {
   markRead,
   setChatStatus,
 } from "./store";
+import { isActionToken, performActionToken } from "./actions";
+import { getToken } from "./watch-store";
 import { isMetaTool, jsonSchemaOf, parseCall, runTeamTool, toolsFor, type TeamToolOutcome } from "./tools";
 
 export const MAX_PARALLEL = 3;
@@ -299,6 +302,7 @@ function darwinSystem(turn: Turn): string {
   const team = SPECIALISTS.map((s) => `- ${s.id} (${s.name}, ${s.role}): ${s.blurb} Tools: ${(s.tools ?? []).filter((t) => t.name !== "ask").map((t) => t.name).join(", ")}`).join("\n");
   return [
     "You are Darwin, the team lead of an AI team that runs a merchant's online store. The merchant talks to you; you plan, delegate and report.",
+    DARWIN_VOICE,
     `Your team:\n${team}`,
     "How you work:",
     "- Quick questions your own tools answer (get_kpis, loop_status, step_loop, navigate): do them yourself.",
@@ -548,6 +552,11 @@ function resolveChat(input: TeamTurnInput): { chat: Chat; created: boolean } {
     return { chat, created: false };
   }
   if (input.confirm) {
+    if (isActionToken(input.confirm.id)) {
+      const token = getToken(input.confirm.id);
+      const chat = token ? getChat(token.chatId) : undefined;
+      if (chat) return { chat, created: false };
+    }
     const pending = findPendingConfirm(input.confirm.id);
     const chat = pending ? getChat(pending.chatId) : undefined;
     if (chat) return { chat, created: false };
@@ -576,7 +585,11 @@ export async function runTeamTurn(input: TeamTurnInput, emit: Emit): Promise<voi
   let error: string | undefined;
   try {
     if (input.confirm) {
-      await answerConfirm(turn, input.confirm);
+      if (isActionToken(input.confirm.id)) {
+        await performActionToken(input.confirm, { emit: turn.emit, originChatId: turn.originChatId, toolCtx: turn.toolCtx });
+      } else {
+        await answerConfirm(turn, input.confirm);
+      }
     } else {
       const text = input.text.trim().slice(0, 2000);
       say(turn, chat.id, "user", text, "text");

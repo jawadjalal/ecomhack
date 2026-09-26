@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
-import { AccountAvatar } from "./account-avatar";
+import { useDemoStatus } from "@/components/demo/demo-badge";
+import { AvatarFace, useAccount } from "./account-avatar";
 import { CommandPill } from "./command/pill";
 import { LiveSwitch } from "./live-switch";
 import { Mascot, type MascotKind } from "./mascot";
@@ -31,7 +31,10 @@ const NAV_AGENT: Record<(typeof NAV)[number]["key"], MascotKind> = {
   changes: "shipper",
 };
 
+/** Everything that isn't the five-step loop lives in the account menu, so the bar stays one quiet row (#65). */
 const MORE = [
+  { label: "Demo store", hint: "The shop Darwin is watching", href: "/store" },
+  { label: "Inbox", hint: "What Darwin noticed, and the tap to do it", href: "/console/inbox" },
   { label: "Store agent", hint: "Mika sells to AI shoppers", href: "/console/agents" },
   { label: "Dashboards", hint: "What you asked Darwin to track", href: "/console/dashboards" },
   { label: "Personalize", hint: "Change pages for each traffic source", href: "/console/personalize" },
@@ -39,7 +42,14 @@ const MORE = [
   { label: "Set up a store", hint: "GitHub, a script tag, or Whop", href: "/onboarding" },
   { label: "Agent readiness", hint: "Score any store for AI shoppers", href: "/readiness" },
   { label: "Classic view", hint: "The first version of this app", href: "/console/classic" },
+  { label: "Settings", hint: "Autopilot, your store, demo mode", href: "/console/settings" },
 ];
+
+/** Keep the in-browser demo (?mock=1) when moving between console pages. */
+function hrefFor(href: string, mock: boolean) {
+  if (!mock || !href.startsWith("/console")) return href;
+  return href.includes("?") ? `${href}&mock=1` : `${href}?mock=1`;
+}
 
 export function TopNav() {
   const path = usePathname();
@@ -73,7 +83,7 @@ export function TopNav() {
           return (
             <div key={n.key} className="flex items-center">
               <Link
-                href={mock ? `${n.href}?mock=1` : n.href}
+                href={hrefFor(n.href, mock)}
                 aria-current={on ? "page" : undefined}
                 className={cn(
                   "flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition-colors max-2xl:gap-1.5 max-2xl:px-2.5",
@@ -111,21 +121,21 @@ export function TopNav() {
               "Paused"
             )}
           </span>
-          {mock && <span className="text-[12px] text-dw-ink/50 max-2xl:hidden">(demo data)</span>}
         </button>
         <LiveSwitch />
         <CommandPill />
-        <MoreMenu />
-        <AccountAvatar />
+        <AccountMenu mock={mock} path={path || "/console"} />
       </div>
       <StoreChip variant="bar" />
     </header>
   );
 }
 
-function MoreMenu() {
+function AccountMenu({ mock, path }: { mock: boolean; path: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const account = useAccount();
+  const demo = useDemoStatus();
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
@@ -137,21 +147,40 @@ function MoreMenu() {
       document.removeEventListener("keydown", esc);
     };
   }, [open]);
+
+  const note = demo ? (demo.seeding ? "sending simulated shoppers…" : "simulated shoppers") : null;
+
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        aria-label="More tools"
+        aria-label="Account and more"
         aria-expanded={open}
+        title={account?.email ? `Signed in as ${account.email}` : "Account and more"}
         onClick={() => setOpen((o) => !o)}
-        className="grid size-11 place-items-center rounded-full bg-dw-sand text-dw-ink transition-colors hover:bg-[#e4dccb] max-sm:size-9"
+        className="grid size-11 place-items-center rounded-full bg-dw-ink text-[14px] font-semibold text-white transition-transform hover:scale-[1.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink max-sm:size-9 max-sm:text-[12.5px]"
       >
-        <Ellipsis className="size-5" />
+        <AvatarFace account={account} />
       </button>
       {open && (
-        <div className="absolute top-[52px] right-0 z-50 w-72 rounded-[22px] border border-dw-hairline bg-dw-surface p-2 shadow-[0_24px_60px_-20px_rgba(20,20,19,0.35)]">
+        <div className="absolute top-[52px] right-0 z-50 max-h-[calc(100svh-80px)] w-72 overflow-y-auto rounded-[22px] border border-dw-hairline bg-dw-surface p-2 shadow-[0_24px_60px_-20px_rgba(20,20,19,0.35)]">
+          {(account?.email || mock || note) && (
+            <div className="px-3.5 pt-2 pb-1 text-[12.5px] leading-snug text-dw-ink/55">
+              {account?.email && <p className="truncate font-medium text-dw-ink/75">{account.email}</p>}
+              {mock && <p>In-browser demo data</p>}
+              {note && (
+                <p>
+                  {demo?.store.name} · {note}
+                </p>
+              )}
+            </div>
+          )}
+          <Link href={mock ? path : `${path}?mock=1`} onClick={() => setOpen(false)} className="flex flex-col rounded-2xl px-3.5 py-2.5 hover:bg-dw-sand">
+            <span className="text-[15px] font-medium">{mock ? "Use live data" : "Open in-browser demo"}</span>
+            <span className="text-[12.5px] text-dw-ink/60">{mock ? "Leave ?mock=1 on this page" : "Run the loop in this browser"}</span>
+          </Link>
           {MORE.map((m) => (
-            <Link key={m.href} href={m.href} onClick={() => setOpen(false)} className="flex flex-col rounded-2xl px-3.5 py-2.5 hover:bg-dw-sand">
+            <Link key={m.href} href={hrefFor(m.href, mock)} onClick={() => setOpen(false)} className="flex flex-col rounded-2xl px-3.5 py-2.5 hover:bg-dw-sand">
               <span className="text-[15px] font-medium">{m.label}</span>
               <span className="text-[12.5px] text-dw-ink/60">{m.hint}</span>
             </Link>

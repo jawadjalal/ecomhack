@@ -14,7 +14,7 @@ export function DarwinShell({ children }: { children: ReactNode }) {
       {/* ⌘K command bar + WebMCP tools + window.darwin (src/components/dw/command) */}
       <CommandRuntimeProvider>
         <div data-dw className="min-h-screen w-full bg-dw-bg font-dw text-dw-ink max-sm:[--dw-tabbar-h:calc(64px+env(safe-area-inset-bottom))]">
-          <div className="mx-auto w-full max-w-[1600px] px-4 pt-5 pb-40 max-sm:pt-3 max-sm:pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-7">
+          <div className="mx-auto w-full max-w-[1600px] overflow-x-clip px-4 pt-5 pb-40 max-sm:pt-3 max-sm:pb-[calc(10rem+env(safe-area-inset-bottom))] sm:px-7">
             <TopNav />
             <main className="mt-8 flex flex-col gap-4 max-sm:mt-5"><AgentModeGate>{children}</AgentModeGate></main>
           </div>

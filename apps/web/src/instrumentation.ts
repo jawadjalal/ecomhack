@@ -6,6 +6,8 @@
  *    the loop remembers. A fresh deploy with no repo or darwin.js site connected runs the loop to Gen 1 with a
  *    test live.
  * 2. Whop: a WHOP_API_KEY on the server counts as connected (Settings, the store agent's business name).
+ * 3. Watch heartbeat: in-process only when DARWIN_WATCH=1 (one interval, this process only). Production uses the
+ *    Vercel Cron in vercel.json, which calls GET /api/team/watch.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -33,4 +35,9 @@ export async function register() {
       })
       .catch((err) => console.warn("[demo] boot seeding failed", err));
   }, 250);
+
+  if (process.env.DARWIN_WATCH === "1") {
+    const { startWatchLoop } = await import("@/lib/team/watch");
+    startWatchLoop();
+  }
 }

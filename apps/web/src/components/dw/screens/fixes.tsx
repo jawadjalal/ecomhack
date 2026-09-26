@@ -5,6 +5,7 @@ import { MotionConfig } from "motion/react";
 import { ArrowRight, Play, Sparkles } from "lucide-react";
 import { useExperiments } from "@/lib/console/hooks";
 import { useDarwin } from "../provider";
+import { CrewFace } from "../crew-face";
 import { Mascot } from "../mascot";
 import { pct } from "@/lib/console/format";
 import { LOOP_SPLIT, PageHead, PillButton, SummaryStrip, type SummaryItem } from "../ui";
@@ -111,7 +112,7 @@ function Fixes() {
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="designer" size={52} frame active />}
+        mascot={<CrewFace kind="designer" />}
         title={`${n} fix${n === 1 ? "" : "es"}, ${tail}`}
         lede={`Pixel drafted ${n === 1 ? "this fix" : `these ${n} fixes`}. Each is a small change to your page settings that Dash can undo, and nothing reaches your store until it wins a test. ${upNext}`.trim()}
         right={right}

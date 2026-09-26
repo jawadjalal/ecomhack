@@ -391,6 +391,48 @@ export const TEAM_TOOLS: Record<string, TeamTool> = {
     },
   }),
 
+  set_autonomy: tool({
+    name: "set_autonomy",
+    description: "Set how much Darwin may do without asking: off (silent), suggest (messages only, the default), auto-safe (reversible things, then he tells you), or autopilot (also what a confirmed standing policy allows). Drastic changes still need a tap or a policy.",
+    args: z.object({ level: z.enum(["off", "suggest", "auto-safe", "autopilot"]) }),
+    confirm: true,
+    confirmPrompt: ({ level }) => `Set Darwin to “${level}”? ${level === "autopilot" ? "He'll act on his own, except drastic changes, which still need you or a standing policy." : level === "off" ? "He'll keep watching but never message you." : "He'll only message you; nothing runs until you tap."}`,
+    async run({ level }) {
+      const { updateAutonomy } = await import("./watch");
+      const res = await updateAutonomy({ level });
+      return { ok: true, summary: res.text, data: { autonomy: res.settings.autonomy } };
+    },
+  }),
+
+  add_policy: tool({
+    name: "add_policy",
+    description: "Turn a plain-English standing policy into a guard Darwin follows on autopilot, e.g. 'ship winners above 95% with at least 500 real visitors per arm' or 'never touch checkout on Fridays'. Darwin reads the compiled form back; it only counts once you confirm.",
+    args: z.object({
+      text: z.string().trim().min(8).max(400),
+      policyId: z.string().optional(),
+      compiled: z.string().optional(),
+      guard: z.record(z.string(), z.unknown()).optional(),
+      source: z.enum(["llm", "heuristic"]).optional(),
+    }),
+    confirm: true,
+    async prepare(args) {
+      if (args.policyId && args.compiled && args.guard) return args;
+      const { compilePolicy } = await import("./autonomy");
+      const policy = await compilePolicy(args.text);
+      const { savePolicy } = await import("./watch-store");
+      savePolicy(policy);
+      return { text: policy.text, policyId: policy.id, compiled: policy.compiled, guard: policy.guard as unknown as Record<string, unknown>, source: policy.source };
+    },
+    confirmPrompt: ({ compiled, text }) => (compiled ? `I'll follow this: ${compiled}` : `Add this standing policy? “${text}”`),
+    async run({ policyId, compiled }) {
+      const { getPolicy, savePolicy } = await import("./watch-store");
+      const policy = policyId ? getPolicy(policyId) : undefined;
+      if (!policy) return { ok: false, summary: "I couldn't find that policy to confirm. Say it again and I'll recompile it." };
+      savePolicy({ ...policy, confirmedAt: new Date().toISOString() });
+      return { ok: true, summary: `Standing policy on: ${compiled ?? policy.compiled}`, data: { policyId: policy.id } };
+    },
+  }),
+
   pr_status: tool({
     name: "pr_status",
     description: "State, mergeability and CI checks of a pull request (default: the newest PR Darwin opened).",

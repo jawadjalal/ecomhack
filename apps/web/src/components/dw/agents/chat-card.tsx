@@ -114,7 +114,7 @@ export function ChatCard({
                 transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
                 className={cn("flex items-end gap-2.5", l.from === "you" ? "flex-row-reverse" : "flex-row")}
               >
-                {l.from === "you" ? <BuyerAvatar name={l.buyer ?? "console (you)"} size={32} /> : <StoreAvatar size={34} active={!!l.pending} />}
+                {l.from === "you" ? <BuyerAvatar name={l.buyer ?? "console (you)"} size={32} /> : <StoreAvatar size={34} active={false} state={l.pending ? "thinking" : undefined} />}
                 {l.from === "you" ? <BuyerBubble line={l} /> : <StoreBubble line={l} demo={demo} />}
               </motion.div>
             ))}

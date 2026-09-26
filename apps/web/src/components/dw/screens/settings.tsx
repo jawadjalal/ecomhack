@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { MotionConfig, motion } from "motion/react";
 import { AudienceCard } from "../settings/audience-card";
+import { AutonomyCard } from "../settings/autonomy-card";
 import { AutopilotCard } from "../settings/autopilot-card";
 import { GrokCard } from "../settings/grok-card";
 import { DemoCard, ResetCard } from "../settings/reset-card";
@@ -12,37 +13,34 @@ import { PageHead } from "../ui";
 /**
  * Settings (opened from the avatar): how much Darwin may do on its own, what it's plugged into,
  * who each test is judged on, where it reports back, and the way back to the original page.
- * Card rows alternate 1.7fr/1fr and 1fr/1.7fr (never equal boxes).
+ * One column of sections (#57), not a grid of equal boxes. Each control still lives in its card module.
  */
 export function SettingsScreen() {
   return (
     <MotionConfig reducedMotion="user">
       <PageHead title="Settings" lede="How much the crew may do on its own, what Darwin is plugged into, and where Grok reports back." />
 
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1.7fr_1fr]">
+      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4">
         <Rise i={0}>
-          <AutopilotCard className="h-full" />
+          <AutonomyCard />
+        </Rise>
+        <Rise i={0}>
+          <AutopilotCard />
         </Rise>
         <Rise i={1}>
-          <StoreCard className="h-full" />
+          <StoreCard />
         </Rise>
-      </div>
-
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_1.7fr]">
         <Rise i={2}>
-          <AudienceCard className="h-full" />
+          <AudienceCard />
         </Rise>
         <Rise i={3}>
-          <GrokCard className="h-full" />
+          <GrokCard />
         </Rise>
-      </div>
-
-      <div className="grid items-stretch gap-4 lg:grid-cols-[1.7fr_1fr]">
         <Rise i={4}>
-          <ResetCard className="h-full" />
+          <ResetCard />
         </Rise>
         <Rise i={5}>
-          <DemoCard className="h-full" />
+          <DemoCard />
         </Rise>
       </div>
     </MotionConfig>

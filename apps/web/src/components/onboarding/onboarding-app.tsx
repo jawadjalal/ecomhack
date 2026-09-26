@@ -1589,7 +1589,7 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
   return (
     <Card tone="white" hover={false} className="p-5 max-sm:border-0 max-sm:bg-transparent! max-sm:px-0 max-sm:py-2 sm:p-6">
       <div className="flex items-center gap-3">
-        <Mascot kind="shipper" frame size={48} active={busy} />
+        <Mascot kind="shipper" frame size={48} state={busy ? "working" : error ? "error" : undefined} />
         <div className="min-w-0">
           <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{busy ? "Opening your pull request" : "Ready when you are"}</h2>
           <p className="text-[14px] text-dw-ink/60">Three steps, a few seconds.</p>
@@ -2048,7 +2048,7 @@ function LiveMascot({ celebrate }: { celebrate: boolean }) {
       animate={celebrate ? { y: [0, -18, 0, -8, 0], rotate: [0, -12, 8, -3, 0] } : undefined}
       transition={{ duration: 0.9, ease: "easeOut" }}
     >
-      <Mascot kind="experimenter" frame size={64} active />
+      <Mascot kind="experimenter" frame size={64} state={celebrate ? "success" : "working"} />
     </motion.span>
   );
 }

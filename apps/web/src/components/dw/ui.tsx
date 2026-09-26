@@ -10,9 +10,18 @@
 "use client";
 
 import Link from "next/link";
-import type { ComponentProps, CSSProperties, ReactNode } from "react";
+import { createContext, useContext, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { Silhouette, type MascotKind } from "./mascot";
+
+/** Pages wrapped in this drop the pastel tile chrome (fill, radius, silhouette, lift). */
+const PlainCtx = createContext(false);
+export function PlainSurface({ children }: { children: ReactNode }) {
+  return <PlainCtx.Provider value={true}>{children}</PlainCtx.Provider>;
+}
+export function usePlainSurface() {
+  return useContext(PlainCtx);
+}
 
 export type Tone = "yellow" | "pink" | "olive" | "blue" | "lilac" | "white" | "sand";
 
@@ -36,6 +45,7 @@ export function Card({
   children,
   as: As = "section",
   hover = true,
+  plain,
   ...rest
 }: {
   tone?: Tone;
@@ -46,8 +56,12 @@ export function Card({
   children: ReactNode;
   as?: "section" | "div" | "article";
   hover?: boolean;
+  /** No fill, radius, or silhouette. Defaults to the surrounding PlainSurface. */
+  plain?: boolean;
 } & Omit<ComponentProps<"section">, "style" | "className" | "children" | "ref">) {
   const t = TONE[tone];
+  const surface = usePlainSurface();
+  const flat = plain ?? surface;
   const pos: Record<string, CSSProperties> = {
     tr: { right: -70, top: -80 },
     br: { right: -60, bottom: -90 },
@@ -58,14 +72,15 @@ export function Card({
     <As
       {...rest}
       className={cn(
-        "relative overflow-clip rounded-[26px] p-6",
-        tone === "white" && "border border-dw-hairline",
-        hover && "dw-card",
+        "relative",
+        flat ? "bg-transparent" : "overflow-clip rounded-[26px] p-6",
+        !flat && tone === "white" && "border border-dw-hairline",
+        !flat && hover && "dw-card",
         className,
       )}
-      style={{ background: t.bg, ...style }}
+      style={flat ? style : { background: t.bg, ...style }}
     >
-      {shape && <Silhouette kind={shape} color={t.shape} size={250} style={pos[corner]} />}
+      {!flat && shape && <Silhouette kind={shape} color={t.shape} size={250} style={pos[corner]} />}
       <div className="relative">{children}</div>
     </As>
   );

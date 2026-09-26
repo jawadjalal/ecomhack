@@ -335,7 +335,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
                   }}
                   className="flex h-12 items-center gap-2.5 rounded-full bg-dw-surface pr-1.5 pl-2 shadow-[0_0_0_1px_#EDE4D2] transition-shadow focus-within:shadow-[0_0_0_2px_#141413]"
                 >
-                  <Mascot kind="leader" size={32} active={asking} />
+                  <Mascot kind="leader" size={32} state={asking ? "thinking" : undefined} />
                   <input
                     value={ask}
                     onChange={(e) => setAsk(e.target.value)}

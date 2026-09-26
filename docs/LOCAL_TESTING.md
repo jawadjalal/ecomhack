@@ -10,7 +10,7 @@ ever called. The LLM code paths are covered by tests with a **mocked model** (`s
   Autopilot ran 8–9 generations with 0 page errors (`npm start` and `npm run dev`).
 - **LLM paths with a mocked model:** proposals are validated, a lift answered as "12" becomes 12%, invalid, no-op and
   repeated patches are rejected, rewrites with invented numbers are discarded, and the loop falls back to the playbook.
-- **Storefront:** every page and every PageSpec knob (screenshots in `apps/web/docs/screenshots/`).
+- **Storefront:** every page and every PageSpec knob (screenshots of the main screens in `docs/screenshots/`).
 - **Agent surface:** REST tools, MCP JSON-RPC, `/llms.txt`, agent card, buyer agents, negotiation,
   and `scripts/grok-shopper.ts` over MCP (scripted fallback).
 - **Real MCP clients:** the official MCP SDK client (`@modelcontextprotocol/sdk` 1.30.1, Streamable HTTP) connects,

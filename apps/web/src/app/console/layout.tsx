@@ -9,6 +9,7 @@ const dmMono = DM_Mono({ variable: "--font-dm-mono", subsets: ["latin"], weight:
  * Every console page (mission control, dashboards, personalize, agents, traffic) gets the "Ask Darwin" assistant.
  * The "which store is this" note lives in the header only (StoreChip in top-nav: a pill from 640px, a bar on
  * phones), so the console no longer mounts DemoBadge: it said the same thing a second time.
+ * The account menu (top-nav) repeats the demo status in one line, next to the in-browser demo switch.
  */
 export default function ConsoleLayout({ children }: LayoutProps<"/console">) {
   return (

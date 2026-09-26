@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useSWRConfig } from "swr";
 import type { LoopState } from "@/lib/contracts";
 import { createConsoleApi, type ConsoleApi } from "@/lib/console/api";
+import { sampleEngine } from "@/lib/console/mock";
 import { ApiContext, useAutopilotDriver, useLoop, useTrafficDriver } from "@/lib/console/hooks";
 import { setLive } from "@/lib/console/live";
 
@@ -40,13 +41,41 @@ export function useDarwin(): DarwinApp {
   return v;
 }
 
-const noop = () => () => {};
-const readMock = () => /[?&]mock=(1|true)\b/.test(window.location.search);
+const SAMPLE_KEY = "darwin.console.sample";
+const SAMPLE_EVENT = "darwin:sample";
+const subscribeSample = (cb: () => void) => {
+  window.addEventListener(SAMPLE_EVENT, cb);
+  return () => window.removeEventListener(SAMPLE_EVENT, cb);
+};
+const readMock = () => {
+  if (/[?&]mock=(1|true)\b/.test(window.location.search)) return true;
+  if (/[?&]live=1\b/.test(window.location.search)) return false;
+  try {
+    return sessionStorage.getItem(SAMPLE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+/** Switch this tab to sample data (the live store has nothing to show yet). Labelled "(demo data)" in the header. */
+function switchToSampleData() {
+  try {
+    sessionStorage.setItem(SAMPLE_KEY, "1");
+  } catch {
+    /* storage blocked: stays live */
+    return;
+  }
+  window.dispatchEvent(new Event(SAMPLE_EVENT));
+}
+
+/** Nothing yet: no version shipped, no test, no issues, and Darwin isn't running. */
+const isEmptyLoop = (l: LoopState) => l.generation === 0 && !l.experimentId && !l.insights?.length && !l.autopilot && (l.history?.length ?? 0) <= 1;
 
 export function DarwinProvider({ children }: { children: ReactNode }) {
-  // ?mock=1 runs the in-browser demo engine. Read after hydration (server snapshot = live) so markup matches.
-  const mock = useSyncExternalStore(noop, readMock, () => false);
-  const api = useMemo(() => createConsoleApi(mock ? "mock" : "auto"), [mock]);
+  // ?mock=1 (or a live store with nothing to show yet) runs the in-browser demo engine, a few versions in.
+  // Read after hydration (server snapshot = live) so markup matches.
+  const mock = useSyncExternalStore(subscribeSample, readMock, () => false);
+  const api = useMemo(() => (mock ? createConsoleApi("mock", sampleEngine) : createConsoleApi("auto")), [mock]);
   return (
     <ApiContext.Provider value={api}>
       <Inner api={api} mock={mock}>
@@ -65,6 +94,10 @@ interface Toast {
 function Inner({ api, mock, children }: { api: ConsoleApi; mock: boolean; children: ReactNode }) {
   const { mutate: globalMutate } = useSWRConfig();
   const { loop, mutate: mutateLoop, error: loopError } = useLoop();
+  // An empty live store (a fresh server, nothing run yet) shows sample data instead of blank pages; ?live=1 opts out.
+  useEffect(() => {
+    if (!mock && loop && isEmptyLoop(loop) && !/[?&]live=1\b/.test(window.location.search)) switchToSampleData();
+  }, [mock, loop]);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
