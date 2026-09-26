@@ -17,7 +17,7 @@ describe("admin gate", () => {
     for (const p of ["/console", "/api/loop/reset", "/api/github/connect", "/api/simulate", "/api/agent/shop", "/api/agent/sessions", "/api/analytics/events", "/api/web/rules", "/api/web/draft", "/api/web/simulate"]) {
       expect(isProtectedPath(p)).toBe(true);
     }
-    for (const p of ["/store", "/api/agent/products", "/api/mcp", "/api/a2a", "/api/capture", "/ingest/e", "/llms.txt", "/api/consolex", "/api/web/runtime.js", "/darwin.js"]) {
+    for (const p of ["/store", "/api/agent/products", "/api/mcp", "/api/a2a", "/api/capture", "/ingest/e", "/llms.txt", "/api/consolex", "/api/web/runtime.js", "/api/whop/webhook", "/darwin.js"]) {
       expect(isProtectedPath(p)).toBe(false);
     }
   });
