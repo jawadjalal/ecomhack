@@ -27,7 +27,7 @@ export function DemoCheckout({ offer, refId, alreadyPaid = false }: { offer?: { 
         <section aria-label="Demo checkout" className="dw-card flex flex-col gap-5 rounded-[26px] border border-dw-hairline bg-dw-surface p-6 sm:p-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Tag tone="yellow">Demo checkout · no real payment</Tag>
-            <span className="text-[12.5px] text-dw-ink/55">From the store agent</span>
+            <span className="text-[12.5px] text-dw-ink/55">From Mika, your store agent</span>
           </div>
 
           {!offer ? (

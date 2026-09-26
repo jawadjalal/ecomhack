@@ -21,7 +21,7 @@ import { cn } from "@/components/ui/cn";
 import { agentBoard, agentShopper, chartPoints, pctSmart, peopleFromEvents, projectIfShipped, testView, type Shopper } from "../overview/model";
 import { LiveShoppers } from "../overview/shoppers";
 import { WatchButton, WatchRail, useWatchRun } from "../overview/watch";
-import { FirstRun, useDemoStoreVisitors, useFirstRun } from "../first-run";
+import { FirstRun, FirstRunLede, useDemoStoreVisitors, useFirstRun } from "../first-run";
 
 /** The demo store the loop runs on (the PageSpec storefront at /store). */
 const STORE = "PACE";
@@ -89,7 +89,7 @@ export function OverviewScreen() {
   const outcome = firstRun ? undefined : outcomeHeadline(loop);
   let lede: ReactNode;
   if (firstRun) {
-    lede = "Nothing is connected yet, so here is Darwin on a demo store.";
+    lede = <FirstRunLede />;
   } else if (rate === undefined) {
     lede = "Darwin hasn’t seen any shoppers yet. Let it run and this page fills up in seconds.";
   } else {

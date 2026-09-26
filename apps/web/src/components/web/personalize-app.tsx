@@ -269,7 +269,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         tone: "good",
         text:
           mode === "test"
-            ? `A/B test live: ${audienceLabel(saved)} split ${Math.round(saved.allocation * 100)}/${100 - Math.round(saved.allocation * 100)}.`
+            ? `Test live: ${audienceLabel(saved)} split ${Math.round(saved.allocation * 100)}/${100 - Math.round(saved.allocation * 100)}.`
             : `Live for ${audienceLabel(saved)}.`,
       });
       await load();
@@ -301,7 +301,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   const simulate = () =>
     run("simulate", async () => {
       const res = await api<WebSimulateResponse>("/api/web/simulate", { body: { site, visitors: 500 } });
-      setToast({ tone: "good", text: `${res.visitors} simulated visitors sent (${res.orders} orders). Labelled synthetic.` });
+      setToast({ tone: "good", text: `${res.visitors} simulated visitors sent (${res.orders} orders). Labelled simulated.` });
       await load();
     });
 
@@ -380,23 +380,23 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="designer" size={50} active />}
+        mascot={<Mascot kind="designer" size={50} active title="Theo, the designer" />}
         title="Personalize"
-        lede="Change the page for each traffic source, then let an A/B test decide."
+        lede="Theo changes the page for each traffic source. Ada runs an A vs B test to decide."
         right={
           <div className={HEAD_CONTROLS}>
             <SiteSelect value={site} options={siteOptions} onChange={switchSite} />
-            <PillButton tone="white" onClick={simulate} disabled={!!busy} title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
+            <PillButton tone="white" onClick={simulate} disabled={!!busy} title="500 simulated visitors through this site's live rules. Every visit is labelled simulated.">
               {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
               Send 500 test visitors
             </PillButton>
-            <DwSwitch on={trafficOn} onChange={setTrafficOn} label="Traffic" title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic." />
+            <DwSwitch on={trafficOn} onChange={setTrafficOn} label="Traffic" title="Simulated shoppers: 300 every 3 s, mixed sources. Every visit is labelled simulated." />
             <DwSwitch
               on={autopilotOn}
               onChange={setAutopilot}
               busy={busy === "autopilot"}
               label="Autopilot"
-              title="Darwin tests one idea per traffic source (biggest gap first), ships winners, stops losers, and tries the next idea"
+              title="Ada tests one idea per traffic source (biggest gap first). Max ships winners, losers stop, and the next idea starts."
             />
           </div>
         }
@@ -659,7 +659,7 @@ function SourceChip({ source }: { source?: TrafficSource }) {
   );
 }
 
-/** The results, compact: one row per running A/B test, with its chance to beat the original. */
+/** The results, compact: one row per running test, with its chance to beat the original. */
 function LiveTests({
   className,
   loading,
@@ -695,7 +695,7 @@ function LiveTests({
           {tests.length > 0 && <span className="dw-live-dot size-2 rounded-full bg-dw-live" aria-hidden />}
         </span>
       </CardHead>
-      <p className="mt-1 text-[13px] text-dw-ink/65">Original → with the change, and the chance the change wins.</p>
+      <p className="mt-1 text-[13px] text-dw-ink/65">Your current page → the new version, and the chance the new version wins.</p>
       <ul className="mt-3 flex flex-col gap-1.5">
         {loading && [0, 1].map((i) => <li key={i} className="h-[62px] animate-pulse rounded-[18px] bg-white/50" />)}
         {!loading && tests.length === 0 && (
@@ -786,14 +786,14 @@ function DraftCard({
     <Card tone="pink" shape="experimenter" corner="br" hover={false}>
       <CardHead
         right={
-          <span title={r.author}>
-            <Tag tone={draft.source === "llm" ? "ink" : "white"}>{draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Heuristic"}</Tag>
+          <span title={draft.source === "llm" ? "Written by AI" : "Written from Darwin's rules"}>
+            <Tag tone={draft.source === "llm" ? "ink" : "white"}>{draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Darwin's rules"}</Tag>
           </span>
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="designer" size={34} active />
-          Draft
+          <Mascot kind="designer" size={34} active title="Theo, the designer" />
+          Theo&apos;s draft
         </span>
       </CardHead>
       <div className="mt-4 flex flex-col gap-4">
@@ -861,11 +861,11 @@ function DraftCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it; Darwin measures orders against the unchanged page">
+          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it. Ada compares orders against your current page.">
             {busy === "test" ? <LoaderCircle className="animate-spin" /> : <FlaskConical />}
-            Start A/B test
+            Start a test
           </PillButton>
-          <PillButton tone="white" onClick={() => onLaunch("always")} disabled={!!busy} title="Everyone in the audience sees it (no control group)">
+          <PillButton tone="white" onClick={() => onLaunch("always")} disabled={!!busy} title="Everyone in the audience sees it (nothing to compare against)">
             {busy === "always" ? <LoaderCircle className="animate-spin" /> : <Rocket />}
             Show to all of them
           </PillButton>
@@ -923,7 +923,7 @@ function RuleRow({
       </Tag>
     ) : rule.mode === "test" ? (
       <Tag tone="ink" className={T}>
-        A/B testing
+        Testing
       </Tag>
     ) : (
       <Tag tone="yellow" className={T}>
@@ -1005,19 +1005,19 @@ function RuleRow({
           {test ? (
             <>
               <div className="flex flex-col gap-2">
-                <ArmBar label="Original" rate={result.control.conversionRate} visitors={result.control.visitors} max={maxRate} dashed />
-                <ArmBar label="With change" rate={result.treatment.conversionRate} visitors={result.treatment.visitors} max={maxRate} />
+                <ArmBar label="Your current page" rate={result.control.conversionRate} visitors={result.control.visitors} max={maxRate} dashed />
+                <ArmBar label="New version" rate={result.treatment.conversionRate} visitors={result.treatment.visitors} max={maxRate} />
               </div>
               {p !== undefined && (
                 <div className="mt-3.5">
                   <div className="flex items-end justify-between gap-2">
-                    <span className="text-[13px] text-dw-ink/65">Chance the change is better</span>
+                    <span className="text-[13px] text-dw-ink/65">Chance the new version is better</span>
                     <span className="num text-[13px]">
                       <span className="text-[20px] leading-none font-semibold tracking-[-0.02em]">{pct(p, 0)}</span>
-                      {result.lift !== undefined && <span className="ml-1.5 text-dw-ink/60">{`${result.lift >= 0 ? "+" : ""}${pct(result.lift, 0)} lift`}</span>}
+                      {result.lift !== undefined && <span className="ml-1.5 text-dw-ink/60">{`${result.lift >= 0 ? "+" : ""}${pct(result.lift, 0)} vs now`}</span>}
                     </span>
                   </div>
-                  <div className="relative mt-2 h-2.5 rounded-full bg-dw-ink/10" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)} aria-label="Chance the change is better">
+                  <div className="relative mt-2 h-2.5 rounded-full bg-dw-ink/10" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)} aria-label="Chance the new version is better">
                     <div className="h-full rounded-full bg-dw-ink transition-[width] duration-700" style={{ width: `${Math.max(2, Math.round(p * 100))}%` }} />
                     <span className="absolute -top-1 h-[18px] w-[2px] rounded-full bg-dw-ink" style={{ left: "95%" }} title="Winning at 95%" />
                   </div>
@@ -1028,7 +1028,7 @@ function RuleRow({
                         ? "Losing. Pause it and try another idea."
                         : enough
                           ? "Not decisive yet. Keep it running."
-                          : "Collecting data: needs 100+ visitors in each group."}
+                          : "Collecting data. It needs 100+ visitors on each version."}
                   </div>
                 </div>
               )}
@@ -1133,9 +1133,9 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
         <span className="num">
           {audience} · {heat?.clicks ?? 0} clicks from {heat?.visitors ?? 0} visitors
         </span>
-        {!!heat?.rageClicks && <Tag tone="warn">{heat.rageClicks} rage clicks</Tag>}
+        {!!heat?.rageClicks && <Tag tone="warn">{heat.rageClicks} repeated angry taps</Tag>}
         {!!heat?.syntheticClicks && (
-          <span title="Clicks generated by Darwin's simulator (properties.synthetic = true)">
+          <span title="Clicks made by Darwin's simulator, kept apart from real ones">
             <Tag tone="white">
               <Bot className="size-3" aria-hidden /> {heat.syntheticClicks} simulated
             </Tag>
@@ -1170,10 +1170,10 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
 const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: string }> = {
   on: { mascot: "analyst", who: "Darwin" },
   off: { mascot: "analyst", who: "Darwin" },
-  started: { mascot: "experimenter", who: "Experimenter" },
-  shipped: { mascot: "shipper", who: "Shipper" },
-  stopped: { mascot: "experimenter", who: "Experimenter" },
-  waiting: { mascot: "observer", who: "Observer" },
+  started: { mascot: "experimenter", who: "Ada" },
+  shipped: { mascot: "shipper", who: "Max" },
+  stopped: { mascot: "experimenter", who: "Ada" },
+  waiting: { mascot: "observer", who: "Iris" },
 };
 
 function DecisionLog({ state }: { state: WebAutopilotState }) {
@@ -1191,7 +1191,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
           )
         }
       >
-        Darwin&apos;s decisions
+        What the crew decided
       </CardHead>
       <ol className="mt-4 flex max-h-[22rem] flex-col overflow-y-auto pr-1">
         {entries.map((e, i) => {
@@ -1234,7 +1234,7 @@ function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string })
                 {o.visitors.toLocaleString()} visitors · {pct(o.conversionRate)} ordered
               </span>
               {o.syntheticVisitors > 0 && (
-                <span title="Visitors generated by Darwin's simulator (properties.synthetic = true)">
+                <span title="Visitors made by Darwin's simulator, kept apart from real ones">
                   <Tag tone="white">
                     <Bot className="size-3" aria-hidden /> {o.syntheticVisitors.toLocaleString()} simulated
                   </Tag>

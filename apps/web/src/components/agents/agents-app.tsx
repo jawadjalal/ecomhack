@@ -134,14 +134,14 @@ export function AgentsApp({ origin }: { origin: string }) {
   const f = stats?.funnel;
   const cat = stats?.catalog;
   const lede = f?.conversations
-    ? `${f.conversations.toLocaleString("en-GB")} buyer-agent conversation${f.conversations === 1 ? "" : "s"} so far${f.simulated ? ` (${f.simulated.toLocaleString("en-GB")} simulated)` : ""}, and ${Math.round(f.conversion * 100)}% ended in a payment.`
-    : "AI shoppers ask it what you sell, and buy through a checkout link that credits them.";
+    ? `Mika has had ${f.conversations.toLocaleString("en-GB")} chat${f.conversations === 1 ? "" : "s"} with AI shoppers so far${f.simulated ? ` (${f.simulated.toLocaleString("en-GB")} simulated)` : ""}. ${Math.round(f.conversion * 100)}% ended in a payment.`
+    : "Mika sells to AI shoppers. They ask what you sell and buy through a checkout link that credits them.";
 
   return (
     <>
       <PageHead
         mascot={<StoreAvatar size={52} />}
-        title="Your store agent"
+        title="Mika, your store agent"
         lede={lede}
         right={
           <>
@@ -161,7 +161,7 @@ export function AgentsApp({ origin }: { origin: string }) {
         <div role="note" title={cat.note} className="-mt-1 flex min-h-10 flex-wrap items-center gap-x-2.5 gap-y-2 rounded-[20px] bg-dw-warn-bg py-2 pr-2 pl-4 text-[13.5px] text-dw-warn sm:flex-nowrap sm:rounded-full sm:py-1.5 sm:pr-1.5">
           <Store className="size-4 shrink-0" />
           <p className="min-w-0 flex-1 basis-[14rem] leading-snug sm:basis-auto sm:truncate">
-            <b className="font-semibold">Demo catalog.</b> No Whop business connected yet: demo offers, and payments on the demo checkout are simulated and labelled.
+            <b className="font-semibold">Demo catalog.</b> No Whop business connected yet. These are demo offers, and demo checkout payments are simulated and labelled.
           </p>
           <Link
             href="/onboarding"

@@ -71,9 +71,9 @@ export function ChatCard({
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-5 pt-5 sm:px-6">
           <div className="min-w-0">
-            <CardTitle>Talk to it like a buyer agent</CardTitle>
+            <CardTitle>Chat with Mika like an AI shopper</CardTitle>
             <p className="mt-0.5 text-[13.5px] text-dw-ink/65">
-              Over the real <span className="font-dwmono text-[12.5px]">/a2a/whop</span> endpoint, exactly as an outside agent would.
+              Through real agent chat, exactly as an outside agent would. <span className="text-[12px] text-dw-ink/45">(A2A at <span className="font-dwmono">/a2a/whop</span>)</span>
             </p>
           </div>
           <button
@@ -130,8 +130,8 @@ export function ChatCard({
             <input
               value={text}
               onChange={(e) => onText(e.target.value)}
-              placeholder="Message the store agent…"
-              aria-label="Message the store agent"
+              placeholder="Message Mika…"
+              aria-label="Message Mika, the store agent"
               className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-dw-ink/45"
             />
             <button
@@ -229,7 +229,7 @@ function StoreBubble({ line, demo }: { line: ChatLine; demo: boolean }) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[14px] font-semibold">Checkout ready: {line.checkout.title}</div>
             <div className="text-[12.5px] text-dw-ink/60">
-              {line.checkout.tagged === false ? "Plain checkout link" : "Tagged link: the sale is credited to this conversation"}
+              {line.checkout.tagged === false ? "Plain checkout link" : "Tagged link: the sale is credited to this chat"}
               {demo ? " · demo checkout, no real charge" : " · payment on Whop"}
             </div>
           </div>

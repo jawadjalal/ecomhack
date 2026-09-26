@@ -26,10 +26,10 @@ const LEVERS_IN_ORDER: Lever[] = ["facts", "one-pick", "structured", "upsell"];
 /** AGENT_TEST_RULES in lib/store-agent (checked after every batch, so the bars are high). */
 const SHIP_AT = 0.97;
 const RULES = [
-  { value: "100+", label: "conversations per arm" },
+  { value: "100+", label: "chats per version" },
   { value: "30+", label: "payments before any call" },
-  { value: "97%", label: "chance better to ship" },
-  { value: "3%", label: "to stop it" },
+  { value: "97%", label: "chance it's better, to keep it" },
+  { value: "3%", label: "or lower, to stop it" },
 ];
 
 const pctOf = (x?: number) => (x === undefined || !Number.isFinite(x) ? "–" : `${Math.round(x * 100)}%`);
@@ -70,10 +70,10 @@ export function TestsCard({
               ) : undefined
             }
           >
-            A/B tests on your agent
+            Tests on Mika&apos;s pitch
           </CardTitle>
           <p className="mt-1.5 max-w-[46rem] text-[14px] leading-snug text-dw-ink/75">
-            Darwin changes one thing about how the agent pitches at a time and keeps it only if more conversations end in a payment. The pitch today:{" "}
+            Ada changes one thing about how Mika pitches at a time. She keeps it only if more chats end in a payment. The pitch today:{" "}
             <b className="font-semibold text-dw-ink">{pitch}</b>.
           </p>
         </div>
@@ -143,7 +143,7 @@ export function TestsCard({
           {!!s?.log.length && (
             <div className="rounded-[22px] bg-white/55 p-4">
               <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[14px] font-semibold">What Darwin decided</span>
+                <span className="text-[14px] font-semibold">What Ada decided</span>
                 <span className="font-dwmono text-[12px] text-dw-ink/55">{s.log.length} notes</span>
               </div>
               <ol className="flex max-h-40 flex-col gap-0.5 overflow-y-auto pr-1">
@@ -169,7 +169,7 @@ export function TestsCard({
             </div>
           )}
           <div className="rounded-[22px] bg-white/45 p-4">
-            <div className="text-[14px] font-semibold">How Darwin calls a test</div>
+            <div className="text-[14px] font-semibold">How Ada calls a test</div>
             <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
               {RULES.map((r) => (
                 <div key={r.label}>
@@ -213,9 +213,9 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
   if (!label) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[22px] bg-white/55 px-5 py-8 text-center">
-        <Mascot kind="experimenter" size={52} frame active={autopilot} />
+        <Mascot kind="experimenter" size={52} frame active={autopilot} title="Ada, the tester" />
         <p className="max-w-[22rem] text-[14px] text-dw-ink/70">
-          {autopilot ? "Autopilot starts the next test as soon as buyer agents arrive." : "No test running. Turn on Autopilot, or press Test it on a lever to start one."}
+          {autopilot ? "Ada starts the next test as soon as buyer agents arrive." : "No test running. Turn on Autopilot, or press Test it on a lever to start one."}
         </p>
       </div>
     );
@@ -241,25 +241,25 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
         <div className="flex items-end gap-3">
           <div className="flex flex-col items-center">
             <Pill value={result.control.rate} max={max} height={110} width={30} dashed label={pctOf(result.control.rate)} tip={`${result.control.paid} of ${result.control.conversations} paid`} />
-            <span className="mt-1.5 text-[12px] text-dw-ink/60">A</span>
+            <span className="mt-1.5 text-[12px] text-dw-ink/60">Today</span>
           </div>
           <div className="flex flex-col items-center">
             <Pill value={result.treatment.rate} max={max} height={110} width={30} label={pctOf(result.treatment.rate)} tip={`${result.treatment.paid} of ${result.treatment.conversations} paid`} />
-            <span className="mt-1.5 text-[12px] text-dw-ink/60">B</span>
+            <span className="mt-1.5 text-[12px] text-dw-ink/60">New</span>
           </div>
         </div>
         <div className="min-w-0 flex-1 pb-6">
           <div className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{signedPct(result.lift)}</div>
-          <div className="mt-1 text-[13px] text-dw-ink/70">paid conversations with the change (B) vs today&apos;s pitch (A)</div>
+          <div className="mt-1 text-[13px] text-dw-ink/70">more paid chats with the new pitch than with today&apos;s</div>
         </div>
       </div>
       {p !== undefined && (
         <div className="mt-2">
           <div className="flex justify-between text-[12.5px] text-dw-ink/70">
             <span>
-              <b className="num font-semibold text-dw-ink">{pctOf(p)}</b> chance B is better
+              <b className="num font-semibold text-dw-ink">{pctOf(p)}</b> chance the new pitch is better
             </span>
-            <span>ships at {Math.round(SHIP_AT * 100)}%</span>
+            <span>kept at {Math.round(SHIP_AT * 100)}%</span>
           </div>
           <div className="relative mt-1.5 h-2 rounded-full bg-dw-ink/10">
             <div className="h-full rounded-full bg-dw-ink transition-[width] duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ width: `${Math.max(2, Math.min(100, p * 100))}%` }} />
@@ -267,7 +267,7 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
           </div>
           {result.liftInterval && (
             <div className="mt-1.5 text-[12px] text-dw-ink/55">
-              95% range: {signedPct(result.liftInterval[0])} to {signedPct(result.liftInterval[1])}
+              Likely between {signedPct(result.liftInterval[0])} to {signedPct(result.liftInterval[1])}
             </div>
           )}
         </div>

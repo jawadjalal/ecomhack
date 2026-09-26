@@ -43,7 +43,7 @@ export const STAGES: { key: StageKey; label: string }[] = [
   { key: "checkout", label: "Checkout" },
 ];
 
-export const STATUS_LABEL: Record<IssueStatus, string> = { test: "In test B", drafted: "Drafted", queued: "Queued" };
+export const STATUS_LABEL: Record<IssueStatus, string> = { test: "Testing", drafted: "Fix drafted", queued: "Waiting" };
 
 export interface IssueRow {
   insight: Insight;
@@ -79,8 +79,8 @@ export function whereText(stage: string): string {
   if (s.startsWith("agent:")) {
     const rest = s.slice(6).trim();
     if (AGENT_TOOL_WHERE[rest]) return AGENT_TOOL_WHERE[rest];
-    if (/_/.test(rest)) return `when calling ${rest}`;
-    return `in the agent ${rest || "API"}`;
+    if (/_/.test(rest)) return `while ${rest.replace(/_/g, " ")}`;
+    return `in the agent ${rest || "store"}`;
   }
   if (/home|landing/.test(s)) return "on the home page";
   if (/product/.test(s)) return "on product pages";
@@ -123,9 +123,9 @@ export function coverageSentence(rows: IssueRow[]): string {
   const inTest = rows.filter((r) => r.status === "test").map((r) => r.n);
   const drafted = rows.filter((r) => r.status === "drafted").map((r) => r.n);
   const nums = inTest.length ? inTest : drafted;
-  if (!nums.length) return "Darwin picks the biggest one to fix first.";
+  if (!nums.length) return "Theo drafts a fix for the biggest one first.";
   const firstK = nums.every((n, i) => n === i + 1);
-  const verb = inTest.length ? "already being fixed in test B" : "covered by a fix Darwin just drafted";
+  const verb = inTest.length ? "already being tested with a fix" : "covered by a fix Theo just drafted";
   if (firstK) {
     if (nums.length === rows.length && rows.length > 1) return `All of them are ${verb}.`;
     if (nums.length === 1) return `The biggest one is ${verb}.`;
@@ -268,11 +268,11 @@ export function sessionsFor(insight: Insight, sessions: AgentSessionSummary[] | 
 export type FixStatus = "test" | "drafted" | "shipped" | "rejected" | "shelved" | "stopped" | "untested";
 
 export const FIX_STATUS_LABEL: Record<FixStatus, string> = {
-  test: "In test",
+  test: "Being tested",
   drafted: "Drafted",
   shipped: "Shipped",
-  rejected: "Rejected",
-  shelved: "Shelved",
+  rejected: "Lost its test",
+  shelved: "Set aside",
   stopped: "Stopped",
   untested: "Never tested",
 };

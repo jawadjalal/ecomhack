@@ -5,7 +5,7 @@ import { DEMO_SITE, SiteSchema } from "@/lib/web";
 
 export const metadata: Metadata = {
   title: "Darwin · Personalize",
-  description: "Change any store page per traffic source and search query, and A/B test it.",
+  description: "Change any store page per traffic source and search query, and test it.",
 };
 
 /** /console/personalize?site=… — web personalization & experiments for any site running darwin.js. */

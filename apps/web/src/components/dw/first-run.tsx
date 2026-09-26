@@ -78,6 +78,13 @@ const STEPS: { kind: MascotKind; label: string; line: string; tab: string; href:
   { kind: "shipper", label: "Ship it", line: "The winner goes live. You can roll it back.", tab: "Changes", href: "/console/changes" },
 ];
 
+/** The Overview's one-line lede on first run: honest about which store the screens show. */
+export function FirstRunLede() {
+  const store = useStoreContext();
+  const yours = store.host ?? store.repo;
+  return <>{yours ? `${yours} is connected. These loop screens run on PACE, Darwin’s demo store.` : "Nothing is connected yet, so here is Darwin on a demo store."}</>;
+}
+
 /** The Overview before anything has happened: what Darwin will do, on which store, and the one click to start. */
 export function FirstRun() {
   const store = useStoreContext();

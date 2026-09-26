@@ -39,7 +39,7 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
       <CardTitle
         right={
           !!f?.simulated && (
-            <span title="Conversations from Darwin's simulated buyer agents (properties.synthetic = true)">
+            <span title="Chats from Darwin's simulated buyer agents, kept apart from real ones">
               <Tag tone="warn">
                 {f.simulated.toLocaleString("en-GB")} of {f.conversations.toLocaleString("en-GB")} simulated
               </Tag>
