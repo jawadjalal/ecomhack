@@ -63,6 +63,26 @@ function rootOf(path: string, suffix: RegExp): string {
   return path.replace(suffix, "").replace(/\/$/, "");
 }
 
+/** Analytics a store already runs, from its package.json and layout/HTML (so Darwin can say it runs alongside). */
+const KNOWN_ANALYTICS: [RegExp, string][] = [
+  [/"posthog-js"|"posthog-node"|us\.i\.posthog\.com|eu\.i\.posthog\.com|posthog\.init\(/, "PostHog"],
+  [/"@vercel\/analytics"/, "Vercel Analytics"],
+  [/"react-ga4"|"react-ga"|"@next\/third-parties"|googletagmanager\.com|gtag\(/, "Google Analytics"],
+  [/"@segment\/analytics-next"|"analytics-node"|cdn\.segment\.com/, "Segment"],
+  [/"mixpanel-browser"|"mixpanel"/, "Mixpanel"],
+  [/"@amplitude\//, "Amplitude"],
+  [/plausible\.io|"next-plausible"/, "Plausible"],
+  [/"@hotjar\/|static\.hotjar\.com/, "Hotjar"],
+  [/connect\.facebook\.net|fbq\(/, "Meta Pixel"],
+  [/static\.klaviyo\.com|"klaviyo/, "Klaviyo"],
+  [/\/darwin\.js/, "Darwin (already installed)"],
+];
+
+export function detectAnalytics(sources: (string | undefined)[]): string[] {
+  const text = sources.filter(Boolean).join("\n");
+  return KNOWN_ANALYTICS.filter(([re]) => re.test(text)).map(([, name]) => name);
+}
+
 export function detectFramework(paths: string[]): FrameworkDetection {
   const files = paths.filter((p) => !IGNORED_DIR.test(p));
   const byDir = new Map<string, string[]>();

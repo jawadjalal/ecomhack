@@ -33,6 +33,7 @@ import {
   REPRESENTATIVE_LAYOUT,
   assumedDetection,
   buildInstallPrBody,
+  detectAnalytics,
   detectFramework,
   manualDocPath,
   planInstall,
@@ -59,7 +60,7 @@ import {
 } from "./store";
 
 export { GitHubClient, GitHubError, parseRepoUrl } from "./client";
-export { detectFramework, planInstall, type Framework, type FrameworkDetection } from "./install";
+export { detectAnalytics, detectFramework, planInstall, type Framework, type FrameworkDetection } from "./install";
 export type { TrafficMix } from "./spec-pr";
 export type { GithubConnection, GithubMode, PullRequestRecord } from "./store";
 
@@ -496,25 +497,32 @@ async function specPR(repo: RepoRef, spec: PageSpec, ctx: SpecPRContext, mode: G
 /* ------------------------------------------------------------------ higher-level helpers for routes / optimizer */
 
 /** What Darwin can tell about a repo before opening anything: its site id and framework. Never throws for GitHub errors. */
-export async function inspectRepository(repoUrl: string): Promise<{ repo: string; siteId: string; framework: string; assumed: boolean; mode: GithubMode; note?: string }> {
+export async function inspectRepository(
+  repoUrl: string,
+): Promise<{ repo: string; siteId: string; framework: string; assumed: boolean; mode: GithubMode; analytics: string[]; note?: string }> {
   const coords = parseRepoUrl(repoUrl);
   if (!coords) {
     throw new GithubIntegrationError(`"${repoUrl}" is not a GitHub repository. Use https://github.com/owner/repo or owner/repo.`, 400);
   }
   const base = { repo: `${coords.owner}/${coords.repo}`, siteId: siteIdFor(coords) };
   const mode = githubMode();
-  const assumed = () => ({ ...base, framework: assumedDetection().label, assumed: true, mode });
-  if (mode === "offline") return { ...assumed(), note: "Darwin isn't connected to GitHub yet (no GITHUB_TOKEN), so I assumed a Next.js store and the pull request will be a preview." };
+  const assumed = () => ({ ...base, framework: assumedDetection().label, assumed: true, mode, analytics: [] as string[] });
+  if (mode === "offline") return { ...assumed(), note: "Darwin isn't connected to GitHub yet (no GITHUB_TOKEN), so the pull request will be a preview." };
   try {
     const gh = githubClient(mode);
     const { baseSha, fullName } = await resolveBase(gh, { ...coords });
     const tree = await gh.getTree(coords.owner, coords.repo, baseSha);
     const detection = detectFramework(tree.entries.filter((e) => e.type === "blob").map((e) => e.path));
-    return { ...base, repo: fullName, framework: detection.label, assumed: false, mode };
+    // Existing analytics: package.json (root and app root) plus the files darwin.js would go into.
+    const read = (path: string) => gh.getFileContent(coords.owner, coords.repo, path, baseSha).then((f) => f?.content, () => undefined);
+    const sources = await Promise.all(
+      [...new Set(["package.json", detection.root ? `${detection.root}/package.json` : "", ...detection.targets.slice(0, 2)].filter(Boolean))].map(read),
+    );
+    return { ...base, repo: fullName, framework: detection.label, assumed: false, mode, analytics: detectAnalytics(sources) };
   } catch (err) {
     const status = err instanceof GitHubError ? err.status : 0;
     const why = status === 401 ? "Darwin's GitHub access isn't working" : status === 404 ? "it's private or doesn't exist" : "GitHub didn't answer";
-    return { ...assumed(), note: `I couldn't read ${base.repo} (${why}), so I assumed a Next.js store. The pull request will be a preview until that's fixed.` };
+    return { ...assumed(), note: `Why: ${why}. The pull request will be a preview until that's fixed.` };
   }
 }
 

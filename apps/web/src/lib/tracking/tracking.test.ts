@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eventStore, track } from "@/lib/analytics/store";
 import { resetWebRules, simulateWebTraffic } from "@/lib/web";
-import { applyToggles, computeDashboards, getPlan, heuristicAmend, heuristicPlan, planIntro, resetPlans, savePlan, trackingDoc, trackingSummary } from ".";
+import { detectAnalytics } from "@/lib/github";
+import { applyToggles, buildPlan, computeDashboards, getPlan, heuristicAmend, heuristicPlan, planIntro, resetPlans, savePlan, trackingDoc, trackingSummary } from ".";
 
 beforeEach(() => {
   eventStore().clear();
@@ -25,6 +26,21 @@ describe("tracking plan", () => {
     expect(shoes.dashboards.find((d) => d.id === "checkout")?.events).toEqual(["checkout_started", "checkout_step_viewed", "order_completed"]);
     expect(shoes.goals).toEqual(["checkout", "mobile", "sizing"]);
     expect(planIntro(shoes)).toMatch(/^I read acme\/storefront \(Next\.js \(App Router\)\)\. You mentioned checkout, mobile and sizing, so I added checkout step viewed, .* and a mobile vs desktop dashboard\. Here's the plan: 7 things/);
+  });
+
+  it("spots analytics the store already runs and says darwin.js runs alongside", async () => {
+    const pkg = JSON.stringify({ dependencies: { next: "16.0.0", "posthog-js": "^1", "@vercel/analytics": "^1" } });
+    const layout = `<Script src="https://www.googletagmanager.com/gtag/js?id=G-1" />`;
+    expect(detectAnalytics([pkg, layout, undefined])).toEqual(["PostHog", "Vercel Analytics", "Google Analytics"]);
+    expect(detectAnalytics([`<script src="https://darwin.example/darwin.js" data-darwin-site="x">`])).toEqual(["Darwin (already installed)"]);
+
+    const plan = await buildPlan({ site: SITE, repo: "acme/storefront", analytics: ["PostHog", "Google Analytics"] }); // no LLM in tests
+    expect(plan).toMatchObject({ existingAnalytics: ["PostHog", "Google Analytics"], author: "heuristic" });
+    expect(planIntro(plan)).toContain("You already use PostHog and Google Analytics: darwin.js runs alongside, nothing is replaced.");
+    expect(planIntro(heuristicPlan({ site: SITE, analytics: ["Darwin (already installed)"] }))).toContain("darwin.js is already installed, so the pull request only adds the plan.");
+    const unread = heuristicPlan({ site: SITE, repo: "acme/storefront", framework: "Next.js (App Router)", analytics: [], repoRead: false });
+    expect(unread.existingAnalytics).toBeUndefined();
+    expect(planIntro(unread)).toMatch(/^I couldn't read acme\/storefront yet, so I assumed Next\.js \(App Router\)\. /);
   });
 
   it("changes with the merchant's chat: add, re-add and turn off events", () => {
