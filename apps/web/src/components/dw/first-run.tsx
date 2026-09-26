@@ -95,8 +95,8 @@ export function FirstRun() {
           <p className="max-w-[34rem] text-[17px] leading-snug text-dw-ink/75">
             {store.connected ? (
               <>
-                Darwin&apos;s loop runs on <b className="font-semibold text-dw-ink">PACE</b>, a demo running-shoe store, so you can see every step before it touches{" "}
-                {store.host ?? store.repo}.
+                This loop runs on <b className="font-semibold text-dw-ink">PACE</b>, Darwin&apos;s demo running-shoe store.{" "}
+                {store.site ? `Your site, ${store.host ?? store.repo}, has its own Dashboards and Personalize.` : ""}
               </>
             ) : (
               <>

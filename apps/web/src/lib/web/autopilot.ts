@@ -18,7 +18,7 @@ import { eventStore } from "@/lib/analytics/store";
 import { needsMerchant, readyToPublish, unbackedTexts } from "./claims";
 import { ideaDraft, ideasFor, rankSources } from "./drafts";
 import { pageFor } from "./pages";
-import { computeSite } from "./results";
+import { computeSite, trafficLabel } from "./results";
 import { createRule, endRule, listRules } from "./store";
 
 export const AUTOPILOT = {
@@ -158,7 +158,8 @@ export function stepAutopilot(site: string, read: PageElement[] = []): { state: 
     // Never ship copy the page can't back up (page unreadable right now): leave it running until it is.
     if (verdict.decision === "shipped" && !readyToPublish(rule, outline)) continue;
     const res = results.find((r) => r.ruleId === rule.id)!;
-    endRule(rule.id, { ...verdict, probabilityToBeat: res.probabilityToBeat, lift: res.lift, at: new Date().toISOString(), by: "autopilot" }, { outline });
+    const decidedOn = { traffic: trafficLabel(res, overview), sample: res.control.visitors + res.treatment.visitors };
+    endRule(rule.id, { ...verdict, probabilityToBeat: res.probabilityToBeat, lift: res.lift, ...decidedOn, at: new Date().toISOString(), by: "autopilot" }, { outline });
     actions.push(
       entry(
         verdict.decision,

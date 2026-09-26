@@ -10,6 +10,7 @@ import { AccountAvatar } from "./account-avatar";
 import { CommandPill } from "./command/pill";
 import { Mascot } from "./mascot";
 import { useDarwin } from "./provider";
+import { StoreChip } from "./store-context";
 
 /** The roadmap: Overview, then the loop's four steps in order. */
 export const NAV = [
@@ -89,6 +90,7 @@ export function TopNav() {
       </nav>
 
       <div className="flex items-center gap-2.5 justify-self-end max-sm:gap-1.5">
+        <StoreChip />
         <button
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
@@ -112,6 +114,7 @@ export function TopNav() {
         <MoreMenu />
         <AccountAvatar />
       </div>
+      <StoreChip variant="bar" />
     </header>
   );
 }

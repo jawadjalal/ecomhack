@@ -82,6 +82,8 @@ function siteName(site: string) {
 }
 
 const PER_SITE = ["/console/dashboards", "/console/personalize"];
+/** Screens that run on PACE. Others (Traffic, Store agent, Settings) have their own site or catalog. */
+const LOOP_PAGES = ["/console/issues", "/console/fixes", "/console/experiments", "/console/changes", "/console/pulls"];
 
 /**
  * The header chip: which store this page shows, and a way to connect yours. `pill` sits with the header
@@ -119,10 +121,17 @@ function Chip({ variant }: { variant: "pill" | "bar" }) {
   const shownSite = perSite ? (params?.get("site") ?? store.site ?? DEMO_WEB_SITE) : undefined;
   const mine = Boolean(shownSite && store.site && shownSite === store.site);
 
+  const loopPage = path === "/console" || LOOP_PAGES.some((p) => path.startsWith(p));
+
   let label: string;
   let short: string;
   let icon = <Store className="size-4 shrink-0" aria-hidden />;
-  if (shownSite && mine) {
+  if (!perSite && !loopPage) {
+    // Traffic, Store agent, Settings: name the merchant's store if there is one, else say it's a demo.
+    label = store.host ?? store.repo ?? "Demo mode";
+    short = store.connected ? label : "Demo";
+    if (store.connected) icon = <Globe className="size-4 shrink-0" aria-hidden />;
+  } else if (shownSite && mine) {
     label = store.host ?? store.repo ?? shownSite;
     short = label;
     icon = <Globe className="size-4 shrink-0" aria-hidden />;
@@ -155,7 +164,6 @@ function Chip({ variant }: { variant: "pill" | "bar" }) {
           {icon}
           <span className="min-w-0 flex-1 truncate">
             <span className="font-medium text-dw-ink">{label}</span>
-            {isDemo && !store.connected ? " · simulated shoppers" : ""}
           </span>
           <span className="shrink-0 font-medium text-dw-ink">{isDemo && !store.connected ? "Connect yours" : "Details"}</span>
           <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} aria-hidden />

@@ -2,17 +2,20 @@
 
 /**
  * Dashboards and Personalize are per site. Opened without ?site=, they show the merchant's own site when
- * onboarding made a tracking plan for it in this tab (a script tag or a GitHub repo), else the demo site.
+ * onboarding made a tracking plan for it in this tab (a script tag or a GitHub repo), else the last site this
+ * browser set up (lib/tracking/remember.ts, survives new tabs), else the demo site.
  * ?site= in the URL always wins. The URL is updated so a reload keeps the same site.
  */
 import { useEffect } from "react";
 import { DashboardsApp } from "@/components/dashboards/dashboards-app";
 import { PersonalizeApp } from "@/components/web/personalize-app";
+import { recallLastSite } from "@/lib/tracking/remember";
 import { DEMO_WEB_SITE, useStoreContext } from "./store-context";
 
 function usePickedSite(urlSite: string | undefined, fallback: string): string | undefined {
   const store = useStoreContext();
-  const site = urlSite || (store.ready ? (store.site ?? fallback) : undefined);
+  // store.ready is false on the server and the first client render, so localStorage is only read after hydration.
+  const site = urlSite || (store.ready ? (store.site ?? recallLastSite()?.site ?? fallback) : undefined);
   useEffect(() => {
     if (urlSite || !site) return;
     try {

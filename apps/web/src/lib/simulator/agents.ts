@@ -29,9 +29,9 @@
  * (WEB_PARSE_FAIL). `agentGate` applies both to the default driver (agent-commerce `runBuyerAgent`) too,
  * so every simulated agent visit is subject to the same hand-off.
  *
- * Calibration (default driver, measured by the scratch loop script, 1,500 agents): DEFAULT_SPEC
- * ~15–20% of agents buy; full agent surface ~48–53%; brands ~40–58% on the full surface.
- * Built-in policy (simulator.test.ts bands): DEFAULT_SPEC ~8–16%; full surface + negotiation ~38–52%.
+ * Calibration (1,500 agents per spec, asserted in simulator.test.ts). Default driver: DEFAULT_SPEC
+ * ~18% of agents buy, bestKnownSpec ~49–50%, brands ~42–57% on it (Gemini lowest, Claude highest).
+ * Built-in policy: DEFAULT_SPEC ~14.5%, bestKnownSpec ~44.5%.
  */
 import type { AnalyticsEventInput, EventProperties, PageSpec, ShoppingGoal } from "@/lib/contracts";
 import { PRODUCTS, SHIPPING_FEE, type Product } from "@/lib/catalog/products";
