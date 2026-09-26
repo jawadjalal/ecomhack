@@ -107,7 +107,7 @@ export interface DashboardsResponse {
   totalEvents: number;
 }
 
-// POST  /api/onboarding/plan { prompt?, repoUrl, whop? }  → { plan, reply }                   (admin)
+// POST  /api/onboarding/plan { prompt?, repoUrl | siteUrl, whop?, answers?, regenerate? } → { plan, reply, cached, note?, snippet? } same inputs → same plan (admin)
 // PATCH /api/onboarding/plan { site, message }             → { plan, reply } chat amend         (admin)
 // PUT   /api/onboarding/plan { plan }                      → { plan } toggles saved            (admin)
 // GET   /api/dashboards?site=…                             → DashboardsResponse               (admin)
