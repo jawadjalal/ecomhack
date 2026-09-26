@@ -139,6 +139,12 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ---
 
+### Crew mascots  ✅
+- **Done:** the animated crew (`public/mascots/{kind}-{state}.svg`, rendered by `components/mascots/animated-mascot.tsx`) now follows what Darwin is doing. `lib/mascot/state.ts` works out the pose: the crew member whose loop step runs works (observe, experiment, ship) or thinks (diagnose, propose, decide); a fresh ship or reject line flashes success or error; autopilot off puts them to sleep. `CrewFace` wires it into page heads and empty states (Issues, Fixes, Experiments, Changes), the Issues crew strip, Overview cards, the impact strip and Autopilot. Ask Darwin (bottom bar, Overview chat) thinks while a reply is in flight, then flashes success or error (`components/mascots/use-chat-mascot.ts`). Classic console: activity log, loop ring and stage panel show crew mascots with live poses. Fix and issue detail, the store-agent chat, tests card, personalize decisions, onboarding and readiness loading follow their own status.
+- **Left to do:** the remaining `active`-only mascots (traffic, dashboards grid, landing timeline) could take real poses too.
+- **Limitations:** poses ride the 1s clock and loop polling, so a success/error flash can be missed between polls. Card-corner silhouettes stay flat vectors; buyer brands keep their official glyphs.
+- **Next-run ideas:** push loop events to the console (SSE) so the shipper celebrates the moment a change lands.
+
 ## Platform limitations (fix before real merchants)
 
 - **State lives in memory + `.data/`**: on Vercel each instance has its own state → demo from one process (`npm run build && npm start`) or move to Supabase (`lib/analytics/supabase.ts` mirror exists).
