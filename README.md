@@ -30,6 +30,7 @@ npm run build && npm start     # or: npm run dev
 | http://localhost:3000/onboarding | **Set up a store**: tell Darwin about it, connect GitHub (+ Whop) → it plans what to record, opens the install PR, builds your dashboards |
 | http://localhost:3000/console | **Mission control**: the loop, live traffic, experiments, PRs |
 | http://localhost:3000/console/dashboards | The dashboards Darwin built from a store's tracking plan, live |
+| http://localhost:3000/console/agents | **Store agent**: your Whop store's AI agent (A2A at `/a2a/whop`), a live buyer-agent chat, agent sales |
 | http://localhost:3000/console?mock=1 | Same UI, fully simulated in the browser (offline fallback) |
 | http://localhost:3000/store | The demo store (PACE running shoes) |
 | http://localhost:3000/console/personalize | **Personalize any store**: change a page per traffic source (ChatGPT, Google, Instagram, ads) and search query, A/B tested |
@@ -91,6 +92,24 @@ Darwin runs on its own onboarding (site `darwin-onboarding`): each step is an ev
 `/console/dashboards?site=darwin-onboarding` and can be A/B tested like any store.
 
 ![Onboarding A (before) vs B (now)](apps/web/docs/screenshots/onboarding/onboarding-A-vs-B.jpg)
+
+### Your Whop store's own AI agent (agent-to-agent commerce)
+
+How an AI agent buys from the store, and how Darwin knows it converted:
+
+1. A shopper's agent (ChatGPT, Claude, Perplexity, a custom buyer) finds the store agent at `/a2a/whop`
+   (agent card at `/a2a/whop/agent-card.json`; A2A v1.0 `SendMessage` and v0.3 `message/send`).
+2. It asks in plain English ("trail running coaching under £40 a month") and gets real offers from the Whop
+   business's plans (price, billing) as text plus structured data.
+3. "Buy the first one" returns a **Whop checkout link tagged with the conversation** (checkout configuration
+   metadata: `visitor_kind: agent`, `agent_name`, `darwin_ref`).
+4. The Whop payment webhook (`/api/whop/webhook`) brings the payment back with that metadata, so it counts as
+   that agent's sale. `/console/agents` shows the funnel: conversations → offers → checkout links → paid, by agent.
+
+Set `WHOP_API_KEY` and `WHOP_COMPANY_ID` (biz_…). Until then it runs on a labelled demo catalog whose checkout
+records a simulated payment.
+
+![Store agent](apps/web/docs/screenshots/agents/store-agent.jpg)
 
 ### Personalize any store
 

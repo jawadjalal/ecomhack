@@ -123,6 +123,15 @@ export function TopBar({
         Dashboards
       </Link>
 
+      <Link
+        href="/console/agents"
+        title="Your Whop store's own AI agent: buyer agents shop it over A2A and pay through tagged checkout links"
+        className="flex h-9 items-center gap-2 rounded-xl border border-agent/30 bg-agent/[0.08] px-3 text-[0.82rem] font-medium whitespace-nowrap text-[#f5a6cb] transition-colors hover:bg-agent/[0.14] [&_svg]:size-[0.95rem]"
+      >
+        <Bot />
+        Store agent
+      </Link>
+
       <Chip onClick={onConnect} title={github?.repo ? "Connected repository (click for details)" : "Connect a GitHub repo"}>
         <GithubMark className="text-white/70" />
         {github?.repo ? (
