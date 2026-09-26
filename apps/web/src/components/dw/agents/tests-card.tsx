@@ -235,7 +235,7 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
     <div className="rounded-[22px] bg-white/70 p-4">
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 truncate text-[14px] font-semibold">Testing “{label}”</span>
-        <span className="shrink-0 font-dwmono text-[12px] text-dw-ink/55">{n.toLocaleString("en-GB")} conversations</span>
+        <span className="shrink-0 font-dwmono text-[12px] text-dw-ink/55">{n.toLocaleString("en-GB")} chats</span>
       </div>
       <div className="mt-3 flex items-end gap-5">
         <div className="flex items-end gap-3">
@@ -250,7 +250,7 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
         </div>
         <div className="min-w-0 flex-1 pb-6">
           <div className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{signedPct(result.lift)}</div>
-          <div className="mt-1 text-[13px] text-dw-ink/70">more paid chats with the new pitch than with today&apos;s</div>
+          <div className="mt-1 text-[13px] text-dw-ink/70">paid chats with the new pitch, compared with today&apos;s</div>
         </div>
       </div>
       {p !== undefined && (

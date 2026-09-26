@@ -121,7 +121,7 @@ export function SettingRows({ lines, compact }: { lines: string[]; compact?: boo
           >
             <div className="min-w-0" title={d.path}>
               <div className="truncate text-[14px] font-medium">{humanizePath(d.path)}</div>
-              <div className={cn("truncate font-dwmono text-[11.5px] text-dw-ink/45", compact && "lg:hidden")}>{d.path}</div>
+              <div className={cn("truncate font-dwmono text-[11.5px] text-dw-ink/45", compact && "hidden")}>{d.path}</div>
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-dwmono text-[12.5px]">
               {d.before !== undefined && (

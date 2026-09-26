@@ -53,7 +53,7 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
       <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
         <div>
           <div className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{f ? `${Math.round(f.conversion * 100)}%` : "–"}</div>
-          <div className="mt-1 text-[13px] text-dw-ink/70">of agent conversations end in a payment</div>
+          <div className="mt-1 text-[13px] text-dw-ink/70">of agent chats end in a payment</div>
         </div>
         <div className="flex gap-5 pb-0.5">
           <div>

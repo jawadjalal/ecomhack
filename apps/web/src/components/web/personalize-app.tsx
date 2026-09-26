@@ -601,8 +601,8 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         <CardHead
           right={
             <span className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
-              <LegendKey dashed>Original</LegendKey>
-              <LegendKey>With change</LegendKey>
+              <LegendKey dashed>Current page</LegendKey>
+              <LegendKey>New version</LegendKey>
               <span className="num">{data?.rules.length ?? 0} rules</span>
             </span>
           }
@@ -1005,7 +1005,7 @@ function RuleRow({
           {test ? (
             <>
               <div className="flex flex-col gap-2">
-                <ArmBar label="Your current page" rate={result.control.conversionRate} visitors={result.control.visitors} max={maxRate} dashed />
+                <ArmBar label="Current page" rate={result.control.conversionRate} visitors={result.control.visitors} max={maxRate} dashed />
                 <ArmBar label="New version" rate={result.treatment.conversionRate} visitors={result.treatment.visitors} max={maxRate} />
               </div>
               {p !== undefined && (
@@ -1048,7 +1048,7 @@ function RuleRow({
 /** One arm of a test: a horizontal pill (dashed = original, solid = with the change). */
 function ArmBar({ label, rate, visitors, max, dashed }: { label: string; rate: number; visitors: number; max: number; dashed?: boolean }) {
   return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_7rem] items-center gap-3 text-[13px] max-sm:grid-cols-[5.75rem_minmax(0,1fr)_5.5rem] max-sm:gap-2">
+    <div className="grid grid-cols-[7.25rem_minmax(0,1fr)_7rem] items-center gap-3 text-[13px] max-sm:grid-cols-[6.5rem_minmax(0,1fr)_5.5rem] max-sm:gap-2">
       <span className="flex items-center gap-1.5 whitespace-nowrap text-dw-ink/70">
         <span className={cn("size-2.5 shrink-0 rounded-[3px]", dashed ? "border border-dashed border-dw-ink" : "bg-dw-ink")} aria-hidden />
         {label}
