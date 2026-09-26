@@ -92,6 +92,8 @@ export function resetA2aConversations() {
 
 const LEAVE = /\b(no thanks|not interested|goodbye|bye|never ?mind|forget it|i'?ll pass|leave it)\b/;
 const BUY = /\b(buy|order|check ?out|purchase|i'?ll take|go ahead|place (?:the|an|my) order|yes please|it'?s a deal)\b/;
+/** A question about the product we're discussing ("what sizes?", "when would it arrive?"). */
+const ASK_ABOUT = /\b(sizes?|stock|in stock|deliver\w*|arriv\w*|returns?|refund|price|cost|shipping|more about|details|tell me|what about|is it|does it)\b/;
 const HAGGLE = /\b(offer|would you (?:take|do|accept)|how about|can you do|could you do|discount|cheaper|lower|best price|knock|haggle)\b/;
 const ORDINALS: [RegExp, number][] = [
   [/\b(first|1st|#1|number one|option (?:1|one))\b/, 0],
@@ -295,6 +297,9 @@ async function merchantReply(conv: Conversation, text: string, data: Record<stri
     const target = focus ?? PRODUCTS.find((p) => p.id === conv.shortlist[0]);
     if (target) return purchase(conv, target, call);
   }
+  // A question about the product on the table, not a new brief.
+  const question = /\?\s*$|^(what|when|how|is|does|do|can|could|will|would)\b/.test(lower.trim());
+  if (!action && focus && question && ASK_ABOUT.test(lower) && !parseGoalBrief(text).category) return describe(conv, focus, call);
   if (action === "search" || !conv.shortlist.length || (!named && looksLikeBrief(text))) {
     return shortlist(conv, text || "running shoes", call, negotiates);
   }

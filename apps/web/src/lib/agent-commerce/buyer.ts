@@ -104,7 +104,7 @@ export function parseGoalBrief(brief: string, today: Date = new Date()): Shoppin
   const size = text.match(/\b(?:uk|size)\s*(\d{1,2}(?:\.5)?)\b/) ?? text.match(/\b(s\/m|l\/xl)\b/);
   if (size) goal.size = size[1].toUpperCase();
 
-  const budget = text.match(/(?:under|below|less than|max(?:imum)?|up to|budget(?: of)?|within|<)\s*£\s*(\d+(?:\.\d{1,2})?)/) ?? text.match(/£\s*(\d+(?:\.\d{1,2})?)\s*(?:max|budget|or less)/);
+  const budget = text.match(/(?:under|below|less than|max(?:imum)?|up to|budget(?: of| is)?(?: around| about| roughly)?|within|around|about|<)\s*£\s*(\d+(?:\.\d{1,2})?)/) ?? text.match(/£\s*(\d+(?:\.\d{1,2})?)\s*(?:max|budget|or less)/);
   if (budget) goal.maxBudget = Math.round(Number(budget[1]) * 100);
 
   const day = text.match(/\bby\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/);

@@ -82,6 +82,18 @@ describe("A2A merchant agent (POST /api/a2a)", () => {
     for (const price of [deal.counterOffer, deal.agreedPrice].filter((v) => v !== undefined)) expect(price).toBeGreaterThanOrEqual(floor);
   });
 
+  it("answers follow-up questions about the product on the table", async () => {
+    useSpec(OPEN_SURFACE);
+    const first = await say("Hi! Looking for waterproof trail running shoes, men's UK 10, budget around £150.");
+    expect(first.data.products[0].price.amount).toBeLessThanOrEqual(15000);
+    const sizes = await say("What sizes do you have?", first.contextId);
+    expect(sizes.data.product.id).toBe(first.data.products[0].id);
+    const eta = await say("When would the shoes arrive?", first.contextId);
+    expect(eta.text).toMatch(/arrives in \d+ days?/);
+    const order = await say("Lovely, I'd like to order them please.", first.contextId);
+    expect(order.text).toMatch(/^Done: order/);
+  });
+
   it("asks for a size before ordering and answers product questions by ordinal", async () => {
     useSpec(OPEN_SURFACE);
     const first = await say("I need racing shoes for a marathon");

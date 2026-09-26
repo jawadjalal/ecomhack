@@ -22,6 +22,11 @@ function sessionWhere(pred: (roll: number) => boolean): string {
 }
 
 describe("parseGoalBrief", () => {
+  it("reads looser budgets", () => {
+    expect(parseGoalBrief("trail shoes, budget around £150").maxBudget).toBe(15000);
+    expect(parseGoalBrief("something about £90").maxBudget).toBe(9000);
+  });
+
   it("extracts category, size, budget, deadline and requirements", () => {
     const saturday = new Date("2026-09-26T10:00:00Z");
     expect(parseGoalBrief("trail shoes UK 10 under £140 by Friday, free returns, happy to negotiate", saturday)).toEqual({
