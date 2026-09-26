@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { exchangeGithubCode, safeReturnPath, saveGithubSession, SESSION_COOKIE, sessionCookieOptions, STATE_COOKIE } from "@/lib/auth/oauth";
+import { exchangeGithubCode, githubSessionCookie, safeReturnPath, SESSION_COOKIE, sessionCookieOptions, STATE_COOKIE } from "@/lib/auth/oauth";
 import { publicOrigin } from "@/lib/github";
 
 /** GET /api/auth/github/callback?code&state — GitHub sends the merchant back here after they approve. */
@@ -19,9 +19,8 @@ export async function GET(req: Request) {
   if (!code || !expected || url.searchParams.get("state") !== expected) return fail("Sign-in expired or didn't match. Try again.");
   try {
     const { token, identity } = await exchangeGithubCode(code, origin);
-    const sid = saveGithubSession(req, identity, token);
     const res = NextResponse.redirect(`${origin}${back}${back.includes("?") ? "&" : "?"}github=connected`);
-    res.cookies.set(SESSION_COOKIE, sid, sessionCookieOptions(origin.startsWith("https:")));
+    res.cookies.set(SESSION_COOKIE, githubSessionCookie(identity, token), sessionCookieOptions(origin.startsWith("https:")));
     res.cookies.delete(STATE_COOKIE);
     return res;
   } catch (err) {
