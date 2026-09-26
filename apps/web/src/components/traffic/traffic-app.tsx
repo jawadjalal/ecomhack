@@ -9,6 +9,7 @@ import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { Card, Empty, LegendKey, PageHead, PillButton, Tag, type Tone } from "@/components/dw/ui";
 import { CardHead, DwSwitch, HEAD_CONTROLS, SiteSelect } from "@/components/dw/personalize/kit";
 import { SourceMark } from "@/components/dw/traffic/source-mark";
+import { useLiveInterval } from "@/lib/console/live";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -85,14 +86,16 @@ export function TrafficApp() {
     }
   }, [site, synthetic]);
 
+  const every = useLiveInterval(4000);
   useEffect(() => {
     const first = setTimeout(load, 0);
-    const t = setInterval(load, 4000);
+    // Static unless the Live switch is on: on a multi-server host each poll can land on a server with other numbers.
+    const t = every ? setInterval(load, every) : undefined;
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      if (t) clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   const addTestTraffic = async () => {
     setBusy(true);
