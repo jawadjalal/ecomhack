@@ -130,6 +130,41 @@ describe("A2A merchant agent (POST /api/a2a)", () => {
     expect(bought.orderTotal).toBeGreaterThan(0);
   });
 
+  it("lets an LLM write the buyer's side, and falls back to the script if the model fails mid-chat", async () => {
+    useSpec(OPEN_SURFACE);
+    const caller = { agentId: "agt_llm", agentName: "grok-buyer", synthetic: true };
+    const said: string[] = [];
+    const llmLines = ["When would the Ridge Trail Pro arrive?", "Perfect, buy it in UK 10 please."];
+    const session = await runA2aBuyer(parseGoalBrief("Trail shoes, UK 10, under £150, delivered within 4 days"), caller, {
+      nextTurn: async (state) => {
+        said.push(state.transcript.at(-1)!.text);
+        return llmLines.shift()!;
+      },
+    });
+    expect(session.outcome).toBe("purchased");
+    expect(session.negotiation!.filter((t) => t.from === "buyer").map((t) => t.message)).toEqual([
+      "Trail shoes, UK 10, under £150, delivered within 4 days",
+      "When would the Ridge Trail Pro arrive?",
+      "Perfect, buy it in UK 10 please.",
+    ]);
+    expect(said[1]).toMatch(/arrives in \d+ days?/); // the model saw the merchant's answer
+
+    const flaky = await runA2aBuyer(parseGoalBrief("Road shoes, UK 9, delivered within 4 days"), { ...caller, agentId: "agt_llm2" }, {
+      nextTurn: async () => {
+        throw new Error("503 upstream");
+      },
+    });
+    expect(flaky.outcome).toBe("purchased");
+  });
+
+  it("leaves, citing the merchant, when an order can't go through", async () => {
+    useSpec(OPEN_SURFACE);
+    // £136 covers the £135 shoe but not the £4.95 delivery.
+    const s = await runA2aBuyer(parseGoalBrief("Trail shoes, UK 10, under £136"), { agentId: "agt_budget", agentName: "a2a-buyer", synthetic: true });
+    expect(s.outcome).toBe("abandoned");
+    expect(s.reason).toMatch(/^No thanks: /);
+  });
+
   it("POST /api/agent/shop via a2a runs the chat shopper", async () => {
     useSpec(OPEN_SURFACE);
     const res = await shopRoute(new Request(`${URL_BASE}/api/agent/shop`, { method: "POST", body: JSON.stringify({ brief: "Trail shoes UK 10 under £150", via: "a2a" }) }));

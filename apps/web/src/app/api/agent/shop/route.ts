@@ -38,7 +38,11 @@ export async function POST(req: Request) {
   const usingLlm = useLlm && llmAvailable();
 
   if (via === "a2a") {
-    const session = await runA2aBuyer(goal, { agentId: id("agt"), agentName: agentName ?? "a2a-buyer", synthetic: true });
+    const session = await runA2aBuyer(
+      goal,
+      { agentId: id("agt"), agentName: agentName ?? (usingLlm ? `${llmModel()}-buyer` : "a2a-buyer"), synthetic: true },
+      { useLlm: usingLlm },
+    );
     return json({ session } satisfies AgentShopResponse);
   }
 

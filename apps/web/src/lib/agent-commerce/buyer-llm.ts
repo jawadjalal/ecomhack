@@ -53,7 +53,7 @@ Rules:
 
 Respond with JSON: {"thought": "<one sentence>", "tool": "<tool name>", "args": { ... }}`;
 
-function goalText(goal: ShoppingGoal): string {
+export function goalText(goal: ShoppingGoal): string {
   const lines = [`Brief: ${goal.brief}`];
   if (goal.category) lines.push(`Category: ${goal.category}`);
   if (goal.size) lines.push(`Size: ${sizeLabel(goal.size)} (pass size "${goal.size}")`);
