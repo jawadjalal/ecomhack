@@ -38,7 +38,7 @@
 }
 
 .dwf-p {
-  --s: 0.22em;
+  --s: 0.3em;
   position: absolute;
   left: var(--x);
   width: var(--s);
@@ -66,9 +66,9 @@
 
 /* On the d's ascender. */
 .dwf-p.is-tall {
-  --s: 0.2em;
+  --s: 0.28em;
   top: calc(0.2em - var(--s));
-  left: calc(var(--x) + 0.23em);
+  left: calc(var(--x) + 0.2em);
 }
 
 /* Behind the letter, only the top half showing. */
@@ -79,7 +79,7 @@
 
 /* In place of the i's dot. */
 .dwf-p.is-dot {
-  --s: 0.17em;
+  --s: 0.21em;
   top: calc(0.34em - var(--s) - 0.02em);
 }
 

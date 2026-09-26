@@ -15,6 +15,8 @@ import { Shimmer } from "../issues/panel";
 import { useUrlSelection } from "../issues/use-selection";
 import { WatchingEmpty } from "../issues/watching";
 import { StartDemo } from "../first-run";
+import { runScope, useSticky } from "../issues/sticky";
+import { StatusPill } from "../issues/status-pill";
 
 /** Fixes screen: every page change Theo has drafted, what it changes, and what happened to it. */
 export function FixesScreen() {
@@ -30,8 +32,13 @@ export function FixesScreen() {
 function Fixes() {
   const { loop, autopilot, stepping, step } = useDarwin();
   const experiments = useExperiments();
-  const rows = useMemo(() => rankIssues(loop, experiments), [loop, experiments]);
-  const fixes = useMemo(() => buildFixes(loop, experiments), [loop, experiments]);
+  const freshRows = useMemo(() => rankIssues(loop, experiments), [loop, experiments]);
+  const freshFixes = useMemo(() => buildFixes(loop, experiments), [loop, experiments]);
+  // The loop clears insights and the proposal at the start of every observe phase: keep the last ones so
+  // the page never swaps to its empty state and back mid-cycle.
+  const scope = runScope(loop);
+  const rows = useSticky("dw-fixes-rows-sticky", scope, freshRows).list;
+  const fixes = useSticky("dw-fixes-sticky", scope, freshFixes).list;
   const archive = useMemo(() => insightArchive(loop), [loop]);
   const ids = useMemo(() => fixes.map((f) => f.id), [fixes]);
   const { selected, select } = useUrlSelection(ids);
@@ -70,7 +77,18 @@ function Fixes() {
   const tail = inTest ? "one in test" : drafted ? "one ready to test" : shipped ? `${shipped} shipped` : "none tested yet";
   const upNext = drafted && !inTest ? `Up next: Ada tests “${drafted.title}”.` : next && !inTest ? `Up next: a fix for issue ${next.n}, ${next.insight.title.replace(/[.]$/, "")}.` : "";
 
-  const right = inTest ? (
+  const busy = autopilot || stepping;
+  const between = !loop.proposal && (loop.phase === "observe" || loop.phase === "diagnose" || loop.phase === "propose");
+  const status = inTest
+    ? "Ada is testing Theo's fix"
+    : between
+      ? busy
+        ? "Theo is drafting the next fix…"
+        : "Theo drafts the next fix on the next step"
+      : drafted
+        ? "Theo's fix is ready to test"
+        : `Theo is up to date with version ${loop.generation}`;
+  const action = inTest ? (
     <PillButton href="/console/experiments" tone="white" className="group/cta">
       Watch the test <ArrowRight className="transition-transform group-hover/cta:translate-x-0.5" />
     </PillButton>
@@ -81,6 +99,14 @@ function Fixes() {
       <Play /> {stepping ? "Starting…" : "Start the test"}
     </PillButton>
   ) : undefined;
+  const right = (
+    <div className="flex max-w-[calc(100vw-32px)] flex-wrap items-center justify-end gap-2.5">
+      <StatusPill who="designer" live={busy && (between || Boolean(inTest))}>
+        {status}
+      </StatusPill>
+      {action}
+    </div>
+  );
 
   return (
     <>

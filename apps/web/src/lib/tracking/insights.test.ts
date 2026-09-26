@@ -137,6 +137,7 @@ describe("asking for a chart in plain words", () => {
     ["where do people go after the product page", { kind: "paths", from: "product_viewed" }],
     ["new vs returning shoppers", { kind: "lifecycle" }],
     ["which sizes are added to cart most", { kind: "breakdown", events: ["product_added"], property: "size" }],
+    ["which pages get the most views", { kind: "breakdown", events: ["$pageview"], property: "page" }],
     ["how long do people take to buy", { kind: "time_to_convert" }],
     ["when do people shop", { kind: "hourly", events: ["$pageview"] }],
   ])("%s", (q, want) => {

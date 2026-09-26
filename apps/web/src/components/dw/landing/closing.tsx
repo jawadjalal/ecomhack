@@ -22,7 +22,7 @@ export function Closing() {
       <div className="mx-auto flex max-w-[1100px] flex-col items-center text-center">
         <motion.h2
           id="closing-title"
-          className="text-[40px] leading-[1.04] font-semibold tracking-[-0.04em] text-white [text-shadow:0_1px_14px_rgba(26,16,48,0.5)] sm:text-[60px] xl:text-[76px]"
+          className="text-[33px] leading-[1.08] font-semibold tracking-[-0.04em] text-white [text-shadow:0_1px_14px_rgba(26,16,48,0.5)] sm:text-[60px] xl:text-[76px]"
           initial={{ opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "0px 0px -10% 0px" }}

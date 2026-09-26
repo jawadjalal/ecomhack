@@ -11,6 +11,8 @@ import { IssueDetail } from "../issues/issue-detail";
 import { IssueList, type Focus } from "../issues/issue-list";
 import { buildFixes, coverageSentence, fmtImpact, plural, rankIssues, resolvedIssues, STAGES, type IssueRow } from "../issues/model";
 import { AgentStack, PeopleGroup } from "../issues/who";
+import { runScope, useSticky } from "../issues/sticky";
+import { StatusPill } from "../issues/status-pill";
 import { ResolvedIssues } from "../issues/resolved";
 import { Shimmer } from "../issues/panel";
 import { WatchingEmpty } from "../issues/watching";
@@ -28,12 +30,19 @@ export function IssuesScreen() {
 }
 
 function Issues() {
-  const { loop } = useDarwin();
+  const { loop, autopilot, stepping } = useDarwin();
   const experiments = useExperiments();
   const sessions = useSessions(40);
   const { summary } = useSummary(loop ? { specVersion: loop.liveSpec.version } : null, 5000);
 
-  const rows = useMemo(() => rankIssues(loop, experiments), [loop, experiments]);
+  const fresh = useMemo(() => rankIssues(loop, experiments), [loop, experiments]);
+  // The loop clears its insights at the start of every observe phase: keep showing the last ones (as
+  // "waiting") instead of swapping to the empty state and back on every cycle.
+  const sticky = useSticky("dw-issues-sticky", runScope(loop), fresh);
+  const rows = useMemo(
+    () => (sticky.stale ? sticky.list.map((r) => (r.status === "queued" ? r : { ...r, status: "queued" as const })) : sticky.list),
+    [sticky.list, sticky.stale],
+  );
   const fixes = useMemo(() => buildFixes(loop, experiments), [loop, experiments]);
   const resolved = useMemo(() => resolvedIssues(loop, experiments), [loop, experiments]);
   const fixedBy = useMemo(() => {
@@ -46,7 +55,7 @@ function Issues() {
   const [focus, setFocus] = useState<Focus>(null);
 
   if (!loop) return <IssuesSkeleton />;
-  if (!rows.length) return <WatchingEmpty />;
+  if (!rows.length && !resolved.length) return <WatchingEmpty />;
 
   const n = rows.length;
   const row = rows.find((r) => r.insight.id === selected) ?? rows[0];
@@ -59,6 +68,15 @@ function Issues() {
       ? { id: current.id, title: current.title, drafted: current.status === "drafted", nums: rows.filter((r) => loop.proposal?.insightIds.includes(r.insight.id)).map((r) => r.n) }
       : undefined;
 
+  const rechecking = !fresh.length && (loop.phase === "observe" || loop.phase === "diagnose" || loop.phase === "idle");
+  const busy = autopilot || stepping;
+  const status = rechecking
+    ? busy
+      ? "Iris is re-checking with fresh shoppers…"
+      : "Iris re-checks with fresh shoppers on the next step"
+    : busy
+      ? `Iris is watching version ${loop.generation}`
+      : `Iris checked version ${loop.generation}`;
   const worst = STAGES.map((st) => ({ st, lost: rows.filter((r) => r.stage === st.key).reduce((t, r) => t + r.insight.impactScore, 0) })).sort((a, b) => b.lost - a.lost)[0];
   const worstText = worst && worst.lost > 0 ? ` The ${worst.st.key === "home" ? "home page loses" : worst.st.key === "product" ? "product pages lose" : `${worst.st.label.toLowerCase()} step loses`} the most buyers.` : "";
 
@@ -66,12 +84,21 @@ function Issues() {
     <>
       <PageHead
         mascot={<Mascot kind="observer" size={52} frame active />}
-        title={`${n} thing${n === 1 ? "" : "s"} stop${n === 1 ? "s" : ""} shoppers buying`}
+        title={n ? `${n} thing${n === 1 ? "" : "s"} stop${n === 1 ? "s" : ""} shoppers buying` : "Iris is re-checking your store"}
+        right={
+          <StatusPill who="observer" live={busy}>
+            {status}
+          </StatusPill>
+        }
         lede={
+          n === 0 ? (
+            "Every issue so far is fixed. Iris is watching fresh shoppers for the next one."
+          ) : (
           <>
             Iris found {n === 1 ? "it" : "them"}
             {sessionsSeen ? ` in ${count(sessionsSeen)} visits (simulated shoppers included)` : ""}.{worstText} {coverageSentence(rows)}
           </>
+          )
         }
       />
 

@@ -99,6 +99,9 @@ export function IssueList({
           );
         })}
       </div>
+      {rows.length === 0 && (
+        <p className="rounded-2xl px-3 py-4 text-[15px] leading-snug text-dw-ink/65">No open issues right now. Iris is watching fresh shoppers, and new issues show up here.</p>
+      )}
       <MoreButton hidden={list.hidden} canCollapse={list.canCollapse} noun={list.hidden === 1 ? "issue" : "issues"} onClick={list.toggle} />
       {children}
     </section>

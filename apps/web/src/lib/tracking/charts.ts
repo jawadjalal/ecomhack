@@ -38,7 +38,7 @@ const SYNONYMS: [RegExp, string][] = [
   [/\bcheck ?outs?\b/, "checkout_started"],
   [/\b(product (page|view)s?|views? (a )?products?)\b/, "product_viewed"],
   [/\b(coupons?|discount codes?|promo codes?|vouchers?)\b/, "coupon_applied"],
-  [/\b(visitors?|visits?|traffic|shoppers?|people|customers|page ?views?|sessions?|shop)\b/, "$pageview"],
+  [/\b(visitors?|visits?|traffic|shoppers?|people|customers|page ?views?|views?|pages?|sessions?|shop)\b/, "$pageview"],
 ];
 
 /** Property words ("which sizes") → the property to count. */
@@ -151,6 +151,11 @@ export function askForChart(plan: TrackingPlan, message: string): ChartAnswer {
   const m = ` ${words(message)} `;
   const kind = kindFor(m, plan, message);
   let events = mentioned(plan, message).filter((e) => e.enabled || e.automatic);
+  // "AI agents" is a split, not an event: agents are told apart on their page views.
+  if (kind !== "events") {
+    const views = plan.events.find((e) => e.name === "$pageview");
+    events = [...new Map(events.map((e) => (e.name === "agent_visit" && views ? views : e)).map((e) => [e.name, e])).values()];
+  }
   let added: TrackingEvent | undefined;
   let next = plan;
 

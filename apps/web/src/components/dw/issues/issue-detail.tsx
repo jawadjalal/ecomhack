@@ -88,6 +88,12 @@ export function IssueDetail({
         size={240}
         style={{ right: -70, top: -90, zIndex: -1 }}
       />
+      {!row && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+          <Mascot kind="observer" size={72} frame active />
+          <p className="max-w-[26rem] text-[16px] leading-snug">When Iris finds where shoppers get stuck, the details show up here.</p>
+        </div>
+      )}
       <AnimatePresence mode="wait" initial={false}>
         {row && (
           <motion.div

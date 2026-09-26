@@ -50,12 +50,12 @@ function Win({ title, tag, children, className }: { title: string; tag?: string;
   );
 }
 
-const ROW = "flex items-center gap-3 rounded-[18px] border border-dw-hairline bg-white/70 px-3 py-2.5";
+const ROW = "flex min-w-0 items-center gap-3 rounded-[18px] border border-dw-hairline bg-white/70 px-3 py-2.5";
 
 function ConnectPicture() {
   return (
     <Win title="Connect your store" tag="Pick one">
-      <ul className="grid gap-2.5">
+      <ul className="grid grid-cols-1 gap-2.5">
         <li className={ROW}>
           <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-dw-yellow"><Code2 className="size-[18px]" aria-hidden /></span>
           <span className="min-w-0 flex-1">
@@ -95,7 +95,7 @@ function WatchPicture() {
         <Art id="lake-marsh" position="50% 60%" sizes="440px" />
         <span className={cn(RIM, "absolute bottom-3 left-4 inline-grid")}><Mascot kind="observer" size={40} /></span>
       </div>
-      <ul className="grid gap-2">
+      <ul className="grid grid-cols-1 gap-2">
         {rows.map((r) => (
           <li key={r.name} className={ROW}>
             {r.who}
@@ -111,7 +111,7 @@ function WatchPicture() {
 function DraftPicture() {
   return (
     <Win title="Theo's draft" tag="Example">
-      <div className="grid gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5">
         <div className="rounded-[18px] border border-dw-hairline bg-white/70 p-3.5">
           <p className="text-[11.5px] font-medium text-dw-muted">Your current page</p>
           <p className="mt-1 text-[16px] font-semibold text-dw-ink/70">Trail Runner</p>
@@ -167,7 +167,7 @@ function TestPicture() {
 function ShipPicture() {
   return (
     <Win title="Changes" tag="Example">
-      <div className="grid gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5">
         <div className={ROW}>
           <span className={cn(RIM, "inline-grid shrink-0")}><Mascot kind="shipper" size={30} /></span>
           <span className="min-w-0 flex-1">
@@ -283,7 +283,7 @@ function StopRow({ s, i }: { s: Stop; i: number }) {
   const lit = useInView(key, { margin: "100000px 0px -50% 0px" });
   const flip = i % 2 === 1;
   return (
-    <li className="relative grid grid-cols-1 items-center gap-6 pl-[60px] lg:grid-cols-2 lg:gap-x-[128px] lg:pl-0">
+    <li className="relative grid min-w-0 grid-cols-1 items-center gap-6 pl-[60px] lg:grid-cols-2 lg:gap-x-[128px] lg:pl-0">
       <div
         ref={key}
         aria-hidden
@@ -359,7 +359,7 @@ export function Timeline() {
           </motion.div>
         </div>
 
-        <ol className="relative grid gap-20 sm:gap-24 lg:gap-28">
+        <ol className="relative grid grid-cols-1 gap-20 sm:gap-24 lg:gap-28">
           {STOPS.map((s, i) => (
             <StopRow key={s.id} s={s} i={i} />
           ))}
