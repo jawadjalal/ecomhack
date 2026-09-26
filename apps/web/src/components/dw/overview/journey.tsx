@@ -444,7 +444,7 @@ export function JourneyHeader({ s, now }: { s: Shopper; now: number }) {
       <ShopperAvatar s={s} size={48} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[20px] leading-tight font-semibold tracking-[-0.01em]">{s.name}</span>
-        <span className="truncate text-[12.5px] text-[#3E4E70]">{headLine(s, now)}</span>
+        <span className="line-clamp-2 text-[12.5px] leading-snug text-[#3E4E70]">{headLine(s, now)}</span>
       </div>
       <span className={cn("flex shrink-0 items-center gap-2 text-[20px] leading-tight font-semibold tracking-[-0.01em] tabular-nums", left && "text-[#C2306F]")}>
         {s.status === "live" && <span className="dw-live-dot size-2 rounded-full bg-dw-live" />}
