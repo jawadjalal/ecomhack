@@ -11,6 +11,7 @@ import type { PageSpec } from "./page-spec";
 /* scaffold */
 // POST /api/capture            body { events: AnalyticsEventInput[] } → { ok, count }
 // GET  /api/spec[?distinct_id] → { spec } | ResolvedSpec
+// POST /api/whop/webhook       Whop Standard Webhooks → track() purchase funnel (see lib/whop)
 
 /* analytics PR */
 // GET  /api/analytics/summary?experimentId=&variant=&visitorKind=&specVersion=
