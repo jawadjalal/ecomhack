@@ -66,8 +66,11 @@ describe("provider selection", () => {
     expect(llmLabel()).toBe("heuristic");
   });
 
-  it("auto-detects xAI, then Apinex, then OpenRouter (DeepSeek V4 Flash by default), then Anthropic", () => {
+  it("auto-detects xAI, then OpenRouter (DeepSeek V4 Flash by default), then Anthropic, then Apinex", () => {
     clear();
+    vi.stubEnv("APINEX_API_KEY", "k");
+    expect(llmProvider()).toBe("apinex");
+    expect(llmLabel()).toBe("llm:free/gpt-6-luna");
     vi.stubEnv("ANTHROPIC_API_KEY", "k");
     expect(llmProvider()).toBe("anthropic");
     vi.stubEnv("OPENROUTER_API_KEY", "k");
@@ -76,15 +79,13 @@ describe("provider selection", () => {
     expect(llmLabel()).toBe("llm:deepseek/deepseek-v4-flash");
     vi.stubEnv("OPENROUTER_MODEL", "other/model");
     expect(llmLabel()).toBe("llm:other/model");
-    vi.stubEnv("APINEX_API_KEY", "k");
-    expect(llmProvider()).toBe("apinex");
-    expect(llmLabel()).toBe("llm:free/gpt-6-luna");
     vi.stubEnv("XAI_API_KEY", "k");
     vi.stubEnv("XAI_MODEL", "grok-test");
     expect(llmProvider()).toBe("xai");
     expect(llmLabel()).toBe("llm:grok-test");
-    // A feature that pins OpenRouter (the assistant's tool loop) still gets it.
+    // A feature that pins OpenRouter (the assistant's tool loop) still gets it; Apinex stays reachable.
     expect(resolveProvider("openrouter")).toBe("openrouter");
+    expect(resolveProvider("apinex")).toBe("apinex");
     expect(llmAvailable("openrouter")).toBe(true);
     expect(llmModel("openrouter")).toBe("other/model");
   });
@@ -160,6 +161,7 @@ describe("runToolLoop", () => {
 
   it("retries a failed Apinex turn once through OpenRouter, and honours a pinned provider", async () => {
     vi.stubEnv("APINEX_API_KEY", "apx");
+    vi.stubEnv("LLM_PROVIDER", "apinex");
     oa.create
       .mockRejectedValueOnce(
         Object.assign(new Error("Daily check-in required"), { status: 402 }),

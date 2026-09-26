@@ -72,6 +72,8 @@ describe("Apinex", () => {
     for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
     vi.stubEnv("APINEX_API_KEY", "apx-test");
     vi.stubEnv("OPENROUTER_API_KEY", "or-test");
+    expect(llmProvider()).toBe("openrouter"); // OpenRouter is ahead of Apinex in auto-detect
+    vi.stubEnv("LLM_PROVIDER", "apinex");
     expect(llmProvider()).toBe("apinex");
     expect(llmLabel()).toBe("llm:free/gpt-6-luna");
 

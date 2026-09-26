@@ -373,7 +373,7 @@ describe("LLM tool loop (OpenAI client mocked)", () => {
   });
 
   it("uses OpenRouter for the tool loop even when auto-detect would pick another provider", async () => {
-    process.env.APINEX_API_KEY = "apx";
+    process.env.XAI_API_KEY = "xai";
     oa.create.mockResolvedValueOnce(text("All quiet."));
     await runAssistant({ messages: user("anything new?") });
     expect(sent(0).model).toBe("deepseek/deepseek-v4-flash");
