@@ -22,6 +22,7 @@ import { BrandGlyph } from "@/components/dw/brand-logos";
 import { cn } from "@/components/ui/cn";
 import { Mascot, MASCOT_CSS, type MascotKind } from "./mascot";
 import { LevelMeter, MicButton, SpeakerToggle, useRecorder, useSpeaker, useVoiceStatus } from "./voice";
+import { hasAgentView, ModeSwitch } from "@/components/dw/agent-mode/toggle";
 
 /* ------------------------------------------------------------------ design tokens (dw) */
 
@@ -758,6 +759,7 @@ export function AssistantPanel() {
                 Show chat
               </button>
             )}
+            {!listening && hasAgentView(pathname) && <ModeSwitch className="max-sm:hidden" />}
             {speaker.speaking && !listening && <SpeakerToggle speaker={speaker} compact />}
             <MicButton rec={rec} disabled={busy} />
             {!listening && (

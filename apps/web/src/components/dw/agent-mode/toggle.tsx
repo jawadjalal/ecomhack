@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * The Human | Agent switch, fixed bottom-left on desktop (hidden on phones: the bottom there is the tab bar and the
- * prompt bar; the agent view carries its own "back to human" button). Sits beside the centred prompt bar on wide
- * screens, above it on narrower ones, and lifts over the bottom-left toasts while one is showing.
+ * The Human | Agent switch. <ModeSwitch> sits inside the Ask Darwin bar (components/console/assistant-panel.tsx) on
+ * the console pages that have an agent view; <ModeToggle> is the older floating bottom-left version, no longer mounted.
+ * Phones don't show it (the agent view carries its own "back to human" button).
  */
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -106,6 +106,59 @@ export function ModeToggle() {
             <span className="relative flex items-center gap-1.5">
               <Glyph />
               {label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Pages wrapped in <AgentModeGate> (the DarwinShell pages): only there does the switch change anything. */
+export function hasAgentView(pathname: string | null): boolean {
+  if (!pathname?.startsWith("/console")) return false;
+  return !/^\/console\/(research|classic)(\/|$)/.test(pathname);
+}
+
+/** The switch as it sits inside the dark Ask Darwin bar: cream on ink, icon only below 1280px. */
+export function ModeSwitch({ className = "" }: { className?: string }) {
+  const mode = useViewMode();
+  const reduce = useReducedMotion();
+  return (
+    <div
+      data-agent-toggle={mode}
+      role="radiogroup"
+      aria-label="View this page as"
+      className={`flex h-9 shrink-0 items-center gap-0.5 rounded-full p-[3px] ${className}`}
+      style={{ background: "rgba(247,241,229,0.10)" }}
+    >
+      {OPTIONS.map(({ mode: m, label, hint, Glyph }) => {
+        const on = mode === m;
+        return (
+          <button
+            key={m}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            aria-label={label}
+            title={hint}
+            data-mode={m}
+            onClick={() => setViewMode(m)}
+            className={`relative flex h-[30px] items-center gap-1.5 rounded-full px-2.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F7F1E5] ${
+              on ? "text-dw-ink" : "text-[#F7F1E5]/70 hover:text-[#F7F1E5]"
+            } ${m === "agent" ? "font-dwmono tracking-tight" : "font-medium"}`}
+          >
+            {on && (
+              <motion.span
+                layoutId="dw-mode-pill-bar"
+                aria-hidden
+                className="absolute inset-0 rounded-full bg-[#F7F1E5]"
+                transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 40 }}
+              />
+            )}
+            <span className="relative flex items-center gap-1.5">
+              <Glyph />
+              <span className="max-xl:sr-only">{label}</span>
             </span>
           </button>
         );
