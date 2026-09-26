@@ -146,7 +146,7 @@ export function pageFor(s: Shopper, test?: TestView): PageView {
     const tool = [...s.steps].reverse().find((st) => TOOL_PATH[st.tool])?.tool;
     return {
       url: tool ? TOOL_PATH[tool] : "/api/agent",
-      title: won ? "Where it paid" : s.status === "live" ? "Where it is now" : "Where it stopped",
+      title: won ? "Its last call: it paid here" : s.status === "live" ? "Its latest call" : "Its last call",
       note: "AI shoppers don’t load pages. They read the store through its agent tools, so this is the last address it called.",
     };
   }
@@ -168,7 +168,7 @@ export function pageFor(s: Shopper, test?: TestView): PageView {
         ? `The new version from the test, as it looks now. Loaded as a preview, so it doesn’t count as a visit.${basket}`
         : arm === "A"
           ? `Your current page from the test, as it looks now. Loaded as a preview, so it doesn’t count as a visit.${basket}`
-          : `Your live page as it looks now${s.specVersion !== undefined ? ` (they were served page version ${s.specVersion})` : ""}. Loaded as a preview, so it doesn’t count as a visit.${basket}`,
+          : `Your live page as it looks now. Loaded as a preview, so it doesn’t count as a visit.${basket}`,
   };
 }
 
@@ -192,14 +192,14 @@ export function StorePage({ s, test }: { s: Shopper; test?: TestView }) {
   return (
     <figure className="flex min-w-0 flex-col gap-2">
       <figcaption className="flex items-baseline justify-between gap-2">
-        <span className="text-[14px] font-semibold">{v.title}</span>
+        <span className="text-[12.5px] text-[#3E4E70]">{v.title}</span>
         {v.src && (
           <a href={v.src} target="_blank" rel="noreferrer" className="shrink-0 text-[12.5px] font-medium text-[#3E4E70] underline-offset-2 hover:underline">
             Open page
           </a>
         )}
       </figcaption>
-      <div className="overflow-hidden rounded-[16px] border border-dw-ink/12 bg-dw-surface">
+      <div className="overflow-hidden rounded-[12px] border border-dw-ink/10 bg-dw-surface">
         {v.src ? (
           <div ref={box} className="relative w-full overflow-hidden bg-white" style={{ aspectRatio: `${FRAME_W} / ${FRAME_H}` }}>
             {scale > 0 && (
@@ -228,7 +228,7 @@ export function StorePage({ s, test }: { s: Shopper; test?: TestView }) {
           <span className="min-w-0 flex-1 truncate font-dwmono text-[11.5px] text-dw-ink/75">{v.url}</span>
         </div>
       </div>
-      <p className="text-[12.5px] leading-snug text-[#3E4E70]">{v.note}</p>
+      <p className="text-[12.5px] leading-snug text-dw-ink/55">{v.note}</p>
     </figure>
   );
 }

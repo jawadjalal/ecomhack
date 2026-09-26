@@ -19,10 +19,10 @@ import { useDarwin } from "../provider";
 import { Silhouette } from "../mascot";
 import { ArmChip, PillButton } from "../ui";
 import { EASE } from "./fx";
-import { DEPTH, JourneyHead, JourneyNotes, STAGES, ShopperAvatar, plain, rowLine } from "./journey";
+import { DEPTH, JourneyView, STAGES, ShopperAvatar, rowLine } from "./journey";
 import type { BoardRow, Shopper, TestView } from "./model";
 import { MoneyFeed } from "./money-feed";
-import { PathFlow, StorePage } from "./store-view";
+import { StorePage } from "./store-view";
 
 type Filter = "all" | "people" | "agents";
 const ROWS = 6;
@@ -260,9 +260,8 @@ export function LiveShoppers({
             id="dw-journey"
             role="region"
             aria-label={sel ? `Journey of ${sel.name}` : "Journey"}
-            className="relative flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[22px] bg-dw-blue px-6 py-5"
+            className="relative flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[22px] bg-dw-blue p-6"
           >
-            <Silhouette kind="observer" color="#A8BCE7" size={240} style={{ right: -80, bottom: -96 }} />
             <AnimatePresence mode="popLayout" initial={false}>
               {sel && (
                 <motion.div
@@ -273,15 +272,7 @@ export function LiveShoppers({
                   exit={{ opacity: 0, x: 8, transition: { duration: 0.12 } }}
                   transition={{ duration: 0.24, ease: EASE }}
                 >
-                  <JourneyHead s={sel} now={now} />
-                  <div className="flex flex-col gap-2">
-                    <PathFlow s={sel} />
-                    <KeyLine s={sel} />
-                  </div>
-                  <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-5">
-                    <StorePage s={sel} test={test} />
-                    <JourneyNotes s={sel} now={now} loop={loop} test={test} board={board} summary={summary} />
-                  </div>
+                  <JourneyView s={sel} now={now} loop={loop} test={test} board={board} summary={summary} aside={<StorePage s={sel} test={test} />} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -292,13 +283,7 @@ export function LiveShoppers({
       <JourneySheet open={!wide && sheetOpen && !!sel} onClose={() => setSheetOpen(false)} s={sel}>
         {sel && (
           <>
-            <JourneyHead s={sel} now={now} big />
-            <div className="flex flex-col gap-2">
-              <PathFlow s={sel} />
-              <KeyLine s={sel} />
-            </div>
-            <StorePage s={sel} test={test} />
-            <JourneyNotes s={sel} now={now} loop={loop} test={test} board={board} summary={summary} />
+            <JourneyView s={sel} now={now} loop={loop} test={test} board={board} summary={summary} aside={<StorePage s={sel} test={test} />} stacked />
           </>
         )}
       </JourneySheet>
@@ -343,20 +328,6 @@ function FilterTabs({ value, onChange }: { value: Filter; onChange: (v: Filter) 
         );
       })}
     </div>
-  );
-}
-
-/** What happened at the step that mattered, in one plain sentence. */
-function KeyLine({ s }: { s: Shopper }) {
-  const won = s.status === "bought";
-  return (
-    <p className="flex items-start gap-2 text-[14px] leading-snug">
-      <span
-        aria-hidden
-        className={cn("mt-[6px] size-[7px] shrink-0 rounded-full", won ? "bg-dw-olive-shape" : s.status === "live" ? "dw-live-dot bg-dw-live" : "bg-dw-hot")}
-      />
-      <span>{plain(s.key.text)}</span>
-    </p>
   );
 }
 
