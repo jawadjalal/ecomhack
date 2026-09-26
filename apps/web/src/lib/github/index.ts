@@ -281,7 +281,11 @@ export async function openAnalyticsInstallPR(repo: RepoRef, opts: { host: string
   };
 
   if (!plan.files.length) {
-    notes.push(`darwin.js is already loaded (${plan.alreadyInstalled.join(", ")}); no PR needed.`);
+    notes.push(
+      plan.alreadyInstalled.length
+        ? `darwin.js is already loaded (${plan.alreadyInstalled.join(", ")}); no PR needed.`
+        : `${docPath} is already up to date; no PR needed.`,
+    );
     return record("install", { ...result, upToDate: true });
   }
   if (mode === "dry-run") {
@@ -474,7 +478,9 @@ export function specForExperiment(experiment: Experiment): PageSpec {
   if (live.version > experiment.controlVersion && same(live)) return live;
   const promoted = getSpecVersion(experiment.controlVersion + 1);
   if (same(promoted)) return promoted!;
-  return { ...experiment.treatmentSpec, version: Math.max(experiment.treatmentSpec.version, experiment.controlVersion + 1) };
+  // Not promoted yet: ship the treatment as the next version, labelled after the experiment.
+  const version = Math.max(experiment.treatmentSpec.version, experiment.controlVersion + 1);
+  return { ...experiment.treatmentSpec, version, label: `Gen ${version}: ${experiment.name}` };
 }
 
 /**

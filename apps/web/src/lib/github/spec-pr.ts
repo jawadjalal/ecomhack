@@ -72,9 +72,9 @@ export function specGeneration(spec: PageSpec, generation?: number): number {
 export function changeDescription(spec: PageSpec, experiment?: Experiment, proposal?: ChangeProposal): string {
   const fromLabel = spec.label.replace(GEN_LABEL, "").trim();
   const raw =
-    proposal?.title?.trim() ||
     (fromLabel && !/^baseline$/i.test(fromLabel) ? fromLabel : "") ||
     experiment?.name?.trim() ||
+    proposal?.title?.trim() ||
     `promote spec v${spec.version}`;
   const text = lowerFirst(raw.replace(/\s+/g, " "));
   return text.length > 72 ? `${text.slice(0, 71).trimEnd()}…` : text;

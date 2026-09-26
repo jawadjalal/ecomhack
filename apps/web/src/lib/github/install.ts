@@ -256,10 +256,16 @@ function ensureNextScriptImport(source: string): { code: string; name: string } 
   const line = `import ${name} from ${quote}next/script${quote}${semi ? ";" : ""}`;
 
   const imports = [...source.matchAll(/^import\b[\s\S]*?(?:from\s*)?(["'])[^"'\n]+\1;?[ \t]*$/gm)];
-  const last = imports.at(-1);
+  // After the last binding import, so side-effect imports (`import "./globals.css"`) stay last.
+  const last = imports.filter((m) => /\bfrom\s*["']/.test(m[0])).at(-1);
   if (last) {
     const end = last.index! + last[0].length;
     return { code: `${source.slice(0, end)}\n${line}${source.slice(end)}`, name };
+  }
+  if (imports.length) {
+    // Only side-effect imports: go before the first one.
+    const at = imports[0].index!;
+    return { code: `${source.slice(0, at)}${line}\n${source.slice(at)}`, name };
   }
   // No imports: after any directive prologue ("use client"), else at the top.
   const directive = source.match(/^(?:\s*(["'])use [a-z ]+\1;?[ \t]*\n)+/);
@@ -556,17 +562,17 @@ export function buildInstallPrBody({ repo, detection, plan, snippet, mode }: Ins
   }
 
   out.push(
-    "The script is ~3 KB, has no dependencies, loads with `defer` / `afterInteractive` (never blocks rendering) and sends events in batches.",
+    "The script is under 4 KB (~2 KB gzipped), has no dependencies, loads with `defer` / `afterInteractive` (never blocks rendering) and sends events in batches.",
     "",
-    "```html",
-    scriptTag(snippet),
-    "```",
+    ...(detection.framework.startsWith("nextjs") && !plan.manual
+      ? ["```tsx", `<Script src="${snippet.src}" data-darwin-site="${snippet.siteId}" strategy="afterInteractive" />`, "```"]
+      : ["```html", scriptTag(snippet), "```"]),
     "",
     "## What it tracks",
     "",
     "| Event | When | Why it matters |",
     "|---|---|---|",
-    "| `$pageview` / `$pageleave` | Every page load and client-side navigation / tab close | Funnel steps and dead ends |",
+    "| `$pageview` / `$pageleave` | Page loads, client-side navigations and exits | Funnel steps and dead ends |",
     "| `$autocapture` | Clicks on links, buttons and controls — tag, visible text (≤ 64 chars), CSS selector | Which CTAs work |",
     "| `$rageclick` | 3+ clicks on the same element within 1 s | Frustration: broken or unclear UI |",
     '| Custom events | `window.darwin.capture("order_completed", { revenue: 8999 })` | Conversion and revenue |',
