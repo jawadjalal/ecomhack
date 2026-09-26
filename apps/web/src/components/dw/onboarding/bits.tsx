@@ -349,7 +349,7 @@ export function Drawer({ children }: { children: ReactNode }) {
 /** One painting per stage: which one, and which part of it stays in view. */
 const STAGE_ART: Record<string, { id: ArtId; pos: string }> = {
   connect: { id: "hero-field", pos: "50% 45%" },
-  ask: { id: "flowers", pos: "50% 18%" },
+  ask: { id: "lake-marsh", pos: "50% 30%" },
   plan: { id: "forest-path", pos: "50% 35%" },
   install: { id: "castle-dusk", pos: "50% 30%" },
   live: { id: "big-sky", pos: "50% 28%" },

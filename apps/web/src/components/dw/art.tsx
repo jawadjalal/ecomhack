@@ -27,6 +27,7 @@ export function Art({
   position = "50% 50%",
   priority = false,
   sizes = "100vw",
+  scrim,
   className,
 }: {
   id: ArtId;
@@ -34,11 +35,14 @@ export function Art({
   position?: string;
   priority?: boolean;
   sizes?: string;
+  /** A flat (never graded) veil of the page's ink over the painting, for white type on a bright sky: Tailwind classes, e.g. "bg-[#0b2533]/15". */
+  scrim?: string;
   className?: string;
 }) {
   return (
     <div aria-hidden className={cn("pointer-events-none absolute inset-0 overflow-hidden", className)}>
       <Image src={`/art/${id}.jpg`} alt="" fill priority={priority} sizes={sizes} style={{ objectFit: "cover", objectPosition: position }} />
+      {scrim && <div className={cn("absolute inset-0", scrim)} />}
     </div>
   );
 }
