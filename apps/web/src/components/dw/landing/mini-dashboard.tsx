@@ -480,7 +480,7 @@ function FloatingShopper({ session, compact }: { session?: AgentSessionSummary; 
       style={
         compact
           ? { left: 36, right: 36, bottom: 18, transform: "translateZ(70px)" }
-          : { left: 452, right: 38, top: 402, transform: "translateZ(80px)" }
+          : { left: 452, right: 38, top: 418, transform: "translateZ(44px)" }
       }
     >
       <AnimatePresence mode="popLayout" initial={false}>

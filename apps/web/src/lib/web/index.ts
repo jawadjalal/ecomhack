@@ -31,6 +31,7 @@ export { computeHeatmap, MAX_HEATMAP_ELEMENTS } from "./heatmap";
 export { draftRule, heuristicDraft, suggestRules, rankSources, ideaDraft, ideasFor, PLAYBOOK, FOLLOW_UPS } from "./drafts";
 export { getAutopilot, setAutopilot, stepAutopilot, resetAutopilot, judge, AUTOPILOT } from "./autopilot";
 export { pageOutline, outlineFromHtml } from "./outline";
+export { findClaims, unverifiedClaims, needsMerchant, readyToPublish, pageFacts, NEEDS } from "./claims";
 export { simulateWebTraffic, changeEffect, MAX_SIM_VISITORS } from "./simulate";
 
 /** The demo "any store" (plain HTML, not the PageSpec store) served at /demo/north-trail. */

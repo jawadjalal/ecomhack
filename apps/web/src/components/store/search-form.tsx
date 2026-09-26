@@ -62,7 +62,11 @@ export function SearchForm({
           data-darwin="search-input"
         />
       </div>
-      <button type="submit" className="pace-btn pace-btn-primary min-h-11 shrink-0 px-5 text-sm" data-darwin="search-submit">
+      <button
+        type="submit"
+        className="pace-focus inline-flex h-12 shrink-0 items-center bg-black px-5 text-[12px] font-medium uppercase tracking-[0.16em] text-white"
+        data-darwin="search-submit"
+      >
         Search
       </button>
     </form>

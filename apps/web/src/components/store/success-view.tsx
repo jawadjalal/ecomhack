@@ -23,6 +23,7 @@ export function SuccessView({ orderId }: { orderId?: string }) {
       revenue: order.total,
       subtotal: order.subtotal,
       shipping: order.shipping,
+      ...(order.discount ? { discount: order.discount, coupon: order.coupon } : {}),
       currency: "GBP",
       item_count: order.lines.reduce((s, l) => s + l.quantity, 0),
       items: order.lines.map((l) => ({
@@ -93,6 +94,12 @@ export function SuccessView({ orderId }: { orderId?: string }) {
             <dt className="text-(--muted)">Subtotal</dt>
             <dd>{formatGBP(order.subtotal)}</dd>
           </div>
+          {order.discount ? (
+            <div className="flex justify-between text-emerald-700">
+              <dt>Discount{order.coupon ? ` (${order.coupon})` : ""}</dt>
+              <dd>−{formatGBP(order.discount)}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <dt className="text-(--muted)">Delivery</dt>
             <dd>{order.shipping === 0 ? "Free" : formatGBP(order.shipping)}</dd>

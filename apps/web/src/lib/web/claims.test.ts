@@ -200,6 +200,26 @@ describe("drafting from a prompt", () => {
     expect(() => createRule(d, "running")).toThrow(WebRuleError);
   });
 
+  it("Darwin's own example prompts (Personalize chips, traffic insights) make honest drafts", () => {
+    const examples = [
+      "Visitors from ChatGPT: a banner with our delivery and returns terms",
+      "Google searchers: put their search in the headline",
+      'Instagram and TikTok: add a badge "Free 60-day returns" next to Add to cart',
+      "Direct visitors: hide the newsletter popup",
+      "Visitors from ChatGPT and other AI assistants: a banner with our delivery and returns terms",
+      "Instagram and TikTok: add a badge with our star rating next to Add to cart",
+      "Paid ad visitors: put their search in the headline and add a banner with the ad's offer",
+      "Email visitors: a welcome-back banner",
+      "Visitors from other websites: add a badge with our returns terms next to Add to cart",
+    ];
+    for (const outline of [demo, []]) {
+      for (const prompt of examples) expect(invented(heuristicDraft(SITE, prompt, outline), outline), prompt).toEqual([]);
+    }
+    // On the demo store, the chips produce rules that can start straight away, in the page's own words.
+    for (const prompt of examples.slice(0, 4)) expect(readyToPublish(heuristicDraft(SITE, prompt, demo), demo), prompt).toBe(true);
+    expect(heuristicDraft(SITE, examples[0], demo).changes[0].value).toBe("Free UK delivery over £60 · Free 60-day returns · Dispatched within 24 hours");
+  });
+
   it("LLM drafts: the model is told the rule, and invented claims still get marked", async () => {
     llm.on = true;
     llm.out = {
