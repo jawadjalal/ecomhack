@@ -7,6 +7,7 @@
  *   ANTHROPIC_API_KEY   → Claude via @anthropic-ai/sdk
  *   OPENROUTER_API_KEY  → any OpenRouter model (cheap testing, e.g. DeepSeek)
  *   XAI_MODEL / ANTHROPIC_MODEL / OPENROUTER_MODEL override the default model.
+ *   OPENROUTER_REASONING=off  → ask OpenRouter to skip the model's thinking (faster loop steps).
  *
  * With no key, `llmAvailable()` is false and callers MUST fall back to heuristics,
  * so the demo always runs offline.
@@ -69,6 +70,7 @@ export async function generateText({ system, prompt, maxTokens = 4000 }: TextReq
             baseURL: "https://openrouter.ai/api/v1",
             defaultHeaders: { "X-Title": "Darwin" },
           });
+    const reasoningOff = provider === "openrouter" && process.env.OPENROUTER_REASONING === "off";
     const res = await client.chat.completions.create({
       model: llmModel(),
       max_tokens: maxTokens,
@@ -76,6 +78,8 @@ export async function generateText({ system, prompt, maxTokens = 4000 }: TextReq
         { role: "system", content: system },
         { role: "user", content: prompt },
       ],
+      // OpenRouter extension, not in the OpenAI types.
+      ...(reasoningOff ? ({ reasoning: { enabled: false } } as object) : {}),
     });
     return res.choices[0]?.message?.content ?? "";
   }
