@@ -87,7 +87,7 @@ export function ProductDetail({ product, delivery }: ProductDetailProps) {
     <button
       type="button"
       onClick={add}
-      className={`pace-btn pace-btn-primary min-h-14 w-full text-base ${extra}`}
+      className={`pace-btn pace-btn-primary pace-btn-block min-h-14 w-full text-base ${extra}`}
       data-darwin="cta-add-to-cart"
       data-cta-position={pp.ctaPosition}
     >

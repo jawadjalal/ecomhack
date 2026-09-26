@@ -351,7 +351,7 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
           )}
 
           {layout.length > 1 && (
-            <ol className="mb-8 flex items-center gap-2 text-[13px]" aria-label="Checkout steps">
+            <ol className="mb-8 flex flex-wrap items-center gap-2 text-[13px]" aria-label="Checkout steps">
               {layout.map((secs, i) => {
                 const name = STEP_NAMES[secs.join("+")];
                 const done = i < stepIdx;

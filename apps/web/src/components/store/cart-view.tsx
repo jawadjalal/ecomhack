@@ -165,7 +165,8 @@ export function CartView() {
             <section className="mt-12" data-darwin="cart-upsell">
               <h2 className="text-lg font-semibold">Complete your kit</h2>
               <p className="mt-1 text-sm text-(--muted)">Runners who bought these shoes also added:</p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {/* grid-cols-1 (minmax(0,1fr)), not the implicit auto track: long names must truncate, not widen the page on phones. */}
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {upsell.map((p) => (
                   <UpsellCard key={p.id} product={p} />
                 ))}
