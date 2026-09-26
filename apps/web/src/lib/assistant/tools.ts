@@ -3,8 +3,11 @@
  *
  * Every tool is a thin, zod-typed wrapper over another module's PUBLIC API (see AGENTS.md): the assistant
  * never reaches into another area's internals and never computes numbers the modules don't already report.
- * Tools that change the store in ways the merchant should approve (ship, autopilot, reset) are marked
- * `requiresConfirm`: the agent returns a pending confirmation instead of running them.
+ * Tools that change the store in ways the merchant should approve (ship, autopilot, reset, simulate, and a loop
+ * step that would ship or roll back the live page) are marked `requiresConfirm` / `confirmWhen`: the agent returns a
+ * pending confirmation instead of running them, and only an explicit `confirm` request from the merchant runs them.
+ * Tools marked `untrusted` read content from the open web (or other agents); after one runs, the model may not
+ * even propose a side-effecting tool in the same turn (prompt-injection guard).
  */
 import { z } from "zod";
 import type {
@@ -50,7 +53,7 @@ import { auditStore, certifyStore } from "@/lib/readiness";
 import { parseGoalBrief, runBuyerAgent } from "@/lib/agent-commerce";
 import { agentFunnel } from "@/lib/store-agent";
 import { askResearch, researchCompetitors } from "@/lib/research";
-import { llmAvailable, llmModel } from "@/lib/llm/client";
+import { llmAvailable } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
 import { formatGBP } from "@/lib/money";
 
@@ -85,6 +88,10 @@ export interface AssistantTool<S extends z.ZodType = z.ZodType> {
   args: S;
   /** Side-effecting: ask the merchant before running. */
   requiresConfirm?: boolean;
+  /** Side-effecting only in some states (e.g. a loop step that would ship): ask the merchant when this returns true. */
+  confirmWhen?: (args: z.infer<S>) => boolean;
+  /** Its result carries third-party content (web pages, search results, other agents): never instructions. */
+  untrusted?: boolean;
   /** The question shown with Confirm / Cancel. */
   confirmPrompt?: (args: z.infer<S>) => string;
   /** Why a confirm-required tool can't run right now (checked before asking, so we never ask for a no-op). */
@@ -219,13 +226,11 @@ function compactLoop(loop: LoopState) {
     autopilot: loop.autopilot,
     liveSpecVersion: loop.liveSpec.version,
     designer: loop.designer,
-    insights: loop.insights
-      .slice(0, 4)
-      .map((i) => ({
-        title: i.title,
-        audience: i.audience,
-        severity: i.severity,
-      })),
+    insights: loop.insights.slice(0, 4).map((i) => ({
+      title: i.title,
+      audience: i.audience,
+      severity: i.severity,
+    })),
     proposal: loop.proposal
       ? {
           title: loop.proposal.title,
@@ -234,15 +239,13 @@ function compactLoop(loop: LoopState) {
         }
       : undefined,
     experimentId: loop.experimentId,
-    history: loop.history
-      .slice(-4)
-      .map((h) => ({
-        generation: h.generation,
-        label: h.label,
-        overallCR: Number(h.overallConversionRate.toFixed(4)),
-        lift: h.lift,
-        prUrl: h.prUrl,
-      })),
+    history: loop.history.slice(-4).map((h) => ({
+      generation: h.generation,
+      label: h.label,
+      overallCR: Number(h.overallConversionRate.toFixed(4)),
+      lift: h.lift,
+      prUrl: h.prUrl,
+    })),
     recentLog: loop.log.slice(-4).map((l) => `${l.phase}: ${l.message}`),
   };
 }
@@ -339,15 +342,13 @@ export const TOOLS = {
           overall: compactKpis(s.overall),
           human: compactKpis(s.byKind.human),
           agent: compactKpis(s.byKind.agent),
-          friction: s.friction
-            .slice(0, 4)
-            .map((f) => ({
-              kind: f.kind,
-              audience: f.audience,
-              location: f.location,
-              count: f.count,
-              share: Number(f.share.toFixed(3)),
-            })),
+          friction: s.friction.slice(0, 4).map((f) => ({
+            kind: f.kind,
+            audience: f.audience,
+            location: f.location,
+            count: f.count,
+            share: Number(f.share.toFixed(3)),
+          })),
           events: mix.events,
           syntheticEvents: mix.synthetic,
           realOnly: !!realOnly,
@@ -370,8 +371,13 @@ export const TOOLS = {
   step_loop: tool({
     name: "step_loop",
     description:
-      "Advance the self-improvement loop by exactly one phase (observe → diagnose → propose → experiment → decide → ship). The experiment phase simulates a round of labelled synthetic traffic.",
+      "Advance the self-improvement loop by exactly one phase (observe → diagnose → propose → experiment → decide → ship). The experiment phase simulates a round of labelled synthetic traffic. When the loop is at “decide”, the step ships or rolls back the live page, so the merchant confirms it first.",
     args: z.object({}),
+    confirmWhen: () => getLoopState().phase === "decide",
+    confirmPrompt: () => {
+      const loop = getLoopState();
+      return `Step the loop from “decide”? Darwin will act on the A/B result${loop.proposal ? ` for “${loop.proposal.title}”` : ""}: ship the winner to the live page or roll it back.`;
+    },
     async run() {
       const before = getLoopState();
       const loop = await stepLoop();
@@ -650,14 +656,12 @@ export const TOOLS = {
         },
         data: {
           site,
-          rules: rules
-            .slice(0, 5)
-            .map((r) => ({
-              name: r.name,
-              hypothesis: r.hypothesis,
-              audience: r.audience,
-              changes: r.changes.length,
-            })),
+          rules: rules.slice(0, 5).map((r) => ({
+            name: r.name,
+            hypothesis: r.hypothesis,
+            audience: r.audience,
+            changes: r.changes.length,
+          })),
         },
       };
     },
@@ -671,6 +675,9 @@ export const TOOLS = {
       humans: z.number().int().min(0).max(2000).default(200),
       agents: z.number().int().min(0).max(200).default(20),
     }),
+    requiresConfirm: true,
+    confirmPrompt: ({ humans, agents }) =>
+      `Simulate ${humans} shoppers and ${agents} AI agents? They're labelled synthetic, but they add events to your analytics and any running A/B test.`,
     async run({ humans, agents }) {
       const r = await simulateTraffic({ humans, agents, spreadMinutes: 30 });
       return {
@@ -687,6 +694,7 @@ export const TOOLS = {
     description:
       "Audit any store URL for AI-agent readiness (can shopping agents find, understand and buy?). Returns a 0-100 score, grade and failing checks.",
     args: z.object({ url: UrlArg }),
+    untrusted: true,
     async run({ url }) {
       try {
         const r = await auditStore(url);
@@ -732,6 +740,7 @@ export const TOOLS = {
     description:
       "Issue an agent-readiness certificate for a store URL (an AI agent shops it when an LLM key is configured).",
     args: z.object({ url: UrlArg }),
+    untrusted: true,
     async run({ url }) {
       try {
         const cert = await certifyStore(url);
@@ -776,7 +785,7 @@ export const TOOLS = {
         parseGoalBrief(brief),
         {
           agentId: id("agt"),
-          agentName: useLlm ? `${llmModel()}-shopper` : "scripted-shopper",
+          agentName: useLlm ? "darwin-test-shopper" : "scripted-shopper",
           sessionId: id("ses"),
           synthetic: true,
           persona: "assistant",
@@ -813,6 +822,7 @@ export const TOOLS = {
     description:
       "Market & competitor research on the web (Tavily): who the competitors are, their prices, delivery/returns offers, trends and what to A/B test. Pass a question for a focused answer with sources.",
     args: z.object({ question: z.string().max(300).optional() }),
+    untrusted: true,
     async run({ question }) {
       try {
         const q = question?.trim();
@@ -914,7 +924,28 @@ export async function runTool(
   }
 }
 
-/** The confirmation question for a confirm-required tool (after validating its args). */
+/** Can this tool ever need the merchant's confirmation? (Used to accept a `confirm` request for it.) */
+export function isConfirmable(name: string): boolean {
+  const t = getTool(name);
+  return (
+    !!t && (t.requiresConfirm === true || typeof t.confirmWhen === "function")
+  );
+}
+
+/** Does this call need the merchant's confirmation right now? Unknown tools and invalid args: no (they fail anyway). */
+export function needsConfirm(name: string, rawArgs: unknown): boolean {
+  const t = getTool(name);
+  if (!t) return false;
+  if (t.requiresConfirm) return true;
+  if (!t.confirmWhen) return false;
+  const parsed = t.args.safeParse(rawArgs ?? {});
+  try {
+    return t.confirmWhen(parsed.success ? parsed.data : {});
+  } catch {
+    return true;
+  }
+}
+
 /** Reason a confirm-required tool would fail right now, if any (e.g. nothing to ship yet). */
 export function precheckFor(
   name: string,
@@ -935,7 +966,7 @@ export function confirmPromptFor(
   rawArgs: unknown,
 ): { args: Record<string, unknown>; prompt: string } | undefined {
   const t = getTool(name);
-  if (!t?.requiresConfirm) return undefined;
+  if (!t || !needsConfirm(name, rawArgs)) return undefined;
   const parsed = t.args.safeParse(rawArgs ?? {});
   if (!parsed.success) return undefined;
   return {
@@ -957,7 +988,7 @@ export function toolCatalog(): string {
     } catch {
       /* keep {} */
     }
-    return `- ${n}${t.requiresConfirm ? " [asks the merchant to confirm first]" : ""}: ${t.description} args: ${schema}`;
+    return `- ${n}${t.requiresConfirm ? " [asks the merchant to confirm first]" : t.confirmWhen ? " [may ask the merchant to confirm first]" : ""}: ${t.description} args: ${schema}`;
   }).join("\n");
 }
 
@@ -973,7 +1004,7 @@ function describeCertificate(cert: ReadinessCertificate): string {
   const level =
     cert.level === "none" ? "not certified" : `${cert.level} certificate`;
   const trial = cert.trial
-    ? ` Agent trial (${cert.trial.mode}): ${cert.trial.passed ? "passed" : "failed"}, judged by ${cert.model}.`
+    ? ` Agent trial (${cert.trial.mode}): ${cert.trial.passed ? "passed" : "failed"}, judged by Darwin's AI.`
     : "";
   return `${cert.origin}: ${level}, ${cert.score}/100 (grade ${cert.grade}). ${cert.verdict}${trial}`;
 }

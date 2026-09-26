@@ -92,8 +92,9 @@ export type CertifyResponse = ReadinessCertificate;
 // GET  /api/research/[id]  → ResearchReport                                          (admin)
 // POST /api/assistant  { messages, confirm?, context? } → AssistantResponse   (admin)
 //      Darwin, the merchant's managing assistant: runs tools over the public module APIs.
-//      Side-effecting tools (ship_winner, set_autopilot, reset_loop) come back as `pendingConfirm`;
-//      send `confirm: { tool, args, approved }` to run (or cancel) them.
+//      Side-effecting tools (ship_winner, set_autopilot, reset_loop, run_simulation, and step_loop when the next
+//      step ships or rolls back) come back as `pendingConfirm`; send `confirm: { tool, args, approved }` to run
+//      (or cancel) them. The response never names a model: `source` is "ai" | "rules".
 export interface AssistantMessage {
   role: "user" | "assistant";
   content: string;
@@ -123,8 +124,10 @@ export interface AssistantResponse {
   reply: string;
   actions: AssistantAction[];
   pendingConfirm?: AssistantPendingConfirm;
-  /** llmLabel() of the model that drove the turn, or "heuristic". */
+  /** "ai" when an LLM drove the turn, else "heuristic". Never a model or provider name (those stay in server logs). */
   model: string;
+  /** Who answered, for the UI: "ai" (an LLM drove the turn) or "rules" (the built-in keyword router). */
+  source?: "ai" | "rules";
   /** Follow-up prompts to offer as chips. */
   suggestions?: string[];
 }
