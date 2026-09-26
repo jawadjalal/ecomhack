@@ -17,6 +17,23 @@ export default async function StoreHome(props: PageProps<"/store">) {
   const { spec } = ctx;
   return (
     <StoreShell ctx={ctx}>
+      {spec.agentSurface.structuredData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([
+              { "@context": "https://schema.org", "@type": "OnlineStore", name: "PACE Running", url: "/store", description: "Performance running shoes designed in London." },
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                name: "PACE Running",
+                url: "/store",
+                potentialAction: { "@type": "SearchAction", target: "/store?q={search_term_string}", "query-input": "required name=search_term_string" },
+              },
+            ]).replace(/</g, "\\u003c"),
+          }}
+        />
+      )}
       <PageView page="home" />
       <Hero spec={spec} />
       {spec.hero.showSocialProof && <SocialProof />}
