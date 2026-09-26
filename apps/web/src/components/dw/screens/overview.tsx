@@ -176,7 +176,7 @@ export function OverviewScreen() {
           <ImpactStrip loop={loop} experiments={experiments} simulated={simulated} />
         </Rise>
         <CardDeck count={4} labels={["Conversion", "A vs B", "Which agents buy", "How they convert"]}>
-          <div className={cn("grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-3", DECK_ROW)}>
+          <div className={cn("grid grid-cols-1 gap-3.5 lg:grid-cols-2 lg:gap-3", DECK_ROW)}>
             <Rise i={1} item className={DECK_ITEM}>
               <ConversionCard points={points} summary={summary} simulated={simulated} onRun={autopilot ? undefined : run} />
             </Rise>
@@ -184,7 +184,7 @@ export function OverviewScreen() {
               <AbCard test={test} autopilot={autopilot} onRun={points.length ? run : undefined} />
             </Rise>
           </div>
-          <div className={cn("grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)] lg:gap-3", DECK_ROW)}>
+          <div className={cn("grid grid-cols-1 gap-3.5 lg:grid-cols-2 lg:gap-3", DECK_ROW)}>
             <Rise i={3} item className={DECK_ITEM}>
               <AgentsCard
                 board={board}
