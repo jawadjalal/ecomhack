@@ -41,6 +41,8 @@ export interface SavedProgress {
   pr: PullRequestResult | null;
   chat: SavedMessage[];
   account?: SavedAccount | null;
+  /** "How do you like to work?" (tools.tsx TOOL_OPTIONS ids). */
+  tools?: string[];
   /** The furthest stage reached (going back to edit answers doesn't lose it). */
   furthest?: SavedStage;
   savedAt?: string;
@@ -94,6 +96,7 @@ function parse(raw: string | null | undefined): SavedProgress | null {
       pr: p.pr && typeof p.pr === "object" ? p.pr : null,
       chat: Array.isArray(p.chat) ? p.chat.filter((m) => m && (m.from === "you" || m.from === "darwin") && typeof m.text === "string").slice(-30) : [],
       account: p.account && typeof p.account.email === "string" && typeof p.account.resumeUrl === "string" ? { email: p.account.email, resumeUrl: p.account.resumeUrl } : null,
+      tools: Array.isArray(p.tools) ? p.tools.filter((t): t is string => typeof t === "string").slice(0, 10) : undefined,
       savedAt: typeof p.savedAt === "string" ? p.savedAt : undefined,
     };
   } catch {

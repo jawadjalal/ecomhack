@@ -59,6 +59,7 @@ import { PrCard } from "@/components/dw/onboarding/pr-card";
 import { RepoPicker } from "@/components/dw/onboarding/repo-picker";
 import { clearProgress, loadProgress, saveProgress, stageIndex, type SavedAccount, type SavedProgress, type SavedStage } from "@/components/dw/onboarding/persist";
 import { recallPlan, rememberPlan, rememberSimulated, rememberSite } from "@/lib/tracking/remember";
+import { DEFAULT_TOOLS, YourTools } from "@/components/dw/onboarding/tools";
 
 /* ------------------------------------------------------------------ data */
 
@@ -159,6 +160,8 @@ export function OnboardingApp() {
   const [pr, setPr] = useState<PullRequestResult | null>(null);
   /** "Save your setup": the email and the link back from any device (POST /api/account). Nothing is emailed. */
   const [account, setAccount] = useState<SavedAccount | null>(null);
+  /** "How do you like to work?": no code, a store admin, or a coding agent (Claude Code, Cursor, Codex…). */
+  const [tools, setTools] = useState<string[]>(DEFAULT_TOOLS);
 
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -185,6 +188,7 @@ export function OnboardingApp() {
     setPr(saved.pr);
     setChat(saved.chat);
     setAccount(saved.account ?? null);
+    if (saved.tools) setTools(saved.tools);
     setFurthest(saved.furthest ?? saved.stage);
     const reconnected = !!saved.repo || !!saved.website;
     if (!reconnected || saved.stage === "connect") return setStage("connect");
@@ -257,6 +261,7 @@ export function OnboardingApp() {
       snippet,
       pr,
       account,
+      tools,
       chat: chat
         .filter((m) => !m.pending)
         .map(({ from, text, chips }) => ({
@@ -265,7 +270,7 @@ export function OnboardingApp() {
           ...(chips ? { chips } : {}),
         })),
     });
-  }, [hydrated, welcome, stage, furthest, prompt, answers, repo, website, whop, plan?.site, savedSite, snippet, pr, account, chat]);
+  }, [hydrated, welcome, stage, furthest, prompt, answers, repo, website, whop, plan?.site, savedSite, snippet, pr, account, tools, chat]);
 
   const startOver = () => {
     clearProgress(DRAFT_KEY);
@@ -286,12 +291,18 @@ export function OnboardingApp() {
     setSnippet(null);
     setPr(null);
     setAccount(null);
+    setTools(DEFAULT_TOOLS);
     track("onboarding_restarted");
   };
 
   /** A valid address typed but not yet added still counts: Continue adds it. */
   const draftSite = website || repo ? null : storeOrigin(urlDraft);
   const connected = !!repo || !!website || !!draftSite;
+
+  const changeTools = (t: string[]) => {
+    setTools(t);
+    track("tools_chosen", { tools: t.join(",") });
+  };
 
   /** Typing the description: a domain in it prefills the store address (until the merchant types their own). */
   const changePrompt = (v: string) => {
@@ -940,13 +951,16 @@ export function OnboardingApp() {
                           }}
                         />
                       </div>
-                      <NextSteps
-                        steps={[
-                          "Paste the line into your site's <head>",
-                          plan.events.some((e) => e.enabled && !e.automatic) ? "Add the one-line call for each event you send" : "Publish your site as usual",
-                          "Shoppers and AI agents show up within seconds",
-                        ]}
-                      />
+                      <div className="flex min-w-0 flex-col gap-4 self-start">
+                        <NextSteps
+                          steps={[
+                            "Paste the line into your site's <head>",
+                            plan.events.some((e) => e.enabled && !e.automatic) ? "Add the one-line call for each event you send" : "Publish your site as usual",
+                            "Shoppers and AI agents show up within seconds",
+                          ]}
+                        />
+                        <YourTools value={tools} onChange={changeTools} />
+                      </div>
                     </div>
                   </motion.section>
                 )}
@@ -983,7 +997,10 @@ export function OnboardingApp() {
                           </>
                         )}
                       </div>
-                      <NextSteps steps={["Review and merge the pull request", "Deploy as usual", "Shoppers and AI agents show up within seconds"]} />
+                      <div className="flex min-w-0 flex-col gap-4 self-start">
+                        <NextSteps steps={["Review and merge the pull request", "Deploy as usual", "Shoppers and AI agents show up within seconds"]} />
+                        <YourTools value={tools} onChange={changeTools} />
+                      </div>
                     </div>
                   </motion.section>
                 )}
@@ -1459,7 +1476,7 @@ function EventRow({ e, onToggle, tone = "sand" }: { e: TrackingEvent; onToggle: 
 
 function NextSteps({ steps }: { steps: string[] }) {
   return (
-    <Card tone="olive" shape="shipper" corner="br" className="self-start p-5 sm:p-6">
+    <Card tone="olive" shape="shipper" corner="br" className="p-5 sm:p-6">
       <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">What happens next</h2>
       <ol className="mt-4 flex flex-col gap-3">
         {steps.map((s, i) => (
