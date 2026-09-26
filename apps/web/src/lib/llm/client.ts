@@ -123,9 +123,12 @@ type OpenAiProvider = "xai" | "apinex" | "openrouter";
 
 /** Server-side only: keys never leave this module. */
 function openAiClient(provider: OpenAiProvider): OpenAI {
-  if (provider === "xai") return new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1" });
-  if (provider === "apinex") return new OpenAI({ apiKey: process.env.APINEX_API_KEY, baseURL: process.env.APINEX_BASE_URL || APINEX_BASE_URL });
-  return new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: "https://openrouter.ai/api/v1", defaultHeaders: { "X-Title": "Darwin" } });
+  // A provider with a fallback must fail fast: the SDK's own retries honour Retry-After (Apinex answers 429
+  // "retry in 60s"), which stalled every step for a minute or more.
+  const limits = retryProviderFor(provider) ? { maxRetries: 0, timeout: 20_000 } : { maxRetries: 1, timeout: 45_000 };
+  if (provider === "xai") return new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1", ...limits });
+  if (provider === "apinex") return new OpenAI({ apiKey: process.env.APINEX_API_KEY, baseURL: process.env.APINEX_BASE_URL || APINEX_BASE_URL, ...limits });
+  return new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: "https://openrouter.ai/api/v1", defaultHeaders: { "X-Title": "Darwin" }, ...limits });
 }
 
 /** OpenRouter extension (not in the OpenAI types): skip the model's thinking. */
@@ -157,19 +160,48 @@ function retryProviderFor(provider: LlmProvider): OpenAiProvider | undefined {
   return undefined;
 }
 
+/** After a 429, skip that provider until its Retry-After passes and go straight to the fallback. */
+const coolingUntil = new Map<LlmProvider, number>();
+
+function isRateLimit(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  return status === 429 || /rate limit|too many requests/i.test(errorLine(err));
+}
+
+function retryAfterMs(err: unknown): number {
+  const headers = (err as { headers?: Headers | Record<string, string> })?.headers;
+  const raw = headers instanceof Headers ? headers.get("retry-after") : headers?.["retry-after"];
+  const fromHeader = Number(raw);
+  const fromText = Number(/retry in (\d+)\s*s/i.exec(errorLine(err))?.[1]);
+  const seconds = Number.isFinite(fromHeader) && fromHeader > 0 ? fromHeader : Number.isFinite(fromText) && fromText > 0 ? fromText : 60;
+  return Math.min(seconds, 300) * 1000;
+}
+
+function coolingNow(provider: LlmProvider): boolean {
+  return (coolingUntil.get(provider) ?? 0) > Date.now();
+}
+
+/** Test hook: forget rate-limit cooldowns. */
+export function resetLlmCooldowns() {
+  coolingUntil.clear();
+}
+
 /** Plain text completion. Throws if no provider is configured. */
 export async function generateText(req: TextRequest): Promise<string> {
   const provider = resolveProvider(req.provider);
   const startedAt = Date.now();
   if (provider === "xai" || provider === "apinex" || provider === "openrouter") {
+    const retry = retryProviderFor(provider);
+    const cooling = Boolean(retry) && coolingNow(provider);
     try {
+      if (cooling) throw new Error("rate-limited recently; skipping until the cooldown ends");
       const res = await openAiCompatible(provider, req);
       logAnswer(provider, res.model, startedAt);
       return res.text;
     } catch (err) {
-      const retry = retryProviderFor(provider);
       if (!retry) throw err;
-      console.warn(`[llm] ${provider} ${modelFor(provider)} failed (${errorLine(err)}); retrying once via ${retry === "openrouter" ? "OpenRouter" : "APINex"}`);
+      if (!cooling && isRateLimit(err)) coolingUntil.set(provider, Date.now() + retryAfterMs(err));
+      if (!cooling) console.warn(`[llm] ${provider} ${modelFor(provider)} failed (${errorLine(err)}); retrying once via ${retry === "openrouter" ? "OpenRouter" : "APINex"}`);
       const retryAt = Date.now();
       const res = await openAiCompatible(retry, req);
       logAnswer(retry, res.model, retryAt, ` (fallback after ${provider} failed)`);
@@ -475,6 +507,10 @@ export async function runToolLoop(opts: ToolLoopOptions): Promise<ToolLoopResult
       const key = `${provider}:${modelFor(provider, opts.route?.role)}`;
       const startedAt = Date.now();
       const native = provider !== "anthropic" && !noTools.has(key);
+      if (i + 1 < chain.length && coolingNow(provider)) {
+        lastErr = new Error(`${provider} was rate-limited recently; skipping until the cooldown ends`);
+        continue;
+      }
       try {
         answer = native ? await toolsStep(provider as OpenAiProvider, opts, turns, final) : await jsonStep(provider, opts, turns, final, step);
         if (!native) mode = "json";
@@ -493,6 +529,7 @@ export async function runToolLoop(opts: ToolLoopOptions): Promise<ToolLoopResult
             lastErr = err2;
           }
         } else lastErr = err;
+        if (isRateLimit(lastErr)) coolingUntil.set(provider, Date.now() + retryAfterMs(lastErr));
         console.warn(`[llm] ${provider} ${modelFor(provider, opts.route?.role)} failed (${errorLine(lastErr)})${i + 1 < chain.length ? `; trying ${chain[i + 1]}` : ""}`);
       }
     }
