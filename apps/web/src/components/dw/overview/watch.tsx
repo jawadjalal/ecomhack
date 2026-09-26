@@ -53,8 +53,16 @@ export function watchToast(loop: LoopState, fresh: LoopLogEntry[]): string | und
 
   if (loop.phase === "ship") {
     const gen = loop.history.at(-1);
-    const pr = find((_, d) => !!d.pr)?.message;
-    const prText = pr ? (/dry run/i.test(pr) ? "PR drafted (dry run)" : /opened/i.test(pr) ? "PR opened" : "") : "no repo connected, so no PR";
+    const pr = find((_, d) => !!d.pr)?.message ?? find((e) => e.actor === "shipper" && /pull request|\bPR\b/i.test(e.message))?.message;
+    const prText = !pr
+      ? ""
+      : /dry run/i.test(pr)
+        ? "PR drafted (dry run)"
+        : /no repository connected/i.test(pr)
+          ? "no repo connected, so no PR"
+          : /opened/i.test(pr)
+            ? "PR opened"
+            : "";
     return `Shipped Gen ${gen?.generation ?? loop.generation}${gen?.lift !== undefined ? `: ${liftText(gen.lift)}` : ""}${prText ? `, ${prText}` : ""}`;
   }
   if (loop.phase === "idle") return clip(last.message);
