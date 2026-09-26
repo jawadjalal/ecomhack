@@ -40,7 +40,7 @@ import { getExperiment, listExperiments, resetExperiments, saveExperiment } from
 import { eventStore } from "@/lib/analytics/store";
 import { getAnalyticsSummary } from "@/lib/analytics/summary";
 import { simulateTraffic, type SimulationOptions, type SimulationResult } from "@/lib/simulator";
-import { getTargetRepo, openSpecPR, type PullRequestResult, type RepoRef } from "@/lib/github";
+import { getTargetRepo, githubMode, openSpecPR, type PullRequestResult, type RepoRef } from "@/lib/github";
 import { AGENT_KV_KEYS } from "@/lib/agent-commerce";
 import { llmAvailable, llmLabel } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
@@ -122,7 +122,7 @@ export interface LoopDeps {
   openSpecPR: (
     repo: RepoRef,
     spec: PageSpec,
-    ctx: { experiment?: Experiment; summary: string },
+    ctx: { experiment?: Experiment; summary: string; generation?: number; previousSpec?: PageSpec },
   ) => Promise<PullRequestResult>;
   /** Use the LLM for insight copy + proposals. Default: `llmAvailable()`. */
   useLlm: boolean;
@@ -871,6 +871,120 @@ async function waitForIdle(timeoutMs = 120_000) {
   while (runtime().busy && Date.now() - start < timeoutMs) {
     await new Promise((r) => setTimeout(r, 25));
   }
+}
+
+/* ------------------------------------------------------------------ rollback */
+
+/** A rollback the merchant asked for that can't happen (unknown generation, nothing to change…). */
+export class RollbackError extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 409,
+  ) {
+    super(message);
+    this.name = "RollbackError";
+  }
+}
+
+export type RollbackOptions = LoopOverrides & {
+  /** Open a PR restoring the config. Default: only when GitHub is live and a repo is connected. */
+  openPr?: boolean;
+};
+
+/**
+ * Put an earlier generation's store back live. The old spec is promoted as a NEW live version
+ * (history is append-only), any running experiment is stopped without a verdict (its control arm
+ * no longer exists), and the rollback is recorded as its own generation, without a lift: its
+ * conversion rates are the restored generation's, and the next observation pools in fresh data.
+ * The loop goes back to `idle`, so the next step observes the restored store before diagnosing.
+ * With GitHub live, a PR restores `storefront.config.json` the same way a ship does.
+ */
+export async function rollbackTo(generation: number, opts: RollbackOptions = {}): Promise<LoopState> {
+  if (!Number.isInteger(generation) || generation < 0) throw new RollbackError(`"${generation}" is not a generation number.`, 400);
+  await waitForIdle();
+  const rt = runtime();
+  rt.busy = true;
+  try {
+    const ctx = load();
+    const target = ctx.state.history.find((h) => h.generation === generation);
+    if (!target) throw new RollbackError(`Gen ${generation} was never shipped, so there is nothing to roll back to.`, 400);
+    const spec = getSpecVersion(target.specVersion);
+    if (!spec) throw new RollbackError(`Gen ${generation}'s settings (v${target.specVersion}) are no longer stored.`, 409);
+    const before = getLiveSpec();
+    const diff = describeDiff(before, spec);
+    if (!diff.length) throw new RollbackError(`The store already has Gen ${generation}'s settings.`, 409);
+    const deps = resolveDeps(opts);
+
+    for (const e of listExperiments().filter((x) => x.status === "running")) {
+      saveExperiment({ ...e, status: "stopped", completedAt: new Date().toISOString() });
+      say(ctx, "experimenter", `Stopped "${e.name}" without a verdict: the store it was tested against was rolled back.`, {
+        experimentId: e.id,
+        decision: "stopped",
+      });
+    }
+    ctx.state.experimentId = undefined;
+    ctx.state.proposal = undefined;
+    ctx.state.insights = [];
+    ctx.memory.round = 0;
+    ctx.memory.arms = undefined;
+
+    const next = ctx.state.generation + 1;
+    const restored = promoteSpec(spec, `Rolled back to Gen ${generation}`);
+    const now = new Date().toISOString();
+    ctx.state.generation = next;
+    ctx.state.phase = "idle";
+    say(
+      ctx,
+      "shipper",
+      `Rolled back to Gen ${generation}: v${restored.version} is live with Gen ${generation}'s settings (${diff.length} setting${diff.length === 1 ? "" : "s"} restored).`,
+      { specVersion: restored.version, diff, rollback: { toGeneration: generation, fromVersion: before.version } },
+    );
+
+    let prUrl: string | undefined;
+    const explicitRepo = deps.config.targetRepo ? parseRepo(deps.config.targetRepo) : getTargetRepo();
+    const openPr = opts.openPr ?? (githubMode() === "live" && Boolean(explicitRepo));
+    if (openPr) {
+      const repo = explicitRepo ?? shipTarget(deps.config);
+      try {
+        const pr = await deps.openSpecPR(repo, restored, {
+          summary:
+            `Rolls the storefront back to Gen ${generation} (“${target.label}”), as requested in Darwin.\n\n` +
+            `**Settings restored in \`storefront.config.json\`**\n${diff.map((d) => `- \`${d}\``).join("\n")}`,
+          generation: next,
+          previousSpec: before,
+        });
+        prUrl = pr.url;
+        say(
+          ctx,
+          "shipper",
+          pr.url && !pr.dryRun ? `Pull request${pr.number ? ` #${pr.number}` : ""} opened: ${pr.url}` : `PR drafted (dry run): "${pr.title}" on branch ${pr.branch}.`,
+          { pr: { url: pr.url, number: pr.number, branch: pr.branch, title: pr.title, dryRun: pr.dryRun } },
+        );
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        say(ctx, "shipper", `PR queued (dry run): GitHub integration unavailable (${reason.slice(0, 80)}).`, {
+          pr: { dryRun: true, queued: true, repo: `${repo.owner}/${repo.repo}` },
+        });
+      }
+    }
+
+    ctx.state.history.push({
+      generation: next,
+      specVersion: restored.version,
+      label: restored.label,
+      humanConversionRate: target.humanConversionRate,
+      agentConversionRate: target.agentConversionRate,
+      overallConversionRate: target.overallConversionRate,
+      humanVisitors: target.humanVisitors,
+      agentVisitors: target.agentVisitors,
+      ...(prUrl ? { prUrl } : {}),
+      shippedAt: now,
+    });
+    save(ctx);
+  } finally {
+    rt.busy = false;
+  }
+  return getLoopState();
 }
 
 /** Reset everything (spec, experiments, events, agent sessions, loop) back to Gen 0. */

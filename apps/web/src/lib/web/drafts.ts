@@ -6,11 +6,16 @@
  * - suggestRules(): the playbook, one idea per traffic source, ordered by where the site's own data
  *   says conversion lags most.
  * Drafts are never saved here: the merchant reviews and edits them first.
+ *
+ * Darwin never invents facts about the store (claims.ts): copy it writes is the page's own words, the
+ * visitor's search, or neutral text. A fact only the merchant knows is a "[Your …]" placeholder, and a
+ * claim the page doesn't make is marked "[Confirm: …]"; neither can go live until the merchant edits it.
  */
 import { z } from "zod";
 import type { PageElement, TrafficSource, WebChange, WebDraftResponse, WebRuleDraft, WebSiteOverview } from "@/lib/contracts";
 import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { generateJson, llmAvailable, llmLabel } from "@/lib/llm/client";
+import { draftNeedsMerchant, guardChanges, merchantNote, NEEDS, pageFacts, pageTexts } from "./claims";
 import { pageOutline } from "./outline";
 import { WebRuleDraftSchema } from "./store";
 
@@ -55,57 +60,52 @@ const SOURCE_WORDS: [TrafficSource, RegExp][] = [
   ["direct", /\b(direct|typed (in|the url))\b/],
 ];
 
-/** Placeholder copy per source, used when the prompt doesn't say what the text should be. */
-const DEFAULT_COPY: Record<TrafficSource | "any", { banner: string; badge: string; headline: string; button: string }> = {
-  ai: {
-    banner: "Free delivery · Free 60-day returns · Ships within 24 hours",
-    badge: "Straight answers: free returns, 2-year warranty",
-    headline: "Everything you asked about, answered up front",
-    button: "Add to cart · free returns",
-  },
-  search: {
-    banner: "Found what you searched for: in stock, ships today",
-    badge: "In stock · ships today",
-    headline: "{query}: in stock, ships today",
-    button: "Add to cart · ships today",
-  },
-  social: {
-    banner: "Loved by 2,000+ customers · ★ 4.8/5",
-    badge: "★ 4.8/5 from 2,000+ customers",
-    headline: "The pair everyone's talking about",
-    button: "Add to cart · ★ 4.8/5",
-  },
-  paid: {
-    banner: "Free delivery on your first order",
-    badge: "Free delivery on your first order",
-    headline: "{query}, delivered free",
-    button: "Add to cart · free delivery",
-  },
-  email: {
-    banner: "Welcome back: subscribers get free express delivery",
-    badge: "Subscriber perk: free express delivery",
-    headline: "Welcome back",
-    button: "Add to cart · subscriber delivery",
-  },
-  referral: {
-    banner: "Recommended by runners you trust · free returns",
-    badge: "Recommended by runners",
-    headline: "The pair you read about",
-    button: "Add to cart",
-  },
-  direct: {
-    banner: "Free delivery · Free 60-day returns",
-    badge: "Free 60-day returns",
-    headline: "Welcome back",
-    button: "Add to cart",
-  },
-  any: {
-    banner: "Free delivery · Free 60-day returns",
-    badge: "★ 4.8/5 from 2,000+ customers",
-    headline: "{query}: in stock, ships today",
-    button: "Add to cart · free returns",
-  },
-};
+type Copy = { banner: string; badge: string; headline: string; button: string };
+
+/** Neutral copy: says something about the visitor's visit, nothing about the store. */
+const WELCOME = "Welcome back";
+const SEARCH_BANNER = "Here's what you searched for: {query}";
+
+/** The page's own buy-button text ("Add to cart"), when the outline has it. */
+function buttonText(outline: PageElement[]): string | undefined {
+  const selector = pickSelector("button", outline);
+  const text = outline.find((e) => e.selector === selector)?.text.trim();
+  return text && text.length <= 30 && !text.endsWith("…") ? text : undefined;
+}
+
+/**
+ * Copy per source for when the prompt doesn't say what the text should be: the page's own facts
+ * (verbatim), the visitor's search ({query}), neutral words, or a "[Your …]" placeholder for the
+ * merchant. Never a rating, count, delivery promise or policy Darwin made up.
+ */
+function defaultCopy(key: TrafficSource | "any", outline: PageElement[]): Copy {
+  const delivery = pageFacts(outline, "delivery", 3);
+  const returns = pageFacts(outline, "returns", 2);
+  const reviews = pageFacts(outline, "reviews");
+  const offer = pageFacts(outline, "offer");
+  const btn = buttonText(outline);
+  const onButton = (fact: string | undefined, need: string) => (fact && btn && `${btn} · ${fact}`.length <= 70 ? `${btn} · ${fact}` : need);
+  switch (key) {
+    case "ai":
+      return { banner: delivery ?? NEEDS.delivery, badge: returns ?? NEEDS.returns, headline: NEEDS.headline, button: onButton(returns, NEEDS.button) };
+    case "search":
+      return { banner: SEARCH_BANNER, badge: "You searched for {query}", headline: "{query}", button: NEEDS.button };
+    case "social":
+      return { banner: reviews ?? NEEDS.reviews, badge: reviews ?? NEEDS.reviews, headline: NEEDS.headline, button: onButton(reviews, NEEDS.button) };
+    case "paid":
+      return { banner: offer ?? NEEDS.offer, badge: offer ?? NEEDS.offer, headline: "{query}", button: onButton(offer, NEEDS.offer) };
+    case "email":
+      return { banner: WELCOME, badge: WELCOME, headline: WELCOME, button: NEEDS.button };
+    case "referral":
+      return { banner: returns ?? NEEDS.returns, badge: returns ?? NEEDS.returns, headline: NEEDS.headline, button: onButton(returns, NEEDS.button) };
+    case "direct":
+      return { banner: delivery ?? NEEDS.delivery, badge: returns ?? NEEDS.returns, headline: WELCOME, button: NEEDS.button };
+    case "any":
+      return { banner: delivery ?? NEEDS.delivery, badge: reviews ?? NEEDS.reviews, headline: "{query}", button: NEEDS.button };
+  }
+}
+
+const clip = (s: string, max = 400) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s);
 
 function quoted(prompt: string): string[] {
   const out: string[] = [];
@@ -142,7 +142,7 @@ export function heuristicDraft(site: string, prompt: string, outline: PageElemen
   const sources = SOURCE_WORDS.filter(([, re]) => re.test(sourceText)).map(([s]) => s);
   if (/\b(everyone|all visitors|every visitor|all traffic)\b/.test(p)) sources.length = 0;
   const copyKey: TrafficSource | "any" = sources.length === 1 ? sources[0] : "any";
-  const copy = DEFAULT_COPY[copyKey];
+  const copy = defaultCopy(copyKey, outline);
   const usesQuery = /\{query\}|\b(their|the) (search|query|search terms?|keywords?)\b|what they (searched|typed|looked) (for)?/.test(p);
   const withQuery = (v: string) => (usesQuery && !v.includes("{query}") ? `{query}: ${v}` : v);
 
@@ -177,10 +177,15 @@ export function heuristicDraft(site: string, prompt: string, outline: PageElemen
     const i = t++;
     return texts[i] ?? (i === 0 ? said : undefined) ?? fallback;
   };
-  const changes = wanted
-    .sort((a, b) => a.at - b.at)
-    .slice(0, 5)
-    .map((w) => w.make(nextText));
+  // The merchant's own words are kept, but a claim the page doesn't make still waits for their confirmation.
+  const guarded = guardChanges(
+    wanted
+      .sort((a, b) => a.at - b.at)
+      .slice(0, 5)
+      .map((w) => w.make(nextText)),
+    pageTexts(outline),
+  );
+  const changes = guarded.changes;
 
   const mode = /\b(always|everyone in|permanently|just show|show it to all|personali[sz]e)\b/.test(p) && !/\b(a\/b|ab test|split|test|experiment)\b/.test(p) ? "always" : "test";
   const who = sources.length ? sources.map((s) => SHORT_LABEL[s]).join(" + ") : "everyone";
@@ -188,7 +193,10 @@ export function heuristicDraft(site: string, prompt: string, outline: PageElemen
   return WebRuleDraftSchema.parse({
     site,
     name: `${what} for ${who}`,
-    hypothesis: sources.length === 1 ? PLAYBOOK[sources[0]].hypothesis : "Visitors convert better when the page speaks to why they came.",
+    hypothesis: clip(
+      (sources.length === 1 ? PLAYBOOK[sources[0]].hypothesis : "Visitors convert better when the page speaks to why they came.") +
+        merchantNote(guarded.unverified, draftNeedsMerchant({ changes })),
+    ),
     audience: { ...(sources.length ? { sources } : {}), ...(queryIncludes.length ? { queryIncludes } : {}) },
     changes,
     mode,
@@ -242,7 +250,8 @@ A rule has an audience (who sees it) and up to 5 changes. Changes can only:
 Audience sources: ${TRAFFIC_SOURCES.map((s) => `"${s}" (${TRAFFIC_SOURCE_LABEL[s]})`).join(", ")}. Omit sources for everyone.
 queryIncludes narrows to visitors whose search query contains one of those words.
 mode: "test" = A/B test against the unchanged page (default), "always" = show to everyone in the audience.
-Only use selectors from the page outline when one fits; otherwise use a simple, robust selector (h1, button). Keep copy short (under 90 characters), specific and honest: don't invent prices, discounts or policies the merchant didn't mention, unless the prompt states them.`;
+Only use selectors from the page outline when one fits; otherwise use a simple, robust selector (h1, button). Keep copy short (under 90 characters) and specific.
+Never invent facts about the store. No star ratings, review, customer or order counts, awards, "bestseller", delivery or dispatch promises, return policies, warranties, guarantees, discounts or stock levels, unless that exact text is in the page outline: then reuse it word for word. Otherwise write neutral copy (the visitor's search via {query}, "Welcome back", "Here's what you searched for: {query}"), or put a placeholder the merchant fills in, like "[Your returns policy]". Facts the merchant states in the prompt are fine, but Darwin will still ask them to confirm any that aren't on the page.`;
 
 /** A rule from a prompt: the LLM when configured, else the keyword parser. Fetches the page to ground selectors. */
 export async function draftRule(site: string, prompt: string, opts: { url?: string; outline?: PageElement[] } = {}): Promise<WebDraftResponse> {
@@ -267,7 +276,10 @@ export async function draftRule(site: string, prompt: string, opts: { url?: stri
         author: llmLabel(),
         prompt: prompt.slice(0, 1000),
       });
-      return { rule, source: "llm", outline };
+      // The model was told the rule; this makes sure: a claim the page doesn't make waits for the merchant.
+      const guarded = guardChanges(rule.changes, pageTexts(outline));
+      const note = merchantNote(guarded.unverified, draftNeedsMerchant(guarded));
+      return { rule: { ...rule, changes: guarded.changes, ...(note ? { hypothesis: clip(`${rule.hypothesis ?? ""}${note}`.trim()) } : {}) }, source: "llm", outline };
     } catch {
       /* fall through to the heuristic */
     }
@@ -282,30 +294,37 @@ interface Play {
   build: (outline: PageElement[]) => Pick<WebRuleDraft, "name" | "changes">;
 }
 
+const copy = (o: PageElement[], key: TrafficSource) => defaultCopy(key, o);
+
+/**
+ * One idea per source. Copy comes from defaultCopy(): the page's own facts, the visitor's context, or
+ * neutral words; an idea that needs a fact the page doesn't state carries a "[Your …]" placeholder, so it's
+ * a draft for the merchant and autopilot skips it.
+ */
 export const PLAYBOOK: Record<TrafficSource, Play> = {
   ai: {
-    hypothesis: "Shoppers sent by ChatGPT or Perplexity arrive to check facts. Delivery, returns and dispatch time up front answer them before they bounce back to the chat.",
-    build: () => ({ name: "Facts banner for AI assistants", changes: [{ action: "banner", value: DEFAULT_COPY.ai.banner }] }),
+    hypothesis: "Shoppers sent by ChatGPT or Perplexity arrive to check facts. Your delivery and returns terms up front answer them before they bounce back to the chat.",
+    build: (o) => ({ name: "Delivery & returns banner for AI assistants", changes: [{ action: "banner", value: copy(o, "ai").banner }] }),
   },
   search: {
     hypothesis: "Echoing the visitor's search in the headline tells them they landed in the right place (message match), so fewer bounce.",
-    build: (o) => ({ name: "Search-matched headline", changes: [{ action: "text", selector: pickSelector("headline", o), value: DEFAULT_COPY.search.headline }] }),
+    build: (o) => ({ name: "Search-matched headline", changes: [{ action: "text", selector: pickSelector("headline", o), value: copy(o, "search").headline }] }),
   },
   social: {
-    hypothesis: "Social visitors arrive cold and unsure. Social proof next to the buy button answers 'is this any good?'.",
-    build: (o) => ({ name: "Reviews badge for social visitors", changes: [{ action: "badge", selector: pickSelector("button", o), value: DEFAULT_COPY.social.badge }] }),
+    hypothesis: "Social visitors arrive cold and unsure. Your real rating next to the buy button answers 'is this any good?'.",
+    build: (o) => ({ name: "Reviews badge for social visitors", changes: [{ action: "badge", selector: pickSelector("button", o), value: copy(o, "social").badge }] }),
   },
   paid: {
-    hypothesis: "Ad clicks came for the ad's promise. Repeating the offer above the fold keeps the message consistent from ad to page.",
-    build: () => ({ name: "Offer banner for ad clicks", changes: [{ action: "banner", value: DEFAULT_COPY.paid.banner }] }),
+    hypothesis: "Ad clicks came for the ad's promise. Repeating your offer above the fold keeps the message consistent from ad to page.",
+    build: (o) => ({ name: "Offer banner for ad clicks", changes: [{ action: "banner", value: copy(o, "paid").banner }] }),
   },
   email: {
-    hypothesis: "Subscribers already know the brand. Recognising them and their perk beats a generic first-visit page.",
-    build: () => ({ name: "Welcome-back banner for subscribers", changes: [{ action: "banner", value: DEFAULT_COPY.email.banner }] }),
+    hypothesis: "Subscribers already know the brand. Recognising them beats a generic first-visit page.",
+    build: (o) => ({ name: "Welcome-back banner for subscribers", changes: [{ action: "banner", value: copy(o, "email").banner }] }),
   },
   referral: {
-    hypothesis: "Visitors from a review or blog were told about a product. Borrowing that trust near the button helps them act on it.",
-    build: (o) => ({ name: "Recommended badge for referrals", changes: [{ action: "badge", selector: pickSelector("button", o), value: DEFAULT_COPY.referral.badge }] }),
+    hypothesis: "Visitors from a review or blog arrive interested but wary. Your returns terms right at the buy button lower the risk of trying.",
+    build: (o) => ({ name: "Returns badge for referrals", changes: [{ action: "badge", selector: pickSelector("button", o), value: copy(o, "referral").badge }] }),
   },
   direct: {
     hypothesis: "Direct visitors are mostly returning customers who came to buy. A signup popup gets in their way.",
@@ -317,31 +336,31 @@ export const PLAYBOOK: Record<TrafficSource, Play> = {
 export const FOLLOW_UPS: Record<TrafficSource, Play> = {
   ai: {
     hypothesis: "AI-referred shoppers compare on facts. Answering 'can I return it?' right at the buy button removes the last doubt.",
-    build: (o) => ({ name: "Returns & warranty badge for AI assistants", changes: [{ action: "badge", selector: pickSelector("button", o), value: DEFAULT_COPY.ai.badge }] }),
+    build: (o) => ({ name: "Returns & warranty badge for AI assistants", changes: [{ action: "badge", selector: pickSelector("button", o), value: copy(o, "ai").badge }] }),
   },
   search: {
     hypothesis: "If the headline can't change, a bar repeating the search still confirms the visitor is in the right place.",
-    build: () => ({ name: "Search-matched banner", changes: [{ action: "banner", value: "{query}: in stock, ships today" }] }),
+    build: (o) => ({ name: "Search-matched banner", changes: [{ action: "banner", value: copy(o, "search").banner }] }),
   },
   social: {
-    hypothesis: "Social visitors trust other shoppers. Saying how many people bought it, above the fold, beats a small badge.",
-    build: () => ({ name: "Social-proof banner", changes: [{ action: "banner", value: DEFAULT_COPY.social.banner }] }),
+    hypothesis: "Social visitors trust other shoppers. Your rating above the fold is seen by more of them than a small badge.",
+    build: (o) => ({ name: "Social-proof banner", changes: [{ action: "banner", value: copy(o, "social").banner }] }),
   },
   paid: {
     hypothesis: "Putting the ad's offer on the buy button itself keeps the promise in view at the moment of decision.",
-    build: (o) => ({ name: "Offer on the button for ad clicks", changes: [{ action: "text", selector: pickSelector("button", o), value: DEFAULT_COPY.paid.button }] }),
+    build: (o) => ({ name: "Offer on the button for ad clicks", changes: [{ action: "text", selector: pickSelector("button", o), value: copy(o, "paid").button }] }),
   },
   email: {
     hypothesis: "Subscribers are already on the list: the newsletter popup only gets in their way.",
     build: (o) => ({ name: "No popup for subscribers", changes: [{ action: "hide", selector: pickSelector("popup", o) }] }),
   },
   referral: {
-    hypothesis: "Visitors from a review arrive wanting reassurance; free returns up front lowers the risk of trying.",
-    build: () => ({ name: "Free-returns banner for referrals", changes: [{ action: "banner", value: DEFAULT_COPY.referral.banner }] }),
+    hypothesis: "Visitors from a review came for one product; a signup popup gets between them and it.",
+    build: (o) => ({ name: "No popup for referrals", changes: [{ action: "hide", selector: pickSelector("popup", o) }] }),
   },
   direct: {
-    hypothesis: "Returning customers came to buy; a reminder of free returns and delivery removes the last hesitation.",
-    build: () => ({ name: "Free delivery & returns banner for direct visitors", changes: [{ action: "banner", value: DEFAULT_COPY.direct.banner }] }),
+    hypothesis: "Returning customers came to buy; a reminder of your delivery and returns terms removes the last hesitation.",
+    build: (o) => ({ name: "Delivery & returns banner for direct visitors", changes: [{ action: "banner", value: copy(o, "direct").banner }] }),
   },
 };
 
@@ -374,10 +393,14 @@ export function ideaDraft(site: string, source: TrafficSource, index: number, ov
     st && overview && st.visitors >= 20
       ? ` Data: ${TRAFFIC_SOURCE_LABEL[source]} convert at ${pct(st.conversionRate)} vs ${pct(overview.conversionRate)} site-wide (${st.visitors} visitors${overview.syntheticVisitors ? ", includes simulated traffic" : ""}).`
       : "";
+  const built = play.build(outline);
+  // Safety net: the playbook only uses the page's words, but nothing unconfirmed leaves here either way.
+  const guarded = guardChanges(built.changes, pageTexts(outline));
   return WebRuleDraftSchema.parse({
     site,
-    ...play.build(outline),
-    hypothesis: play.hypothesis + evidence,
+    ...built,
+    changes: guarded.changes,
+    hypothesis: clip(play.hypothesis + evidence + merchantNote(guarded.unverified, draftNeedsMerchant(guarded))),
     audience: { sources: [source] },
     mode: "test",
     author: "playbook",

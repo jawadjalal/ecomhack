@@ -10,6 +10,7 @@ import type { LoopState } from "@/lib/contracts";
 import {
   getLoopState as getState,
   resetLoop as reset,
+  rollbackTo as rollback,
   setAutopilot as setPilot,
   stepLoop as step,
 } from "./loop";
@@ -32,6 +33,17 @@ export function setAutopilot(on: boolean): LoopState {
 export async function resetLoop(): Promise<LoopState> {
   return reset();
 }
+
+/**
+ * Put generation `generation`'s store back live (as a new version and a new history record), stop any
+ * running test, and open a PR restoring the config when GitHub is live. Throws RollbackError
+ * (status 400 unknown generation / 409 nothing to change).
+ */
+export async function rollbackTo(generation: number): Promise<LoopState> {
+  return rollback(generation);
+}
+
+export { RollbackError } from "./loop";
 
 // Building blocks, for the console / PR body / tests.
 export { diagnose, refineInsightsWithLlm, insightKind, type InsightKind } from "./insights";

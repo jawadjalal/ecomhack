@@ -260,11 +260,14 @@ export function AssistantPanel() {
     setSuggestions([]);
   };
 
+  // The redesigned Overview has its own "Ask Darwin" bar for now; one bar per page.
+  if (pathname === "/console") return null;
+
   return (
     <div style={FONT} data-assistant>
       <style>{MASCOT_CSS}</style>
       {/* room under the page for the prompt bar (mission control reserves its own) */}
-      {pathname !== "/console" && <div aria-hidden className="h-[104px]" />}
+      {pathname !== "/console/classic" && <div aria-hidden className="h-[104px]" />}
 
       {/* prompt bar */}
       {!inSheet && (

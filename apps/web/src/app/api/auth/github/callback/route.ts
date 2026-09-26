@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { exchangeGithubCode, githubSessionCookie, safeReturnPath, SESSION_COOKIE, sessionCookieOptions, STATE_COOKIE } from "@/lib/auth/oauth";
-import { publicOrigin } from "@/lib/github";
+import { requestOrigin } from "@/lib/github";
 
 /** GET /api/auth/github/callback?code&state — GitHub sends the merchant back here after they approve. */
 export async function GET(req: Request) {
-  const origin = publicOrigin(req);
+  const origin = requestOrigin(req);
   const url = new URL(req.url);
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${STATE_COOKIE}=([^;]+)`))?.[1];
   const [expected, ...rest] = decodeURIComponent(cookie ?? "").split(":");

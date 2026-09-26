@@ -17,7 +17,9 @@ vi.mock("openai", () => ({
 import {
   DEFAULT_OPENROUTER_MODEL,
   extractJson,
+  llmAvailable,
   llmLabel,
+  llmModel,
   llmProvider,
   resolveProvider,
   runToolLoop,
@@ -48,6 +50,8 @@ describe("provider selection", () => {
     for (const k of [
       "LLM_PROVIDER",
       "XAI_API_KEY",
+      "APINEX_API_KEY",
+      "APINEX_MODEL",
       "ANTHROPIC_API_KEY",
       "OPENROUTER_API_KEY",
       "OPENROUTER_MODEL",
@@ -62,20 +66,27 @@ describe("provider selection", () => {
     expect(llmLabel()).toBe("heuristic");
   });
 
-  it("prefers OpenRouter (DeepSeek V4 Flash by default), then xAI, then Anthropic", () => {
+  it("auto-detects xAI, then Apinex, then OpenRouter (DeepSeek V4 Flash by default), then Anthropic", () => {
     clear();
     vi.stubEnv("ANTHROPIC_API_KEY", "k");
     expect(llmProvider()).toBe("anthropic");
-    vi.stubEnv("XAI_API_KEY", "k");
-    vi.stubEnv("XAI_MODEL", "grok-test");
-    expect(llmProvider()).toBe("xai");
-    expect(llmLabel()).toBe("llm:grok-test");
     vi.stubEnv("OPENROUTER_API_KEY", "k");
     expect(llmProvider()).toBe("openrouter");
     expect(DEFAULT_OPENROUTER_MODEL).toBe("deepseek/deepseek-v4-flash");
     expect(llmLabel()).toBe("llm:deepseek/deepseek-v4-flash");
     vi.stubEnv("OPENROUTER_MODEL", "other/model");
     expect(llmLabel()).toBe("llm:other/model");
+    vi.stubEnv("APINEX_API_KEY", "k");
+    expect(llmProvider()).toBe("apinex");
+    expect(llmLabel()).toBe("llm:free/gpt-6-luna");
+    vi.stubEnv("XAI_API_KEY", "k");
+    vi.stubEnv("XAI_MODEL", "grok-test");
+    expect(llmProvider()).toBe("xai");
+    expect(llmLabel()).toBe("llm:grok-test");
+    // A feature that pins OpenRouter (the assistant's tool loop) still gets it.
+    expect(resolveProvider("openrouter")).toBe("openrouter");
+    expect(llmAvailable("openrouter")).toBe(true);
+    expect(llmModel("openrouter")).toBe("other/model");
   });
 
   it("honours LLM_PROVIDER when that provider has a key", () => {
@@ -130,6 +141,7 @@ describe("runToolLoop", () => {
     for (const k of [
       "LLM_PROVIDER",
       "XAI_API_KEY",
+      "APINEX_API_KEY",
       "ANTHROPIC_API_KEY",
       "OPENROUTER_MODEL",
       "OPENROUTER_REASONING",
@@ -138,8 +150,45 @@ describe("runToolLoop", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "k");
     oa.create.mockReset();
     oa.opts.length = 0;
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("retries a failed Apinex turn once through OpenRouter, and honours a pinned provider", async () => {
+    vi.stubEnv("APINEX_API_KEY", "apx");
+    oa.create
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Daily check-in required"), { status: 402 }),
+      )
+      .mockResolvedValueOnce(text("from openrouter"));
+    const out = await runToolLoop({
+      system: "s",
+      messages: [{ role: "user", content: "q" }],
+      tools: TOOLS,
+      execute: async () => ({ content: "" }),
+    });
+    expect(out.text).toBe("from openrouter");
+    expect(oa.create.mock.calls[0][0].model).toBe("free/gpt-6-luna");
+    expect(oa.create.mock.calls[1][0].model).toBe("deepseek/deepseek-v4-flash");
+    expect(oa.opts[0]).toMatchObject({ baseURL: "https://api.apinex.bond/v1" });
+    expect(oa.opts[1]).toMatchObject({ baseURL: "https://openrouter.ai/api/v1" });
+
+    oa.create.mockReset();
+    oa.opts.length = 0;
+    oa.create.mockResolvedValueOnce(text("pinned"));
+    await runToolLoop({
+      system: "s",
+      messages: [{ role: "user", content: "q" }],
+      tools: TOOLS,
+      provider: "openrouter",
+      execute: async () => ({ content: "" }),
+    });
+    expect(oa.opts[0]).toMatchObject({ baseURL: "https://openrouter.ai/api/v1" });
+  });
 
   it("builds JSON-schema tools from zod", () => {
     expect(TOOLS[0].parameters).toMatchObject({

@@ -160,7 +160,8 @@ describe("drafting", () => {
   it("turns plain English into a rule without an LLM", () => {
     const ai = heuristicDraft(SITE, "Visitors from ChatGPT should see a banner saying Free UK delivery over £60 and 60-day returns", outline);
     expect(ai).toMatchObject({ audience: { sources: ["ai"] }, mode: "test", author: "heuristic" });
-    expect(ai.changes).toEqual([{ action: "banner", value: "Free UK delivery over £60 and 60-day returns" }]);
+    // Not on this page: kept in the merchant's words, but marked for them to confirm before it can go live.
+    expect(ai.changes).toEqual([{ action: "banner", value: "[Confirm: Free UK delivery over £60 and 60-day returns]" }]);
 
     const search = heuristicDraft(SITE, "For Google searchers, put their search in the headline", outline);
     expect(search.audience.sources).toEqual(["search"]);
@@ -171,8 +172,8 @@ describe("drafting", () => {
     expect(multi.audience.sources).toEqual(["social"]);
     expect(multi.changes).toEqual([
       { action: "hide", selector: "div.promo-popup" },
-      { action: "badge", selector: "button.add-to-cart", value: "★ 4.8 from 2,000 runners" },
-      { action: "banner", value: "Free returns" },
+      { action: "badge", selector: "button.add-to-cart", value: "[Confirm: ★ 4.8 from 2,000 runners]" },
+      { action: "banner", value: "[Confirm: Free returns]" },
     ]);
 
     const ads = heuristicDraft(SITE, "Always show google ads visitors a banner", outline);

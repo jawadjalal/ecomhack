@@ -72,7 +72,7 @@ export function ThinkingCards({ label, n = 4 }: { label: string; n?: number }) {
         <span className="size-2 rounded-full bg-brand pulse-dot" />
         {label}
       </div>
-      <div className="grid flex-1 grid-cols-2 gap-3">
+      <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
         {Array.from({ length: n }, (_, i) => (
           <div key={i} className="shimmer rounded-xl border border-white/[0.05]" />
         ))}
@@ -85,7 +85,7 @@ export function DiagnoseStage({ insights, targetedIds }: { insights: Insight[]; 
   if (!insights.length) return <ThinkingCards label="The analyst is reading funnels, friction and agent tool calls…" />;
   const shown = [...insights].sort((a, b) => b.impactScore - a.impactScore).slice(0, 4);
   return (
-    <div className={cn("grid h-full gap-3", shown.length > 2 ? "grid-cols-2 grid-rows-2" : "grid-cols-2")}>
+    <div className={cn("grid grid-cols-1 gap-3 sm:h-full", shown.length > 2 ? "sm:grid-cols-2 sm:grid-rows-2" : "sm:grid-cols-2")}>
       {shown.map((ins, i) => (
         <InsightCard key={ins.id} insight={ins} index={i} targeted={targetedIds.includes(ins.id)} />
       ))}

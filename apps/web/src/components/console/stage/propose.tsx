@@ -98,7 +98,7 @@ export function ProposeStage({
   const touchesHumans = Object.keys(proposal.patch).some((k) => k !== "agentSurface");
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)] gap-5">
+    <div className="grid min-h-0 grid-cols-1 gap-5 sm:h-full sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)]">
       {/* proposal */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex min-h-0 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">

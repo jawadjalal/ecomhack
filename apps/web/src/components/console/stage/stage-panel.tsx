@@ -61,7 +61,7 @@ function IdleStage({
     },
   ];
   return (
-    <div className="flex h-full flex-col justify-center gap-6 px-2">
+    <div className="flex h-full flex-col justify-center gap-6 px-2 max-sm:justify-start">
       <div>
         <div className="text-[0.8rem] font-medium tracking-[0.16em] text-brand uppercase">Ready</div>
         <h2 className="mt-1 text-[2.3rem] leading-tight font-semibold tracking-[-0.03em] text-white">
@@ -72,7 +72,7 @@ function IdleStage({
           proves it with an A/B test and ships the winner as a pull request.
         </p>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {steps.map((s, i) => (
           <div
             key={s.title}
@@ -161,7 +161,7 @@ export function StagePanel({
 
   return (
     <Panel glow={live === "ship" && !peeking} className="h-full">
-      <header className="flex shrink-0 items-center gap-4 px-6 pt-4 pb-3">
+      <header className="flex shrink-0 items-center gap-4 px-4 pt-4 pb-3 sm:px-6">
         <div className="flex items-center gap-3">
           <span
             className={cn(
@@ -216,7 +216,7 @@ export function StagePanel({
           ))}
         </div>
       </header>
-      <div className="relative min-h-0 flex-1 px-6 pb-5">
+      <div className="relative min-h-0 flex-1 px-4 pb-5 max-sm:overflow-y-auto sm:px-6">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={phase}

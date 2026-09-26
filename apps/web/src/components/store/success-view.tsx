@@ -23,6 +23,7 @@ export function SuccessView({ orderId }: { orderId?: string }) {
       revenue: order.total,
       subtotal: order.subtotal,
       shipping: order.shipping,
+      ...(order.discount ? { discount: order.discount, coupon: order.coupon } : {}),
       currency: "GBP",
       item_count: order.lines.reduce((s, l) => s + l.quantity, 0),
       items: order.lines.map((l) => ({
@@ -61,7 +62,7 @@ export function SuccessView({ orderId }: { orderId?: string }) {
         <p className="pace-eyebrow mt-6 text-(--muted)">Order {ref} confirmed</p>
         <h1 className="pace-display mt-3 text-4xl font-extrabold sm:text-5xl">Thanks, {order.firstName}. You&apos;re all set.</h1>
         <p className="mt-4 max-w-md text-(--muted)">
-          We&apos;ve sent a confirmation to <span className="font-medium text-(--ink)">{order.email}</span>. Your order arrives{" "}
+          Confirmation for <span className="font-medium text-(--ink)">{order.email}</span> (a demo store, so no email is sent). Your order arrives{" "}
           <span className="font-medium text-(--ink)">{order.deliveryDate ?? "in 2–3 days"}</span>.
         </p>
       </div>
@@ -93,6 +94,12 @@ export function SuccessView({ orderId }: { orderId?: string }) {
             <dt className="text-(--muted)">Subtotal</dt>
             <dd>{formatGBP(order.subtotal)}</dd>
           </div>
+          {order.discount ? (
+            <div className="flex justify-between text-emerald-700">
+              <dt>Discount{order.coupon ? ` (${order.coupon})` : ""}</dt>
+              <dd>−{formatGBP(order.discount)}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <dt className="text-(--muted)">Delivery</dt>
             <dd>{order.shipping === 0 ? "Free" : formatGBP(order.shipping)}</dd>
