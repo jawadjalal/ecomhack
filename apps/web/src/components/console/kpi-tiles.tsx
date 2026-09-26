@@ -225,7 +225,7 @@ export function KpiTiles({
         value={orders}
         format={(v) => count(v)}
         delta={
-          <span className="text-[0.8rem] text-white/45">
+          <span className="min-w-0 truncate text-[0.8rem] text-white/45">
             {revenue !== undefined ? <span className="font-medium text-white/70 tabular">{money(revenue, { compact: true })}</span> : "–"} revenue
           </span>
         }

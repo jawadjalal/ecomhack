@@ -7,6 +7,7 @@ import { z } from "zod";
 import { kvGet, kvSet } from "@/lib/db/json-store";
 import { TRAFFIC_SOURCES, type TrafficSource, type WebRule, type WebRuleDraft, type WebRuleOutcome, type WebRuleStatus } from "@/lib/contracts";
 import { id } from "@/lib/ids";
+import { needsMerchant } from "./claims";
 
 const KEY = "web-rules";
 export const MAX_RULES_PER_SITE = 50;
@@ -86,6 +87,22 @@ export class WebRuleError extends Error {
 
 const all = () => kvGet<WebRule[]>(KEY, () => []);
 
+const isLive = (status: WebRuleStatus) => status === "running" || status === "shipped";
+
+/**
+ * A rule goes live only when every text is the merchant's to publish: no "[Your …]" left to fill in, no
+ * "[Confirm: …]" claim Darwin couldn't find on the page (claims.ts). Drafts can hold them.
+ */
+function assertPublishable(changes: WebRule["changes"]) {
+  const pending = changes.find((c) => needsMerchant(c.value));
+  if (pending) {
+    throw new WebRuleError(
+      `“${pending.value}” needs you first: replace the [bracketed] text with your real details (or confirm the claim by removing the brackets). Darwin never publishes facts about your store that it can't find on your page.`,
+      400,
+    );
+  }
+}
+
 export function listRules(site?: string): WebRule[] {
   return site ? all().filter((r) => r.site === site) : [...all()];
 }
@@ -97,6 +114,7 @@ export function getRule(ruleId: string): WebRule | undefined {
 export function createRule(draft: WebRuleDraft | unknown, status: WebRuleStatus = "draft"): WebRule {
   const d = WebRuleDraftSchema.parse(draft);
   if (listRules(d.site).length >= MAX_RULES_PER_SITE) throw new WebRuleError(`A site can have at most ${MAX_RULES_PER_SITE} rules. Delete some first.`);
+  if (isLive(status)) assertPublishable(d.changes);
   const now = new Date().toISOString();
   const rule: WebRule = {
     id: id("wr"),
@@ -127,6 +145,7 @@ export function updateRule(ruleId: string, patch: WebRulePatch | unknown): WebRu
   }
   const now = new Date().toISOString();
   const next: WebRule = { ...current, ...p, updatedAt: now };
+  if (isLive(next.status) && (p.status || p.changes)) assertPublishable(next.changes);
   if ((p.status === "running" || p.status === "shipped") && !current.startedAt) next.startedAt = now;
   if (p.status === "shipped" && !current.shippedAt) next.shippedAt = now;
   kvSet(

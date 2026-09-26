@@ -4,6 +4,28 @@ import { createConsoleApi } from "./api";
 import { describeEvent, findPullRequest, parseDiffLine, prsByGeneration, sourceBadge, withStatusPrs } from "./format";
 
 describe("mock engine", () => {
+  it("rolls back to an earlier generation (mirrors POST /api/loop/rollback)", async () => {
+    const engine = new MockEngine({ latency: 0 });
+    let s = await engine.stepLoop();
+    await expect(engine.rollback(1)).rejects.toThrow(/never shipped/);
+    while (s.generation < 1) s = await engine.stepLoop();
+    // start the next test so there is one to stop
+    while (s.phase !== "experiment") s = await engine.stepLoop();
+    const running = s.experimentId!;
+    await expect(engine.rollback(1)).rejects.toThrow(/already has/);
+
+    s = await engine.rollback(0);
+    expect(s.liveSpec.cart.showShippingUpfront).toBe(false);
+    expect(s.liveSpec.label).toBe("Rolled back to Gen 0");
+    expect(s.generation).toBe(2);
+    expect(s.history.at(-1)).toMatchObject({ generation: 2, label: "Rolled back to Gen 0", humanConversionRate: 0.023 });
+    expect(s.history.at(-1)?.lift).toBeUndefined();
+    expect(s.experimentId).toBeUndefined();
+    expect((await engine.getExperiments()).experiments.find((e) => e.id === running)?.status).toBe("stopped");
+    expect(s.phase).toBe("idle");
+    expect((await engine.stepLoop()).phase).toBe("observe");
+  });
+
   it("walks the full loop and ships a winner with a PR", async () => {
     const engine = new MockEngine({ latency: 0 });
     let s = await engine.stepLoop();

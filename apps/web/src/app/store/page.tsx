@@ -37,7 +37,7 @@ export default async function StoreHome(props: PageProps<"/store">) {
       <PageView page="home" />
       <Hero spec={spec} />
       {spec.hero.showSocialProof && <SocialProof />}
-      <ProductGrid spec={spec} category={ctx.query.category} />
+      <ProductGrid spec={spec} category={ctx.query.category} query={ctx.query.q} />
       <section className="border-t border-(--line) bg-(--surface-2)">
         <Container className="grid gap-10 py-16 sm:grid-cols-3 sm:py-20">
           {VALUES.map((v) => (

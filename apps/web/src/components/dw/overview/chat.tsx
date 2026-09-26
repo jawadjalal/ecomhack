@@ -130,7 +130,13 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
         if (!res.ok || !body.answer) throw new Error(body.error ?? "No answer");
         setMsgs((m) => m.map((x) => (x.id === replyId ? { ...x, text: body.answer ?? "", cards: body.cards, source: body.source, pending: false } : x)));
       } catch (e) {
-        setMsgs((m) => m.map((x) => (x.id === replyId ? { ...x, text: `I couldn’t answer that just now (${(e as Error).message}). Try again in a moment.`, pending: false, failed: true } : x)));
+        setMsgs((m) =>
+          m.map((x) =>
+            x.id === replyId
+              ? { ...x, text: `I couldn’t answer that just now (${(e as Error).message}). Try again in a moment.`, pending: false, failed: true }
+              : x,
+          ),
+        );
       }
     },
     [busy, msgs],
@@ -199,7 +205,9 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
 
   return (
     <>
-      {!inSheet && <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[110px] bg-[linear-gradient(to_top,#F7F1E5_50%,rgba(247,241,229,0))]" />}
+      {!inSheet && (
+        <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-[110px] bg-[linear-gradient(to_top,#F7F1E5_50%,rgba(247,241,229,0))]" />
+      )}
       <div className="pointer-events-none fixed inset-x-0 z-40 mx-auto w-full max-w-[1600px] px-3 sm:px-7" style={{ bottom: vp.kb }}>
         <AnimatePresence initial={false} mode="popLayout">
           {!inSheet ? (
@@ -211,10 +219,18 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
               exit={{ opacity: 0, y: 12, transition: { duration: 0.12 } }}
               transition={{ duration: 0.45, ease: EASE, delay: 0.1 }}
             >
-              <button type="button" aria-label="Open Darwin chat. Drag up to resize." className="flex h-3.5 w-20 cursor-grab touch-none items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-dw-ink active:cursor-grabbing" {...grip}>
+              <button
+                type="button"
+                aria-label="Open Darwin chat. Drag up to resize."
+                className="flex h-3.5 w-20 cursor-grab touch-none items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-dw-ink active:cursor-grabbing"
+                {...grip}
+              >
                 <span className="h-[5px] w-11 rounded-full bg-[#CFC7B6]" />
               </button>
-              <form onSubmit={submitBar} className="flex h-[60px] w-full items-center gap-3 rounded-full bg-white pr-2 pl-3 shadow-[0_0_0_1px_#E8DFCC,0_16px_40px_rgba(20,20,19,0.10)] transition-shadow focus-within:shadow-[0_0_0_1.5px_#141413,0_16px_40px_rgba(20,20,19,0.14)]">
+              <form
+                onSubmit={submitBar}
+                className="flex h-[60px] w-full items-center gap-3 rounded-full bg-white pr-2 pl-3 shadow-[0_0_0_1px_#E8DFCC,0_16px_40px_rgba(20,20,19,0.10)] transition-shadow focus-within:shadow-[0_0_0_1.5px_#141413,0_16px_40px_rgba(20,20,19,0.14)]"
+              >
                 <Mascot kind="analyst" size={40} frame active title="Darwin" />
                 <label htmlFor="dw-ask-bar" className="sr-only">
                   Ask Darwin
@@ -230,11 +246,19 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                   className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-dw-ink outline-none placeholder:text-[#8A8478]"
                 />
                 {lastDarwin && (
-                  <button type="button" onClick={() => open("full")} className="hidden h-9 shrink-0 items-center rounded-full bg-dw-sand px-3.5 text-[13px] font-medium transition-colors hover:bg-[#e4dccb] sm:flex">
+                  <button
+                    type="button"
+                    onClick={() => open("full")}
+                    className="hidden h-9 shrink-0 items-center rounded-full bg-dw-sand px-3.5 text-[13px] font-medium transition-colors hover:bg-[#e4dccb] sm:flex"
+                  >
                     Show chat
                   </button>
                 )}
-                <button type="submit" aria-label="Send" className="grid size-11 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-transform hover:scale-105 active:scale-95">
+                <button
+                  type="submit"
+                  aria-label="Send"
+                  className="grid size-11 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-transform hover:scale-105 active:scale-95"
+                >
                   <ArrowUp className="size-[18px]" />
                 </button>
               </form>
@@ -253,7 +277,12 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
               exit={{ y: 40, opacity: 0, transition: { duration: 0.18 } }}
               transition={{ duration: 0.4, ease: EASE }}
             >
-              <button type="button" aria-label="Resize Darwin chat: drag, or click to change size" className="flex h-6 shrink-0 cursor-grab touch-none items-center justify-center outline-none focus-visible:bg-dw-sand active:cursor-grabbing" {...grip}>
+              <button
+                type="button"
+                aria-label="Resize Darwin chat: drag, or click to change size"
+                className="flex h-6 shrink-0 cursor-grab touch-none items-center justify-center outline-none focus-visible:bg-dw-sand active:cursor-grabbing"
+                {...grip}
+              >
                 <span className="h-[5px] w-12 rounded-full bg-[#DDD5C4]" />
               </button>
               <div className="flex h-[50px] shrink-0 items-center justify-between pr-3 pl-4 sm:pr-5 sm:pl-7">
@@ -261,14 +290,26 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                   <Mascot kind="analyst" size={38} frame active={busy} title="Darwin" />
                   <span className="text-[18px] font-semibold">Darwin</span>
                   {lastDarwin?.source && !lastDarwin.pending && (
-                    <span className="hidden rounded-full bg-dw-sand px-2 py-0.5 text-[11.5px] text-dw-ink/60 sm:inline">{lastDarwin.source === "llm" ? "AI answer" : "Answered from your numbers"}</span>
+                    <span className="hidden rounded-full bg-dw-sand px-2 py-0.5 text-[11.5px] text-dw-ink/60 sm:inline">
+                      {lastDarwin.source === "llm" ? "AI answer" : "Answered from your numbers"}
+                    </span>
                   )}
                 </div>
                 <div className="flex gap-1.5">
-                  <button type="button" aria-label="Expand" onClick={() => open("full")} className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-dw-sand">
+                  <button
+                    type="button"
+                    aria-label="Expand"
+                    onClick={() => open("full")}
+                    className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-dw-sand"
+                  >
                     <Maximize2 className="size-[15px]" />
                   </button>
-                  <button type="button" aria-label="Collapse to the prompt bar" onClick={() => open("bar")} className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-dw-sand">
+                  <button
+                    type="button"
+                    aria-label="Collapse to the prompt bar"
+                    onClick={() => open("bar")}
+                    className="grid size-9 place-items-center rounded-full bg-[#F3EDE0] transition-colors hover:bg-dw-sand"
+                  >
                     <ChevronDown className="size-4" />
                   </button>
                 </div>
@@ -320,7 +361,12 @@ export function DarwinChat({ suggestions }: { suggestions: Suggestion[] }) {
                     placeholder={msgs.length ? "Ask a follow-up" : "Ask Darwin about your shoppers"}
                     className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-dw-ink outline-none placeholder:text-[#8A8478]"
                   />
-                  <button type="submit" aria-label="Send" disabled={busy} className="grid size-10 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-[transform,opacity] hover:scale-105 active:scale-95 disabled:opacity-40">
+                  <button
+                    type="submit"
+                    aria-label="Send"
+                    disabled={busy}
+                    className="grid size-10 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-[transform,opacity] hover:scale-105 active:scale-95 disabled:opacity-40"
+                  >
                     <ArrowUp className="size-[17px]" />
                   </button>
                 </div>
@@ -348,7 +394,12 @@ function Message({ m }: { m: Msg }) {
     );
   }
   return (
-    <motion.div initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE }} className="flex gap-3">
+    <motion.div
+      initial={reduce ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: EASE }}
+      className="flex gap-3"
+    >
       <span className="hidden shrink-0 pt-0.5 sm:block">
         <Mascot kind="analyst" size={34} frame active={!!m.pending} title="Darwin" />
       </span>
@@ -394,7 +445,12 @@ function ResultCards({ cards }: { cards: AskCard[] }) {
             <div key={x.label} className="grid grid-cols-[28px_minmax(0,1fr)_52px] items-center gap-3 text-[14px]">
               <span>{x.label}</span>
               <div className="h-2.5 rounded-full bg-dw-ink/[0.12]">
-                <motion.div className={cn("h-2.5 rounded-full", x.cls)} initial={reduce ? false : { width: 0 }} animate={{ width: `${Math.max(3, x.w * 100)}%` }} transition={{ duration: 0.8, ease: EASE, delay: 0.1 + i * 0.1 }} />
+                <motion.div
+                  className={cn("h-2.5 rounded-full", x.cls)}
+                  initial={reduce ? false : { width: 0 }}
+                  animate={{ width: `${Math.max(3, x.w * 100)}%` }}
+                  transition={{ duration: 0.8, ease: EASE, delay: 0.1 + i * 0.1 }}
+                />
               </div>
               <span className="num text-right font-semibold">{x.v}</span>
             </div>
@@ -406,7 +462,10 @@ function ResultCards({ cards }: { cards: AskCard[] }) {
             <span className="text-[15px] font-semibold">{chance ? `${chance.value} chance B wins` : "The test"}</span>
           </div>
           <span className="text-[14px] leading-snug text-[#4A463D]">Darwin ships B on its own once it’s sure.</span>
-          <Link href="/console/experiments" className="mt-auto inline-flex h-10 items-center self-start rounded-full bg-dw-ink px-[18px] text-[14px] font-medium text-white transition-colors hover:bg-black">
+          <Link
+            href="/console/experiments"
+            className="mt-auto inline-flex h-10 items-center self-start rounded-full bg-dw-ink px-[18px] text-[14px] font-medium text-white transition-colors hover:bg-black"
+          >
             See the test
           </Link>
         </div>
@@ -431,7 +490,10 @@ function ResultCards({ cards }: { cards: AskCard[] }) {
         ))}
       </div>
       {issue && (
-        <Link href="/console/issues" className="inline-flex h-10 items-center self-start rounded-full bg-dw-ink px-[18px] text-[14px] font-medium text-white transition-colors hover:bg-black">
+        <Link
+          href="/console/issues"
+          className="inline-flex h-10 items-center self-start rounded-full bg-dw-ink px-[18px] text-[14px] font-medium text-white transition-colors hover:bg-black"
+        >
           See issues
         </Link>
       )}

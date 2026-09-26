@@ -12,7 +12,15 @@ function kpis(counts: number[]): SegmentKpis {
     rateFromPrevious: i === 0 ? 1 : counts[i - 1] ? (counts[i] ?? 0) / counts[i - 1] : 0,
   }));
   const orders = counts[4] ?? 0;
-  return { visitors: counts[0], sessions: counts[0], orders, revenue: orders * 11500, conversionRate: counts[0] ? orders / counts[0] : 0, averageOrderValue: 11500, funnel };
+  return {
+    visitors: counts[0],
+    sessions: counts[0],
+    orders,
+    revenue: orders * 11500,
+    conversionRate: counts[0] ? orders / counts[0] : 0,
+    averageOrderValue: 11500,
+    funnel,
+  };
 }
 
 function summary(human: number[], agent: number[]): AnalyticsSummary {
@@ -29,7 +37,16 @@ function loop(extra: Partial<LoopState> = {}): LoopState {
     generation: 1,
     liveSpec: DEFAULT_SPEC,
     insights: [
-      { id: "i1", title: "Agents can't see a delivery date", audience: "agent", severity: "high", stage: "agent: catalog", detail: "", evidence: [], impactScore: 9.5 },
+      {
+        id: "i1",
+        title: "Agents can't see a delivery date",
+        audience: "agent",
+        severity: "high",
+        stage: "agent: catalog",
+        detail: "",
+        evidence: [],
+        impactScore: 9.5,
+      },
       { id: "i2", title: "Shipping shown late", audience: "human", severity: "medium", stage: "checkout", detail: "", evidence: [], impactScore: 5.9 },
     ],
     history: [],
@@ -46,7 +63,10 @@ function experiment(p: number, a = 0.054, b = 0.092): Experiment {
     conversions: Math.round(rate * 1000),
     revenue: 0,
     conversionRate: rate,
-    byKind: { human: { visitors: 900, conversions: 20, conversionRate: 0.022 }, agent: { visitors: 100, conversions: 19, conversionRate: variant === "control" ? 0.19 : 0.33 } },
+    byKind: {
+      human: { visitors: 900, conversions: 20, conversionRate: 0.022 },
+      agent: { visitors: 100, conversions: 19, conversionRate: variant === "control" ? 0.19 : 0.33 },
+    },
   });
   return {
     id: "exp_1",
@@ -176,7 +196,12 @@ describe("ask: heuristic answers", () => {
   });
 
   it("copes with an empty store and no test", () => {
-    const empty = buildContext({ summary: summary([0, 0, 0, 0, 0], [0, 0, 0, 0, 0]), loop: loop({ phase: "observe", insights: [] }), sessions: [], shipThreshold: 0.975 });
+    const empty = buildContext({
+      summary: summary([0, 0, 0, 0, 0], [0, 0, 0, 0, 0]),
+      loop: loop({ phase: "observe", insights: [] }),
+      sessions: [],
+      shipThreshold: 0.975,
+    });
     expect(heuristicAnswer("conversion?", empty).answer).toMatch(/No shoppers yet/);
     expect(heuristicAnswer("is B safe to ship?", empty).answer).toMatch(/No test is running/);
     expect(heuristicAnswer("which agent is best?", empty).answer).toMatch(/No AI shoppers/);

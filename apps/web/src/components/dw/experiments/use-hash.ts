@@ -7,7 +7,7 @@ function subscribe(cb: () => void) {
   return () => window.removeEventListener("hashchange", cb);
 }
 
-/** The URL fragment without "#" ("" on the server), so links like /console/pulls#gen-2 can pick a row. */
+/** The URL fragment without "#" ("" on the server), so links like /console/changes#gen-2 can pick a row. */
 export function useHash(): string {
   return useSyncExternalStore(
     subscribe,

@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
-import { GitPullRequest } from "lucide-react";
-import { count, signedPct, timeAgo } from "@/lib/console/format";
+import { count, signedPct } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
-import { BrandGlyph } from "../brand-logos";
 import { Card, Tag } from "../ui";
 import { audienceNoun, CARD_FILL, chance, diffCode, measured, type PrRow } from "./model";
 import { Tip } from "./tip";
@@ -14,17 +12,20 @@ const rate = (x: number) => `${(x * 100).toFixed(x < 0.1 ? 1 : 0)}`;
 
 /* ------------------------------------------------------------------ the change */
 
-export function DiffCard({ row, configPath, live }: { row: PrRow; configPath: string; live: boolean }) {
+export function DiffCard({ row, configPath, live, heading, compact }: { row: PrRow; configPath: string; live: boolean; heading?: string; compact?: boolean }) {
   const reduce = useReducedMotion();
   const lines = diffCode(row.diff);
   const branch = row.pr.branch ?? (row.kind === "install" ? "darwin/install-analytics" : undefined);
-  const meta = [branch && `${branch} → ${row.pr.base ?? "main"}`, row.kind === "spec" ? "1 file" : undefined, row.state === "preview" ? "dry run" : row.pr.repo].filter(Boolean).join(" · ");
+  const meta =
+    row.state === "none"
+      ? `${row.diff.length} setting${row.diff.length === 1 ? "" : "s"} changed on your store`
+      : [branch && `${branch} → ${row.pr.base ?? "main"}`, row.kind !== "install" ? "1 file" : undefined, row.state === "preview" ? "dry run" : row.pr.repo].filter(Boolean).join(" · ");
   return (
     <Card tone="white" hover={false} className={`h-full px-5 sm:px-7 ${CARD_FILL} [&>.relative]:gap-5`} aria-label="The change">
       <div className="flex flex-col gap-1.5">
-        <h2 className="text-[22px] leading-snug font-semibold tracking-[-0.01em] sm:text-[24px]">{row.title}</h2>
+        <h2 className={compact ? "text-[22px] leading-tight font-semibold tracking-[-0.02em]" : "text-[22px] leading-snug font-semibold tracking-[-0.01em] sm:text-[24px]"}>{heading ?? row.title}</h2>
         <div className="flex flex-wrap items-center gap-2">
-          {meta && <span className="min-w-0 font-dwmono text-[12.5px] break-all text-[#6B655A]">{meta}</span>}
+          {meta && <span className={cn("min-w-0 break-all text-[#6B655A]", row.state === "none" ? "text-[14px]" : "font-dwmono text-[12.5px]")}>{meta}</span>}
           {row.state === "preview" &&
             (live ? (
               <Tag tone="warn">Preview: drafted as a dry run</Tag>
@@ -38,7 +39,12 @@ export function DiffCard({ row, configPath, live }: { row: PrRow; configPath: st
           {row.state === "queued" && <Tag tone="warn">Queued: GitHub was unavailable</Tag>}
         </div>
       </div>
-      <div className="flex min-h-[300px] flex-1 flex-col overflow-x-auto rounded-[18px] bg-dw-ink px-5 py-4 font-dwmono text-[13px] leading-[1.85] text-[#E8E6DF] sm:px-6 sm:text-[14px]">
+      <div
+        className={cn(
+          "flex flex-1 flex-col overflow-x-auto rounded-[18px] bg-dw-ink px-5 py-4 font-dwmono text-[13px] leading-[1.85] text-[#E8E6DF] sm:px-6 sm:text-[14px]",
+          compact ? "min-h-0" : "min-h-[300px]",
+        )}
+      >
         <span className="mb-1.5 text-[#8F8B82]">{row.kind === "install" ? "your store's root layout" : configPath}</span>
         {row.kind === "install" ? (
           <>
@@ -94,14 +100,36 @@ function Tile({ value, label, tip, i }: { value: string; label: string; tip?: st
   );
 }
 
-export function ProofCard({ row, synthetic }: { row: PrRow; synthetic: boolean }) {
+export function ProofCard({
+  row,
+  synthetic,
+  restored,
+}: {
+  row: PrRow;
+  synthetic: boolean;
+  /** Rollbacks: the generation put back, with its measured rates. */
+  restored?: { generation: number; human: number; agent: number };
+}) {
   const result = row.experiment?.result;
   const m = result ? measured(result) : undefined;
   const lift = row.lift ?? result?.lift;
   return (
     <Card tone="olive" shape="shipper" corner="br" className={`h-full px-5 sm:px-7 ${CARD_FILL} [&>.relative]:gap-5`} aria-label="Proof">
-      <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : "Proof"}</h2>
-      {row.kind === "install" ? (
+      <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : row.kind === "rollback" ? "Rolled back" : "Proof"}</h2>
+      {row.kind === "rollback" ? (
+        <>
+          <div className="flex flex-col">
+            <span className="text-[44px] leading-none font-semibold tracking-[-0.03em]">Gen {restored?.generation ?? "?"}</span>
+            <span className="mt-1 text-[15px] text-[#2F3517]">settings are back on your store. No test needed: the store ran them before.</span>
+          </div>
+          {restored && (
+            <div className="grid grid-cols-2 gap-2.5">
+              <Tile i={0} value={`${rate(restored.human)}%`} label={`people converted on Gen ${restored.generation}`} />
+              <Tile i={1} value={`${rate(restored.agent)}%`} label={`agents converted on Gen ${restored.generation}`} />
+            </div>
+          )}
+        </>
+      ) : row.kind === "install" ? (
         <p className="max-w-[26rem] text-[16px] leading-snug text-[#2F3517]">
           Darwin can&apos;t fix what it can&apos;t see. This pull request is how every later test gets its shoppers: people in the browser, agents through the store API.
         </p>
@@ -133,69 +161,6 @@ export function ProofCard({ row, synthetic }: { row: PrRow; synthetic: boolean }
           )}
         </>
       )}
-    </Card>
-  );
-}
-
-/* ------------------------------------------------------------------ all PRs */
-
-function Bubble({ row, on }: { row: PrRow; on: boolean }) {
-  return (
-    <span
-      className={cn(
-        "dw-tilt grid size-[38px] shrink-0 place-items-center rounded-full text-[13px] font-semibold transition-colors",
-        on ? "bg-dw-ink text-white" : row.kind === "install" ? "bg-dw-olive text-dw-ink" : row.state === "open" ? "bg-dw-ink/85 text-white" : "bg-[#F2ECDF] text-[#6B655A]",
-      )}
-    >
-      {row.pr.number ?? (row.kind === "install" ? <BrandGlyph brand="github" size={15} /> : <GitPullRequest className="size-4" aria-hidden />)}
-    </span>
-  );
-}
-
-function statusText(row: PrRow, live: boolean): string {
-  if (row.state === "queued") return "Queued: GitHub was unavailable";
-  if (row.state === "open") return row.kind === "install" ? "Opened on GitHub" : "Open on GitHub";
-  return live ? "Preview (dry run)" : "Preview: connect GitHub";
-}
-
-export function PrList({ rows, selected, onSelect, now, live }: { rows: PrRow[]; selected?: string; onSelect: (key: string) => void; now: number; live: boolean }) {
-  const reduce = useReducedMotion();
-  return (
-    <Card tone="white" hover={false} className="p-5 sm:px-6" aria-label="All pull requests">
-      <div className="flex items-center gap-2.5 px-1.5 pb-3">
-        <BrandGlyph brand="github" size={22} />
-        <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">All pull requests</h2>
-        <span className="num ml-auto text-[13px] text-dw-ink/55">{rows.length}</span>
-      </div>
-      <ul className="flex flex-col gap-1">
-        {rows.map((r, i) => {
-          const on = r.key === selected;
-          return (
-            <motion.li key={r.key} initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i, duration: 0.3 }} className="relative">
-              {on && <motion.span layoutId="dw-pr-sel" className="absolute inset-0 rounded-[16px] bg-dw-sand" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
-              <button
-                type="button"
-                onClick={() => onSelect(r.key)}
-                aria-pressed={on}
-                className={cn(
-                  "dw-row relative grid w-full grid-cols-[38px_1fr_auto] items-center gap-x-4 gap-y-0.5 rounded-[16px] px-3.5 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-dw-ink md:grid-cols-[38px_2.4fr_0.6fr_1fr_60px]",
-                  !on && "hover:bg-[#F6F0E4]",
-                )}
-              >
-                <Bubble row={r} on={on} />
-                <span className="min-w-0 truncate text-[15px] font-semibold">{r.title}</span>
-                <span className={cn("num text-[15px] font-semibold max-md:hidden", (r.lift ?? 0) < 0 && "text-dw-ink/55")}>{r.lift !== undefined ? signedPct(r.lift) : "–"}</span>
-                <span className="col-start-2 row-start-2 text-[13px] text-[#4A463D] md:col-start-auto md:row-start-auto md:text-[15px]">
-                  {r.state === "preview" && <span className="mr-2 inline-block size-2 rounded-full bg-dw-warn align-middle" aria-hidden />}
-                  {r.state === "open" && <span className="mr-2 inline-block size-2 rounded-full bg-dw-live align-middle" aria-hidden />}
-                  {statusText(r, live)}
-                </span>
-                <span className="row-span-2 text-right text-[13px] text-[#8A8478] md:row-span-1">{timeAgo(r.at, now)}</span>
-              </button>
-            </motion.li>
-          );
-        })}
-      </ul>
     </Card>
   );
 }

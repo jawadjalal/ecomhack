@@ -208,8 +208,8 @@ export function ExperimentsScreen() {
     );
   } else if (view.outcome === "shipped" && view.record) {
     actions = (
-      <PillButton size="lg" href={appHref(`/console/pulls#gen-${view.record.generation}`, mock)}>
-        See the pull request
+      <PillButton size="lg" href={appHref(`/console/changes#gen-${view.record.generation}`, mock)}>
+        See the change
       </PillButton>
     );
   }

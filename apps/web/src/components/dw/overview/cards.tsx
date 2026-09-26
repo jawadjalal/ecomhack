@@ -39,7 +39,15 @@ function CardHead({ title, right }: { title: string; right?: React.ReactNode }) 
   );
 }
 
-function CardEmpty({ kind, children, action }: { kind: "designer" | "experimenter" | "observer" | "analyst"; children: React.ReactNode; action?: React.ReactNode }) {
+function CardEmpty({
+  kind,
+  children,
+  action,
+}: {
+  kind: "designer" | "experimenter" | "observer" | "analyst";
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center text-[15px] text-dw-ink/75">
       <Mascot kind={kind} size={46} frame active />
@@ -142,14 +150,22 @@ export function ConversionCard({
                 {points.map((p, i) => {
                   const lastCol = i === points.length - 1;
                   return (
-                    <div key={p.label} tabIndex={0} className="group relative flex h-full flex-1 items-end justify-center outline-none" aria-label={`${p.label}: ${pctSmart(p.rate)} of ${countText(p.shoppers)} shoppers bought`}>
+                    <div
+                      key={p.label}
+                      tabIndex={0}
+                      className="group relative flex h-full flex-1 items-end justify-center outline-none"
+                      aria-label={`${p.label}: ${pctSmart(p.rate)} of ${countText(p.shoppers)} shoppers bought`}
+                    >
                       <Tip>
                         {p.label} · {countText(p.shoppers)} shoppers · {pctSmart(p.rate)}
                       </Tip>
                       <Grow
                         size={`${Math.max(12, (p.shoppers / chart.maxShoppers) * 100)}%`}
                         delay={0.15 + i * 0.05}
-                        className={cn("w-full max-w-[26px] rounded-full transition-[filter,background-color] duration-200 group-hover:brightness-75", lastCol ? "bg-dw-ink/[0.34]" : "bg-dw-ink/[0.14]")}
+                        className={cn(
+                          "w-full max-w-[26px] rounded-full transition-[filter,background-color] duration-200 group-hover:brightness-75",
+                          lastCol ? "bg-dw-ink/[0.34]" : "bg-dw-ink/[0.14]",
+                        )}
                       />
                     </div>
                   );
@@ -164,7 +180,14 @@ export function ConversionCard({
                 </defs>
                 {points.length > 1 && (
                   <>
-                    <motion.path key={`a-${tab}`} d={chart.area} fill={`url(#conv-${gid})`} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.3 }} />
+                    <motion.path
+                      key={`a-${tab}`}
+                      d={chart.area}
+                      fill={`url(#conv-${gid})`}
+                      initial={reduce ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.6, delay: 0.3 }}
+                    />
                     <motion.path
                       key={`l-${tab}`}
                       d={chart.line}
@@ -224,7 +247,10 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
         title={ended ? "Last test" : "A vs B"}
         right={
           test && (
-            <Link href="/console/experiments" className="max-w-[16rem] truncate text-[14px] text-dw-ink underline decoration-1 underline-offset-4 transition-[text-underline-offset] hover:underline-offset-[6px]">
+            <Link
+              href="/console/experiments"
+              className="max-w-[16rem] truncate text-[14px] text-dw-ink underline decoration-1 underline-offset-4 transition-[text-underline-offset] hover:underline-offset-[6px]"
+            >
               {test.experiment.name}
             </Link>
           )
@@ -283,7 +309,14 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
                 </span>
                 <span>ships at {Math.round(SHIP_AT * 1000) / 10}%</span>
               </div>
-              <div className="relative h-2 rounded-full bg-dw-ink/[0.12]" role="progressbar" aria-label="Chance B wins" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(chance * 100)}>
+              <div
+                className="relative h-2 rounded-full bg-dw-ink/[0.12]"
+                role="progressbar"
+                aria-label="Chance B wins"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(chance * 100)}
+              >
                 <Grow axis="x" size={`${Math.max(2, chance * 100)}%`} delay={0.35} className="h-2 rounded-full bg-dw-ink" />
                 <span className="absolute -top-1 h-4 w-0.5 rounded-full bg-dw-ink" style={{ left: `${SHIP_AT * 100}%` }} aria-hidden />
               </div>
@@ -303,13 +336,25 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
   const people = agentBrand(undefined, "human");
   return (
     <Card tone="blue" shape="observer" corner="tr" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[250px]", FILL)} aria-label="Which agents buy">
-      <CardHead title="Which agents buy" right={sample > 0 && <span className="text-[#2E3A55]">Last {sample} agent visits{simulated ? " · simulated" : ""}</span>} />
+      <CardHead
+        title="Which agents buy"
+        right={
+          sample > 0 && (
+            <span className="text-[#2E3A55]">
+              Last {sample} agent visits{simulated ? " · simulated" : ""}
+            </span>
+          )
+        }
+      />
       {!rows.length ? (
         <CardEmpty kind="observer">No AI shoppers have finished a visit yet. When they do, Darwin ranks them by how often they buy.</CardEmpty>
       ) : (
         <div className="mt-3.5 flex flex-1 flex-col justify-between gap-1.5">
           {rows.map((r, i) => (
-            <div key={r.brand.key + r.brand.name} className="group/lb grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 transition-transform duration-200 hover:translate-x-[3px]">
+            <div
+              key={r.brand.key + r.brand.name}
+              className="group/lb grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 transition-transform duration-200 hover:translate-x-[3px]"
+            >
               <span className="flex min-w-0 items-center gap-2.5 text-[14px] font-medium">
                 <span className="transition-transform duration-300 group-hover/lb:-translate-y-0.5 group-hover/lb:-rotate-6">
                   <AgentTile brand={r.brand} size={24} />
@@ -320,7 +365,12 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
                 <Tip align="right">
                   {r.bought} of {r.shoppers} bought
                 </Tip>
-                <Grow axis="x" size={`${Math.max(4, (r.rate / max) * 100)}%`} delay={0.25 + i * 0.06} className="absolute inset-y-0 left-0 rounded-full bg-dw-ink transition-[filter] group-hover:brightness-75" />
+                <Grow
+                  axis="x"
+                  size={`${Math.max(4, (r.rate / max) * 100)}%`}
+                  delay={0.25 + i * 0.06}
+                  className="absolute inset-y-0 left-0 rounded-full bg-dw-ink transition-[filter] group-hover:brightness-75"
+                />
               </span>
               <span className="num text-right font-dwmono text-[13px] font-medium">{pctSmart(r.rate)}</span>
             </div>
@@ -333,7 +383,12 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
               </span>
               <span tabIndex={0} className="group relative block h-3 outline-none">
                 <Tip align="right">{pctSmart(peopleRate)} of people buy</Tip>
-                <Grow axis="x" size={`${Math.max(4, (peopleRate / max) * 100)}%`} delay={0.6} className="absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink" />
+                <Grow
+                  axis="x"
+                  size={`${Math.max(4, (peopleRate / max) * 100)}%`}
+                  delay={0.6}
+                  className="absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink"
+                />
               </span>
               <span className="num text-right font-dwmono text-[13px]">{pctSmart(peopleRate)}</span>
             </div>
@@ -395,7 +450,14 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                   );
                 })}
               </div>
-              <span className={cn("text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap", i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]")}>{s.label}</span>
+              <span
+                className={cn(
+                  "text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap",
+                  i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]",
+                )}
+              >
+                {s.label}
+              </span>
             </div>
           ))}
         </div>

@@ -5,11 +5,13 @@ import { useState } from "react";
 import { useCart } from "@/lib/storefront/cart";
 import { CATEGORIES } from "@/lib/storefront/products";
 import { PaceLogo } from "./logo";
+import { SearchForm } from "./search-form";
 import { StoreLink } from "./store-provider";
 
 export function StoreHeader({ chrome }: { chrome: "full" | "checkout" }) {
   const { count, hydrated } = useCart();
   const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   if (chrome === "checkout") {
     return (
@@ -41,7 +43,10 @@ export function StoreHeader({ chrome }: { chrome: "full" | "checkout" }) {
             className="pace-focus -ml-2 inline-flex size-10 items-center justify-center rounded-full hover:bg-(--surface) lg:hidden"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
+            onClick={() => {
+              setOpen((o) => !o);
+              setSearching(false);
+            }}
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -57,12 +62,28 @@ export function StoreHeader({ chrome }: { chrome: "full" | "checkout" }) {
           <PaceLogo />
         </StoreLink>
         <div className="flex items-center justify-end gap-1">
-          <button type="button" className="pace-focus hidden size-10 items-center justify-center rounded-full hover:bg-(--surface) sm:inline-flex" aria-label="Search">
-            <Search className="size-[18px]" />
+          <button
+            type="button"
+            className="pace-focus inline-flex size-10 items-center justify-center rounded-full hover:bg-(--surface)"
+            aria-label={searching ? "Close search" : "Search"}
+            aria-expanded={searching}
+            aria-controls="pace-search"
+            data-darwin="nav-search"
+            onClick={() => {
+              setSearching((s) => !s);
+              setOpen(false);
+            }}
+          >
+            {searching ? <X className="size-[18px]" /> : <Search className="size-[18px]" />}
           </button>
-          <button type="button" className="pace-focus hidden size-10 items-center justify-center rounded-full hover:bg-(--surface) sm:inline-flex" aria-label="Account">
+          <StoreLink
+            href="/store/account"
+            className="pace-focus hidden size-10 items-center justify-center rounded-full hover:bg-(--surface) sm:inline-flex"
+            aria-label="Account and orders"
+            data-darwin="nav-account"
+          >
             <User className="size-[18px]" />
-          </button>
+          </StoreLink>
           <StoreLink
             href="/store/cart"
             className="pace-focus relative -mr-2 inline-flex size-10 items-center justify-center rounded-full hover:bg-(--surface)"
@@ -78,6 +99,13 @@ export function StoreHeader({ chrome }: { chrome: "full" | "checkout" }) {
           </StoreLink>
         </div>
       </div>
+      {searching && (
+        <div id="pace-search" className="border-t border-(--line) bg-white">
+          <div className="mx-auto max-w-[720px] px-4 py-3 sm:px-6">
+            <SearchForm autoFocus onDone={() => setSearching(false)} />
+          </div>
+        </div>
+      )}
       {open && (
         <div className="border-t border-(--line) bg-white lg:hidden">
           <nav className="mx-auto flex max-w-[1400px] flex-col px-4 py-2 sm:px-6" aria-label="Mobile">
@@ -94,6 +122,9 @@ export function StoreHeader({ chrome }: { chrome: "full" | "checkout" }) {
                 {c.label}
               </StoreLink>
             ))}
+            <StoreLink href="/store/account" className="border-t border-(--line) py-3 text-lg font-medium" onClick={() => setOpen(false)}>
+              Account &amp; orders
+            </StoreLink>
           </nav>
         </div>
       )}

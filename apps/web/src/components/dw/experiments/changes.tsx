@@ -148,10 +148,10 @@ export function PastExperiments({
                 <span className="relative z-10 flex items-center justify-end gap-2 text-[13px] text-dw-ink/55 max-md:col-start-2 max-md:row-span-2 max-md:row-start-1">
                   {outcome === "shipped" && rec ? (
                     <Link
-                      href={appHref(`/console/pulls#gen-${rec.generation}`, mock)}
+                      href={appHref(`/console/changes#gen-${rec.generation}`, mock)}
                       className="inline-flex h-7 items-center gap-1 rounded-full bg-dw-ink px-2.5 text-[12px] font-medium text-white transition-transform hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:outline-none"
                     >
-                      Gen {rec.generation} PR <ArrowUpRight className="size-3" aria-hidden />
+                      Gen {rec.generation} <ArrowUpRight className="size-3" aria-hidden />
                     </Link>
                   ) : (
                     <span>{timeAgo(e.completedAt ?? e.createdAt, now)}</span>

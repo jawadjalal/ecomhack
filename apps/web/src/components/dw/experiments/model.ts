@@ -293,11 +293,11 @@ export function audienceNoun(aud: "all" | "human" | "agent", n = 2): string {
 
 /* ------------------------------------------------------------------ pull requests */
 
-export type PrState = "open" | "preview" | "queued";
+export type PrState = "open" | "preview" | "queued" | "none";
 
 export interface PrRow {
   key: string;
-  kind: "spec" | "install";
+  kind: "spec" | "install" | "rollback";
   generation?: number;
   pr: PrInfo;
   title: string;
@@ -318,69 +318,9 @@ export function cleanPrTitle(title: string | undefined): string | undefined {
   return t ? t.charAt(0).toUpperCase() + t.slice(1) : undefined;
 }
 
-function prState(pr: PrInfo): PrState {
+export function prState(pr: PrInfo): PrState {
   if (pr.queued) return "queued";
   return pr.dryRun || !pr.url ? "preview" : "open";
-}
-
-interface StatusPr {
-  kind?: unknown;
-  title?: unknown;
-  branch?: unknown;
-  url?: unknown;
-  number?: unknown;
-  dryRun?: unknown;
-  repo?: unknown;
-  at?: unknown;
-}
-
-/** Every PR Darwin drafted or opened: winners per generation (newest first), then the analytics install. */
-export function buildPrRows(loop: LoopState | undefined, status: unknown, exps: Experiment[] | undefined, idx: LogIndex): PrRow[] {
-  if (!loop) return [];
-  const byGen = withStatusPrs(prsByGeneration(loop), status, loop.history);
-  const rows: PrRow[] = [];
-  for (const [gen, pr] of [...byGen.entries()].sort((a, b) => b[0] - a[0])) {
-    const rec = loop.history.find((h) => h.generation === gen);
-    const experiment = rec?.experimentId ? exps?.find((e) => e.id === rec.experimentId) : undefined;
-    const diff =
-      (rec ? idx.shipDiffs.get(rec.specVersion) : undefined) ??
-      (experiment ? diffFor(experiment, loop, idx) : undefined) ??
-      [];
-    rows.push({
-      key: `gen-${gen}`,
-      kind: "spec",
-      generation: gen,
-      pr,
-      title: cleanPrTitle(pr.title) ?? rec?.label.replace(/^Gen \d+:\s*/, "") ?? `Generation ${gen}`,
-      state: prState(pr),
-      lift: rec?.lift,
-      at: rec?.shippedAt,
-      experiment,
-      diff,
-    });
-  }
-  const list = (status as { recentPullRequests?: unknown } | undefined)?.recentPullRequests;
-  const install = Array.isArray(list) ? (list as StatusPr[]).find((r) => r && r.kind === "install") : undefined;
-  if (install) {
-    const pr: PrInfo = {
-      dryRun: typeof install.dryRun === "boolean" ? install.dryRun : true,
-      url: typeof install.url === "string" ? install.url : undefined,
-      number: typeof install.number === "number" ? install.number : undefined,
-      branch: typeof install.branch === "string" ? install.branch : undefined,
-      title: typeof install.title === "string" ? install.title : undefined,
-      repo: typeof install.repo === "string" ? install.repo : undefined,
-    };
-    rows.push({
-      key: "install",
-      kind: "install",
-      pr,
-      title: "Install Darwin analytics for people and agents",
-      state: prState(pr),
-      at: typeof install.at === "string" ? install.at : undefined,
-      diff: [],
-    });
-  }
-  return rows;
 }
 
 /** GitHub mode from /api/github/status: "live" opens real PRs; anything else drafts previews. */
@@ -435,4 +375,105 @@ export function diffCode(diff: string[]): CodeLine[] {
   };
   walk(root, 0);
   return out;
+}
+
+/* ------------------------------------------------------------------ changes timeline */
+
+export type ChangeKind = "baseline" | "shipped" | "rollback";
+/** Whether a change's settings are still what the live store shows. */
+export type LiveState = "live" | "partly" | "undone";
+
+export interface ChangeEntry {
+  key: string;
+  generation: number;
+  kind: ChangeKind;
+  title: string;
+  record: GenerationRecord;
+  experiment?: Experiment;
+  diff: string[];
+  /** The PR, only when GitHub was involved. */
+  pr?: PrInfo;
+  /** Rollbacks: the generation whose settings were restored. */
+  restores?: number;
+  live: LiveState;
+  /** "Roll back to before this" target (the generation before this one). */
+  undoTo?: number;
+  /** Shape the diff and proof cards take. */
+  row: PrRow;
+}
+
+const ROLLBACK_LABEL = /^Rolled back to Gen (\d+)/i;
+
+function valueAt(spec: PageSpec, path: string): unknown {
+  return path.split(".").reduce<unknown>((o, k) => (isObj(o) ? o[k] : undefined), spec);
+}
+
+export function liveState(diff: string[], live: PageSpec): LiveState {
+  const lines = diff.map(parseDiffLine).filter((l) => l.after !== undefined);
+  if (!lines.length) return "live";
+  const hits = lines.filter((l) => JSON.stringify(valueAt(live, l.path)) === JSON.stringify(parseValue(l.after))).length;
+  return hits === lines.length ? "live" : hits === 0 ? "undone" : "partly";
+}
+
+/** Every generation (newest first): shipped winners, rollbacks, and Gen 0 at the bottom. */
+export function buildChanges(loop: LoopState | undefined, status: unknown, exps: Experiment[] | undefined, idx: LogIndex): ChangeEntry[] {
+  if (!loop) return [];
+  const prs = withStatusPrs(prsByGeneration(loop), status, loop.history);
+  const hist = [...loop.history].sort((a, b) => a.generation - b.generation);
+  const out: ChangeEntry[] = hist.map((rec, i) => {
+    const m = ROLLBACK_LABEL.exec(rec.label);
+    const kind: ChangeKind = rec.generation === 0 && !rec.experimentId ? "baseline" : m && !rec.experimentId ? "rollback" : "shipped";
+    const experiment = rec.experimentId ? exps?.find((e) => e.id === rec.experimentId) : undefined;
+    const diff = idx.shipDiffs.get(rec.specVersion) ?? (experiment ? diffFor(experiment, loop, idx) : []);
+    const pr = kind === "baseline" ? undefined : prs.get(rec.generation);
+    const title =
+      kind === "baseline"
+        ? "Your store before Darwin"
+        : kind === "rollback"
+          ? `Rolled back to Gen ${m![1]}`
+          : (cleanPrTitle(pr?.title) ?? (rec.label.replace(/^Gen \d+:\s*/, "") || experiment?.name || `Generation ${rec.generation}`));
+    const row: PrRow = {
+      key: `gen-${rec.generation}`,
+      kind: kind === "rollback" ? "rollback" : "spec",
+      generation: rec.generation,
+      pr: pr ?? { dryRun: false },
+      title,
+      state: pr ? prState(pr) : "none",
+      lift: rec.lift,
+      at: rec.shippedAt,
+      experiment,
+      diff,
+    };
+    return {
+      key: row.key,
+      generation: rec.generation,
+      kind,
+      title,
+      record: rec,
+      experiment,
+      diff,
+      pr,
+      restores: m ? Number(m[1]) : undefined,
+      live: kind === "baseline" ? "live" : liveState(diff, loop.liveSpec),
+      undoTo: i > 0 ? hist[i - 1].generation : undefined,
+      row,
+    };
+  });
+  return out.reverse();
+}
+
+/** Gen 0 vs the live generation: conversion before Darwin and now, with sample sizes. */
+export function uplift(loop: LoopState | undefined) {
+  const hist = loop ? [...loop.history].sort((a, b) => a.generation - b.generation) : [];
+  const base = hist[0];
+  const now = hist.at(-1);
+  if (!base || !now || now === base) return undefined;
+  const seg = (a: number, b: number) => ({ before: a, now: b, lift: a > 0 ? (b - a) / a : undefined, per1000: (b - a) * 1000 });
+  return {
+    base,
+    now,
+    all: seg(base.overallConversionRate, now.overallConversionRate),
+    human: seg(base.humanConversionRate, now.humanConversionRate),
+    agent: seg(base.agentConversionRate, now.agentConversionRate),
+  };
 }

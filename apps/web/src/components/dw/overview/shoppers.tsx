@@ -30,7 +30,11 @@ const subscribeWide = (cb: () => void) => {
 };
 /** Side-by-side list + panel (lg and up); below that the journey opens under the selected row. */
 function useWide(): boolean {
-  return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => true);
+  return useSyncExternalStore(
+    subscribeWide,
+    () => window.matchMedia(WIDE).matches,
+    () => true,
+  );
 }
 
 function byRecent(a: Shopper, b: Shopper) {
@@ -83,7 +87,10 @@ export function LiveShoppers({
 
   // Follow the first shopper once, then stay with them as new shoppers arrive (no jumping panel).
   if (!picked && rows[0]) setPicked(rows[0].id);
-  const selIdx = Math.max(0, rows.findIndex((s) => s.id === picked));
+  const selIdx = Math.max(
+    0,
+    rows.findIndex((s) => s.id === picked),
+  );
   const sel = rows[selIdx];
   const everyone = [...agents, ...people];
   const liveCount = everyone.filter((s) => s.status === "live").length;
@@ -113,12 +120,16 @@ export function LiveShoppers({
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.22, ease: EASE }}
           >
-            <Journey s={sel} loop={loop} test={test} board={board} summary={summary} />
+            <Journey s={sel} loop={loop} test={test} board={board} summary={summary} compact={!wide} />
           </motion.div>
         ) : (
           <div className="relative flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center text-[15px] text-[#5A2744]">
             <Mascot kind="experimenter" size={58} frame active />
-            <p className="max-w-[24rem]">{rows.length ? "Pick a shopper to follow their path through the store, step by step." : "When shoppers arrive, pick one to follow their path through the store, step by step."}</p>
+            <p className="max-w-[24rem]">
+              {rows.length
+                ? "Pick a shopper to follow their path through the store, step by step."
+                : "When shoppers arrive, pick one to follow their path through the store, step by step."}
+            </p>
           </div>
         )}
       </AnimatePresence>
@@ -157,7 +168,10 @@ export function LiveShoppers({
         {rows.length === 0 ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-[22px] bg-dw-sand px-6 py-10 text-center text-[15px] text-dw-ink/70">
             <Mascot kind="observer" size={56} frame active />
-            <p className="max-w-[22rem]">{filter === "people" ? "No people on the store yet." : filter === "agents" ? "No AI shoppers yet." : "No one’s shopping right now."} Send some shoppers and watch them arrive.</p>
+            <p className="max-w-[22rem]">
+              {filter === "people" ? "No people on the store yet." : filter === "agents" ? "No AI shoppers yet." : "No one’s shopping right now."} Send some
+              shoppers and watch them arrive.
+            </p>
             {onSendShoppers && <PillButton onClick={onSendShoppers}>Send shoppers</PillButton>}
           </div>
         ) : (
@@ -186,7 +200,13 @@ export function LiveShoppers({
             <h2 className="text-[22px] font-semibold tracking-[-0.02em]">Journey</h2>
             {sel && (
               <span className="truncate text-[14px] text-[#6B655A]">
-                {[sel.kind === "agent" ? "Agent" : "Person", sel.model, sel.arm ? `test ${sel.arm}` : undefined, humanDuration(Date.parse(sel.lastAt) - Date.parse(sel.startedAt)), sel.synthetic ? "simulated" : undefined]
+                {[
+                  sel.kind === "agent" ? "Agent" : "Person",
+                  sel.model,
+                  sel.arm ? `test ${sel.arm}` : undefined,
+                  humanDuration(Date.parse(sel.lastAt) - Date.parse(sel.startedAt)),
+                  sel.synthetic ? "simulated" : undefined,
+                ]
                   .filter(Boolean)
                   .join(" · ")}
               </span>
@@ -214,13 +234,29 @@ function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; fi
       onClick={onPick}
       className={cn(
         "relative flex h-[90px] shrink-0 items-center gap-3.5 px-4 text-left text-dw-ink outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:ring-offset-dw-bg",
-        on ? "rounded-[22px] bg-dw-pink max-lg:rounded-b-none lg:-mr-[18px] lg:rounded-r-none lg:pr-[34px]" : "dw-row rounded-[22px] bg-dw-sand hover:bg-[#e8e0cd]",
+        on
+          ? "rounded-[22px] bg-dw-pink max-lg:rounded-b-none lg:-mr-[18px] lg:rounded-r-none lg:pr-[34px]"
+          : "dw-row rounded-[22px] bg-dw-sand hover:bg-[#e8e0cd]",
       )}
     >
       {on && !first && (
-        <span aria-hidden className="absolute -top-5 right-0 hidden size-5 lg:block" style={{ background: `radial-gradient(circle at 0 0, transparent 19.5px, ${PINK} 20px)` }} />
+        <span
+          aria-hidden
+          className="absolute -top-5 right-0 hidden size-5 lg:block"
+          style={{
+            background: `radial-gradient(circle at 0 0, transparent 19.5px, ${PINK} 20px)`,
+          }}
+        />
       )}
-      {on && <span aria-hidden className="absolute right-0 -bottom-5 hidden size-5 lg:block" style={{ background: `radial-gradient(circle at 0 100%, transparent 19.5px, ${PINK} 20px)` }} />}
+      {on && (
+        <span
+          aria-hidden
+          className="absolute right-0 -bottom-5 hidden size-5 lg:block"
+          style={{
+            background: `radial-gradient(circle at 0 100%, transparent 19.5px, ${PINK} 20px)`,
+          }}
+        />
+      )}
       <span className="dw-tilt relative flex shrink-0">
         <Mascot kind={s.mascot} size={48} frame active={s.status === "live"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
         {s.kind === "agent" && <AgentTile brand={s.brand} size={20} invert={on} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
@@ -259,7 +295,22 @@ const STAGE: Record<KeyTone, string> = {
 const GRAIN =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
-function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopState; test?: TestView; board: BoardRow[]; summary?: AnalyticsSummary }) {
+function Journey({
+  s,
+  loop,
+  test,
+  board,
+  summary,
+  compact,
+}: {
+  s: Shopper;
+  loop?: LoopState;
+  test?: TestView;
+  board: BoardRow[];
+  summary?: AnalyticsSummary;
+  /** Under its row on phones: the row already shows who it is, so the header is one line. */
+  compact?: boolean;
+}) {
   const reduce = useReducedMotion();
   const won = s.status === "bought";
   const duration = humanDuration(Date.parse(s.lastAt) - Date.parse(s.startedAt));
@@ -276,24 +327,47 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
 
   return (
     <>
-      <div className="relative flex flex-wrap items-center gap-3.5 sm:flex-nowrap">
-        <span className="relative flex shrink-0">
-          <Mascot kind={s.mascot} size={58} frame active title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
-          {s.kind === "agent" && <AgentTile brand={s.brand} size={24} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-[22px] font-semibold tracking-[-0.01em]">{s.name}</span>
-          <span className="text-[14px] text-[#5A2744]">
+      {compact ? (
+        <div className="relative flex items-center justify-between gap-3">
+          <span className="text-[13px] text-[#5A2744]">
             {duration} on the store{s.synthetic ? " · simulated" : ""}
           </span>
+          <span
+            className={cn(
+              "flex h-8 shrink-0 items-center rounded-full px-3.5 text-[13px] font-semibold",
+              won ? "bg-dw-ink text-white" : "bg-white text-dw-ink",
+            )}
+          >
+            {s.outcome}
+          </span>
         </div>
-        <span className={cn("flex h-[34px] shrink-0 items-center rounded-full px-4 text-[14px] font-semibold max-sm:basis-full max-sm:self-start max-sm:justify-self-start", won ? "bg-dw-ink text-white" : "bg-white text-dw-ink")}>{s.outcome}</span>
-      </div>
+      ) : (
+        <div className="relative flex flex-wrap items-center gap-3.5 sm:flex-nowrap">
+          <span className="relative flex shrink-0">
+            <Mascot kind={s.mascot} size={58} frame active title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
+            {s.kind === "agent" && <AgentTile brand={s.brand} size={24} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-[22px] font-semibold tracking-[-0.01em]">{s.name}</span>
+            <span className="text-[14px] text-[#5A2744]">
+              {duration} on the store{s.synthetic ? " · simulated" : ""}
+            </span>
+          </div>
+          <span
+            className={cn(
+              "flex h-[34px] shrink-0 items-center rounded-full px-4 text-[14px] font-semibold",
+              won ? "bg-dw-ink text-white" : "bg-white text-dw-ink",
+            )}
+          >
+            {s.outcome}
+          </span>
+        </div>
+      )}
 
       <div className="relative flex flex-col gap-2.5">
         <div className="flex justify-between gap-3 text-[13px] text-[#5A2744]">
-          <span>Path through the store</span>
-          <span className="font-dwmono text-dw-ink">{progress}</span>
+          <span className="max-sm:hidden">Path through the store</span>
+          <span className="font-dwmono text-[12px] text-dw-ink sm:text-[13px]">{progress}</span>
         </div>
         <div className="grid grid-cols-5 gap-1.5">
           {FUNNEL.map((label, i) => {
@@ -308,12 +382,27 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
                     reached ? "bg-dw-ink" : here && !live ? "border-[1.5px] border-dashed border-dw-ink" : !here ? "bg-white/50" : "",
                     live && "animate-pulse motion-reduce:animate-none",
                   )}
-                  style={live ? { background: "linear-gradient(90deg, #141413 0 50%, rgba(20,20,19,0.14) 50%)" } : undefined}
+                  style={
+                    live
+                      ? {
+                          background: "linear-gradient(90deg, #141413 0 50%, rgba(20,20,19,0.14) 50%)",
+                        }
+                      : undefined
+                  }
                   initial={reduce ? false : { scaleX: 0 }}
                   animate={{ scaleX: 1 }}
-                  transition={{ duration: 0.45, ease: EASE, delay: 0.05 + i * 0.07 }}
+                  transition={{
+                    duration: 0.45,
+                    ease: EASE,
+                    delay: 0.05 + i * 0.07,
+                  }}
                 />
-                <span className={cn("flex items-center truncate text-[11.5px] whitespace-nowrap sm:text-[13px]", reached || here ? "font-semibold text-dw-ink" : "text-[#8A6275]")}>
+                <span
+                  className={cn(
+                    "flex items-center truncate text-[11.5px] whitespace-nowrap sm:text-[13px]",
+                    reached || here ? "font-semibold text-dw-ink" : "text-[#8A6275]",
+                  )}
+                >
                   <span
                     className={cn(
                       "mr-1.5 hidden size-2 shrink-0 rounded-[2px] sm:inline-block",
@@ -336,11 +425,16 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
               {s.steps.length} {s.kind === "agent" ? (s.steps.length === 1 ? "tool call" : "tool calls") : s.steps.length === 1 ? "event" : "events"}
             </span>
           </div>
-          {s.brief && <div className="max-w-[78%] self-end rounded-[16px_16px_4px_16px] bg-dw-ink px-3.5 py-2 text-[14px] leading-snug text-white">{s.brief}</div>}
+          {s.brief && (
+            <div className="max-w-[78%] self-end rounded-[16px_16px_4px_16px] bg-dw-ink px-3.5 py-2 text-[14px] leading-snug text-white">{s.brief}</div>
+          )}
           {shownSteps.length > 0 && (
             <ol className="flex flex-col gap-0.5">
               {shownSteps.map((e, i) => (
-                <li key={`${e.tool}-${i}`} className="-mx-2 grid h-7 grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2 rounded-[10px] px-2 transition-colors hover:bg-white/70">
+                <li
+                  key={`${e.tool}-${i}`}
+                  className="-mx-2 grid h-7 grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2 rounded-[10px] px-2 transition-colors hover:bg-white/70"
+                >
                   <StepIcon tone={e.tone} />
                   <span className="truncate text-[14px]">
                     {e.text} <span className="font-dwmono text-[12px] text-[#8A6275]">{e.tool}</span>
@@ -355,12 +449,17 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
             <div className="flex items-center justify-between gap-2.5 px-0.5">
               <span className="truncate font-dwmono text-[13px] font-medium">{s.key.tool}</span>
               <span className={cn("inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-semibold", PILL[s.key.tone])}>
-                {s.key.tone === "live" && <span className="inline-block size-[9px] animate-spin rounded-full border-[1.5px] border-current border-r-transparent motion-reduce:animate-none" />}
+                {s.key.tone === "live" && (
+                  <span className="inline-block size-[9px] animate-spin rounded-full border-[1.5px] border-current border-r-transparent motion-reduce:animate-none" />
+                )}
                 {s.key.pill}
               </span>
             </div>
             <span className="px-0.5 text-[14px] leading-snug">{s.key.text}</span>
-            <div className="relative flex min-h-[112px] items-center justify-center overflow-hidden rounded-[12px] py-3" style={{ background: STAGE[s.key.tone] }}>
+            <div
+              className="relative flex min-h-[112px] items-center justify-center overflow-hidden rounded-[12px] py-3"
+              style={{ background: STAGE[s.key.tone] }}
+            >
               <span aria-hidden className="pointer-events-none absolute inset-0 opacity-35 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
               <div className="relative z-[1] w-[68%] overflow-hidden rounded-[10px] bg-white shadow-[0_10px_30px_rgba(20,20,19,0.18)] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)] group-hover/tool:-translate-y-1 group-hover/tool:scale-[1.03]">
                 <div className="flex h-[18px] items-center gap-1 border-b border-[#EFEAE0] px-2">

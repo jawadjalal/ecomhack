@@ -286,10 +286,15 @@ const FIELD_ISSUE: Record<string, RegExp> = {
   negotiation: /negotiat/i,
 };
 
-const CATEGORY: Record<string, string> = { trail: "Trail shoes", road: "Road running shoes", racing: "Carbon racing shoes", carbon: "Carbon racing shoes", accessories: "Running accessories" };
+const CATEGORY: Record<string, string> = {
+  trail: "Trail shoes",
+  road: "Road running shoes",
+  racing: "Carbon racing shoes",
+  carbon: "Carbon racing shoes",
+  accessories: "Running accessories",
+};
 
-const armOf = (variant: string | undefined): "A" | "B" | undefined =>
-  variant === "control" || variant === "A" ? "A" : variant ? "B" : undefined;
+const armOf = (variant: string | undefined): "A" | "B" | undefined => (variant === "control" || variant === "A" ? "A" : variant ? "B" : undefined);
 
 const TOOL_STAGE: Record<string, number> = {
   search_products: 0,
@@ -351,7 +356,12 @@ export function agentShopper(s: AgentSessionSummary, now: number): Shopper {
   // The key moment: where it bought, where data went missing before it left, or where it is now.
   const firstMissing = calls.find((c) => c.missing?.length);
   const failed = calls.find((c) => !c.ok);
-  const keyCall = status === "bought" ? (calls.findLast((c) => c.tool === "checkout") ?? calls.at(-1)) : status === "left" ? (failed ?? firstMissing ?? calls.at(-1)) : calls.at(-1);
+  const keyCall =
+    status === "bought"
+      ? (calls.findLast((c) => c.tool === "checkout") ?? calls.at(-1))
+      : status === "left"
+        ? (failed ?? firstMissing ?? calls.at(-1))
+        : calls.at(-1);
   const goal = s.goal;
   const rows: MockRow[] = [];
   if (goal?.size) rows.push({ k: `Size UK ${goal.size}`, v: calls.some((c) => c.tool === "check_availability" && c.ok) ? "In stock" : "Asked" });
@@ -371,7 +381,14 @@ export function agentShopper(s: AgentSessionSummary, now: number): Shopper {
   const reason = s.reason ? s.reason.replace(/\s+—\s+/g, ": ") : undefined;
   let key: KeyMoment;
   if (status === "bought") {
-    key = { tool: keyTool, pill: "Bought", tone: "won", text: s.orderTotal ? `Paid ${money(s.orderTotal)} and got an order number back.` : "Paid and got an order number back.", mockTitle, rows: rows.slice(-3) };
+    key = {
+      tool: keyTool,
+      pill: "Bought",
+      tone: "won",
+      text: s.orderTotal ? `Paid ${money(s.orderTotal)} and got an order number back.` : "Paid and got an order number back.",
+      mockTitle,
+      rows: rows.slice(-3),
+    };
   } else if (status === "live") {
     key = { tool: keyTool, pill: "Working", tone: "live", text: `${steps.at(-1)?.text ?? "Shopping"} right now.`, mockTitle, rows: rows.slice(-3) };
   } else if (missing.length) {
@@ -507,15 +524,42 @@ export function personShopper(id: string, events: AnalyticsEvent[], now: number)
   if (bought) rows.push({ k: "Paid", v: revenue ? money(revenue) : "yes", tone: "good" });
   else if (total && !abandoned) rows.push({ k: "Total", v: money(total) });
 
-  const keyEvent = bought ? events.findLast((e) => e.event === "order_completed") : abandoned ?? shock ?? rage ?? shown.at(-1) ?? last;
+  const keyEvent = bought ? events.findLast((e) => e.event === "order_completed") : (abandoned ?? shock ?? rage ?? shown.at(-1) ?? last);
   const tool = keyEvent?.event ?? "$pageview";
   const mockTitle = reach >= 3 ? (bought ? "Order confirmed" : "Checkout") : reach === 2 ? "Your bag" : (product ?? "Home page");
   const at = FUNNEL[Math.min(reach, 3)].toLowerCase();
   let key: KeyMoment;
-  if (bought) key = { tool, pill: "Bought", tone: "won", text: `Bought ${product ?? "their order"}${revenue ? ` for ${money(revenue)}` : ""}.`, mockTitle, rows: rows.slice(-3) };
-  else if (status === "live") key = { tool, pill: "Working", tone: "live", text: `${steps.at(-1)?.text ?? "Browsing"} right now.`, mockTitle, rows: rows.slice(-3) };
-  else if (shock || rage) key = { tool, pill: shock ? "Surprise cost" : "Rage click", tone: "warn", text: `${capitalise(describeEvent(keyEvent ?? last).text)}, then left.`, mockTitle, rows: rows.slice(-3) };
-  else key = { tool, pill: "Left", tone: "fail", text: abandoned ? `${capitalise(describeEvent(abandoned).text)}.` : `Left at the ${at === "visit" ? "home page" : at === "view" ? "product page" : at} without buying.`, mockTitle, rows: rows.slice(-3) };
+  if (bought)
+    key = {
+      tool,
+      pill: "Bought",
+      tone: "won",
+      text: `Bought ${product ?? "their order"}${revenue ? ` for ${money(revenue)}` : ""}.`,
+      mockTitle,
+      rows: rows.slice(-3),
+    };
+  else if (status === "live")
+    key = { tool, pill: "Working", tone: "live", text: `${steps.at(-1)?.text ?? "Browsing"} right now.`, mockTitle, rows: rows.slice(-3) };
+  else if (shock || rage)
+    key = {
+      tool,
+      pill: shock ? "Surprise cost" : "Rage click",
+      tone: "warn",
+      text: `${capitalise(describeEvent(keyEvent ?? last).text)}, then left.`,
+      mockTitle,
+      rows: rows.slice(-3),
+    };
+  else
+    key = {
+      tool,
+      pill: "Left",
+      tone: "fail",
+      text: abandoned
+        ? `${capitalise(describeEvent(abandoned).text)}.`
+        : `Left at the ${at === "visit" ? "home page" : at === "view" ? "product page" : at} without buying.`,
+      mockTitle,
+      rows: rows.slice(-3),
+    };
 
   const device = typeof p0.$device_type === "string" ? p0.$device_type : "Desktop";
   return {
@@ -532,7 +576,13 @@ export function personShopper(id: string, events: AnalyticsEvent[], now: number)
     lastAt: last.timestamp,
     status,
     reach,
-    sub: bought ? `Bought ${product ?? ""}`.trim() : status === "live" ? (steps.at(-1)?.text ?? "Browsing") : shock ? "Left after surprise shipping" : `Left at ${at === "visit" ? "the home page" : at === "view" ? "the product page" : at}`,
+    sub: bought
+      ? `Bought ${product ?? ""}`.trim()
+      : status === "live"
+        ? (steps.at(-1)?.text ?? "Browsing")
+        : shock
+          ? "Left after surprise shipping"
+          : `Left at ${at === "visit" ? "the home page" : at === "view" ? "the product page" : at}`,
     outcome: bought ? `Bought${revenue ? ` · ${money(revenue)}` : ""}` : status === "live" ? "Still shopping" : "Left, no order",
     steps,
     key,
@@ -585,7 +635,11 @@ export function matchInsight(s: Shopper, loop: LoopState | undefined): Insight |
     }
     if (s.reason) {
       const r = s.reason.toLowerCase();
-      return insights.find((i) => i.audience !== "human" && ((/negotiat/.test(r) && /negotiat/i.test(i.title)) || (/budget|price|over the/.test(r) && /landed|price|budget/i.test(i.title))));
+      return insights.find(
+        (i) =>
+          i.audience !== "human" &&
+          ((/negotiat/.test(r) && /negotiat/i.test(i.title)) || (/budget|price|over the/.test(r) && /landed|price|budget/i.test(i.title))),
+      );
     }
     return undefined;
   }
@@ -618,14 +672,18 @@ export function darwinNote(s: Shopper, ctx: { loop?: LoopState; test?: TestView;
     const row = ctx.board.find((b) => b.brand.key === s.brand.key);
     const brandLine = row && row.shoppers >= 2 ? `${row.brand.name} agents bought on ${row.bought} of their last ${row.shoppers} visits.` : "";
     if (insight) return `${insight.title}.${fixes ? " Test B fixes this step." : ` It’s issue ${issueNumber(ctx.loop!, insight)} on Darwin’s list.`}`;
-    if (s.status === "bought") return `${s.arm ? `Bought in ${s.arm === "B" ? "test B" : "A, the current store"}. ` : ""}${brandLine}`.trim() || "Bought first time, no data missing.";
+    if (s.status === "bought")
+      return `${s.arm ? `Bought in ${s.arm === "B" ? "test B" : "A, the current store"}. ` : ""}${brandLine}`.trim() || "Bought first time, no data missing.";
     if (s.status === "live") return `Still shopping. ${brandLine}`.trim();
     return `${s.reason ? `It left because ${s.reason}.` : "It left without buying."} ${brandLine}`.trim();
   }
   const f = funnelSteps(ctx.summary);
   if (s.status === "bought") {
     const rate = ctx.summary?.byKind.human.conversionRate;
-    return `${s.arm === "B" ? "Bought in test B. " : ""}${rate !== undefined ? `Only ${pctSmart(rate)} of people buy, so every order like this counts.` : ""}`.trim() || "Bought.";
+    return (
+      `${s.arm === "B" ? "Bought in test B. " : ""}${rate !== undefined ? `Only ${pctSmart(rate)} of people buy, so every order like this counts.` : ""}`.trim() ||
+      "Bought."
+    );
   }
   const step = f[Math.min(Math.max(s.reach, 0), 3)];
   const moveOn = step?.people;

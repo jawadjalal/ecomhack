@@ -48,7 +48,9 @@ export function OverviewScreen() {
   const agents = useMemo(() => (sessions ?? []).map((s) => agentShopper(s, now)).sort(recent), [sessions, now]);
   const people = useMemo(() => peopleFromEvents(events, now), [events, now]);
   const finished = board.reduce((n, r) => n + r.shoppers, 0);
-  const simulated = Boolean(sessions?.some((s) => s.synthetic) || events?.some((e) => e.properties.synthetic) || (summary && summary.overall.visitors > 0 && !events?.length));
+  const simulated = Boolean(
+    sessions?.some((s) => s.synthetic) || events?.some((e) => e.properties.synthetic) || (summary && summary.overall.visitors > 0 && !events?.length),
+  );
 
   const run = () => void setAutopilot(true);
 
@@ -86,9 +88,13 @@ export function OverviewScreen() {
 
   const leaver = agents.find((s) => s.status === "left" && s.kind === "agent");
   const suggestions: Suggestion[] = [
-    test?.running ? { text: "Is test B safe to ship?", kind: "experimenter", tone: "#F3B5D5" } : { text: "What’s the biggest leak?", kind: "experimenter", tone: "#F3B5D5" },
+    test?.running
+      ? { text: "Is test B safe to ship?", kind: "experimenter", tone: "#F3B5D5" }
+      : { text: "What’s the biggest leak?", kind: "experimenter", tone: "#F3B5D5" },
     { text: test?.running ? "What should we test after this?" : "What should I do next?", kind: "designer", tone: "#F6D76B" },
-    leaver ? { text: `Why did ${leaver.name} leave?`, kind: "observer", tone: "#B8CAEE" } : { text: "Which agents buy most?", kind: "observer", tone: "#B8CAEE" },
+    leaver
+      ? { text: `Why did ${leaver.name} leave?`, kind: "observer", tone: "#B8CAEE" }
+      : { text: "Which agents buy most?", kind: "observer", tone: "#B8CAEE" },
   ];
 
   return (
@@ -126,7 +132,12 @@ export function OverviewScreen() {
         </div>
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
           <Rise i={3}>
-            <AgentsCard board={board} peopleRate={summary?.byKind.human.visitors ? summary.byKind.human.conversionRate : undefined} sample={finished} simulated={simulated} />
+            <AgentsCard
+              board={board}
+              peopleRate={summary?.byKind.human.visitors ? summary.byKind.human.conversionRate : undefined}
+              sample={finished}
+              simulated={simulated}
+            />
           </Rise>
           <Rise i={4}>
             <FunnelCard summary={summary} />

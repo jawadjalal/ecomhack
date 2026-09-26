@@ -25,9 +25,7 @@ function BeforeNow({ label, before, now, max }: { label: string; before: number;
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[13px] text-dw-ink/65">{label}</span>
-        {lift !== undefined && (
-          <span className={cn("num text-[12px] font-semibold", lift >= 0 ? "text-dw-win" : "text-dw-warn")}>{liftText(lift)}</span>
-        )}
+        {lift !== undefined && <span className={cn("num text-[12px] font-semibold", lift >= 0 ? "text-dw-win" : "text-dw-warn")}>{liftText(lift)}</span>}
       </div>
       <span className="num text-[16px] leading-tight font-semibold whitespace-nowrap">
         <span className="font-medium text-dw-ink/55">{pctSmart(before)}</span> → {pctSmart(now)}
@@ -69,15 +67,21 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
               </span>
               <span className="text-[13.5px] leading-snug text-dw-ink/65">
                 since Darwin started: {pctSmart(before.overallConversionRate)} → {pctSmart(now.overallConversionRate)} of shoppers buy (
-                <span className={cn("font-semibold", extra >= 0 ? "text-dw-win" : "text-dw-warn")}>{liftText(before.overallConversionRate > 0 ? now.overallConversionRate / before.overallConversionRate - 1 : undefined)}</span>)
-                {simulated && <span className="text-dw-ink/45"> · simulated shoppers</span>}
+                <span className={cn("font-semibold", extra >= 0 ? "text-dw-win" : "text-dw-warn")}>
+                  {liftText(before.overallConversionRate > 0 ? now.overallConversionRate / before.overallConversionRate - 1 : undefined)}
+                </span>
+                ){simulated && <span className="text-dw-ink/45"> · simulated shoppers</span>}
               </span>
             </>
           ) : (
             <>
-              <span className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{before ? "Your original store is measured" : "Darwin is getting to know your store"}</span>
+              <span className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">
+                {before ? "Your original store is measured" : "Darwin is getting to know your store"}
+              </span>
               <span className="text-[13.5px] leading-snug text-dw-ink/65">
-                {before ? `${pctSmart(before.overallConversionRate)} of shoppers buy today. Darwin’s impact shows here once the first change ships.` : "Its impact shows here once it has measured your store and shipped a change."}
+                {before
+                  ? `${pctSmart(before.overallConversionRate)} of shoppers buy today. Darwin’s impact shows here once the first change ships.`
+                  : "Its impact shows here once it has measured your store and shipped a change."}
               </span>
             </>
           )}
@@ -97,10 +101,11 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
         <span className="text-[16px] leading-tight font-semibold">
           {shipped} change{shipped === 1 ? "" : "s"} shipped
         </span>
-        <span className="text-[13px] text-dw-ink/65">
-          {running ? `${running} test${running === 1 ? "" : "s"} running now` : "No test running"}
-        </span>
-        <Link href="/console/changes" className="group inline-flex items-center gap-1 text-[13px] font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4 hover:decoration-dw-ink">
+        <span className="text-[13px] text-dw-ink/65">{running ? `${running} test${running === 1 ? "" : "s"} running now` : "No test running"}</span>
+        <Link
+          href="/console/changes"
+          className="group inline-flex items-center gap-1 text-[13px] font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4 hover:decoration-dw-ink"
+        >
           See all changes
           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </Link>
@@ -112,7 +117,13 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
           <span className={cn("size-2 shrink-0 rounded-full", loop.autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
           {loop.autopilot ? phase.verb : "Paused"}
         </span>
-        <span className="text-[13px] leading-snug text-dw-ink/65">{loop.autopilot ? `${phase.blurb}.` : loop.phase === "idle" ? "Let Darwin run to start improving your store." : `Stopped while ${phase.verb.toLowerCase()}. Let it run to carry on.`}</span>
+        <span className="text-[13px] leading-snug text-dw-ink/65">
+          {loop.autopilot
+            ? `${phase.blurb}.`
+            : loop.phase === "idle"
+              ? `Let Darwin run to ${shipped ? "keep" : "start"} improving your store.`
+              : `Stopped while ${phase.verb.toLowerCase()}. Let it run to carry on.`}
+        </span>
       </div>
     </section>
   );

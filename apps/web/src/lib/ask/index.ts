@@ -11,6 +11,7 @@
  */
 import type { AgentSessionSummary, AnalyticsSummary, Experiment, LoopState } from "@/lib/contracts";
 import { getAnalyticsSummary } from "@/lib/analytics/summary";
+import { eventStore } from "@/lib/analytics/store";
 import { getLoopState, loopConfigFromEnv } from "@/lib/optimizer";
 import { getExperiment } from "@/lib/experiments/store";
 import { listAgentSessions } from "@/lib/agent-commerce";
@@ -125,7 +126,8 @@ export function buildContext(input: {
   experiment?: Experiment;
   sessions: AgentSessionSummary[];
   shipThreshold: number;
-  realShoppers?: number;
+  /** Did any of the counted shoppers come from Darwin's simulator? Default true (say so when unsure). */
+  simulated?: boolean;
 }): AskContext {
   const { summary, loop, experiment, sessions, shipThreshold } = input;
   const byBrand = new Map<string, AskBrand>();
@@ -150,8 +152,8 @@ export function buildContext(input: {
   const r = experiment?.result;
   if (experiment && r) {
     const audience = r.audience ?? "all";
-    const rate = (v: typeof r.control) => (audience === "all" ? v.conversionRate : v.byKind[audience]?.conversionRate ?? 0);
-    const shoppers = (v: typeof r.control) => (audience === "all" ? v.visitors : v.byKind[audience]?.visitors ?? 0);
+    const rate = (v: typeof r.control) => (audience === "all" ? v.conversionRate : (v.byKind[audience]?.conversionRate ?? 0));
+    const shoppers = (v: typeof r.control) => (audience === "all" ? v.visitors : (v.byKind[audience]?.visitors ?? 0));
     test = {
       name: experiment.name,
       status: experiment.status,
@@ -198,7 +200,7 @@ export function buildContext(input: {
     generation: loop.generation,
     lastShipped: shipped?.label,
     autopilot: loop.autopilot,
-    simulated: input.realShoppers === undefined ? true : input.realShoppers < summary.overall.visitors,
+    simulated: input.simulated ?? true,
   };
 }
 
@@ -209,8 +211,7 @@ export const pctText = (x: number | undefined) => {
   const v = x * 100;
   return `${v < 10 ? v.toFixed(1) : Math.round(v)}%`;
 };
-const liftText = (x: number | undefined) =>
-  x === undefined || !Number.isFinite(x) ? "–" : `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))}%`;
+const liftText = (x: number | undefined) => (x === undefined || !Number.isFinite(x) ? "–" : `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))}%`);
 const countText = (n: number) => new Intl.NumberFormat("en-GB").format(Math.round(n));
 /** The ship bar with up to one decimal ("97.5%"). */
 const barText = (x: number) => `${Math.round(x * 1000) / 10}%`;
@@ -280,7 +281,8 @@ function answerConversion(ctx: AskContext): AskResponse {
   }
   let answer = `Your store converts ${pctText(store.rate)} of shoppers: ${countText(store.bought)} of ${countText(store.shoppers)} bought.`;
   if (people.shoppers && agents.shoppers) answer += ` People buy at ${pctText(people.rate)} and AI agents at ${pctText(agents.rate)}.`;
-  if (ctx.test && ctx.test.status === "running" && (ctx.test.lift ?? 0) > 0) answer += ` If test B ships, ${whom(ctx.test.audience)} in B convert at ${pctText(ctx.test.b)}.`;
+  if (ctx.test && ctx.test.status === "running" && (ctx.test.lift ?? 0) > 0)
+    answer += ` If test B ships, ${whom(ctx.test.audience)} in B convert at ${pctText(ctx.test.b)}.`;
   return {
     source: "heuristic",
     answer,
@@ -295,7 +297,10 @@ function answerConversion(ctx: AskContext): AskResponse {
 function answerVersus(ctx: AskContext): AskResponse {
   const { people, agents } = ctx;
   if (!people.shoppers || !agents.shoppers) {
-    return { source: "heuristic", answer: `I’ve only seen ${people.shoppers ? "people" : agents.shoppers ? "agents" : "nobody"} so far, so there’s nothing to compare yet.` };
+    return {
+      source: "heuristic",
+      answer: `I’ve only seen ${people.shoppers ? "people" : agents.shoppers ? "agents" : "nobody"} so far, so there’s nothing to compare yet.`,
+    };
   }
   const gap = [...ctx.funnel].sort((x, y) => Math.abs(y.agents - y.people) - Math.abs(x.agents - x.people))[0];
   const ratio = people.rate > 0 ? agents.rate / people.rate : undefined;
@@ -314,7 +319,8 @@ function answerVersus(ctx: AskContext): AskResponse {
 
 function answerBestAgent(ctx: AskContext): AskResponse {
   const ranked = ctx.brands.filter((b) => b.shoppers >= 2);
-  if (!ranked.length) return { source: "heuristic", answer: "No AI shoppers have finished a visit yet. Once a few have, I’ll rank them by how often they buy." };
+  if (!ranked.length)
+    return { source: "heuristic", answer: "No AI shoppers have finished a visit yet. Once a few have, I’ll rank them by how often they buy." };
   const best = ranked[0];
   const worst = ranked.length > 1 ? ranked[ranked.length - 1] : undefined;
   let answer = `${best.name} buys most often: ${best.bought} of its last ${best.shoppers} visits ended in an order (${pctText(best.rate)}).`;
@@ -329,7 +335,10 @@ function answerIssue(ctx: AskContext): AskResponse {
   if (!top) {
     return {
       source: "heuristic",
-      answer: ctx.phase === "idle" || ctx.phase === "observe" ? "Darwin hasn’t found any issues yet: it’s still watching shoppers. Give it a moment." : "No open issues right now.",
+      answer:
+        ctx.phase === "idle" || ctx.phase === "observe"
+          ? "Darwin hasn’t found any issues yet: it’s still watching shoppers. Give it a moment."
+          : "No open issues right now.",
     };
   }
   const next = ctx.issues[1];
@@ -467,7 +476,10 @@ export async function answerWithLlm(req: AskRequest, ctx: AskContext): Promise<s
     .join("\n");
   const prompt = `Context (JSON):\n${JSON.stringify(contextForPrompt(ctx))}\n\n${history ? `Conversation so far:\n${history}\n\n` : ""}Merchant: ${req.question}\nDarwin:`;
   const text = await generateText({ system: SYSTEM, prompt, maxTokens: 400 });
-  return text.replace(/^\s*Darwin:\s*/i, "").replace(/\*\*/g, "").trim();
+  return text
+    .replace(/^\s*Darwin:\s*/i, "")
+    .replace(/\*\*/g, "")
+    .trim();
 }
 
 /* ------------------------------------------------------------------ entry point */
@@ -475,7 +487,10 @@ export async function answerWithLlm(req: AskRequest, ctx: AskContext): Promise<s
 export function currentContext(): AskContext {
   const loop = getLoopState();
   const summary = getAnalyticsSummary();
-  const realShoppers = getAnalyticsSummary({ includeSynthetic: false }).overall.visitors;
+  // One cheap scan (stops at the first simulated event) instead of a second full summary.
+  const simulated = eventStore()
+    .all()
+    .some((e) => e.properties.synthetic);
   const experiment = loop.experimentId ? getExperiment(loop.experimentId) : undefined;
   return buildContext({
     summary,
@@ -483,7 +498,7 @@ export function currentContext(): AskContext {
     experiment,
     sessions: listAgentSessions(120),
     shipThreshold: loopConfigFromEnv().shipThreshold,
-    realShoppers,
+    simulated,
   });
 }
 

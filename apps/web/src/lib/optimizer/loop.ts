@@ -122,7 +122,7 @@ export interface LoopDeps {
   openSpecPR: (
     repo: RepoRef,
     spec: PageSpec,
-    ctx: { experiment?: Experiment; summary: string },
+    ctx: { experiment?: Experiment; summary: string; generation?: number; previousSpec?: PageSpec },
   ) => Promise<PullRequestResult>;
   /** Use the LLM for insight copy + proposals. Default: `llmAvailable()`. */
   useLlm: boolean;
