@@ -90,7 +90,12 @@ export function PrCard({ pr }: { pr: PullRequestResult }) {
 
         {pr.body && (
           <div className="mt-4">
-            <button type="button" onClick={() => setBody((b) => !b)} aria-expanded={body} className="flex items-center gap-1.5 rounded text-[14px] font-medium text-dw-ink/70 hover:text-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none">
+            <button
+              type="button"
+              onClick={() => setBody((b) => !b)}
+              aria-expanded={body}
+              className="flex items-center gap-1.5 rounded text-[14px] font-medium text-dw-ink/70 hover:text-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+            >
               What the pull request says <ChevronDown className={cn("size-4 transition-transform", body && "rotate-180")} />
             </button>
             {body && (

@@ -3,7 +3,7 @@
  * Public API of lib/store-agent: /a2a/whop, the demo checkout, and /console/agents use it.
  */
 import type { AnalyticsEvent } from "@/lib/contracts";
-import { track } from "@/lib/analytics/store";
+import { eventStore, track } from "@/lib/analytics/store";
 import { conversationLevers, replyTo, STORE_SITE } from "./agent";
 import { agentTestResults, getAgentTests, type Lever } from "./experiments";
 import { DEMO_CATALOG, getCatalog } from "./catalog";
@@ -118,18 +118,53 @@ export async function runSimulatedBuyer(brief: string, origin: string): Promise<
   // Only the demo checkout can be "paid" here; a real Whop checkout needs a real payment.
   const catalog = await getCatalog();
   if (catalog.source !== "demo") return { transcript, checkoutUrl: checkout.url, paid: false };
-  recordDemoPayment(checkout.offerId, checkout.ref, true);
+  recordDemoPayment(checkout.offerId, checkout.ref, true, { exclusive: true });
   transcript.push({ from: "store", text: `Payment received (demo, simulated) for ${checkout.title}.` });
   return { transcript, checkoutUrl: checkout.url, paid: true };
 }
 
-/** The demo checkout's "Pay" button: a labelled, simulated payment credited to the conversation. */
-export function recordDemoPayment(offerId: string, ref: string, simulatedBuyer = false): { ok: boolean; title?: string } {
+/** The paid order already recorded for a checkout reference: a demo payment, or a Whop payment tagged with the ref. */
+export function paidOrderFor(ref: string): AnalyticsEvent | undefined {
+  if (!ref) return undefined;
+  const events = eventStore().all();
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.event !== "order_completed") continue;
+    const meta = e.properties?.whop_metadata as Record<string, unknown> | undefined;
+    if (e.properties?.darwin_ref === ref || meta?.darwin_ref === ref) return e;
+  }
+  return undefined;
+}
+
+/** Refs being paid right now, with the units recorded so far (ACP completes an order line by line, synchronously). */
+const paying = new Map<string, number>();
+
+/**
+ * The demo checkout's "Pay" button: a labelled, simulated payment credited to the conversation.
+ * One paid order per checkout reference: paying a ref that already has an order (demo or Whop) records nothing
+ * and answers `alreadyPaid`. Calls in the same synchronous turn are units of the same payment (an ACP order with
+ * quantity 2), unless `exclusive` (one request = one payment attempt, e.g. the checkout page's Pay button).
+ */
+export function recordDemoPayment(
+  offerId: string,
+  ref: string,
+  simulatedBuyer = false,
+  opts: { exclusive?: boolean } = {},
+): { ok: boolean; title?: string; alreadyPaid?: boolean } {
   const offer = DEMO_OFFERS().find((o) => o.id === offerId);
   if (!offer || !/^[\w-]{4,80}$/.test(ref)) return { ok: false };
+  let unit = opts.exclusive ? undefined : paying.get(ref);
+  if (unit === undefined) {
+    if (paying.has(ref) || paidOrderFor(ref)) return { ok: true, alreadyPaid: true, title: offer.title };
+    unit = 0;
+    queueMicrotask(() => paying.delete(ref));
+  }
+  paying.set(ref, unit + 1);
   track({
     event: "order_completed",
     distinct_id: `agent_${ref}`,
+    // Deterministic, so a replay is dropped by the event store and the Supabase mirror (upsert on uuid).
+    uuid: `darwin:demo-pay:${ref}:${unit}`,
     properties: {
       darwin_site: STORE_SITE,
       visitor_kind: "agent",

@@ -119,15 +119,13 @@ export function LiveShoppers({
             <div
               role="listbox"
               aria-label="Shoppers"
-              className="flex flex-col gap-2"
+              className="flex flex-col gap-2 lg:pb-6"
               onPointerEnter={() => setFrozen(rows.map((s) => s.id))}
               onPointerLeave={() => setFrozen(null)}
             >
-              <AnimatePresence initial={false}>
-                {rows.map((s, i) => (
-                  <ShopperRow key={s.id} s={s} on={i === selIdx} first={i === 0} now={now} onPick={() => setPicked(s.id)} />
-                ))}
-              </AnimatePresence>
+              {rows.map((s, i) => (
+                <ShopperRow key={s.id} s={s} on={i === selIdx} first={i === 0} now={now} onPick={() => setPicked(s.id)} />
+              ))}
             </div>
           </LayoutGroup>
         )}
@@ -185,7 +183,6 @@ function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; fi
       layout={reduce ? false : "position"}
       initial={reduce ? false : { opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, transition: { duration: 0.15 } }}
       transition={{ duration: 0.35, ease: EASE }}
       type="button"
       role="option"
@@ -339,7 +336,7 @@ function Journey({ s, loop, test, board, summary }: { s: Shopper; loop?: LoopSta
               </span>
             </div>
             <span className="px-0.5 text-[14px] leading-snug">{s.key.text}</span>
-            <div className="relative flex h-[112px] items-center justify-center overflow-hidden rounded-[12px]" style={{ background: STAGE[s.key.tone] }}>
+            <div className="relative flex min-h-[112px] items-center justify-center overflow-hidden rounded-[12px] py-3" style={{ background: STAGE[s.key.tone] }}>
               <span aria-hidden className="pointer-events-none absolute inset-0 opacity-35 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
               <div className="relative z-[1] w-[68%] overflow-hidden rounded-[10px] bg-white shadow-[0_10px_30px_rgba(20,20,19,0.18)] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)] group-hover/tool:-translate-y-1 group-hover/tool:scale-[1.03]">
                 <div className="flex h-[18px] items-center gap-1 border-b border-[#EFEAE0] px-2">

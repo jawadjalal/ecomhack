@@ -29,17 +29,19 @@ export function Stepper({ step, className }: { step: Step; className?: string })
   return (
     <ol
       aria-label="Setup steps"
-      className={cn(
-        "flex h-[50px] items-center gap-0.5 rounded-full bg-dw-ink p-[5px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)]",
-        className,
-      )}
+      className={cn("flex h-[50px] items-center gap-0.5 rounded-full bg-dw-ink p-[5px] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)]", className)}
     >
       {STEPS.map((s, i) => {
         const on = i === idx;
         const done = i < idx;
         return (
           <li key={s.id} className="flex items-center" aria-current={on ? "step" : undefined}>
-            <span className={cn("relative flex h-10 items-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap sm:px-3.5", on ? "font-semibold text-dw-ink" : done ? "font-medium text-white" : "font-medium text-[#CFCAC0]")}>
+            <span
+              className={cn(
+                "relative flex h-10 items-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap sm:px-3.5",
+                on ? "font-semibold text-dw-ink" : done ? "font-medium text-white" : "font-medium text-[#CFCAC0]",
+              )}
+            >
               {on && <motion.span layoutId="dwo-step" className="absolute inset-0 rounded-full bg-dw-bg" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
               <span
                 className={cn(
@@ -95,7 +97,11 @@ export function CheckPop({ size = 20, tone = "ink", burst, delay = 0, className 
             strokeLinejoin="round"
             initial={reduce ? false : { pathLength: 0 }}
             animate={{ pathLength: 1 }}
-            transition={{ duration: 0.32, delay: delay + 0.12, ease: "easeOut" }}
+            transition={{
+              duration: 0.32,
+              delay: delay + 0.12,
+              ease: "easeOut",
+            }}
           />
         </svg>
       </motion.span>
@@ -119,9 +125,21 @@ export function StepList({ steps, current, finished, className, reveal }: { step
         const done = finished || k < current;
         const now = !finished && k === current;
         return (
-          <motion.li key={s} initial={reveal ? { opacity: 0, x: -6 } : false} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: EASE }} className="flex min-h-7 items-center gap-2.5 text-[14.5px]">
+          <motion.li
+            key={s}
+            initial={reveal ? { opacity: 0, x: -6 } : false}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, ease: EASE }}
+            className="flex min-h-7 items-center gap-2.5 text-[14.5px]"
+          >
             <span className="grid size-7 shrink-0 place-items-center">
-              {done ? <CheckPop size={20} /> : now ? <Mascot kind={crewFor(s)} size={26} active /> : <span className="size-[18px] rounded-full border-[1.5px] border-dashed border-dw-ink/25" />}
+              {done ? (
+                <CheckPop size={20} />
+              ) : now ? (
+                <Mascot kind={crewFor(s)} size={26} active />
+              ) : (
+                <span className="size-[18px] rounded-full border-[1.5px] border-dashed border-dw-ink/25" />
+              )}
             </span>
             <span className={cn(done ? "text-dw-ink/60" : now ? "font-medium text-dw-ink" : "text-dw-ink/40")}>
               {s}
@@ -151,7 +169,12 @@ export function AgentBubble({ children, working, className }: { children: ReactN
 /** The merchant talking: a black bubble on the right, with optional answer chips. */
 export function YouBubble({ text, chips }: { text?: string; chips?: string[] }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.3, ease: EASE }} className="ml-auto flex max-w-[85%] flex-col items-end">
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: EASE }}
+      className="ml-auto flex max-w-[85%] flex-col items-end"
+    >
       <div className="rounded-[22px] rounded-br-[8px] bg-dw-ink px-4 py-3 text-[15px] leading-relaxed text-white">
         {text && <p className="whitespace-pre-line">{text}</p>}
         {!!chips?.length && (
@@ -255,9 +278,10 @@ export function StageHead({ mascot, title, lede, right, celebrate }: { mascot: M
 /* ------------------------------------------------------------------ forms */
 
 export const inputCls =
-  "h-11 min-w-0 flex-1 rounded-full border border-dw-hairline bg-white px-4 font-dwmono text-[14px] text-dw-ink outline-none placeholder:text-dw-ink/35 focus:border-dw-ink/40 focus-visible:ring-2 focus-visible:ring-dw-ink/15";
+  "h-11 w-full min-w-0 rounded-full border sm:flex-1 border-dw-hairline bg-white px-4 font-dwmono text-[14px] text-dw-ink outline-none placeholder:text-dw-ink/35 focus:border-dw-ink/40 focus-visible:ring-2 focus-visible:ring-dw-ink/15";
 
-export const linkCls = "self-start rounded text-[13px] text-dw-ink/55 underline-offset-2 hover:text-dw-ink hover:underline focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none";
+export const linkCls =
+  "self-start rounded text-[13px] text-dw-ink/55 underline-offset-2 hover:text-dw-ink hover:underline focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none";
 
 export function ErrorLine({ error }: { error: string }) {
   return (
@@ -289,7 +313,8 @@ export function Drawer({ children }: { children: ReactNode }) {
 /* ------------------------------------------------------------------ backdrop */
 
 const GLOW: Record<string, string> = {
-  connect: "radial-gradient(46rem 30rem at 50% 42%, rgba(246,215,107,0.30), transparent 70%), radial-gradient(34rem 26rem at 14% 92%, rgba(184,202,238,0.28), transparent 70%), radial-gradient(34rem 26rem at 88% 88%, rgba(243,181,213,0.26), transparent 70%)",
+  connect:
+    "radial-gradient(46rem 30rem at 50% 42%, rgba(246,215,107,0.30), transparent 70%), radial-gradient(34rem 26rem at 14% 92%, rgba(184,202,238,0.28), transparent 70%), radial-gradient(34rem 26rem at 88% 88%, rgba(243,181,213,0.26), transparent 70%)",
   ask: "radial-gradient(44rem 30rem at 50% 18%, rgba(213,204,245,0.40), transparent 70%), radial-gradient(34rem 26rem at 90% 90%, rgba(246,215,107,0.20), transparent 70%)",
   plan: "radial-gradient(50rem 30rem at 78% 8%, rgba(246,215,107,0.26), transparent 70%), radial-gradient(40rem 30rem at 6% 70%, rgba(184,202,238,0.26), transparent 70%)",
   install: "radial-gradient(46rem 30rem at 70% 12%, rgba(169,180,110,0.26), transparent 70%), radial-gradient(36rem 26rem at 10% 90%, rgba(95,240,180,0.12), transparent 70%)",
@@ -301,7 +326,15 @@ export function Backdrop({ stage }: { stage: string }) {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
       <AnimatePresence initial={false}>
-        <motion.div key={stage} className="absolute inset-0" style={{ background: GLOW[stage] ?? GLOW.connect }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.9 }} />
+        <motion.div
+          key={stage}
+          className="absolute inset-0"
+          style={{ background: GLOW[stage] ?? GLOW.connect }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.9 }}
+        />
       </AnimatePresence>
     </div>
   );

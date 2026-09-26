@@ -277,7 +277,7 @@ function Console({ mock }: { mock: boolean }) {
 
           {/* centre: KPIs, stage, evolution */}
           <div className="flex min-h-0 flex-col gap-4">
-            <div className="h-[7.6rem] shrink-0">
+            <div className="shrink-0 xl:h-[7.6rem]">
               <KpiTiles loop={loop} summaryAll={summaryAll} summaryGen={summaryGen} summaryGen0={summaryGen0} />
             </div>
             <div className="h-[34rem] min-h-0 xl:h-auto xl:flex-1">

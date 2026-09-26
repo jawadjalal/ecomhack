@@ -45,7 +45,14 @@ export function loadProgress(): SavedProgress | null {
       v: 1,
       stage: p.stage as SavedStage,
       prompt: typeof p.prompt === "string" ? p.prompt : "",
-      answers: p.answers && Array.isArray(p.answers.track) && Array.isArray(p.answers.where) ? { track: p.answers.track, where: p.answers.where, note: String(p.answers.note ?? "") } : undefined,
+      answers:
+        p.answers && Array.isArray(p.answers.track) && Array.isArray(p.answers.where)
+          ? {
+              track: p.answers.track,
+              where: p.answers.where,
+              note: String(p.answers.note ?? ""),
+            }
+          : undefined,
       repo: typeof p.repo === "string" ? p.repo : null,
       website: typeof p.website === "string" ? p.website : null,
       whop: p.whop && typeof p.whop.title === "string" ? p.whop : null,

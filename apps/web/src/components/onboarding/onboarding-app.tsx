@@ -78,7 +78,9 @@ async function http<T>(method: "GET" | "POST" | "PATCH" | "PUT", path: string, b
 
 /** Darwin runs on its own onboarding: each step is an event, so the same dashboards (and A/B tests) apply. */
 function track(event: string, props: Record<string, unknown> = {}) {
-  const w = window as unknown as { darwin?: { capture?: (e: string, p: object) => void } | unknown[] };
+  const w = window as unknown as {
+    darwin?: { capture?: (e: string, p: object) => void } | unknown[];
+  };
   if (w.darwin && !Array.isArray(w.darwin) && w.darwin.capture) w.darwin.capture(event, props);
   else ((w.darwin as unknown[] | undefined) ?? ((w as { darwin?: unknown[] }).darwin = [])).push([event, props]);
 }
@@ -154,7 +156,12 @@ export function OnboardingApp() {
     const reconnected = !!saved.repo || !!saved.website;
     if (!reconnected || saved.stage === "connect") return setStage("connect");
     if (saved.stage === "ask") return setStage("ask");
-    const ctx = { prompt: saved.prompt, repo: saved.repo, website: saved.website, whop: saved.whop?.title };
+    const ctx = {
+      prompt: saved.prompt,
+      repo: saved.repo,
+      website: saved.website,
+      whop: saved.whop?.title,
+    };
     // Plan, install or live: the plan is re-fetched so it's fresh. Gone server-side → plan again.
     const replan = () => (saved.answers ? void runPlan(saved.answers, ctx) : setStage("ask"));
     if (!saved.site) return replan();
@@ -181,11 +188,24 @@ export function OnboardingApp() {
       answers,
       repo,
       website,
-      whop: whop ? { mode: whop.mode, title: whop.title, accountId: whop.accountId, connectedAt: whop.connectedAt } : null,
+      whop: whop
+        ? {
+            mode: whop.mode,
+            title: whop.title,
+            accountId: whop.accountId,
+            connectedAt: whop.connectedAt,
+          }
+        : null,
       site: plan?.site ?? null,
       snippet,
       pr,
-      chat: chat.filter((m) => !m.pending).map(({ from, text, chips }) => ({ from, text, ...(chips ? { chips } : {}) })),
+      chat: chat
+        .filter((m) => !m.pending)
+        .map(({ from, text, chips }) => ({
+          from,
+          text,
+          ...(chips ? { chips } : {}),
+        })),
     });
   }, [hydrated, stage, prompt, answers, repo, website, whop, plan?.site, snippet, pr, chat]);
 
@@ -215,7 +235,11 @@ export function OnboardingApp() {
     if (!connected) return;
     setOpen(null);
     setStage("ask");
-    track("onboarding_connected", { whop: !!whop, described: !!prompt.trim(), via: website ? "script_tag" : "github" });
+    track("onboarding_connected", {
+      whop: !!whop,
+      described: !!prompt.trim(),
+      via: website ? "script_tag" : "github",
+    });
   };
 
   const toPlan = (a: Answers) => {
@@ -224,7 +248,15 @@ export function OnboardingApp() {
   };
 
   /** POST the plan. Takes its inputs explicitly so a restore can re-plan before state has settled. */
-  async function runPlan(a: Answers, ctx: { prompt: string; repo: string | null; website: string | null; whop?: string }) {
+  async function runPlan(
+    a: Answers,
+    ctx: {
+      prompt: string;
+      repo: string | null;
+      website: string | null;
+      whop?: string;
+    },
+  ) {
     const full = composePrompt(ctx.prompt, a);
     setAnswers(a);
     setPlan(null);
@@ -243,11 +275,19 @@ export function OnboardingApp() {
         ],
       },
     ]);
-    track("questions_answered", { track: a.track.length + (a.note.trim() ? 1 : 0), where: a.where.join(",") });
+    track("questions_answered", {
+      track: a.track.length + (a.note.trim() ? 1 : 0),
+      where: a.where.join(","),
+    });
     try {
       // Keep the steps on screen long enough to read, even when the plan comes back instantly.
       const [res] = await Promise.all([
-        http<{ plan: TrackingPlan; reply: string; note?: string; snippet?: string }>("POST", "/api/onboarding/plan", {
+        http<{
+          plan: TrackingPlan;
+          reply: string;
+          note?: string;
+          snippet?: string;
+        }>("POST", "/api/onboarding/plan", {
           prompt: full || undefined,
           ...(ctx.website ? { siteUrl: ctx.website } : { repoUrl: `https://github.com/${ctx.repo}` }),
           whop: ctx.whop,
@@ -257,7 +297,10 @@ export function OnboardingApp() {
       setPlan(res.plan);
       setSnippet(res.snippet ?? null);
       reply(res.note ? `${res.reply}\n\n${res.note}` : res.reply);
-      track("plan_ready", { events: res.plan.events.filter((e) => e.enabled).length, goals: res.plan.goals?.length ?? 0 });
+      track("plan_ready", {
+        events: res.plan.events.filter((e) => e.enabled).length,
+        goals: res.plan.goals?.length ?? 0,
+      });
     } catch (err) {
       reply(`Something went wrong: ${(err as Error).message}`);
     } finally {
@@ -269,7 +312,10 @@ export function OnboardingApp() {
     http<GithubStatusResponse>("GET", "/api/github/status").then(setGhStatus, () => {});
     http<WhopStatus>("GET", "/api/whop/status").then(setWhopStatus, () => {});
     http<AuthSession>("GET", "/api/auth/session").then(setAuth, () => {});
-    http<{ designer?: string }>("GET", "/api/loop").then((l) => setDesigner(l.designer ?? "heuristic"), () => {});
+    http<{ designer?: string }>("GET", "/api/loop").then(
+      (l) => setDesigner(l.designer ?? "heuristic"),
+      () => {},
+    );
     const params = new URLSearchParams(window.location.search);
     const t = setTimeout(() => {
       // 1. Pick up where the merchant left off (a reload lands on the same stage).
@@ -313,7 +359,10 @@ export function OnboardingApp() {
 
   const toggle = async (name: string, on: boolean) => {
     if (!plan) return;
-    setPlan({ ...plan, events: plan.events.map((e) => (e.name === name ? { ...e, enabled: on } : e)) });
+    setPlan({
+      ...plan,
+      events: plan.events.map((e) => (e.name === name ? { ...e, enabled: on } : e)),
+    });
     try {
       const res = await http<{ plan: TrackingPlan }>("PUT", "/api/onboarding/plan", { site: plan.site, enabled: { [name]: on } });
       setPlan(res.plan);
@@ -341,12 +390,19 @@ export function OnboardingApp() {
                 transition={{ duration: 0.4, ease: EASE }}
                 className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto_1fr] items-center gap-x-3 gap-y-3 px-4 pt-5 sm:px-7 md:grid-cols-[1fr_auto_1fr]"
               >
-                <Link href="/console" aria-label="Darwin console" className="flex items-center gap-2.5 justify-self-start rounded-full focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none">
+                <Link
+                  href="/console"
+                  aria-label="Darwin console"
+                  className="flex items-center gap-2.5 justify-self-start rounded-full focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+                >
                   <Mascot kind="analyst" size={32} active />
                   <span className="text-[22px] font-semibold tracking-[-0.02em]">darwin</span>
                 </Link>
                 <Stepper step={stage === "ask" ? "plan" : stage} className="col-span-2 justify-self-center max-md:order-last md:col-span-1" />
-                <span className="flex h-10 max-w-[12rem] min-w-0 items-center gap-2 justify-self-end rounded-full bg-dw-sand px-3.5 text-[13.5px] font-medium sm:max-w-[18rem]" title={connectedTo}>
+                <span
+                  className="flex h-10 max-w-[12rem] min-w-0 items-center gap-2 justify-self-end rounded-full bg-dw-sand px-3.5 text-[13.5px] font-medium sm:max-w-[18rem]"
+                  title={connectedTo}
+                >
                   <LiveDot />
                   {website ? <Globe className="size-4 shrink-0" /> : <BrandGlyph brand="github" size={15} className="shrink-0" />}
                   <span className="truncate">{connectedTo}</span>
@@ -360,7 +416,13 @@ export function OnboardingApp() {
             )}
           </AnimatePresence>
 
-          <div className={cn("mx-auto flex w-full flex-1 flex-col px-4 pb-20 transition-[max-width] duration-500 sm:px-7", WIDTH[stage], stage === "connect" ? "justify-center py-10" : "pt-8 sm:pt-10")}>
+          <div
+            className={cn(
+              "mx-auto flex w-full flex-1 flex-col px-4 pb-20 transition-[max-width] duration-500 sm:px-7",
+              WIDTH[stage],
+              stage === "connect" ? "justify-center py-10" : "pt-8 sm:pt-10",
+            )}
+          >
             <AnimatePresence mode="wait">
               {stage === "connect" && (
                 <motion.section key="connect" {...fade} className="flex flex-col items-center gap-8 sm:gap-10">
@@ -388,7 +450,19 @@ export function OnboardingApp() {
                     )}
                   >
                     <div className="flex items-start gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
-                      <motion.span key={connected ? "yes" : "no"} className="mt-0.5 inline-grid" animate={connected ? { y: [0, -12, 0, -4, 0], rotate: [0, -10, 6, 0, 0] } : undefined} transition={{ duration: 0.8 }}>
+                      <motion.span
+                        key={connected ? "yes" : "no"}
+                        className="mt-0.5 inline-grid"
+                        animate={
+                          connected
+                            ? {
+                                y: [0, -12, 0, -4, 0],
+                                rotate: [0, -10, 6, 0, 0],
+                              }
+                            : undefined
+                        }
+                        transition={{ duration: 0.8 }}
+                      >
                         <Mascot kind="analyst" frame size={44} active title="Darwin" />
                       </motion.span>
                       <textarea
@@ -490,7 +564,11 @@ export function OnboardingApp() {
                             className="absolute inset-0 rounded-full bg-dw-ink"
                             initial={{ scale: 1, opacity: 0.35 }}
                             animate={{ scale: 1.6, opacity: 0 }}
-                            transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                            transition={{
+                              duration: 1.4,
+                              repeat: Infinity,
+                              ease: "easeOut",
+                            }}
                           />
                         )}
                         <ArrowUp className="relative size-5" />
@@ -553,7 +631,9 @@ export function OnboardingApp() {
                               disabled={busy}
                               onClick={() => {
                                 setStage("install");
-                                track("plan_confirmed", { events: plan.events.filter((e) => e.enabled).length });
+                                track("plan_confirmed", {
+                                  events: plan.events.filter((e) => e.enabled).length,
+                                });
                               }}
                             >
                               Looks good: install it <ArrowRight />
@@ -597,9 +677,9 @@ export function OnboardingApp() {
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
                     <div className="flex min-w-0 flex-col gap-4">
                       <AgentBubble working={false}>
-                        I&apos;ll open one pull request on <b className="font-dwmono font-medium text-dw-ink">{plan.repo}</b>: it loads darwin.js (under 5 KB) and commits your plan as{" "}
-                        <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">DARWIN_TRACKING.md</code>, with the one line each event needs. Nothing
-                        changes until you merge it.
+                        I&apos;ll open one pull request on <b className="font-dwmono font-medium text-dw-ink">{plan.repo}</b>: it loads darwin.js (under 5 KB) and commits your plan
+                        as <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">DARWIN_TRACKING.md</code>, with the one line each event
+                        needs. Nothing changes until you merge it.
                       </AgentBubble>
                       {!pr ? (
                         <InstallPr
@@ -646,7 +726,11 @@ export function OnboardingApp() {
             </AnimatePresence>
             {hydrated && (stage !== "connect" || connected || !!whop) && (
               <div className={cn("flex justify-center", stage === "connect" ? "mt-5" : "mt-14")}>
-                <button type="button" onClick={startOver} className="h-8 rounded-full px-3 text-[13px] text-dw-ink/50 transition-colors hover:bg-dw-sand hover:text-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none">
+                <button
+                  type="button"
+                  onClick={startOver}
+                  className="h-8 rounded-full px-3 text-[13px] text-dw-ink/50 transition-colors hover:bg-dw-sand hover:text-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+                >
                   {stage === "connect" ? "Start over" : "Not the right store? Start over"}
                 </button>
               </div>
@@ -674,8 +758,15 @@ function Thread({ messages }: { messages: Message[] }) {
         m.from === "you" ? (
           <YouBubble key={`you-${i}-${m.text}`} text={m.text} chips={m.chips} />
         ) : (
-          <motion.div key={`darwin-${i}-${m.pending ? "pending" : m.text}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: EASE }}>
-            <AgentBubble working={!!m.pending}>{m.pending ? m.steps ? <Working steps={m.steps} /> : <Typing /> : <span className="whitespace-pre-line">{m.text}</span>}</AgentBubble>
+          <motion.div
+            key={`darwin-${i}-${m.pending ? "pending" : m.text}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: EASE }}
+          >
+            <AgentBubble working={!!m.pending}>
+              {m.pending ? m.steps ? <Working steps={m.steps} /> : <Typing /> : <span className="whitespace-pre-line">{m.text}</span>}
+            </AgentBubble>
           </motion.div>
         ),
       )}
@@ -754,12 +845,27 @@ function PlanSkeleton() {
       </div>
       <div className="mt-6 flex flex-wrap gap-2">
         {[92, 70, 110, 84, 128].map((w, i) => (
-          <motion.span key={i} className="h-9 rounded-full bg-dw-yellow/60" style={{ width: w }} animate={{ opacity: [0.45, 1, 0.45] }} transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }} />
+          <motion.span
+            key={i}
+            className="h-9 rounded-full bg-dw-yellow/60"
+            style={{ width: w }}
+            animate={{ opacity: [0.45, 1, 0.45] }}
+            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}
+          />
         ))}
       </div>
       <div className="mt-5 flex flex-col gap-2.5">
         {[0, 1, 2, 3].map((i) => (
-          <motion.div key={i} className="h-[62px] rounded-[18px] bg-dw-sand" animate={{ opacity: [0.45, 1, 0.45] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 + i * 0.12 }} />
+          <motion.div
+            key={i}
+            className="h-[62px] rounded-[18px] bg-dw-sand"
+            animate={{ opacity: [0.45, 1, 0.45] }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              delay: 0.3 + i * 0.12,
+            }}
+          />
         ))}
       </div>
     </Card>
@@ -788,7 +894,15 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
         {plan.framework && <Fact label="Stack" value={plan.repoRead === false ? `${plan.framework} (assumed)` : plan.framework} />}
         <Fact
           label="Analytics"
-          value={plan.siteUrl ? "not checked (no repo)" : plan.repoRead === false ? "not checked yet" : plan.existingAnalytics?.length ? plan.existingAnalytics.join(" · ") : "none found"}
+          value={
+            plan.siteUrl
+              ? "not checked (no repo)"
+              : plan.repoRead === false
+                ? "not checked yet"
+                : plan.existingAnalytics?.length
+                  ? plan.existingAnalytics.join(" · ")
+                  : "none found"
+          }
           hint={plan.existingAnalytics?.some((a) => !a.startsWith("Darwin")) ? "darwin.js runs alongside" : undefined}
         />
         {!!plan.goals?.length && <Fact label="Heard" value={plan.goals.join(", ")} brand />}
@@ -865,7 +979,11 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
               >
                 {DASH_ICON[d.kind] ?? <LayoutDashboard />}
                 {d.title}
-                {d.custom && <Tag tone="ink" className="h-5 px-2 text-[11px]">you asked</Tag>}
+                {d.custom && (
+                  <Tag tone="ink" className="h-5 px-2 text-[11px]">
+                    you asked
+                  </Tag>
+                )}
               </motion.span>
             ))}
           </AnimatePresence>
@@ -877,15 +995,36 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
 
 function MiniCheck() {
   return (
-    <motion.svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 520, damping: 18 }}>
-      <motion.path d="M3.6 8.4l2.9 2.9 5.9-6.4" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.3, delay: 0.08 }} />
+    <motion.svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      aria-hidden
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ type: "spring", stiffness: 520, damping: 18 }}
+    >
+      <motion.path
+        d="M3.6 8.4l2.9 2.9 5.9-6.4"
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 0.3, delay: 0.08 }}
+      />
     </motion.svg>
   );
 }
 
 function Fact({ label, value, hint, brand }: { label: string; value: string; hint?: string; brand?: boolean }) {
   return (
-    <span className={cn("inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-3 text-[13px]", brand ? "bg-dw-ink text-white" : "border border-dw-hairline bg-dw-surface")} title={hint}>
+    <span
+      className={cn("inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-3 text-[13px]", brand ? "bg-dw-ink text-white" : "border border-dw-hairline bg-dw-surface")}
+      title={hint}
+    >
       <span className={brand ? "text-white/60" : "text-dw-ink/55"}>{label}</span>
       <span className="truncate font-medium">{value}</span>
     </span>
@@ -1002,7 +1141,11 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
     setStep(0);
     setError(null);
     try {
-      onDone(await http<PullRequestResult>("POST", "/api/onboarding/install", { site }));
+      onDone(
+        await http<PullRequestResult>("POST", "/api/onboarding/install", {
+          site,
+        }),
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -1055,9 +1198,10 @@ function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet
   return (
     <>
       <AgentBubble working={false}>
-        No pull request needed. Paste this one line into your site&apos;s <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">&lt;head&gt;</code> so it
-        loads on every page
-        {custom ? `, then add the one-line call for each of your ${custom} events where it happens (they're in the plan)` : ""}. darwin.js is under 5 KB and never reads form fields.
+        No pull request needed. Paste this one line into your site&apos;s{" "}
+        <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">&lt;head&gt;</code> so it loads on every page
+        {custom ? `, then add the one-line call for each of your ${custom} events where it happens (they're in the plan)` : ""}. darwin.js is under 5 KB and never reads form
+        fields.
       </AgentBubble>
       <Card tone="white" hover={false} className="p-5 sm:p-6">
         <div className="relative overflow-hidden rounded-[18px] bg-dw-ink">
@@ -1117,7 +1261,11 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
     setSending(true);
     try {
       const goals = plan.events.filter((e) => e.enabled && e.category === "goal").map((e) => e.name);
-      const res = await http<WebSimulateResponse>("POST", "/api/web/simulate", { site: plan.site, visitors: 300, events: goals.slice(0, 12) });
+      const res = await http<WebSimulateResponse>("POST", "/api/web/simulate", {
+        site: plan.site,
+        visitors: 300,
+        events: goals.slice(0, 12),
+      });
       setSent((n) => n + res.visitors);
       await load();
     } finally {
@@ -1146,7 +1294,8 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           <div className="min-w-0">
             <h1 className="text-[32px] leading-[1.05] font-semibold tracking-[-0.03em] text-balance sm:text-[46px]">Your dashboards are built</h1>
             <p className="mt-2 max-w-[48rem] text-[15.5px] leading-snug text-dw-ink/70 sm:text-[17px]">
-              {plan.siteUrl ? "Publish the script tag" : "Merge the pull request and deploy"}: real shoppers show up here within seconds. Want to see it fill now? Send simulated shoppers (they&apos;re labelled, and never mixed into your real numbers).
+              {plan.siteUrl ? "Publish the script tag" : "Merge the pull request and deploy"}: real shoppers show up here within seconds. Want to see it fill now? Send simulated
+              shoppers (they&apos;re labelled, and never mixed into your real numbers).
             </p>
           </div>
         </div>
@@ -1169,8 +1318,22 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
               {recorded}/{events.length} recorded
             </span>
           </div>
-          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-dw-ink/10" role="progressbar" aria-valuemin={0} aria-valuemax={events.length} aria-valuenow={recorded} aria-label="Events recorded">
-            <motion.div className="h-full rounded-full bg-dw-ink" initial={{ width: 0 }} animate={{ width: `${events.length ? (recorded / events.length) * 100 : 0}%` }} transition={{ duration: 0.8, ease: EASE }} />
+          <div
+            className="mt-3 h-2.5 overflow-hidden rounded-full bg-dw-ink/10"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={events.length}
+            aria-valuenow={recorded}
+            aria-label="Events recorded"
+          >
+            <motion.div
+              className="h-full rounded-full bg-dw-ink"
+              initial={{ width: 0 }}
+              animate={{
+                width: `${events.length ? (recorded / events.length) * 100 : 0}%`,
+              }}
+              transition={{ duration: 0.8, ease: EASE }}
+            />
           </div>
           <div className="mt-3 flex min-w-0 items-center gap-2 text-[13px] text-dw-ink/75">
             <LiveDot /> Recording <span className="truncate font-dwmono text-[12.5px]">{plan.site}</span>
@@ -1196,7 +1359,8 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           )}
           {!!data?.syntheticEvents && (
             <div className="mt-3 rounded-[16px] bg-dw-warn-bg px-3 py-2 text-[13px] text-dw-warn">
-              {data.syntheticEvents.toLocaleString("en-GB")} of {data.totalEvents.toLocaleString("en-GB")} events are simulated{sent ? ` (${sent} shoppers sent)` : ""}.
+              {data.syntheticEvents.toLocaleString("en-GB")} of {data.totalEvents.toLocaleString("en-GB")} events are simulated
+              {sent ? ` (${sent} shoppers sent)` : ""}.
             </div>
           )}
           <Link
@@ -1210,7 +1374,9 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           {data?.dashboards.length ? (
             <DashboardGrid dashboards={data.dashboards} compact />
           ) : (
-            <Empty mascot={<Mascot kind="experimenter" frame size={64} active />}>{data ? "Your dashboards appear here as soon as the first events arrive." : "Building your dashboards…"}</Empty>
+            <Empty mascot={<Mascot kind="experimenter" frame size={64} active />}>
+              {data ? "Your dashboards appear here as soon as the first events arrive." : "Building your dashboards…"}
+            </Empty>
           )}
         </div>
       </div>
@@ -1305,7 +1471,16 @@ function WhopConnect({ status, onConnected }: { status: WhopStatus | null; onCon
         <code className="rounded-md bg-white px-1.5 py-0.5 font-dwmono text-[12.5px] text-dw-ink">whop login --method api-key</code>
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input ref={input} type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="whop_…" autoComplete="off" aria-label="Whop API key" className={inputCls} />
+        <input
+          ref={input}
+          type="password"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder="whop_…"
+          autoComplete="off"
+          aria-label="Whop API key"
+          className={inputCls}
+        />
         <PillButton type="submit" disabled={busy} className="h-11">
           {busy ? <LoaderCircle className="animate-spin" /> : <WhopMarkInline />}
           {key.trim() ? "Connect" : status?.configured ? "Use server key" : "Try demo"}
@@ -1365,7 +1540,9 @@ function GithubConnect({
     return (
       <div className="flex flex-col gap-3">
         <p className="text-[14px] leading-snug text-dw-ink/70">
-          {expired ? "Your GitHub sign-in has expired. Sign in again to pick your repository." : "Sign in so Darwin can see your repositories and open the install pull request as you. It only ever changes code through pull requests you review."}
+          {expired
+            ? "Your GitHub sign-in has expired. Sign in again to pick your repository."
+            : "Sign in so Darwin can see your repositories and open the install pull request as you. It only ever changes code through pull requests you review."}
         </p>
         <PillButton size="lg" onClick={onSignIn} className="w-full">
           <BrandGlyph brand="github" size={18} /> Sign in with GitHub
@@ -1456,14 +1633,21 @@ function NoGithub({ onChoose }: { onChoose: () => void }) {
     <div className="mt-1 flex flex-col gap-1.5 border-t border-dw-ink/[0.08] pt-3 text-[13.5px] leading-snug text-dw-ink/65">
       <span>
         No GitHub?{" "}
-        <button type="button" onClick={onChoose} className="rounded font-semibold text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none">
+        <button
+          type="button"
+          onClick={onChoose}
+          className="rounded font-semibold text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+        >
           Add one script tag instead
         </button>{" "}
         (Shopify, Webflow, WordPress, any site you can edit).
       </span>
       <span>
         Only sell on Whop?{" "}
-        <Link href="/console/agents" className="rounded font-semibold text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none">
+        <Link
+          href="/console/agents"
+          className="rounded font-semibold text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+        >
           Your store agent needs no code
         </Link>
         : AI shoppers buy your Whop plans through it.
@@ -1496,7 +1680,8 @@ function WebsiteConnect({ onWebsite, onGithub }: { onWebsite: (url: string) => v
       className="flex flex-col gap-3"
     >
       <p className="text-[14px] leading-snug text-dw-ink/70">
-        Your store&apos;s address. After the plan, Darwin gives you one line to paste into your site&apos;s <code className="rounded-md bg-white px-1.5 py-0.5 font-dwmono text-[12.5px] text-dw-ink">&lt;head&gt;</code>: no GitHub, no pull request.
+        Your store&apos;s address. After the plan, Darwin gives you one line to paste into your site&apos;s{" "}
+        <code className="rounded-md bg-white px-1.5 py-0.5 font-dwmono text-[12.5px] text-dw-ink">&lt;head&gt;</code>: no GitHub, no pull request.
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input ref={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://shop.example.com" aria-label="Your store's address" className={inputCls} />

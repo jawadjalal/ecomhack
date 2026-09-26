@@ -22,18 +22,63 @@ export interface Answers {
 
 /** `phrase` is what goes into the prompt; it uses the words the planner listens for. */
 export const TRACK_OPTIONS = [
-  { id: "checkout", label: "Checkout drop-off", phrase: "checkout drop-off", match: /checkout|cart|abandon|pay/ },
-  { id: "sizing", label: "Sizing questions", phrase: "sizing questions", match: /\bsiz|\bfit\b/ },
-  { id: "mobile", label: "Mobile vs desktop", phrase: "mobile vs desktop", match: /mobile|phone|tablet/ },
-  { id: "coupons", label: "Coupons", phrase: "coupon codes", match: /coupon|discount|promo/ },
-  { id: "agents", label: "AI shoppers", phrase: "AI shoppers", match: /\bai\b|agent|chatgpt|\bbots?\b/ },
-  { id: "search", label: "Search", phrase: "what people search for", match: /search/ },
+  {
+    id: "checkout",
+    label: "Checkout drop-off",
+    phrase: "checkout drop-off",
+    match: /checkout|cart|abandon|pay/,
+  },
+  {
+    id: "sizing",
+    label: "Sizing questions",
+    phrase: "sizing questions",
+    match: /\bsiz|\bfit\b/,
+  },
+  {
+    id: "mobile",
+    label: "Mobile vs desktop",
+    phrase: "mobile vs desktop",
+    match: /mobile|phone|tablet/,
+  },
+  {
+    id: "coupons",
+    label: "Coupons",
+    phrase: "coupon codes",
+    match: /coupon|discount|promo/,
+  },
+  {
+    id: "agents",
+    label: "AI shoppers",
+    phrase: "AI shoppers",
+    match: /\bai\b|agent|chatgpt|\bbots?\b/,
+  },
+  {
+    id: "search",
+    label: "Search",
+    phrase: "what people search for",
+    match: /search/,
+  },
 ] as const;
 
 export const WHERE_OPTIONS = [
-  { id: "website", label: "Your website", sub: "darwin.js records every visit", phrase: "my website (darwin.js)" },
-  { id: "agents", label: "AI shopping agents", sub: "Your store agent at /a2a/whop", phrase: "AI shopping agents (my store agent at /a2a/whop)" },
-  { id: "whop", label: "Whop payments", sub: "Sales and refunds, by webhook", phrase: "Whop sales" },
+  {
+    id: "website",
+    label: "Your website",
+    sub: "darwin.js records every visit",
+    phrase: "my website (darwin.js)",
+  },
+  {
+    id: "agents",
+    label: "AI shopping agents",
+    sub: "Your store agent at /a2a/whop",
+    phrase: "AI shopping agents (my store agent at /a2a/whop)",
+  },
+  {
+    id: "whop",
+    label: "Whop payments",
+    sub: "Sales and refunds, by webhook",
+    phrase: "Whop sales",
+  },
 ] as const;
 
 export const Q_TRACK = "What would you like to track in your store?";
@@ -206,7 +251,10 @@ export function AskChat({
                             on ? "bg-dw-ink text-white" : "bg-dw-sand/80 text-dw-ink hover:bg-dw-sand",
                           )}
                         >
-                          <span aria-hidden className="dw-tilt grid h-10 min-w-10 shrink-0 place-items-center rounded-[13px] bg-white text-dw-ink shadow-[0_0_0_1px_rgba(20,20,19,0.06)]">
+                          <span
+                            aria-hidden
+                            className="dw-tilt grid h-10 min-w-10 shrink-0 place-items-center rounded-[13px] bg-white text-dw-ink shadow-[0_0_0_1px_rgba(20,20,19,0.06)]"
+                          >
                             {o.id === "website" ? (
                               <Globe className="size-[18px]" />
                             ) : o.id === "whop" ? (
@@ -266,7 +314,12 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       )}
     >
       {on ? (
-        <motion.span initial={{ scale: 0, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 520, damping: 18 }} className="grid place-items-center">
+        <motion.span
+          initial={{ scale: 0, rotate: -40 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 520, damping: 18 }}
+          className="grid place-items-center"
+        >
           <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden>
             <path d="M3.6 8.4l2.9 2.9 5.9-6.4" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </svg>

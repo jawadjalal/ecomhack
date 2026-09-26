@@ -223,8 +223,8 @@ function Body({
         )}
         {fix.status === "drafted" && !canStart && autopilot && <span className="text-[13px] text-[#2E3A55]">Autopilot starts the test on its next step.</span>}
         {fix.status === "shipped" && (
-          <PillButton href="/console/pulls" tone="white">
-            <GitPullRequest /> See the pull request
+          <PillButton href="/console/changes" tone="white">
+            <GitPullRequest /> See the change
           </PillButton>
         )}
         {(fix.status === "rejected" || fix.status === "shelved") && <span className="text-[13px] text-[#2E3A55]">Darwin won&apos;t try this change again.</span>}

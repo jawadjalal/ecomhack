@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
-import { prsByGeneration } from "@/lib/console/format";
 import { useExperiments } from "@/lib/console/hooks";
 import { Mascot } from "./mascot";
 import { useDarwin } from "./provider";
@@ -16,7 +15,7 @@ export const NAV = [
   { key: "issues", label: "Issues", href: "/console/issues" },
   { key: "fixes", label: "Fixes", href: "/console/fixes" },
   { key: "experiments", label: "Experiments", href: "/console/experiments" },
-  { key: "prs", label: "Pull requests", href: "/console/pulls" },
+  { key: "changes", label: "Changes", href: "/console/changes" },
 ] as const;
 
 const MORE = [
@@ -37,7 +36,8 @@ export function TopNav() {
     issues: loop?.insights.length ?? 0,
     fixes: loop?.proposal ? 1 : 0,
     experiments: experiments?.filter((e) => e.status === "running").length ?? 0,
-    prs: prsByGeneration(loop).size,
+    // Shipped changes (generations after Gen 0), whether or not a pull request was opened for them.
+    changes: Math.max(0, (loop?.history.length ?? 1) - 1),
   };
   const active = NAV.slice()
     .reverse()
