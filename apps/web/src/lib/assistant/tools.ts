@@ -54,6 +54,7 @@ import { auditStore, certifyStore } from "@/lib/readiness";
 import { parseGoalBrief, runBuyerAgent } from "@/lib/agent-commerce";
 import { agentFunnel } from "@/lib/store-agent";
 import { askResearch, researchCompetitors } from "@/lib/research";
+import { ensureDemoStore } from "@/lib/demo";
 import { llmAvailable } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
 import { formatGBP } from "@/lib/money";
@@ -476,6 +477,33 @@ export const TOOLS = {
         ok: true,
         summary: `Reset done: back to Gen ${loop.generation}, phase “${loop.phase}”.`,
         data: compactLoop(loop),
+      };
+    },
+  }),
+
+  explore_demo_store: tool({
+    name: "explore_demo_store",
+    description:
+      "Is Darwin on the demo store (PACE at /store, nothing of the merchant's connected) or a connected site? Fills an empty demo store with labelled SYNTHETIC shoppers: a fresh store is run to Gen 1 with a test live, a restarted one gets one round of simulated traffic. Idempotent.",
+    args: z.object({}),
+    async run() {
+      const { action, steps, status } = await ensureDemoStore();
+      const where =
+        status.mode === "demo"
+          ? `Darwin is on the demo store (${status.store.name}, /store): nothing of yours is connected yet.`
+          : `Connected: ${[status.connections.github, ...status.connections.sites, status.connections.whop].filter(Boolean).join(", ")}. The demo store at /store is still what the loop optimizes.`;
+      const did =
+        action === "seeded"
+          ? ` Ran the loop ${steps} step${steps === 1 ? "" : "s"} on simulated shoppers: Gen ${status.generation} is live.`
+          : action === "refilled"
+            ? " Sent one round of simulated shoppers so the Overview matches the loop's history."
+            : " It already has simulated shoppers.";
+      return {
+        ok: true,
+        synthetic: action !== "none" || status.hasSimulatedTraffic,
+        summary: where + did,
+        data: status,
+        link: status.mode === "demo" ? { label: "Connect your site", href: "/onboarding" } : { label: "Open the store", href: "/store" },
       };
     },
   }),

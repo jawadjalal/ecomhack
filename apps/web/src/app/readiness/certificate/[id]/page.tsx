@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, RefreshCw } from "lucide-react";
-import { Mascot } from "@/components/dw/mascot";
+import { ReadinessNav } from "@/components/readiness/readiness-nav";
 import { CertificateEmbed } from "@/components/readiness/certificate-embed";
 import { CertificateView, LEVEL_STYLE } from "@/components/readiness/certificate-view";
 import { getCertificate, isExpired } from "@/lib/readiness";
@@ -36,17 +36,14 @@ export default async function CertificatePage(props: PageProps<"/readiness/certi
   return (
     <main data-dw className="min-h-screen w-full bg-dw-bg font-dw text-dw-ink">
       <div className="mx-auto flex w-full max-w-[52rem] flex-col gap-6 px-4 pb-20 sm:px-8">
-        <nav className="flex h-20 items-center justify-between gap-3">
-          <Link href="/readiness" className="flex items-center gap-2 text-[18px] font-semibold">
-            <Mascot kind="analyst" size={30} /> Darwin <span className="hidden font-normal text-dw-muted sm:inline">agent readiness</span>
-          </Link>
+        <ReadinessNav>
           <Link
             href={`/readiness?url=${encodeURIComponent(cert.url)}`}
             className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-[14px] font-medium shadow-[0_0_0_1px_rgba(20,20,19,0.08)] hover:bg-[#fffaf0]"
           >
             <RefreshCw className="size-4" /> Check again
           </Link>
-        </nav>
+        </ReadinessNav>
 
         <CertificateView cert={cert} expired={expired} />
 

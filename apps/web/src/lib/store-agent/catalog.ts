@@ -115,7 +115,8 @@ export async function getCatalog(opts: { fresh?: boolean; now?: number } = {}): 
   try {
     const plans = rec(await whopGet(`/plans?account_id=${encodeURIComponent(company)}&first=50`, key))?.data;
     const offers = (Array.isArray(plans) ? plans : []).map(offerFromPlan).filter((o): o is Offer => !!o && o.available);
-    const business = getWhopStatus().connection?.title ?? company;
+    // The connected business's name, never the raw business id (it's the agent's public name on its A2A card).
+    const business = getWhopStatus().connection?.title ?? "Whop store";
     if (!offers.length) return kvSet(KEY, { ...DEMO_CATALOG, fetchedAt, cacheContext, note: `${business} has no public plans yet: showing demo offers until it does.` });
     return kvSet(KEY, { source: "whop", business, offers, fetchedAt, cacheContext });
   } catch (err) {

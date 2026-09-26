@@ -16,6 +16,8 @@ import { Typing } from "@/components/dw/ui";
 import { cn } from "@/components/ui/cn";
 import { CertificateEmbed } from "@/components/readiness/certificate-embed";
 import { CertificateSeal, CriteriaGrid, JudgeBadge, LEVEL_STYLE, isGrok } from "@/components/readiness/certificate-view";
+import { ReadinessNav } from "@/components/readiness/readiness-nav";
+import { AssistantsStrip } from "@/components/readiness/readiness-parts";
 
 type StreamEvent = ReadinessProgress | { type: "done"; report?: ReadinessReport; cert: ReadinessCertificate } | { type: "error"; error: string; report?: ReadinessReport };
 
@@ -632,16 +634,13 @@ export function ReadinessApp({ initialUrl = "" }: { initialUrl?: string }) {
 
   return (
     <main data-dw className="min-h-screen w-full overflow-x-clip bg-dw-bg font-dw text-dw-ink">
+      <ReadinessNav>
+        <Link href="/console" className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-[14px] font-medium shadow-[0_0_0_1px_rgba(20,20,19,0.08)] hover:bg-[#fffaf0]">
+          Console <ArrowRight className="size-4" />
+        </Link>
+      </ReadinessNav>
       <style>{`@keyframes rdIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.rd-in{animation:rdIn .35s cubic-bezier(.2,.8,.2,1) both}@media (prefers-reduced-motion:reduce){.rd-in{animation:none}}`}</style>
-      <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-6 px-4 pb-24 sm:px-8">
-        <nav className="flex h-20 items-center justify-between gap-3">
-          <Link href="/readiness" className="flex items-center gap-2 text-[18px] font-semibold">
-            <Mascot kind="analyst" size={30} /> Darwin <span className="hidden font-normal text-dw-muted sm:inline">agent readiness</span>
-          </Link>
-          <Link href="/console" className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-[14px] font-medium shadow-[0_0_0_1px_rgba(20,20,19,0.08)] hover:bg-[#fffaf0]">
-            Console <ArrowRight className="size-4" />
-          </Link>
-        </nav>
+      <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-6 px-4 pb-24 pt-4 sm:px-8">
 
         <header className={cn("flex flex-col gap-3", started ? "pt-2" : "pt-10 sm:pt-16")}>
           <div className="flex items-center gap-2">
@@ -735,6 +734,10 @@ export function ReadinessApp({ initialUrl = "" }: { initialUrl?: string }) {
         {phase === "done" && report && (
           <>
             <ScoreCard report={report} cert={cert} />
+            <section className="flex flex-col gap-3 rounded-[26px] border border-dw-hairline bg-dw-surface p-5 sm:p-6">
+              <div className="text-[17px] font-semibold">Which AI assistants your robots.txt lets in</div>
+              <AssistantsStrip report={report} />
+            </section>
             <Checks report={report} />
             <section className="flex flex-col gap-3">
               <h2 className="text-[24px] font-semibold">{cert && isGrok(cert) ? "Grok's shopping trial" : cert?.heuristic ? "Agent trial" : "The agent's shopping trial"}</h2>
