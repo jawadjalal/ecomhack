@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
+    "telegram:setup": "tsx scripts/telegram-setup.ts",
     "darwin": "tsx scripts/darwin.ts"
   },
   "dependencies": {
