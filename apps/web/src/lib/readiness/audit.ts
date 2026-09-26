@@ -1,7 +1,11 @@
 /**
  * The audit itself: fetch a store's agent-facing pages safely, then score them with ./checks.
  */
-import type { ReadinessReport } from "@/lib/contracts";
+import type {
+  CertificateTrial,
+  CertificateTrialStep,
+  ReadinessReport,
+} from "@/lib/contracts";
 import {
   evaluate,
   pickProductUrl,
@@ -83,36 +87,130 @@ export async function auditStore(input: string): Promise<ReadinessReport> {
   return (await auditWithArtifacts(input)).report;
 }
 
+/**
+ * Live progress of an audit + agent trial, in the order things really happen (GET /api/readiness/stream).
+ * `fetch`: one page came back. `audit`: the scored report. `trial`: the agent starts. `turn`: one agent tool
+ * call and the store's answer. `read`: the agent read the page text. `judged`: the trial's verdict.
+ */
+export type ReadinessProgress =
+  | {
+      type: "fetch";
+      id: string;
+      label: string;
+      url: string;
+      status: number;
+      ms: number;
+      tools?: string[];
+    }
+  | { type: "audit"; report: ReadinessReport }
+  | {
+      type: "trial";
+      agent: string;
+      mode: "mcp" | "page" | "none";
+      tools?: string[];
+      note?: string;
+    }
+  | { type: "turn"; step: CertificateTrialStep }
+  | { type: "read"; url: string; chars: number }
+  | { type: "judged"; trial: CertificateTrial };
+
+export type OnProgress = (e: ReadinessProgress) => void;
+
 /** The audit plus the raw pages it fetched (the certificate reuses them instead of fetching again). */
 export async function auditWithArtifacts(
   input: string,
+  onProgress?: OnProgress,
 ): Promise<{ report: ReadinessReport; artifacts: Artifacts }> {
   const started = Date.now();
   const url = normaliseStoreUrl(input);
   await assertPublicUrl(url);
   const origin = new URL(url).origin;
+  const host = new URL(url).host;
+  /** Report each page the moment it comes back (never throws: progress is best-effort). */
+  const track = <
+    T extends { status: number; url?: string; tools?: string[] } | undefined,
+  >(
+    id: string,
+    label: string,
+    at: string,
+    p: Promise<T>,
+  ): Promise<T> => {
+    if (!onProgress) return p;
+    const t0 = Date.now();
+    return p.then((r) => {
+      try {
+        onProgress({
+          type: "fetch",
+          id,
+          label,
+          url: r?.url || at,
+          status: r?.status ?? 0,
+          ms: Date.now() - t0,
+          ...(r?.tools ? { tools: r.tools.slice(0, 20) } : {}),
+        });
+      } catch {
+        /* ignore */
+      }
+      return r;
+    });
+  };
 
   const [home, robots, llms, agentCard, mcp, productsJson, ucp] =
     await Promise.all([
-      safeFetch(url),
-      safeFetch(`${origin}/robots.txt`, { timeoutMs: 5000 }),
-      safeFetch(`${origin}/llms.txt`, { timeoutMs: 5000 }),
-      safeFetch(`${origin}/.well-known/agent-card.json`, {
-        timeoutMs: 5000,
-      }).then((f) =>
-        f.status === 404
-          ? safeFetch(`${origin}/.well-known/agent.json`, { timeoutMs: 5000 })
-          : f,
+      track("home", `Opening ${host}`, url, safeFetch(url)),
+      track(
+        "robots",
+        "Reading your robots.txt (who may visit)",
+        `${origin}/robots.txt`,
+        safeFetch(`${origin}/robots.txt`, { timeoutMs: 5000 }),
       ),
-      probeMcp(origin),
-      safeFetch(`${origin}/products.json?limit=12`, { timeoutMs: 5000 }),
-      safeFetch(`${origin}/.well-known/ucp`, { timeoutMs: 5000 }),
+      track(
+        "llms",
+        "Looking for llms.txt (a guide written for AI)",
+        `${origin}/llms.txt`,
+        safeFetch(`${origin}/llms.txt`, { timeoutMs: 5000 }),
+      ),
+      track(
+        "agent-card",
+        "Looking for an agent card (a store agent to talk to)",
+        `${origin}/.well-known/agent-card.json`,
+        safeFetch(`${origin}/.well-known/agent-card.json`, {
+          timeoutMs: 5000,
+        }).then((f) =>
+          f.status === 404
+            ? safeFetch(`${origin}/.well-known/agent.json`, { timeoutMs: 5000 })
+            : f,
+        ),
+      ),
+      track(
+        "mcp",
+        "Asking if your store has tools agents can use",
+        `${origin}/api/mcp`,
+        probeMcp(origin),
+      ),
+      track(
+        "products",
+        "Asking your store for prices and stock",
+        `${origin}/products.json`,
+        safeFetch(`${origin}/products.json?limit=12`, { timeoutMs: 5000 }),
+      ),
+      track(
+        "ucp",
+        "Checking for an agent checkout",
+        `${origin}/.well-known/ucp`,
+        safeFetch(`${origin}/.well-known/ucp`, { timeoutMs: 5000 }),
+      ),
     ]);
 
   const sitemapUrl =
     (robots.status === 200 && parseRobots(robots.body).sitemaps[0]) ||
     `${origin}/sitemap.xml`;
-  const sitemap = await safeFetch(sitemapUrl, { timeoutMs: 5000 });
+  const sitemap = await track(
+    "sitemap",
+    "Reading your sitemap (the list of pages)",
+    sitemapUrl,
+    safeFetch(sitemapUrl, { timeoutMs: 5000 }),
+  );
 
   const artifacts: Artifacts = {
     url,
@@ -126,14 +224,23 @@ export async function auditWithArtifacts(
     sitemap,
   };
   const productUrl = pickProductUrl(artifacts);
-  if (productUrl) artifacts.product = await safeFetch(productUrl);
+  if (productUrl)
+    artifacts.product = await track(
+      "product",
+      "Reading one of your product pages",
+      productUrl,
+      safeFetch(productUrl),
+    );
 
-  return {
-    report: {
-      ...evaluate(artifacts),
-      checkedAt: new Date().toISOString(),
-      durationMs: Date.now() - started,
-    },
-    artifacts,
+  const report: ReadinessReport = {
+    ...evaluate(artifacts),
+    checkedAt: new Date().toISOString(),
+    durationMs: Date.now() - started,
   };
+  try {
+    onProgress?.({ type: "audit", report });
+  } catch {
+    /* ignore */
+  }
+  return { report, artifacts };
 }

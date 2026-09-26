@@ -15,6 +15,7 @@
  *
  * Certificates are stored in .data/readiness-certificates.json and expire after 90 days.
  */
+import OpenAI from "openai";
 import { z } from "zod";
 import type {
   CertificateCriterion,
@@ -38,9 +39,14 @@ import {
   llmLabel,
   runToolLoop,
   toolFromZod,
+  type LlmProvider,
   type LlmTool,
 } from "@/lib/llm/client";
-import { auditWithArtifacts, normaliseStoreUrl } from "./audit";
+import {
+  auditWithArtifacts,
+  normaliseStoreUrl,
+  type OnProgress,
+} from "./audit";
 import type { Artifacts, Fetched } from "./checks";
 import { safeFetch } from "./fetcher";
 import { findNode, jsonLdNodes, visibleText } from "./html";
@@ -341,6 +347,7 @@ async function nativeMcpTrial(
     maxSteps: number;
     budget: number;
     steps: CertificateTrialStep[];
+    provider?: LlmProvider;
   },
 ): Promise<Pick<TrialAction, "criteria" | "summary"> | undefined> {
   const started = Date.now();
@@ -378,6 +385,7 @@ async function nativeMcpTrial(
       },
     ],
     tools,
+    ...(o.provider ? { provider: o.provider } : {}),
     maxSteps: o.maxSteps + 1,
     maxTokens: 900,
     timeoutMs: DECISION_TIMEOUT_MS,
@@ -452,6 +460,141 @@ async function nativeMcpTrial(
   return finish;
 }
 
+/** A step list that reports each pushed step (the live transcript). */
+function observedSteps(
+  onStep?: (step: CertificateTrialStep) => void,
+): CertificateTrialStep[] {
+  const steps: CertificateTrialStep[] = [];
+  if (!onStep) return steps;
+  const push = steps.push.bind(steps);
+  steps.push = (...items: CertificateTrialStep[]) => {
+    const n = push(...items);
+    for (const it of items) {
+      try {
+        onStep({
+          ...it,
+          note: it.note.length > 240 ? `${it.note.slice(0, 240)}…` : it.note,
+        });
+      } catch {
+        /* progress is best-effort */
+      }
+    }
+    return n;
+  };
+  return steps;
+}
+
+/* ------------------------------------------------------------------ Grok */
+
+/** Grok model on OpenRouter, used when there's no xAI key (override with READINESS_GROK_MODEL). */
+export const DEFAULT_READINESS_GROK_MODEL = "x-ai/grok-4-fast";
+
+/**
+ * Who runs the trial. Grok is the product point: xAI key → Grok direct; else OpenRouter key → Grok through
+ * OpenRouter; else any other configured LLM ("AI agent"); else no trial ("rules").
+ */
+export type TrialAgent =
+  | { kind: "grok"; via: "xai"; label: string; name: string }
+  | {
+      kind: "grok";
+      via: "openrouter";
+      model: string;
+      label: string;
+      name: string;
+    }
+  | { kind: "llm"; label: string; name: string }
+  | { kind: "rules"; label: "heuristic"; name: string };
+
+export function trialAgent(): TrialAgent {
+  if (process.env.LLM_PROVIDER === "none")
+    return { kind: "rules", label: "heuristic", name: "Rules" };
+  if (process.env.XAI_API_KEY)
+    return { kind: "grok", via: "xai", label: llmLabel("xai"), name: "Grok" };
+  if (process.env.OPENROUTER_API_KEY) {
+    const model =
+      process.env.READINESS_GROK_MODEL?.trim() || DEFAULT_READINESS_GROK_MODEL;
+    return {
+      kind: "grok",
+      via: "openrouter",
+      model,
+      label: `llm:${model}`,
+      name: "Grok (via OpenRouter)",
+    };
+  }
+  if (llmAvailable())
+    return { kind: "llm", label: llmLabel(), name: "AI agent" };
+  return { kind: "rules", label: "heuristic", name: "Rules" };
+}
+
+/** One JSON answer from Grok through OpenRouter's OpenAI-compatible API (one retry if it doesn't validate). */
+async function grokJson<T>(
+  model: string,
+  system: string,
+  prompt: string,
+  schema: z.ZodType<T>,
+  maxTokens = 900,
+): Promise<T> {
+  const client = new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer":
+        process.env.DARWIN_PUBLIC_URL ||
+        "https://github.com/jawadjalal/ecomhack",
+      "X-Title": "Darwin agent readiness",
+    },
+  });
+  let last: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const started = Date.now();
+    const res = await client.chat.completions.create({
+      model,
+      max_tokens: maxTokens,
+      messages: [
+        {
+          role: "system",
+          content: `${system}\nRespond with one JSON object only, no prose.`,
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      // Fast answers: Grok's thinking off unless READINESS_GROK_REASONING=on.
+      ...(process.env.READINESS_GROK_REASONING === "on"
+        ? {}
+        : { reasoning: { enabled: false } }),
+    } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
+    console.info(
+      `[llm] openrouter ${res.model || model} answered in ${Date.now() - started}ms (readiness trial)`,
+    );
+    try {
+      return schema.parse(extractJson(res.choices[0]?.message?.content ?? ""));
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last instanceof Error ? last : new Error("Grok returned no valid JSON");
+}
+
+/** The MCP trial's decider, played by Grok via OpenRouter. */
+export function grokDecider(model: string): TrialDecider {
+  return (system, prompt) =>
+    withTimeout(
+      grokJson(model, system, prompt, TrialActionSchema),
+      DECISION_TIMEOUT_MS,
+      "Grok decision",
+    );
+}
+
+/** The page trial's judge, played by Grok via OpenRouter. */
+export function grokPageJudge(model: string): PageJudge {
+  return (system, prompt) =>
+    withTimeout(
+      grokJson(model, system, prompt, PageJudgementSchema),
+      DECISION_TIMEOUT_MS * 1.5,
+      "Grok page review",
+    );
+}
+
 /** "llm:deepseek/deepseek-v4-flash" → "deepseek-v4-flash". */
 export function modelName(label: string): string {
   return label.replace(/^llm:/, "").split("/").pop() || label;
@@ -473,7 +616,15 @@ const defaultDecider: TrialDecider = (system, prompt) =>
 export async function runMcpTrial(
   origin: string,
   mcp: Pick<McpConnection, "tools" | "call">,
-  opts: { decide?: TrialDecider; maxSteps?: number; budgetMs?: number } = {},
+  opts: {
+    decide?: TrialDecider;
+    maxSteps?: number;
+    budgetMs?: number;
+    /** Pin the native tool loop to a provider (Grok via xAI). */
+    provider?: LlmProvider;
+    /** Called as each tool call lands (live progress). */
+    onStep?: (step: CertificateTrialStep) => void;
+  } = {},
 ): Promise<CertificateTrial> {
   const started = Date.now();
   const maxSteps = opts.maxSteps ?? TRIAL_MAX_STEPS;
@@ -483,7 +634,7 @@ export async function runMcpTrial(
   const blocked = mcp.tools
     .filter((t) => isForbiddenTool(t.name))
     .map((t) => t.name);
-  const steps: CertificateTrialStep[] = [];
+  const steps = observedSteps(opts.onStep);
   let finish: Pick<TrialAction, "criteria" | "summary"> | undefined;
 
   if (!opts.decide) {
@@ -493,6 +644,7 @@ export async function runMcpTrial(
       maxSteps,
       budget,
       steps,
+      provider: opts.provider,
     });
   } else {
     const system = trialSystem(origin, maxSteps);
@@ -619,25 +771,35 @@ export type PageJudge = (
   prompt: string,
 ) => Promise<z.infer<typeof PageJudgementSchema>>;
 
-const defaultPageJudge: PageJudge = (system, prompt) =>
-  withTimeout(
-    generateJson({
-      system,
-      prompt,
-      schema: PageJudgementSchema,
-      maxTokens: 900,
-    }),
-    DECISION_TIMEOUT_MS * 1.5,
-    "agent page review",
-  );
+const pageJudgeFor =
+  (provider?: LlmProvider): PageJudge =>
+  (system, prompt) =>
+    withTimeout(
+      generateJson({
+        system,
+        prompt,
+        schema: PageJudgementSchema,
+        maxTokens: 900,
+        ...(provider ? { provider } : {}),
+      }),
+      DECISION_TIMEOUT_MS * 1.5,
+      "agent page review",
+    );
+const defaultPageJudge: PageJudge = pageJudgeFor();
 
 export async function runPageTrial(
   url: string,
   artifacts: Pick<Artifacts, "home" | "product">,
   judge: PageJudge = defaultPageJudge,
+  onProgress?: OnProgress,
 ): Promise<CertificateTrial> {
   const started = Date.now();
   const evidence = pageEvidence(artifacts);
+  try {
+    onProgress?.({ type: "read", url, chars: evidence.length });
+  } catch {
+    /* ignore */
+  }
   if (!evidence.trim()) {
     return {
       mode: "page",
@@ -751,6 +913,8 @@ export interface CertifyDeps {
   now?: () => Date;
   /** Default true. */
   persist?: boolean;
+  /** Live progress: each page fetched, the scored audit, each agent turn, the verdict. */
+  onProgress?: OnProgress;
 }
 
 const connectGuarded = (endpoint: string) =>
@@ -772,14 +936,41 @@ export async function certifyStore(
   deps: CertifyDeps = {},
 ): Promise<ReadinessCertificate> {
   const url = normaliseStoreUrl(input);
-  const { report, artifacts } = await (deps.audit ?? auditWithArtifacts)(url);
+  const emit: OnProgress = (e) => {
+    try {
+      deps.onProgress?.(e);
+    } catch {
+      /* progress is best-effort */
+    }
+  };
+  const { report, artifacts } = await (deps.audit ?? auditWithArtifacts)(
+    url,
+    deps.onProgress ? emit : undefined,
+  );
   const origin = report.origin;
+  const agent = trialAgent();
+  // Injected deciders (tests) win; else Grok via OpenRouter; else the default LLM (pinned to xAI for Grok).
+  const decide =
+    deps.decide ??
+    (agent.kind === "grok" && agent.via === "openrouter"
+      ? grokDecider(agent.model)
+      : undefined);
+  const judge =
+    deps.judge ??
+    (agent.kind === "grok" && agent.via === "openrouter"
+      ? grokPageJudge(agent.model)
+      : agent.kind === "grok"
+        ? pageJudgeFor("xai")
+        : undefined);
+  const provider: LlmProvider | undefined =
+    agent.kind === "grok" && agent.via === "xai" ? "xai" : undefined;
 
   let trial: CertificateTrial | undefined;
   let note: string | undefined;
-  if (!llmAvailable()) {
+  if (agent.kind === "rules") {
     note =
-      "No LLM key is configured, so no AI agent ran an agent trial; the level comes from the audit score alone.";
+      "No AI key is configured, so no agent shopped the store; the level comes from the audit score alone.";
+    emit({ type: "trial", agent: agent.name, mode: "none", note });
   } else {
     try {
       if (artifacts.mcp?.ok && artifacts.mcp.tools.length) {
@@ -795,14 +986,28 @@ export async function certifyStore(
           );
         }
         if (mcp) {
+          emit({
+            type: "trial",
+            agent: agent.name,
+            mode: "mcp",
+            tools: mcp.tools.map((t) => t.name).slice(0, 20),
+          });
           try {
-            trial = await runMcpTrial(origin, mcp, { decide: deps.decide });
+            trial = await runMcpTrial(origin, mcp, {
+              decide,
+              provider,
+              onStep: (step) => emit({ type: "turn", step }),
+            });
           } finally {
             await mcp.close().catch(() => undefined);
           }
         }
       }
-      trial ??= await runPageTrial(url, artifacts, deps.judge);
+      if (!trial) {
+        emit({ type: "trial", agent: agent.name, mode: "page" });
+        trial = await runPageTrial(url, artifacts, judge, emit);
+      }
+      emit({ type: "judged", trial });
     } catch (e) {
       console.warn(
         "[readiness] agent trial failed, issuing a heuristic certificate:",
@@ -825,7 +1030,7 @@ export async function certifyStore(
     platform: report.platform,
     verdict: verdictText(level, report, trial, note),
     ...(trial ? { trial } : {}),
-    model: trial ? llmLabel() : "heuristic",
+    model: trial ? agent.label : "heuristic",
     heuristic: !trial,
     ...(note ? { note } : {}),
     issuedAt: issued.toISOString(),

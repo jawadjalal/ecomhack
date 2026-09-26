@@ -14,12 +14,12 @@ export function CertificateEmbed({ base, certId, levelLabel, compact = false }: 
   const snippet = badgeEmbedHtml(origin, certId, levelLabel);
   const [done, setDone] = useState(false);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- the badge is a dynamic SVG endpoint */}
           <img src={`/api/readiness/badge/${certId}`} alt={`Darwin agent-ready: ${levelLabel}`} height={20} className="h-5 w-auto" />
-          {!compact && <span className="text-[0.84rem] text-white/50">Add the badge to your store&apos;s footer.</span>}
+          {!compact && <span className="text-[14px] text-dw-muted">Put this badge in your store&apos;s footer.</span>}
         </div>
         <button
           type="button"
@@ -29,14 +29,12 @@ export function CertificateEmbed({ base, certId, levelLabel, compact = false }: 
               setTimeout(() => setDone(false), 1500);
             });
           }}
-          className="flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[0.72rem] text-white/70 hover:bg-white/[0.08] hover:text-white"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full bg-dw-ink px-3.5 text-[13px] font-medium text-white hover:bg-black"
         >
-          {done ? <Check className="size-3" /> : <Copy className="size-3" />} {done ? "Copied" : "Copy embed code"}
+          {done ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} {done ? "Copied" : "Copy embed code"}
         </button>
       </div>
-      <pre className="overflow-x-auto rounded-lg border border-white/[0.07] bg-black/40 p-3 font-mono text-[0.72rem] leading-snug whitespace-pre-wrap break-all text-white/70">
-        {snippet}
-      </pre>
+      <pre className="overflow-x-auto rounded-[16px] bg-dw-sand p-3 font-dwmono text-[12px] leading-snug break-all whitespace-pre-wrap text-dw-ink/75">{snippet}</pre>
     </div>
   );
 }

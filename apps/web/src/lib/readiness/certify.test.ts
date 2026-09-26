@@ -59,6 +59,7 @@ const {
   getCertificate,
   isForbiddenTool,
   runMcpTrial,
+  trialAgent,
   trialProgress,
 } = await import("./certify");
 type TrialAction = import("./certify").TrialAction;
@@ -120,10 +121,17 @@ const allFound = {
   returns: { status: "found", evidence: "30-day free returns" },
 } as const;
 
+const ENV_KEYS = [
+  "XAI_API_KEY",
+  "OPENROUTER_API_KEY",
+  "READINESS_GROK_MODEL",
+  "LLM_PROVIDER",
+] as const;
 beforeEach(() => {
   llm.available = true;
   llm.responses = [];
   llm.calls = [];
+  for (const k of ENV_KEYS) delete process.env[k];
 });
 
 describe("certLevel", () => {
@@ -215,7 +223,7 @@ describe("certifyStore", () => {
     expect(getCertificate("../etc/passwd")).toBeUndefined();
   });
 
-  it("runs the MCP trial when the store exposes MCP", async () => {
+  it("runs the MCP trial when the store exposes MCP (Grok via xAI, native tools)", async () => {
     const calls: string[] = [];
     const connect = async () => ({
       tools: [
@@ -235,7 +243,7 @@ describe("certifyStore", () => {
       },
       close: async () => undefined,
     });
-    process.env.OPENROUTER_API_KEY = "test";
+    process.env.XAI_API_KEY = "test"; // Grok direct: the native tool loop pinned to xAI;
     const tc = (name: string, args: Record<string, unknown>) => ({
       choices: [
         {
@@ -276,7 +284,7 @@ describe("certifyStore", () => {
         persist: false,
       });
     } finally {
-      delete process.env.OPENROUTER_API_KEY;
+      delete process.env.XAI_API_KEY;
     }
     expect(calls).toEqual(["search_products", "add_to_cart"]);
     expect(cert.trial).toMatchObject({ mode: "mcp", passed: true });
@@ -491,5 +499,147 @@ describe("badge", () => {
     );
     expect(h).toContain(">agent-ready<");
     expect(h).toContain("not certified · 30");
+  });
+});
+
+/* ------------------------------------------------------------------ Grok via OpenRouter */
+
+/** An OpenRouter chat completion whose content is `obj` as JSON. */
+const orReply = (obj: unknown) => ({
+  model: "x-ai/grok-4-fast",
+  choices: [{ message: { content: JSON.stringify(obj) } }],
+});
+
+describe("trialAgent (who runs the trial)", () => {
+  it("prefers Grok via xAI, then Grok via OpenRouter, then any LLM, then rules", () => {
+    process.env.OPENROUTER_API_KEY = "or-test";
+    expect(trialAgent()).toMatchObject({
+      kind: "grok",
+      via: "openrouter",
+      model: "x-ai/grok-4-fast",
+      label: "llm:x-ai/grok-4-fast",
+      name: "Grok (via OpenRouter)",
+    });
+    process.env.READINESS_GROK_MODEL = "x-ai/grok-4";
+    expect(trialAgent()).toMatchObject({ model: "x-ai/grok-4" });
+    process.env.XAI_API_KEY = "xai-test";
+    expect(trialAgent()).toMatchObject({
+      kind: "grok",
+      via: "xai",
+      name: "Grok",
+    });
+    delete process.env.XAI_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    expect(trialAgent()).toMatchObject({ kind: "llm", name: "AI agent" });
+    llm.available = false;
+    expect(trialAgent()).toMatchObject({ kind: "rules", label: "heuristic" });
+  });
+});
+
+describe("certifyStore with Grok through OpenRouter", () => {
+  beforeEach(() => {
+    oa.create.mockReset();
+    process.env.OPENROUTER_API_KEY = "or-test";
+  });
+
+  it("page trial: asks Grok (x-ai/grok-4-fast) and reports live progress", async () => {
+    oa.create.mockResolvedValueOnce(
+      orReply({ criteria: allFound, summary: "An agent can buy here." }),
+    );
+    const events: string[] = [];
+    const cert = await certifyStore(SHOP, {
+      audit: fakeAudit(88),
+      persist: false,
+      onProgress: (e) =>
+        events.push(e.type === "trial" ? `trial:${e.agent}:${e.mode}` : e.type),
+    });
+    expect(oa.create).toHaveBeenCalledTimes(1);
+    const req = oa.create.mock.calls[0][0];
+    expect(req.model).toBe("x-ai/grok-4-fast");
+    expect(req.response_format).toEqual({ type: "json_object" });
+    expect(llm.calls).toHaveLength(0); // not the default LLM
+    expect(cert.heuristic).toBe(false);
+    expect(cert.model).toBe("llm:x-ai/grok-4-fast");
+    expect(cert.level).toBe("gold");
+    expect(events).toEqual([
+      "trial:Grok (via OpenRouter):page",
+      "read",
+      "judged",
+    ]);
+  });
+
+  it("MCP trial: Grok decides each turn; every tool call is streamed as it lands", async () => {
+    oa.create
+      .mockResolvedValueOnce(
+        orReply({
+          thought: "Find shoes",
+          tool: "search_products",
+          args: { query: "shoes" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        orReply({ tool: "add_to_cart", args: { sku: "trail" } }),
+      )
+      .mockResolvedValueOnce(
+        orReply({
+          tool: "finish",
+          criteria: allFound,
+          summary: "Found and carted it.",
+        }),
+      );
+    const called: string[] = [];
+    const turns: string[] = [];
+    const cert = await certifyStore(SHOP, {
+      audit: fakeAudit(90, {
+        mcp: {
+          ok: true,
+          status: 200,
+          tools: ["search_products", "add_to_cart"],
+        },
+      }),
+      connect: async () => ({
+        tools: [
+          { name: "search_products", description: "search" },
+          { name: "add_to_cart", description: "cart" },
+        ],
+        call: async (name: string) => {
+          called.push(name);
+          return {
+            ok: true,
+            data:
+              name === "search_products"
+                ? [{ sku: "trail", price: 12000 }]
+                : { cart: 1 },
+          };
+        },
+        close: async () => undefined,
+      }),
+      persist: false,
+      onProgress: (e) => {
+        if (e.type === "turn") turns.push(`${e.step.tool}:${e.step.ok}`);
+      },
+    });
+    expect(oa.create.mock.calls.map((c) => c[0].model)).toEqual([
+      "x-ai/grok-4-fast",
+      "x-ai/grok-4-fast",
+      "x-ai/grok-4-fast",
+    ]);
+    expect(called).toEqual(["search_products", "add_to_cart"]);
+    expect(turns).toEqual(["search_products:true", "add_to_cart:true"]);
+    expect(cert.trial?.mode).toBe("mcp");
+    expect(cert.trial?.steps?.[0].thought).toBe("Find shoes");
+    expect(cert.trial?.passed).toBe(true);
+    expect(cert.model).toBe("llm:x-ai/grok-4-fast");
+  });
+
+  it("falls back to a rules certificate if Grok fails, and says so", async () => {
+    oa.create.mockRejectedValue(new Error("502 from upstream"));
+    const cert = await certifyStore(SHOP, {
+      audit: fakeAudit(72),
+      persist: false,
+    });
+    expect(cert.heuristic).toBe(true);
+    expect(cert.model).toBe("heuristic");
+    expect(cert.note).toMatch(/couldn't finish/);
   });
 });
