@@ -17,6 +17,7 @@ export const PROTECTED_PREFIXES = [
   "/console",
   "/api/loop",
   "/api/github",
+  "/api/whop",
   "/api/simulate",
   "/api/agent/shop",
   "/api/agent/sessions",

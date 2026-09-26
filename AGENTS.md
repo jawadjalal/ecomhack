@@ -22,12 +22,14 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/simulator/           Synthetic humans + AI shoppers that react to the PageSpec.
   src/lib/optimizer/           The loop: insights → proposals → experiments → decisions → ship.
   src/lib/agent-commerce/      Agent-facing store: REST tools, MCP server, A2A merchant agent, negotiation, llms.txt.
+  src/lib/whop/                Whop connector (same API key as the Whop CLI) for onboarding.
   src/lib/github/              Connect repo, open analytics-install PR, open "ship winner" PR.
   src/lib/web/                 Web personalization for ANY store with darwin.js: rules, runtime.js, results, drafts.
   src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher.
   src/lib/llm/                 Grok (xAI) / Claude / heuristic fallback.
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
   src/app/store/**             The demo storefront (what shoppers see).
+  src/app/onboarding/**        First-run setup: prompt bar, connect Whop + GitHub, analytics PR, dashboards.
   src/app/console/**           Mission control (what judges see).
   src/app/api/**               HTTP API — see src/lib/contracts/api.ts for every route and shape.
 ```
@@ -46,6 +48,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | web | `lib/web/**`, `/api/web/**`, `/demo/**`, `app/console/personalize`, `components/web/**` | `webState`, `buildRuntime`, `createRule`, `updateRule`, `draftRule`, `suggestRules`, `simulateWebTraffic` |
 | readiness | `lib/readiness/**`, `/api/readiness`, `/api/leads`, `app/readiness/**`, `components/readiness/**` | `auditStore`, `evaluate` |
 | console | `app/page.tsx`, `app/console/**`, `components/console/**` | — |
+| onboarding | `app/onboarding/**`, `components/onboarding/**`, `lib/whop/**`, `/api/whop/**`, `public/onboarding/**` | `connectWhop`, `getWhopStatus` |
 
 Cross-module calls go through the public API above, never deep imports into another area.
 
