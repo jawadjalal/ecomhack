@@ -136,16 +136,33 @@ const SOURCE_LABEL: Record<TrafficSource, string> = {
   direct: "Direct",
 };
 
-export function computeTrafficReport(
-  events: readonly AnalyticsEvent[],
-  opts: { site?: string; includeSynthetic?: boolean; now?: Date } = {},
-): TrafficReport {
-  const site = opts.site && opts.site !== "all" ? opts.site : "all";
-  const includeSynthetic = opts.includeSynthetic ?? true;
-  const visitors = new Map<string, Touch>();
-  const sites = new Set<string>();
+export interface TrafficReportOptions {
+  site?: string;
+  includeSynthetic?: boolean;
+  now?: Date;
+}
 
-  for (const e of events) {
+/** What one pass over the events collects: first touch per visitor and the sites seen. */
+interface Scan {
+  site: string;
+  includeSynthetic: boolean;
+  visitors: Map<string, Touch>;
+  sites: Set<string>;
+}
+
+function startScan(opts: TrafficReportOptions): Scan {
+  return {
+    site: opts.site && opts.site !== "all" ? opts.site : "all",
+    includeSynthetic: opts.includeSynthetic ?? true,
+    visitors: new Map(),
+    sites: new Set(),
+  };
+}
+
+function scanEvents(scan: Scan, events: readonly AnalyticsEvent[], start: number, end: number) {
+  const { site, includeSynthetic, visitors, sites } = scan;
+  for (let i = start; i < end; i++) {
+    const e = events[i];
     if (!e.distinct_id) continue;
     const s = siteOf(e);
     sites.add(s);
@@ -168,7 +185,10 @@ export function computeTrafficReport(
       if (typeof p.revenue === "number" && Number.isFinite(p.revenue)) v.revenue += p.revenue;
     }
   }
+}
 
+function finishReport(scan: Scan, opts: TrafficReportOptions): TrafficReport {
+  const { site, includeSynthetic, visitors, sites } = scan;
   type Acc = Omit<TrafficRow, "conversionRate">;
   const dims = Object.fromEntries(TRAFFIC_DIMENSIONS.map((d) => [d, new Map<string, Acc>()])) as Record<TrafficDimension, Map<string, Acc>>;
   const add = (dim: TrafficDimension, key: string | undefined, label: string, v: Touch) => {
@@ -221,4 +241,27 @@ export function computeTrafficReport(
     totals,
     dimensions: Object.fromEntries(TRAFFIC_DIMENSIONS.map((d) => [d, finish(dims[d])])) as Record<TrafficDimension, TrafficRow[]>,
   };
+}
+
+export function computeTrafficReport(events: readonly AnalyticsEvent[], opts: TrafficReportOptions = {}): TrafficReport {
+  const scan = startScan(opts);
+  scanEvents(scan, events, 0, events.length);
+  return finishReport(scan, opts);
+}
+
+/** Events scanned between yields to the event loop, so a big store doesn't stall other requests. */
+const CHUNK = 20_000;
+
+/**
+ * computeTrafficReport over a snapshot of `events`, yielding to the event loop every CHUNK events so
+ * API calls (A2A, MCP, checkout) keep being served while a report is built.
+ */
+export async function computeTrafficReportAsync(events: readonly AnalyticsEvent[], opts: TrafficReportOptions = {}, chunk = CHUNK): Promise<TrafficReport> {
+  const snapshot = events.slice(); // the store trims from the front while we wait
+  const scan = startScan(opts);
+  for (let i = 0; i < snapshot.length; i += chunk) {
+    if (i) await new Promise((r) => setImmediate(r));
+    scanEvents(scan, snapshot, i, Math.min(i + chunk, snapshot.length));
+  }
+  return finishReport(scan, opts);
 }

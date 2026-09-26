@@ -106,5 +106,7 @@ export const config = {
     "/api/briefing",
     "/api/briefing/:path*",
     "/api/ask",
+    // The ⌘K / WebMCP command planner (lib/commands).
+    "/api/command",
   ],
 };

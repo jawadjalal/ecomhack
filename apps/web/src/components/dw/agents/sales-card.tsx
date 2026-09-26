@@ -6,7 +6,11 @@ import { TrackPill } from "@/components/dw/dashboards/charts";
 import { BuyerAvatar } from "./avatars";
 
 export const money = (minor: number, currency = "gbp") =>
-  new Intl.NumberFormat("en-GB", { style: "currency", currency: currency.toUpperCase(), maximumFractionDigits: 0 }).format(minor / 100);
+  new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: 0,
+  }).format(minor / 100);
 
 const ago = (iso: string) => {
   const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
@@ -19,12 +23,15 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
     ? [
         { label: "Talked to it", n: f.conversations },
         { label: "Saw offers", n: f.offersShown },
-        { label: "Got a checkout link", n: f.checkouts },
+        { label: "Checkout link", n: f.checkouts },
         { label: "Paid", n: f.paid },
       ]
     : [];
   const top = steps[0]?.n ?? 0;
-  const agents = (f?.byAgent ?? []).slice(0, 4).map((a) => ({ ...a, rate: a.conversations ? a.paid / a.conversations : 0 }));
+  const agents = (f?.byAgent ?? []).slice(0, 4).map((a) => ({
+    ...a,
+    rate: a.conversations ? a.paid / a.conversations : 0,
+  }));
   const best = Math.max(0.01, ...agents.map((a) => a.rate));
 
   return (
@@ -66,7 +73,7 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
             <TrackPill
               value={s.n}
               max={top}
-              height={76}
+              height={60}
               width={26}
               label={s.n.toLocaleString("en-GB")}
               tip={top ? `${Math.round((s.n / top) * 100)}% of conversations` : "No conversations yet"}
@@ -80,14 +87,18 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
       <div className="mt-4 rounded-[20px] bg-white/45 px-3.5 py-3">
         <div className="mb-1 flex items-baseline justify-between gap-3">
           <span className="text-[15px] font-semibold">By agent</span>
-          <span className="text-[12px] text-dw-ink/60">paid · higher is better</span>
+          <span className="text-[12px] text-dw-ink/60">{(f?.byAgent.length ?? 0) > agents.length ? `busiest ${agents.length} of ${f?.byAgent.length}` : "paid · higher is better"}</span>
         </div>
         {!agents.length ? (
           <p className="py-2 text-[13.5px] text-dw-ink/65">No agent has shopped yet. Run a simulated buyer, or connect your own agent.</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {agents.map((a) => (
-              <li key={a.agent} className="dw-row grid grid-cols-[26px_minmax(0,8rem)_minmax(0,1fr)_auto] items-center gap-2.5 py-[3px]" title={`${a.conversations} conversations → ${a.checkouts} checkout links → ${a.paid} paid`}>
+              <li
+                key={a.agent}
+                className="dw-row grid grid-cols-[26px_minmax(0,8rem)_minmax(0,1fr)_auto] items-center gap-2.5 py-[3px]"
+                title={`${a.conversations} conversations → ${a.checkouts} checkout links → ${a.paid} paid`}
+              >
                 <span className="dw-tilt">
                   <BuyerAvatar name={a.agent} size={24} />
                 </span>
@@ -100,28 +111,29 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
             ))}
           </ul>
         )}
-        {(f?.byAgent.length ?? 0) > agents.length && <p className="mt-1 text-[12px] text-dw-ink/55">+{(f?.byAgent.length ?? 0) - agents.length} more</p>}
       </div>
 
       {!!f?.recent.length && (
-        <div className="relative mt-3 min-h-0 flex-1 overflow-hidden" aria-label="Latest agent sales">
-          <div className="mb-1 flex items-baseline justify-between gap-3 px-1">
-            <span className="text-[13px] font-semibold">Just now</span>
-            <span className="text-[11.5px] text-dw-ink/55">checkout links and payments</span>
+        <div className="relative mt-3 h-40 lg:h-auto lg:min-h-12 lg:flex-1" aria-label="Latest agent sales">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="mb-1 flex items-baseline justify-between gap-3 px-1">
+              <span className="text-[13px] font-semibold">Just now</span>
+              <span className="text-[11.5px] text-dw-ink/55">checkout links and payments</span>
+            </div>
+            <ul className="flex flex-col">
+              {f.recent.slice(0, 6).map((r, i) => (
+                <li key={`${i}-${r.at}-${r.ref}-${r.step}`} className="flex items-center gap-2 px-1 py-[3px] text-[12.5px]">
+                  <span className={r.step === "paid" ? "size-1.5 shrink-0 rounded-full bg-dw-ink" : "size-1.5 shrink-0 rounded-full border border-dw-ink/60"} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-medium">{r.agent}</span> <span className="text-dw-ink/65">{r.step === "paid" ? "paid" : "got a checkout link"}</span>
+                  </span>
+                  {!!r.price && <span className="num shrink-0 font-dwmono text-[11.5px]">{money(r.price)}</span>}
+                  <span className="num w-14 shrink-0 text-right font-dwmono text-[11px] text-dw-ink/50">{ago(r.at)}</span>
+                </li>
+              ))}
+            </ul>
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-dw-yellow to-transparent" />
           </div>
-          <ul className="flex flex-col">
-            {f.recent.slice(0, 6).map((r) => (
-              <li key={`${r.at}-${r.ref}-${r.step}`} className="flex items-center gap-2 px-1 py-[3px] text-[12.5px]">
-                <span className={r.step === "paid" ? "size-1.5 shrink-0 rounded-full bg-dw-ink" : "size-1.5 shrink-0 rounded-full border border-dw-ink/60"} aria-hidden />
-                <span className="min-w-0 flex-1 truncate">
-                  <span className="font-medium">{r.agent}</span> <span className="text-dw-ink/65">{r.step === "paid" ? "paid" : "got a checkout link"}</span>
-                </span>
-                {!!r.price && <span className="num shrink-0 font-dwmono text-[11.5px]">{money(r.price)}</span>}
-                <span className="num w-14 shrink-0 text-right font-dwmono text-[11px] text-dw-ink/50">{ago(r.at)}</span>
-              </li>
-            ))}
-          </ul>
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-dw-yellow to-transparent" />
         </div>
       )}
     </Card>

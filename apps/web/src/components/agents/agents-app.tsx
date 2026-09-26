@@ -158,9 +158,9 @@ export function AgentsApp({ origin }: { origin: string }) {
       />
 
       {cat?.source === "demo" && (
-        <div role="note" title={cat.note} className="-mt-1 flex min-h-10 items-center gap-2.5 rounded-full bg-dw-warn-bg py-1.5 pr-1.5 pl-4 text-[13.5px] text-dw-warn">
+        <div role="note" title={cat.note} className="-mt-1 flex min-h-10 flex-wrap items-center gap-x-2.5 gap-y-2 rounded-[20px] bg-dw-warn-bg py-2 pr-2 pl-4 text-[13.5px] text-dw-warn sm:flex-nowrap sm:rounded-full sm:py-1.5 sm:pr-1.5">
           <Store className="size-4 shrink-0" />
-          <p className="min-w-0 flex-1 leading-snug sm:truncate">
+          <p className="min-w-0 flex-1 basis-[14rem] leading-snug sm:basis-auto sm:truncate">
             <b className="font-semibold">Demo catalog.</b> No Whop business connected yet: demo offers, and payments on the demo checkout are simulated and labelled.
           </p>
           <Link

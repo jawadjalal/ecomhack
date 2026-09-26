@@ -535,6 +535,25 @@ export function getAnalyticsSummary(filter: AnalyticsFilter = {}): AnalyticsSumm
   return summarize(eventStore().all(), filter);
 }
 
+const lastSummaries = new Map<string, { events: readonly AnalyticsEvent[]; length: number; newest?: string; summary: AnalyticsSummary }>();
+
+/**
+ * getAnalyticsSummary for polled, read-only endpoints: the last summary for the same filter is reused
+ * until an event is added or the store is reset (same array, same length, same newest event), so
+ * repeated polls between events cost nothing. The result is shared: don't mutate it.
+ */
+export function getAnalyticsSummaryShared(filter: AnalyticsFilter = {}): AnalyticsSummary {
+  const events = eventStore().all();
+  const key = JSON.stringify(filter);
+  const newest = events[events.length - 1]?.uuid;
+  const hit = lastSummaries.get(key);
+  if (hit && hit.events === events && hit.length === events.length && hit.newest === newest) return hit.summary;
+  const summary = summarize(events, filter);
+  if (lastSummaries.size >= 32) lastSummaries.clear();
+  lastSummaries.set(key, { events, length: events.length, newest, summary });
+  return summary;
+}
+
 /* ------------------------------------------------------------------ experiments */
 
 export interface VariantKindStats {

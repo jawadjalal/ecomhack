@@ -81,7 +81,16 @@ const newestFirst = (a: Experiment, b: Experiment) => Date.parse(b.createdAt) - 
 export function pickExperiment(exps: Experiment[] | undefined, loop: LoopState | undefined): Experiment | undefined {
   if (!exps?.length) return undefined;
   const running = exps.filter((e) => e.status === "running").sort(newestFirst);
-  return running.find((e) => e.id === loop?.experimentId) ?? running[0] ?? [...exps].sort(newestFirst)[0];
+  // Nothing running: open on the latest shipped winner (losses stay in the list below, just not first).
+  return running.find((e) => e.id === loop?.experimentId) ?? running[0] ?? latestWin(exps, loop) ?? [...exps].sort(newestFirst)[0];
+}
+
+/** The experiment behind the newest shipped generation, else the newest test whose verdict was "ship". */
+export function latestWin(exps: Experiment[] | undefined, loop: LoopState | undefined): Experiment | undefined {
+  if (!exps?.length) return undefined;
+  const gen = [...(loop?.history ?? [])].reverse().find((g) => g.generation > 0 && g.experimentId);
+  const shipped = gen ? exps.find((e) => e.id === gen.experimentId) : undefined;
+  return shipped ?? exps.filter((e) => e.status === "completed" && e.result?.decision === "ship").sort(newestFirst)[0];
 }
 
 export function historyFor(exp: Experiment | undefined, loop: LoopState | undefined): GenerationRecord | undefined {

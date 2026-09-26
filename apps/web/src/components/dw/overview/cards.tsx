@@ -123,7 +123,11 @@ export function ConversionCard({
           )}
         </div>
         {last && chart && (
-          <div role="tablist" aria-label="Chart" className="flex flex-wrap gap-x-6 gap-y-2">
+          <div
+            role="tablist"
+            aria-label="Chart"
+            className="flex flex-wrap gap-x-6 gap-y-2 max-sm:grid max-sm:w-full max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:gap-y-3"
+          >
             {tabs.map((t) => {
               const on = t.key === tab;
               return (
@@ -230,7 +234,9 @@ export function ConversionCard({
             <div className="flex gap-2.5 text-[12px] text-[#4F4417]">
               {points.map((p, i) => (
                 <span key={p.label} className={cn("flex-1 truncate text-center", i === points.length - 1 && "font-semibold text-dw-ink")} title={p.title}>
-                  {i === points.length - 1 ? `${p.label} · live` : p.label}
+                  <span className="max-sm:hidden">{i === points.length - 1 ? `${p.label} · live` : p.label}</span>
+                  {/* Phones: many generations share a narrow card, so just the generation number (0 … Now). */}
+                  <span className="sm:hidden">{i === 0 ? "0" : i === points.length - 1 ? "Now" : p.label.replace(/^Gen\s*/, "")}</span>
                 </span>
               ))}
             </div>
@@ -257,7 +263,7 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
   return (
     <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col px-[26px] py-[22px]", ROW1, PHONE, FILL)} aria-label="A vs B">
       <CardHead
-        title={ended ? "Last test" : "A vs B"}
+        title={ended ? (decision === "ship" ? "Last win" : "Last test") : "A vs B"}
         right={
           test && (
             <Link
@@ -320,7 +326,13 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
                 <span>
                   <span className="num font-semibold text-dw-ink">{pctSmart(chance)}</span> chance B wins
                 </span>
-                <span>ships at {Math.round(SHIP_AT * 1000) / 10}%</span>
+                {ended ? (
+                  <Link href="/console/experiments" className="font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4 hover:decoration-dw-ink">
+                    See all tests
+                  </Link>
+                ) : (
+                  <span>ships at {Math.round(SHIP_AT * 1000) / 10}%</span>
+                )}
               </div>
               <div
                 className="relative h-2 rounded-full bg-dw-ink/[0.12]"

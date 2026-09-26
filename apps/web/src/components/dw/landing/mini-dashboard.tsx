@@ -14,7 +14,7 @@ import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Mascot } from "@/components/dw/mascot";
 import { AgentTile, agentBrand, type AgentBrand } from "@/components/dw/agent-tile";
 import { ArmChip, Card, HBar, LegendKey, LiveDot, PillBar, Typing } from "@/components/dw/ui";
-import { useLiveDemo, type LiveDemo } from "./use-live-demo";
+import type { LiveDemo } from "./use-live-demo";
 
 const pct = (x: number, d = 1) => `${(x * 100).toFixed(d)}%`;
 
@@ -47,9 +47,8 @@ function useBox<T extends HTMLElement>() {
  * The tilted, floating dashboard. `fit="both"` scales to the container's width and height (desktop:
  * it fills whatever the hero leaves); `fit="width"` scales to width and sets its own height (phones).
  */
-export function LiveDashboard({ className }: { className?: string }) {
+export function LiveDashboard({ demo, className }: { demo: LiveDemo; className?: string }) {
   const reduce = useReducedMotion() ?? false;
-  const demo = useLiveDemo({ slow: reduce });
   const [ref, box] = useBox<HTMLDivElement>();
   const compact = box.w > 0 && box.w < 720;
   const W = compact ? 560 : 1200;
@@ -128,7 +127,7 @@ function Frame({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
 }
 
 function MiniNav({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
-  const steps = ["Overview", "Issues", "Fixes", "Experiments", "Pull requests"];
+  const steps = ["Overview", "Issues", "Fixes", "Experiments", "Changes"];
   return (
     <div className="flex h-11 items-center justify-between gap-3">
       <span className="flex items-center gap-2">
@@ -170,11 +169,11 @@ function smooth(pts: [number, number][]): string {
 
 const SLOTS = 12;
 
-function ConversionCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
+function ConversionCard({ demo, compact, width, className }: { demo: LiveDemo; compact?: boolean; width?: number; className?: string }) {
   const o = demo.summary?.overall;
   const agents = demo.summary?.byKind.agent;
   const samples = demo.samples;
-  const CW = compact ? 470 : 660;
+  const CW = width ?? (compact ? 470 : 660);
   const CH = compact ? 96 : 118;
   const slotW = CW / SLOTS;
   const offset = SLOTS - samples.length;
@@ -190,7 +189,7 @@ function ConversionCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }
   const lastRate = samples.at(-1)?.rate;
 
   return (
-    <Card tone="yellow" shape="designer" corner="tr" className="flex flex-col p-5">
+    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col p-5", className)}>
       <div className="flex items-baseline justify-between">
         <h3 className="text-[19px] font-semibold tracking-[-0.02em]">Conversion</h3>
         <span className="flex items-center gap-3">
@@ -276,7 +275,7 @@ function MiniStat({ value, format, label, active }: { value?: number; format: (v
   );
 }
 
-function AvsBCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
+function AvsBCard({ demo, compact, className }: { demo: LiveDemo; compact?: boolean; className?: string }) {
   const exp: Experiment | undefined = demo.experiment;
   const r = exp?.result;
   const a = r?.control.conversionRate ?? 0;
@@ -288,7 +287,7 @@ function AvsBCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }) {
   const agentB = r?.treatment.byKind.agent.conversionRate;
 
   return (
-    <Card tone="pink" shape="experimenter" corner="br" className="flex flex-col p-5">
+    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col p-5", className)}>
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-[19px] font-semibold tracking-[-0.02em]">A vs B</h3>
         {exp && <span className="min-w-0 truncate text-[12px] underline decoration-dw-ink/40 underline-offset-4">{exp.name}</span>}
@@ -513,3 +512,98 @@ function Outcome({ s }: { s: AgentSessionSummary }): ReactNode {
   );
 }
 
+/* ------------------------------------------------------------------ phones */
+
+const STRIP = ["Conversion", "A vs B", "Live shoppers"] as const;
+
+/**
+ * Phones: the same live demo as a swipeable strip of three cards (Conversion, A vs B, the latest AI
+ * shoppers) with page dots. Flat on the cream page: no frame, no tilt.
+ */
+export function LiveStrip({ demo, className }: { demo: LiveDemo; className?: string }) {
+  const reduce = useReducedMotion() ?? false;
+  const scroller = useRef<HTMLDivElement>(null);
+  const [card, box] = useBox<HTMLDivElement>();
+  const [idx, setIdx] = useState(0);
+  const step = box.w + 12;
+  const go = (i: number) => scroller.current?.scrollTo({ left: i * step, behavior: reduce ? "auto" : "smooth" });
+
+  return (
+    <section aria-label="Live demo of the Darwin dashboard, with simulated shoppers" className={cn("w-full", className)}>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-[13.5px] font-medium">
+          <LiveDot /> Live demo <span className="text-dw-ink/55">· simulated shoppers</span>
+        </span>
+        <span className="num font-dwmono text-[12px] text-dw-ink/55" aria-hidden>
+          {idx + 1}/{STRIP.length}
+        </span>
+      </div>
+      <div
+        ref={scroller}
+        onScroll={(e) => step > 12 && setIdx(Math.max(0, Math.min(STRIP.length - 1, Math.round(e.currentTarget.scrollLeft / step))))}
+        className="-mx-4 mt-3 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto overscroll-x-contain px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div ref={card} className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
+          <ConversionCard demo={demo} compact width={Math.max(160, box.w - 40)} className="h-full" />
+        </div>
+        <div className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
+          <AvsBCard demo={demo} compact className="h-full" />
+        </div>
+        <div className="h-[296px] w-[86%] max-w-[22rem] shrink-0 snap-start">
+          <StripShoppers sessions={demo.sessions} />
+        </div>
+      </div>
+      <div className="mt-3.5 flex items-center justify-center gap-1" role="group" aria-label="Demo cards">
+        {STRIP.map((name, i) => (
+          <button
+            key={name}
+            type="button"
+            aria-label={`Show ${name}`}
+            aria-current={i === idx ? "true" : undefined}
+            onClick={() => go(i)}
+            className="grid h-6 place-items-center px-1 focus-visible:outline-2 focus-visible:outline-dw-ink"
+          >
+            <span className={cn("block h-1.5 rounded-full transition-all duration-300", i === idx ? "w-5 bg-dw-ink" : "w-1.5 bg-dw-ink/25")} />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StripShoppers({ sessions }: { sessions: AgentSessionSummary[] }) {
+  return (
+    <Card tone="blue" shape="observer" corner="br" className="flex h-full flex-col p-5">
+      <div className="flex items-baseline justify-between">
+        <h3 className="flex items-center gap-2 text-[19px] font-semibold tracking-[-0.02em]">
+          Live shoppers <LiveDot />
+        </h3>
+        <span className="text-[11.5px] text-dw-ink/70">AI agents, simulated</span>
+      </div>
+      <ul className="mt-3 flex flex-col gap-2">
+        <AnimatePresence initial={false}>
+          {sessions.slice(0, 3).map((s) => (
+            <motion.li
+              key={s.sessionId}
+              layout
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              className="flex h-[62px] items-center gap-3 rounded-[18px] bg-white/60 px-3"
+            >
+              <ShopperMark name={s.agentName} size={38} />
+              <Row s={s} />
+              <Outcome s={s} />
+            </motion.li>
+          ))}
+        </AnimatePresence>
+        {!sessions.length && (
+          <li className="flex items-center gap-2 py-2 text-[13px] text-dw-ink/65">
+            Waiting for the first AI shoppers <Typing />
+          </li>
+        )}
+      </ul>
+    </Card>
+  );
+}

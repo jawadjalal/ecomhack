@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import {
@@ -32,11 +32,13 @@ import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { DashboardGrid } from "@/components/dashboards/dashboard-grid";
 import { Mascot } from "@/components/dw/mascot";
-import { Card, Empty, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
+import { Card, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
 import { BrandGlyph, WhopLogo } from "@/components/dw/brand-logos";
+import { Art } from "@/components/dw/art";
+import { Gel } from "@/components/dw/gel";
+import { Sticker } from "@/components/dw/sticker";
 import {
   AgentBubble,
-  Backdrop,
   BrainChip,
   CheckPop,
   Drawer,
@@ -44,11 +46,13 @@ import {
   ErrorLine,
   StageHead,
   StepList,
+  StageArt,
   Stepper,
   YouBubble,
   brainOf,
   inputCls,
   linkCls,
+  useIsPhone,
 } from "@/components/dw/onboarding/bits";
 import { AskChat, answerChips, composePrompt, type Answers } from "@/components/dw/onboarding/ask";
 import { PrCard } from "@/components/dw/onboarding/pr-card";
@@ -63,6 +67,13 @@ type Stage = "connect" | "ask" | "plan" | "install" | "live";
 const PR_STEPS = ["Reading the repository", "Adding darwin.js and your tracking plan", "Opening a pull request"];
 
 const SUGGESTIONS = ["Also track wishlist adds", "Don't track rage clicks", "Track coupon codes"];
+
+/** Screen 1's starters: one tap writes a first message the merchant can edit. */
+const EXAMPLES = [
+  { label: "Running shoes", text: "Trail running shoes. Checkout feels slow on mobile and people keep asking about sizing." },
+  { label: "Candles", text: "Handmade candles. Lots of people add to cart, then leave." },
+  { label: "Courses on Whop", text: "Online courses sold on Whop. Can AI shopping agents buy them?" },
+];
 
 async function http<T>(method: "GET" | "POST" | "PATCH" | "PUT", path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
@@ -228,6 +239,16 @@ export function OnboardingApp() {
   const connected = !!repo || !!website;
   const brain = brainOf(designer);
 
+  // Every step starts at its top (on a phone the last step can leave you deep in a long page).
+  const firstStage = useRef(true);
+  useEffect(() => {
+    if (firstStage.current) {
+      firstStage.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0 });
+  }, [stage]);
+
   const reply = (text: string) => setChat((c) => [...c.filter((m) => !m.pending), { from: "darwin", text }]);
 
   /** Screen 1 → 2: connected, now Darwin asks. */
@@ -373,14 +394,15 @@ export function OnboardingApp() {
   };
 
   const connectedTo = repo ?? (website ? hostOf(website) : "");
+  const canStartOver = hydrated && (stage !== "connect" || connected || !!whop);
 
   return (
     <MotionConfig reducedMotion="user">
-      <main data-dw className="relative min-h-screen w-full overflow-clip bg-dw-bg font-dw text-dw-ink">
-        <Backdrop stage={stage} />
+      <main data-dw className="relative min-h-[100svh] w-full overflow-clip bg-dw-bg font-dw text-dw-ink">
+        <StageArt stage={stage} />
 
-        <div className="relative flex min-h-screen w-full flex-col">
-          {/* Screen 1 is the composer and nothing else; the nav arrives with the next step. */}
+        <div className="relative flex min-h-[100svh] w-full flex-col">
+          {/* Screen 1 is the composer on its painting and nothing else; the nav arrives with the next step. */}
           <AnimatePresence>
             {stage !== "connect" && (
               <motion.nav
@@ -388,19 +410,19 @@ export function OnboardingApp() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, ease: EASE }}
-                className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto_1fr] items-center gap-x-3 gap-y-3 px-4 pt-5 sm:px-7 md:grid-cols-[1fr_auto_1fr]"
+                className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto_1fr] items-center gap-x-3 gap-y-3 px-4 pt-4 sm:px-7 sm:pt-5 md:grid-cols-[1fr_auto_1fr]"
               >
                 <Link
                   href="/console"
                   aria-label="Darwin console"
-                  className="flex items-center gap-2.5 justify-self-start rounded-full focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+                  className="flex h-11 items-center gap-2 justify-self-start rounded-full bg-dw-bg pr-4 pl-1.5 focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
                 >
                   <Mascot kind="analyst" size={32} active />
-                  <span className="text-[22px] font-semibold tracking-[-0.02em]">darwin</span>
+                  <span className="text-[20px] font-semibold tracking-[-0.02em]">darwin</span>
                 </Link>
-                <Stepper step={stage === "ask" ? "plan" : stage} className="col-span-2 justify-self-center max-md:order-last md:col-span-1" />
+                <Stepper step={stage === "ask" ? "plan" : stage} className="col-span-2 justify-self-center max-md:order-last max-sm:hidden md:col-span-1" />
                 <span
-                  className="flex h-10 max-w-[12rem] min-w-0 items-center gap-2 justify-self-end rounded-full bg-dw-sand px-3.5 text-[13.5px] font-medium sm:max-w-[18rem]"
+                  className="flex h-10 max-w-[12rem] min-w-0 items-center gap-2 justify-self-end rounded-full bg-dw-bg px-3.5 text-[13.5px] font-medium sm:max-w-[18rem]"
                   title={connectedTo}
                 >
                   <LiveDot />
@@ -416,134 +438,170 @@ export function OnboardingApp() {
             )}
           </AnimatePresence>
 
-          <div
-            className={cn(
-              "mx-auto flex w-full flex-1 flex-col px-4 pb-20 transition-[max-width] duration-500 sm:px-7",
-              WIDTH[stage],
-              stage === "connect" ? "justify-center py-10" : "pt-8 sm:pt-10",
-            )}
-          >
-            <AnimatePresence mode="wait">
-              {stage === "connect" && (
-                <motion.section key="connect" {...fade} className="flex flex-col items-center gap-8 sm:gap-10">
-                  <h1 className="isolate text-center text-[34px] leading-[1.06] font-semibold tracking-[-0.03em] text-balance sm:text-[46px]">
-                    Let&apos;s make your store{" "}
-                    <span className="relative inline-block whitespace-nowrap">
-                      <motion.span
-                        aria-hidden
-                        className="absolute inset-x-[-0.12em] bottom-[0.04em] -z-10 h-[0.42em] rounded-full bg-dw-yellow"
-                        style={{ originX: 0 }}
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: 1 }}
-                        transition={{ delay: 0.35, duration: 0.7, ease: EASE }}
-                      />
-                      improve itself
-                    </span>
-                  </h1>
-
-                  <div
-                    className={cn(
-                      "w-full rounded-[30px] border bg-dw-surface transition-[border-color,box-shadow] duration-500 focus-within:border-dw-ink/25",
-                      connected
-                        ? "border-dw-live/45 shadow-[0_0_0_5px_rgba(31,181,122,0.10),0_30px_70px_-34px_rgba(20,20,19,0.40)]"
-                        : "border-dw-hairline shadow-[0_30px_70px_-34px_rgba(20,20,19,0.35)]",
-                    )}
-                  >
-                    <div className="flex items-start gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
-                      <motion.span
-                        key={connected ? "yes" : "no"}
-                        className="mt-0.5 inline-grid"
-                        animate={
-                          connected
-                            ? {
-                                y: [0, -12, 0, -4, 0],
-                                rotate: [0, -10, 6, 0, 0],
-                              }
-                            : undefined
-                        }
-                        transition={{ duration: 0.8 }}
-                      >
-                        <Mascot kind="analyst" frame size={44} active title="Darwin" />
-                      </motion.span>
-                      <textarea
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            if (connected) toAsk();
-                            else setOpen("github");
-                          }
-                        }}
-                        rows={3}
-                        placeholder="What do you sell, and what worries you? e.g. “trail running shoes; checkout feels slow on mobile and people ask about sizing”"
-                        aria-label="Tell Darwin about your store"
-                        className="min-h-[7.4rem] w-full resize-none sm:min-h-[5.6rem] bg-transparent pt-2.5 text-[16.5px] leading-relaxed text-dw-ink outline-none placeholder:text-dw-ink/35"
-                      />
+          {/* After screen 1 the stage is a cream sheet rising over the painting. */}
+          <div className={cn("relative flex w-full flex-1 flex-col", stage !== "connect" && "mt-16 rounded-t-[30px] bg-dw-bg sm:mt-32 sm:rounded-t-[44px]")}>
+            <div
+              className={cn(
+                "mx-auto flex w-full flex-1 flex-col px-4 pb-20 transition-[max-width] duration-500 sm:px-7",
+                WIDTH[stage],
+                stage === "connect" ? "justify-center py-10 max-sm:justify-start max-sm:py-0" : "pt-5 sm:pt-10",
+              )}
+            >
+              {stage !== "connect" && <Stepper variant="bar" step={stage === "ask" ? "plan" : stage} className="mb-6 sm:hidden" />}
+              <AnimatePresence mode="wait">
+                {stage === "connect" && (
+                  <motion.section key="connect" {...fade} className="flex flex-col items-center gap-8 max-sm:flex-1 max-sm:items-stretch max-sm:gap-0 sm:gap-9">
+                    {/* phones: a slim bar on the painting */}
+                    <div className="flex h-14 items-center justify-between sm:hidden">
+                      <Link href="/" aria-label="Darwin home" className="flex items-center gap-2 rounded-full focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none">
+                        <Mascot kind="analyst" size={30} active />
+                        <span className="text-[20px] font-semibold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(20,20,19,0.35)]">darwin</span>
+                      </Link>
+                      {canStartOver && (
+                        <button
+                          type="button"
+                          onClick={startOver}
+                          className="h-9 rounded-full bg-dw-bg px-3.5 text-[13px] font-medium text-dw-ink transition-transform focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none active:scale-[0.97]"
+                        >
+                          Start over
+                        </button>
+                      )}
                     </div>
 
-                    <AnimatePresence initial={false}>
-                      {open === "whop" && (
-                        <Drawer key="whop">
-                          <WhopConnect
-                            status={whopStatus}
-                            onConnected={(c) => {
-                              setWhop(c);
-                              setOpen(repo ? null : "github");
-                            }}
-                          />
-                        </Drawer>
-                      )}
-                      {open === "github" && (
-                        <Drawer key="github">
-                          <GithubConnect
-                            current={repo}
-                            status={ghStatus}
-                            auth={auth}
-                            authError={authError}
-                            onSignIn={() => {
-                              try {
-                                sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ prompt }));
-                              } catch {
-                                /* storage blocked: the prompt is retyped */
-                              }
-                              track("github_sign_in_started");
-                              // A full-page navigation (not the router): the API route redirects to github.com.
-                              window.location.assign(new URL("/api/auth/github/start?return=/onboarding", window.location.origin).href);
-                            }}
-                            onConnected={(r) => {
-                              setRepo(r);
-                              setWebsite(null);
-                              setOpen(null);
-                            }}
-                            onWebsite={(url) => {
-                              setWebsite(url);
-                              setRepo(null);
-                              setOpen(null);
-                              track("script_tag_chosen");
-                            }}
-                          />
-                        </Drawer>
-                      )}
-                    </AnimatePresence>
+                    <h1 className="isolate text-center text-[34px] leading-[1.06] font-semibold tracking-[-0.03em] text-balance text-white [text-shadow:0_2px_14px_rgba(20,40,60,0.35)] max-sm:mt-[7svh] max-sm:text-left max-sm:text-[40px] max-sm:leading-[1.02] sm:text-[52px]">
+                      Let&apos;s make your store{" "}
+                      <span className="relative inline-block whitespace-nowrap text-dw-ink [text-shadow:none]">
+                        <motion.span
+                          aria-hidden
+                          className="absolute inset-x-[-0.1em] inset-y-[0.04em] -z-10 rounded-[0.16em] bg-dw-yellow"
+                          style={{ originX: 0 }}
+                          initial={{ scaleX: 0 }}
+                          animate={{ scaleX: 1 }}
+                          transition={{ delay: 0.35, duration: 0.7, ease: EASE }}
+                        />
+                        improve itself
+                      </span>
+                    </h1>
+                    <p className="mt-3 text-[17px] leading-snug text-white [text-shadow:0_1px_8px_rgba(20,40,60,0.45)] sm:hidden">Tell Darwin what you sell and what worries you.</p>
 
-                    {!connected && !open && prompt.trim() && (
-                      <p className="flex items-center gap-1.5 px-5 pt-1 text-[13px] text-dw-ink/60 sm:px-6">
-                        <ArrowDown className="size-3.5 motion-safe:animate-bounce" /> Connect GitHub (or add one script tag) to continue. Whop is optional: it adds your payments.
-                      </p>
+                    {/* starters: one tap writes a first message */}
+                    {!prompt.trim() && (
+                      <div className="flex flex-wrap items-center gap-2 max-sm:mt-5 sm:order-last sm:justify-center" aria-label="Examples">
+                        <span className="text-[13.5px] font-medium text-white [text-shadow:0_1px_6px_rgba(20,40,60,0.5)] max-sm:sr-only">Try</span>
+                        {EXAMPLES.map((x) => (
+                          <button
+                            key={x.label}
+                            type="button"
+                            onClick={() => setPrompt(x.text)}
+                            className="h-9 rounded-full bg-dw-bg/95 px-3.5 text-[14px] font-medium text-dw-ink transition-[transform,background-color] hover:bg-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none active:scale-[0.97]"
+                          >
+                            {x.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
-                    <div className="flex items-end justify-between gap-3 px-3 pt-3 pb-3 sm:px-4 sm:pb-4">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <ConnectButton
+
+                    {/*
+                      The composer. One DOM for both layouts (the textarea stays one element):
+                      computer: a crisp beveled card, field on top, drawer, then the stickers and the gel;
+                      phone: pinned to the bottom, drawer sheet, stickers on the painting, then the ink dock.
+                    */}
+                    <div
+                      className={cn(
+                        "dw-bevel grid w-full grid-cols-[minmax(0,1fr)_auto] rounded-[28px] transition-shadow duration-500",
+                        "max-sm:sticky max-sm:bottom-0 max-sm:z-30 max-sm:-mx-4 max-sm:mt-auto max-sm:w-auto max-sm:rounded-none max-sm:bg-transparent max-sm:bg-none max-sm:pt-6 max-sm:shadow-none",
+                      )}
+                    >
+                      {/* phones: the ink dock behind the field and the send */}
+                      <div aria-hidden className="col-[1/-1] row-start-4 rounded-t-[28px] bg-dw-ink sm:hidden" />
+
+                      <div className="flex items-start gap-3 px-5 pt-5 max-sm:col-start-1 max-sm:row-start-4 max-sm:items-end max-sm:gap-2.5 max-sm:pt-3 max-sm:pr-2 max-sm:pb-[max(12px,env(safe-area-inset-bottom))] max-sm:pl-3 sm:col-[1/-1] sm:row-start-1">
+                        <motion.span
+                          key={connected ? "yes" : "no"}
+                          className="mt-0.5 inline-grid max-sm:mt-0"
+                          animate={connected ? { y: [0, -12, 0, -4, 0], rotate: [0, -10, 6, 0, 0] } : undefined}
+                          transition={{ duration: 0.8 }}
+                        >
+                          <Mascot kind="analyst" frame size={44} active title="Darwin" />
+                        </motion.span>
+                        <PromptField
+                          value={prompt}
+                          onChange={setPrompt}
+                          onEnter={() => {
+                            if (connected) toAsk();
+                            else setOpen("github");
+                          }}
+                        />
+                      </div>
+
+                      <div className="col-[1/-1] max-sm:row-start-1 sm:row-start-2">
+                        <AnimatePresence initial={false}>
+                          {open === "whop" && (
+                            <Drawer key="whop">
+                              <WhopConnect
+                                status={whopStatus}
+                                onConnected={(c) => {
+                                  setWhop(c);
+                                  setOpen(repo ? null : "github");
+                                }}
+                              />
+                            </Drawer>
+                          )}
+                          {open === "github" && (
+                            <Drawer key="github">
+                              <GithubConnect
+                                current={repo}
+                                status={ghStatus}
+                                auth={auth}
+                                authError={authError}
+                                onSignIn={() => {
+                                  try {
+                                    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ prompt }));
+                                  } catch {
+                                    /* storage blocked: the prompt is retyped */
+                                  }
+                                  track("github_sign_in_started");
+                                  // A full-page navigation (not the router): the API route redirects to github.com.
+                                  window.location.assign(new URL("/api/auth/github/start?return=/onboarding", window.location.origin).href);
+                                }}
+                                onConnected={(r) => {
+                                  setRepo(r);
+                                  setWebsite(null);
+                                  setOpen(null);
+                                }}
+                                onWebsite={(url) => {
+                                  setWebsite(url);
+                                  setRepo(null);
+                                  setOpen(null);
+                                  track("script_tag_chosen");
+                                }}
+                              />
+                            </Drawer>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      {!connected && !open && prompt.trim() && (
+                        <p className="col-[1/-1] flex items-center gap-1.5 px-5 pt-1 text-[13px] text-dw-ink/60 max-sm:row-start-2 max-sm:mx-4 max-sm:mb-3 max-sm:justify-self-start max-sm:rounded-full max-sm:bg-dw-bg max-sm:px-3 max-sm:py-1.5 max-sm:text-dw-ink/75 sm:row-start-3 sm:px-6">
+                          <ArrowDown className="size-3.5 motion-safe:animate-bounce" /> Connect GitHub or add a script tag to continue. Whop is optional.
+                        </p>
+                      )}
+
+                      <div className="col-[1/-1] flex min-w-0 flex-wrap items-center gap-2.5 px-4 pt-4 pb-4 max-sm:row-start-3 max-sm:pt-0 max-sm:pb-3.5 sm:col-[1/2] sm:row-start-4 sm:self-end sm:pr-0 sm:pl-5">
+                        <ConnectSticker
+                          kind="github"
                           icon={website ? <Globe className="size-[18px]" /> : <BrandGlyph brand="github" size={18} />}
                           label="Connect your GitHub"
+                          short="Connect GitHub"
                           value={repo ?? (website ? hostOf(website) : undefined)}
                           active={open === "github"}
                           onClick={() => setOpen(open === "github" ? null : "github")}
                         />
-                        <ConnectButton
+                        <ConnectSticker
+                          kind="whop"
                           icon={<WhopLogo size={18} />}
                           label="Connect your Whop"
+                          short="Connect Whop"
                           title="Optional: brings your Whop sales and refunds in"
                           value={whop ? whop.title : undefined}
                           hint={whop?.mode === "offline" ? "demo" : undefined}
@@ -551,190 +609,197 @@ export function OnboardingApp() {
                           onClick={() => setOpen(open === "whop" ? null : "whop")}
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={toAsk}
-                        disabled={!connected}
-                        aria-label="Continue"
-                        className="relative grid size-12 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-[opacity,transform,background-color] hover:bg-black focus-visible:ring-2 focus-visible:ring-dw-ink/40 focus-visible:ring-offset-2 focus-visible:ring-offset-dw-surface focus-visible:outline-none active:scale-95 disabled:opacity-25"
-                      >
+
+                      <span className="relative self-end max-sm:col-start-2 max-sm:row-start-4 max-sm:mr-3 max-sm:mb-[max(12px,env(safe-area-inset-bottom))] sm:row-start-4 sm:mr-4 sm:mb-4">
                         {connected && (
                           <motion.span
                             aria-hidden
-                            className="absolute inset-0 rounded-full bg-dw-ink"
-                            initial={{ scale: 1, opacity: 0.35 }}
-                            animate={{ scale: 1.6, opacity: 0 }}
-                            transition={{
-                              duration: 1.4,
-                              repeat: Infinity,
-                              ease: "easeOut",
-                            }}
+                            className="absolute inset-0 rounded-full bg-dw-pink"
+                            initial={{ scale: 1, opacity: 0.6 }}
+                            animate={{ scale: 1.35, opacity: 0 }}
+                            transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
                           />
                         )}
-                        <ArrowUp className="relative size-5" />
-                      </button>
+                        <Gel
+                          tone={connected ? "pink" : "ghost"}
+                          h={48}
+                          onClick={toAsk}
+                          disabled={!connected}
+                          aria-label="Continue"
+                          className="max-sm:h-11 max-sm:w-11 max-sm:p-0"
+                        >
+                          <span className="max-sm:hidden">Continue</span>
+                          <ArrowRight className="max-sm:hidden" />
+                          <ArrowUp className="size-5! sm:hidden" />
+                        </Gel>
+                      </span>
                     </div>
-                  </div>
-                </motion.section>
-              )}
+                  </motion.section>
+                )}
 
-              {stage === "ask" && (
-                <motion.section key="ask" {...fade}>
-                  <AskChat
-                    prompt={prompt}
-                    connectedTo={connectedTo}
-                    whop={whop?.title}
-                    brain={brain}
-                    initial={answers}
-                    onBack={() => setStage("connect")}
-                    onDone={(a) => void toPlan(a)}
-                  />
-                </motion.section>
-              )}
-
-              {stage === "plan" && (
-                <motion.section key="plan" {...fade} className="flex flex-col gap-7">
-                  <StageHead
-                    mascot={plan ? "designer" : "observer"}
-                    title={plan ? "Here's what Darwin will record" : "Darwin is reading your store"}
-                    lede={plan ? "Turn anything off, or tell Darwin what else to track." : "Checking what's there, then planning what to measure."}
-                    right={<BrainChip brain={brain} />}
-                  />
-                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] lg:grid-rows-[auto_1fr] lg:gap-x-7">
-                    <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
-                      <Thread messages={chat.slice(0, 2)} />
-                    </div>
-                    <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-                      <AnimatePresence mode="wait" initial={false}>
-                        {plan ? (
-                          <motion.div key="plan" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.45, ease: EASE }}>
-                            <PlanCard plan={plan} onToggle={toggle} />
-                          </motion.div>
-                        ) : (
-                          <motion.div key="skeleton" exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }}>
-                            <PlanSkeleton />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                    <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6 lg:col-start-1 lg:row-start-2 lg:self-start">
-                      <Thread messages={chat.slice(2)} />
-                      {plan && (
-                        <>
-                          <Composer busy={busy} onSend={say} />
-                          <div className="flex items-center justify-between gap-3 pt-1">
-                            <PillButton tone="ghost" onClick={() => setStage("ask")}>
-                              Back
-                            </PillButton>
-                            <PillButton
-                              size="lg"
-                              disabled={busy}
-                              onClick={() => {
-                                setStage("install");
-                                track("plan_confirmed", {
-                                  events: plan.events.filter((e) => e.enabled).length,
-                                });
-                              }}
-                            >
-                              Looks good: install it <ArrowRight />
-                            </PillButton>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </motion.section>
-              )}
-
-              {stage === "install" && plan?.siteUrl && (
-                <motion.section key="install" {...fade} className="flex flex-col gap-7">
-                  <StageHead mascot="shipper" title="Add one line to your site" lede={`No pull request needed: darwin.js goes on ${hostOf(plan.siteUrl)} with one script tag.`} />
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-                    <div className="flex min-w-0 flex-col gap-4">
-                      <InstallSnippet
-                        plan={plan}
-                        snippet={snippet ?? `<script src="${window.location.origin}/darwin.js" data-darwin-site="${plan.site}" defer></script>`}
-                        onDone={() => {
-                          track("script_tag_installed");
-                          setStage("live");
-                        }}
-                      />
-                    </div>
-                    <NextSteps
-                      steps={[
-                        "Paste the line into your site's <head>",
-                        plan.events.some((e) => e.enabled && !e.automatic) ? "Add the one-line call for each event you send" : "Publish your site as usual",
-                        "Shoppers and AI agents show up within seconds",
-                      ]}
+                {stage === "ask" && (
+                  <motion.section key="ask" {...fade}>
+                    <AskChat
+                      prompt={prompt}
+                      connectedTo={connectedTo}
+                      whop={whop?.title}
+                      brain={brain}
+                      initial={answers}
+                      onBack={() => setStage("connect")}
+                      onDone={(a) => void toPlan(a)}
                     />
-                  </div>
-                </motion.section>
-              )}
+                  </motion.section>
+                )}
 
-              {stage === "install" && plan && !plan.siteUrl && (
-                <motion.section key="install" {...fade} className="flex flex-col gap-7">
-                  <StageHead mascot="shipper" title="One pull request, and you're set" lede="Darwin only ever changes your code through pull requests you review." />
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-                    <div className="flex min-w-0 flex-col gap-4">
-                      <AgentBubble working={false}>
-                        I&apos;ll open one pull request on <b className="font-dwmono font-medium text-dw-ink">{plan.repo}</b>: it loads darwin.js (under 5 KB) and commits your plan
-                        as <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">DARWIN_TRACKING.md</code>, with the one line each event
-                        needs. Nothing changes until you merge it.
-                      </AgentBubble>
-                      {!pr ? (
-                        <InstallPr
-                          site={plan.site}
-                          onDone={(result) => {
-                            setPr(result);
-                            track("pr_opened", { dry_run: result.dryRun });
+                {stage === "plan" && (
+                  <motion.section key="plan" {...fade} className="flex flex-col gap-7">
+                    <StageHead
+                      mascot={plan ? "designer" : "observer"}
+                      title={plan ? "Here's what Darwin will record" : "Darwin is reading your store"}
+                      lede={plan ? "Turn anything off, or tell Darwin what else to track." : "Checking what's there, then planning what to measure."}
+                      right={<BrainChip brain={brain} />}
+                    />
+                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] lg:grid-rows-[auto_1fr] lg:gap-x-7">
+                      <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
+                        <Thread messages={chat.slice(0, 2)} />
+                      </div>
+                      <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+                        <AnimatePresence mode="wait" initial={false}>
+                          {plan ? (
+                            <motion.div key="plan" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.45, ease: EASE }}>
+                              <PlanCard plan={plan} onToggle={toggle} />
+                            </motion.div>
+                          ) : (
+                            <motion.div key="skeleton" exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }}>
+                              <PlanSkeleton />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                      <div className="flex min-w-0 flex-col gap-4 max-sm:contents lg:sticky lg:top-6 lg:col-start-1 lg:row-start-2 lg:self-start">
+                        <Thread messages={chat.slice(2)} />
+                        {plan && (
+                          <>
+                            <Composer busy={busy} onSend={say} />
+                            {/* phones: pinned to the bottom while the plan scrolls under it */}
+                            <div className="flex items-center justify-between gap-3 pt-1 max-sm:sticky max-sm:bottom-0 max-sm:z-20 max-sm:-mx-4 max-sm:bg-dw-bg max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(12px,env(safe-area-inset-bottom))]">
+                              <PillButton tone="ghost" onClick={() => setStage("ask")}>
+                                Back
+                              </PillButton>
+                              <Gel
+                                h={52}
+                                disabled={busy}
+                                className="max-sm:flex-1"
+                                onClick={() => {
+                                  setStage("install");
+                                  track("plan_confirmed", {
+                                    events: plan.events.filter((e) => e.enabled).length,
+                                  });
+                                }}
+                              >
+                                Looks good: install it <ArrowRight />
+                              </Gel>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </motion.section>
+                )}
+
+                {stage === "install" && plan?.siteUrl && (
+                  <motion.section key="install" {...fade} className="flex flex-col gap-7">
+                    <StageHead mascot="shipper" title="Add one line to your site" lede={`No pull request needed: darwin.js goes on ${hostOf(plan.siteUrl)} with one script tag.`} />
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+                      <div className="flex min-w-0 flex-col gap-4">
+                        <InstallSnippet
+                          plan={plan}
+                          snippet={snippet ?? `<script src="${window.location.origin}/darwin.js" data-darwin-site="${plan.site}" defer></script>`}
+                          onDone={() => {
+                            track("script_tag_installed");
+                            setStage("live");
                           }}
                         />
-                      ) : (
-                        <>
-                          <PrCard pr={pr} />
-                          <div className="flex justify-end">
-                            <PillButton size="lg" onClick={() => setStage("live")}>
-                              <Radio /> Start recording
-                            </PillButton>
-                          </div>
-                        </>
-                      )}
+                      </div>
+                      <NextSteps
+                        steps={[
+                          "Paste the line into your site's <head>",
+                          plan.events.some((e) => e.enabled && !e.automatic) ? "Add the one-line call for each event you send" : "Publish your site as usual",
+                          "Shoppers and AI agents show up within seconds",
+                        ]}
+                      />
                     </div>
-                    <NextSteps steps={["Review and merge the pull request", "Deploy as usual", "Shoppers and AI agents show up within seconds"]} />
-                  </div>
-                </motion.section>
-              )}
+                  </motion.section>
+                )}
 
-              {restoring && !plan && (stage === "install" || stage === "live") && (
-                <motion.section key="restoring" {...fade} className="flex flex-col items-center gap-4 py-24 text-center">
-                  <Mascot kind="analyst" frame size={64} active />
-                  <p className="text-[17px] text-dw-ink/70">Picking up where you left off…</p>
-                </motion.section>
-              )}
+                {stage === "install" && plan && !plan.siteUrl && (
+                  <motion.section key="install" {...fade} className="flex flex-col gap-7">
+                    <StageHead mascot="shipper" title="One pull request, and you're set" lede="Darwin only ever changes your code through pull requests you review." />
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+                      <div className="flex min-w-0 flex-col gap-4">
+                        <AgentBubble working={false}>
+                          One pull request on <b className="font-dwmono font-medium text-dw-ink">{plan.repo}</b>: darwin.js (under 5 KB) and your plan as{" "}
+                          <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink max-sm:bg-dw-bg">DARWIN_TRACKING.md</code>. Nothing changes until you
+                          merge it.
+                        </AgentBubble>
+                        {!pr ? (
+                          <InstallPr
+                            site={plan.site}
+                            onDone={(result) => {
+                              setPr(result);
+                              track("pr_opened", { dry_run: result.dryRun });
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <PrCard pr={pr} />
+                            <div className="flex justify-end">
+                              <Gel h={52} onClick={() => setStage("live")} className="max-sm:w-full">
+                                <Radio /> Start recording
+                              </Gel>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <NextSteps steps={["Review and merge the pull request", "Deploy as usual", "Shoppers and AI agents show up within seconds"]} />
+                    </div>
+                  </motion.section>
+                )}
 
-              {stage === "live" && plan && (
-                <motion.section key="live" {...fade} className="flex flex-col gap-7">
-                  <Live
-                    plan={plan}
-                    onOpen={() => {
-                      track("dashboards_opened", { site: plan.site });
-                      router.push(`/console/dashboards?site=${encodeURIComponent(plan.site)}`);
-                    }}
-                  />
-                </motion.section>
+                {restoring && !plan && (stage === "install" || stage === "live") && (
+                  <motion.section key="restoring" {...fade} className="flex flex-col items-center gap-4 py-24 text-center">
+                    <Mascot kind="analyst" frame size={64} active />
+                    <p className="text-[17px] text-dw-ink/70">Picking up where you left off…</p>
+                  </motion.section>
+                )}
+
+                {stage === "live" && plan && (
+                  <motion.section key="live" {...fade} className="flex flex-col gap-7">
+                    <Live
+                      plan={plan}
+                      onOpen={() => {
+                        track("dashboards_opened", { site: plan.site });
+                        router.push(`/console/dashboards?site=${encodeURIComponent(plan.site)}`);
+                      }}
+                    />
+                  </motion.section>
+                )}
+              </AnimatePresence>
+              {canStartOver && (
+                <div className={cn("flex justify-center", stage === "connect" ? "mt-5 max-sm:hidden" : "mt-14")}>
+                  <button
+                    type="button"
+                    onClick={startOver}
+                    className={cn(
+                      "h-8 rounded-full px-3 text-[13px] transition-colors focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none",
+                      stage === "connect" ? "bg-dw-bg/90 text-dw-ink/70 hover:bg-dw-bg hover:text-dw-ink" : "text-dw-ink/50 hover:bg-dw-sand hover:text-dw-ink",
+                    )}
+                  >
+                    {stage === "connect" ? "Start over" : "Not the right store? Start over"}
+                  </button>
+                </div>
               )}
-            </AnimatePresence>
-            {hydrated && (stage !== "connect" || connected || !!whop) && (
-              <div className={cn("flex justify-center", stage === "connect" ? "mt-5" : "mt-14")}>
-                <button
-                  type="button"
-                  onClick={startOver}
-                  className="h-8 rounded-full px-3 text-[13px] text-dw-ink/50 transition-colors hover:bg-dw-sand hover:text-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
-                >
-                  {stage === "connect" ? "Start over" : "Not the right store? Start over"}
-                </button>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </main>
@@ -797,7 +862,7 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => v
           e.preventDefault();
           send(text);
         }}
-        className="flex items-center gap-2 rounded-full border border-dw-hairline bg-dw-surface py-1.5 pr-1.5 pl-2 shadow-[0_18px_40px_-26px_rgba(20,20,19,0.4)] focus-within:border-dw-ink/30"
+        className="dw-bevel flex items-center gap-2 rounded-full py-1.5 pr-1.5 pl-2 max-sm:bg-dw-ink max-sm:bg-none max-sm:shadow-none"
       >
         <Mascot kind="analyst" size={30} active={busy} />
         <input
@@ -805,16 +870,11 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => v
           onChange={(e) => setText(e.target.value)}
           placeholder="Anything else to track? Or something to leave out?"
           aria-label="Tell Darwin what to change in the plan"
-          className="h-10 min-w-0 flex-1 bg-transparent text-[15px] text-dw-ink outline-none placeholder:text-dw-ink/35"
+          className="h-10 min-w-0 flex-1 bg-transparent text-[15px] text-dw-ink outline-none placeholder:text-dw-ink/35 max-sm:text-[16px] max-sm:text-white max-sm:placeholder:text-white/45"
         />
-        <button
-          type="submit"
-          disabled={busy || !text.trim()}
-          aria-label="Send"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-[opacity,transform] hover:bg-black focus-visible:ring-2 focus-visible:ring-dw-ink/40 focus-visible:outline-none active:scale-95 disabled:opacity-25"
-        >
-          {busy ? <LoaderCircle className="size-5 animate-spin" /> : <ArrowUp className="size-5" />}
-        </button>
+        <Gel type="submit" round h={40} tone={text.trim() ? "pink" : "ghost"} disabled={busy || !text.trim()} aria-label="Send">
+          {busy ? <LoaderCircle className="animate-spin" /> : <ArrowUp />}
+        </Gel>
       </form>
       <div className="flex flex-wrap gap-1.5">
         {SUGGESTIONS.map((s) => (
@@ -835,7 +895,7 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => v
 
 function PlanSkeleton() {
   return (
-    <Card tone="white" hover={false} className="p-6 sm:p-7" aria-busy="true" aria-label="Drafting your plan">
+    <Card tone="white" hover={false} className="p-6 max-sm:border-0 max-sm:bg-transparent! max-sm:p-0 sm:p-7" aria-busy="true" aria-label="Drafting your plan">
       <div className="flex items-center gap-4">
         <Mascot kind="designer" frame size={60} active />
         <div>
@@ -931,7 +991,7 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
         </div>
       </Card>
 
-      <Card tone="white" hover={false} className="p-5 sm:p-6">
+      <Card tone="white" hover={false} className="p-5 max-sm:border-0 max-sm:bg-transparent! max-sm:px-0 max-sm:py-2 sm:p-6">
         <SectionTitle title="Your store sends" hint={plan.siteUrl ? "One line each, where it happens" : "One line each, listed in the PR"} />
         <ul className="mt-4 flex flex-col gap-2">
           <AnimatePresence initial={false}>
@@ -1022,7 +1082,10 @@ function MiniCheck() {
 function Fact({ label, value, hint, brand }: { label: string; value: string; hint?: string; brand?: boolean }) {
   return (
     <span
-      className={cn("inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-3 text-[13px]", brand ? "bg-dw-ink text-white" : "border border-dw-hairline bg-dw-surface")}
+      className={cn(
+        "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full px-3 text-[13px]",
+        brand ? "bg-dw-ink text-white" : "border border-dw-hairline bg-dw-surface max-sm:border-dw-ink/15 max-sm:bg-transparent",
+      )}
       title={hint}
     >
       <span className={brand ? "text-white/60" : "text-dw-ink/55"}>{label}</span>
@@ -1154,9 +1217,9 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
   };
 
   return (
-    <Card tone="white" hover={false} className="p-5 sm:p-6">
+    <Card tone="white" hover={false} className="p-5 max-sm:border-0 max-sm:bg-transparent! max-sm:px-0 max-sm:py-2 sm:p-6">
       <div className="flex items-center gap-3">
-        <Mascot kind={busy ? "shipper" : "shipper"} frame size={48} active={busy} />
+        <Mascot kind="shipper" frame size={48} active={busy} />
         <div className="min-w-0">
           <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{busy ? "Opening your pull request" : "Ready when you are"}</h2>
           <p className="text-[14px] text-dw-ink/60">Three steps, a few seconds.</p>
@@ -1182,10 +1245,10 @@ function InstallPr({ site, onDone }: { site: string; onDone: (pr: PullRequestRes
         </div>
       )}
       <div className="mt-5 flex justify-end">
-        <PillButton size="lg" onClick={run} disabled={busy}>
+        <Gel h={50} onClick={run} disabled={busy} className="max-sm:w-full">
           {busy ? <LoaderCircle className="animate-spin" /> : <GitPullRequest />}
           Open pull request
-        </PillButton>
+        </Gel>
       </div>
     </Card>
   );
@@ -1198,12 +1261,11 @@ function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet
   return (
     <>
       <AgentBubble working={false}>
-        No pull request needed. Paste this one line into your site&apos;s{" "}
-        <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink">&lt;head&gt;</code> so it loads on every page
-        {custom ? `, then add the one-line call for each of your ${custom} events where it happens (they're in the plan)` : ""}. darwin.js is under 5 KB and never reads form
-        fields.
+        Paste this line into your site&apos;s{" "}
+        <code className="rounded-md bg-dw-sand px-1.5 py-0.5 font-dwmono text-[0.85em] text-dw-ink max-sm:bg-dw-bg">&lt;head&gt;</code>
+        {custom ? `, then add the one-line call for your ${custom} events (they're in the plan)` : ""}. Under 5 KB, and it never reads form fields.
       </AgentBubble>
-      <Card tone="white" hover={false} className="p-5 sm:p-6">
+      <Card tone="white" hover={false} className="p-5 max-sm:border-0 max-sm:bg-transparent! max-sm:p-0 sm:p-6">
         <div className="relative overflow-hidden rounded-[18px] bg-dw-ink">
           <div className="flex items-center gap-1.5 border-b border-white/[0.08] px-4 py-2.5">
             <span className="size-2.5 rounded-full bg-white/20" />
@@ -1231,9 +1293,9 @@ function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet
         </div>
       </Card>
       <div className="flex justify-end">
-        <PillButton size="lg" onClick={onDone}>
+        <Gel h={52} onClick={onDone} className="max-sm:w-full">
           <Radio /> Start recording
-        </PillButton>
+        </Gel>
       </div>
     </>
   );
@@ -1294,19 +1356,19 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           <div className="min-w-0">
             <h1 className="text-[32px] leading-[1.05] font-semibold tracking-[-0.03em] text-balance sm:text-[46px]">Your dashboards are built</h1>
             <p className="mt-2 max-w-[48rem] text-[15.5px] leading-snug text-dw-ink/70 sm:text-[17px]">
-              {plan.siteUrl ? "Publish the script tag" : "Merge the pull request and deploy"}: real shoppers show up here within seconds. Want to see it fill now? Send simulated
-              shoppers (they&apos;re labelled, and never mixed into your real numbers).
+              {plan.siteUrl ? "Publish the script tag" : "Merge the pull request and deploy"}: real shoppers show up here within seconds. Or fill it now with simulated shoppers
+              (labelled, never mixed into your real numbers).
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2.5">
-          <PillButton tone="white" size="lg" onClick={simulate} disabled={sending}>
+        <div className="flex flex-wrap gap-2.5 max-sm:w-full max-sm:flex-col-reverse">
+          <Gel tone="ghost" h={50} onClick={simulate} disabled={sending} className="max-sm:w-full">
             {sending ? <LoaderCircle className="animate-spin" /> : <Bot />}
             Send 300 simulated shoppers
-          </PillButton>
-          <PillButton size="lg" onClick={onOpen}>
+          </Gel>
+          <Gel h={50} onClick={onOpen} className="max-sm:w-full">
             <LayoutDashboard /> Open my dashboards
-          </PillButton>
+          </Gel>
         </div>
       </header>
 
@@ -1371,12 +1433,24 @@ function Live({ plan, onOpen }: { plan: TrackingPlan; onOpen: () => void }) {
           </Link>
         </Card>
         <div className="min-w-0 rounded-[28px] bg-dw-sand/55 p-2.5 sm:p-3">
+          {!!data?.syntheticEvents && !!data.dashboards.length && (
+            <div className="mb-2.5 flex flex-wrap items-center gap-2 px-1.5 pt-1 text-[13px] text-dw-ink/70">
+              <Tag tone="warn" className="h-6 px-2.5 text-[12px] font-semibold">
+                {real > 0 ? "Real + simulated" : "Simulated"}
+              </Tag>
+              {real > 0 ? "Numbers below mix real visitors with simulated shoppers." : "Every number below comes from simulated shoppers, not real visitors."}
+            </div>
+          )}
           {data?.dashboards.length ? (
             <DashboardGrid dashboards={data.dashboards} compact />
           ) : (
-            <Empty mascot={<Mascot kind="experimenter" frame size={64} active />}>
-              {data ? "Your dashboards appear here as soon as the first events arrive." : "Building your dashboards…"}
-            </Empty>
+            <div className="relative grid min-h-[300px] place-items-end overflow-hidden rounded-[22px] p-4 sm:min-h-[420px]">
+              <Art id="valley" position="50% 40%" sizes="(max-width: 1024px) 100vw, 60vw" />
+              <div className="relative flex items-center gap-3 rounded-full bg-dw-bg py-1.5 pr-4 pl-1.5 text-[14.5px] text-dw-ink/80">
+                <Mascot kind="experimenter" frame size={36} active />
+                {data ? "Your dashboards appear here as the first events arrive." : "Building your dashboards…"}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -1400,17 +1474,58 @@ function LiveMascot({ celebrate }: { celebrate: boolean }) {
 
 /* ------------------------------------------------------------------ connect pieces */
 
-function ConnectButton({
+const PLACEHOLDER = "What do you sell, and what worries you? e.g. “trail running shoes; checkout feels slow on mobile and people ask about sizing”";
+
+/** Screen 1's field. On a phone it lives in the ink dock and grows upward with the text, like a messaging app. */
+function PromptField({ value, onChange, onEnter }: { value: string; onChange: (v: string) => void; onEnter: () => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const phone = useIsPhone();
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!phone) {
+      el.style.height = "";
+      return;
+    }
+    el.style.height = "0px";
+    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+  }, [value, phone]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          onEnter();
+        }
+      }}
+      rows={3}
+      placeholder={phone ? "What do you sell? What worries you?" : PLACEHOLDER}
+      aria-label="Tell Darwin about your store"
+      className="min-h-[5.6rem] w-full resize-none bg-transparent pt-2.5 text-[16.5px] leading-relaxed text-dw-ink outline-none placeholder:text-dw-ink/35 max-sm:h-11 max-sm:min-h-0 max-sm:py-2.5 max-sm:text-[16px] max-sm:leading-6 max-sm:text-white max-sm:placeholder:text-white/45"
+    />
+  );
+}
+
+/** "Connect your GitHub" / "Connect your Whop" as die-cut stickers that peel a corner on hover. */
+function ConnectSticker({
+  kind,
   icon,
   label,
+  short,
   value,
   hint,
   title,
   active,
   onClick,
 }: {
+  kind: "github" | "whop";
   icon: ReactNode;
   label: string;
+  /** What a phone shows (the full label stays the accessible name). */
+  short: string;
   value?: string;
   hint?: string;
   title?: string;
@@ -1419,23 +1534,36 @@ function ConnectButton({
 }) {
   const done = !!value;
   return (
-    <button
-      type="button"
+    <Sticker
+      tilt={active ? 0 : kind === "github" ? -2 : 1.5}
+      flat={active}
       onClick={onClick}
       aria-expanded={active}
       title={title}
-      className={cn(
-        "flex h-10 max-w-[16rem] items-center gap-2 rounded-full pr-3.5 pl-3 text-[14px] font-medium transition-[background-color,color,transform,box-shadow] focus-visible:ring-2 focus-visible:ring-dw-ink/35 focus-visible:outline-none active:scale-[0.97] sm:max-w-[19rem]",
-        active ? "bg-dw-ink text-white" : done ? "bg-dw-win-bg text-dw-ink hover:bg-[#cfeedd]" : "bg-dw-sand text-dw-ink hover:bg-[#e4dccb]",
+      className="max-w-full min-w-0"
+      faceClassName={cn(
+        "h-10 max-w-[16rem] min-w-0 rounded-[14px] pr-2.5 pl-2 text-[14px] font-medium sm:max-w-[19rem]",
+        done ? "bg-dw-win-bg text-dw-ink" : kind === "github" ? "bg-dw-ink text-white" : "bg-dw-pink text-dw-ink",
       )}
     >
       <span aria-hidden className="grid size-5 shrink-0 place-items-center">
         {icon}
       </span>
-      <span className="truncate">{done ? value : label}</span>
-      {hint && <span className={active ? "text-white/60" : "text-dw-ink/50"}>({hint})</span>}
-      {done && <CheckPop size={18} tone="live" burst />}
-    </button>
+      <span className="min-w-0 truncate">
+        {done ? (
+          value
+        ) : (
+          <>
+            <span aria-hidden className="sm:hidden">
+              {short}
+            </span>
+            <span className="max-sm:sr-only">{label}</span>
+          </>
+        )}
+      </span>
+      {hint && <span className="opacity-60">({hint})</span>}
+      {done ? <CheckPop size={18} tone="live" burst /> : <ChevronDown className={cn("size-4 shrink-0 opacity-60 transition-transform", active && "rotate-180")} aria-hidden />}
+    </Sticker>
   );
 }
 

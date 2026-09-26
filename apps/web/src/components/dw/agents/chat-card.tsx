@@ -65,7 +65,7 @@ export function ChatCard({
       hover={false}
       className={cn(
         "flex min-w-0 flex-col p-0 [&>div.relative]:flex [&>div.relative]:min-h-0 [&>div.relative]:flex-1 [&>div.relative]:flex-col",
-        "lg:h-[clamp(460px,calc(100vh_-_290px),620px)]",
+        "lg:min-h-[clamp(440px,calc(100vh_-_300px),600px)]",
       )}
     >
       <div className="flex min-h-0 flex-1 flex-col">
@@ -87,9 +87,10 @@ export function ChatCard({
           </button>
         </div>
 
+        <div className="relative mx-4 mt-3 sm:mx-6 lg:min-h-0 lg:flex-1">
         <div
           ref={scroller}
-          className="mx-4 mt-3 flex max-h-[28rem] min-h-[20rem] flex-col gap-4 overflow-y-auto overscroll-contain rounded-[22px] bg-dw-bg/70 p-4 sm:mx-6 lg:max-h-none lg:min-h-0 lg:flex-1"
+          className="flex max-h-[28rem] min-h-[20rem] flex-col gap-4 overflow-y-auto overscroll-contain rounded-[22px] bg-dw-bg/70 p-4 lg:absolute lg:inset-0 lg:max-h-none lg:min-h-0"
           aria-live="polite"
         >
           {!lines.length && (
@@ -115,6 +116,7 @@ export function ChatCard({
               {l.from === "you" ? <BuyerBubble line={l} /> : <StoreBubble line={l} demo={demo} />}
             </motion.div>
           ))}
+        </div>
         </div>
 
         <div className="flex flex-col gap-2 px-4 pt-3 pb-4 sm:px-6">

@@ -79,6 +79,10 @@ export interface WebRuleOutcome {
   lift?: number;
   at: string;
   by: "autopilot" | "manual";
+  /** Where the numbers behind the decision came from, stamped when it was made (simulated visitors aren't kept on disk). */
+  traffic?: "simulated" | "mixed" | "real";
+  /** Visitors counted in the test (both arms) when it was decided. */
+  sample?: number;
 }
 
 /** One thing autopilot did, for the console's decision log. */

@@ -173,6 +173,33 @@ claude mcp add --transport http pace-store http://localhost:3000/api/mcp
 npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
 ```
 
+### Agent mode: ⌘K, WebMCP and `window.darwin`
+
+Everything Darwin can do is one typed command (`apps/web/src/lib/commands`): a zod input (also served as JSON
+Schema), a description written for an LLM, and a risk. Three things share it:
+
+- **⌘K (Ctrl+K)** anywhere in `/console`: type in plain words ("build a dashboard of coupon usage per hour for
+  trail-shop", "send 200 shoppers then step the loop", "roll back to gen 3", "why are agents leaving?") or pick a
+  suggestion. `POST /api/command { text, page }` turns the words into a plan (the LLM when a key is set, else a
+  deterministic parser), every step is validated, and the steps run as a live checklist. Rollback and ship/stop
+  ask you first, inline.
+- **WebMCP**: when the browser exposes the proposed W3C `navigator.modelContext`, the same commands are registered
+  as tools (`darwin_navigate`, `darwin_build_dashboard`, `darwin_rollback`, …), so an AI agent running in your
+  browser can drive Darwin with no CLI or MCP server. Tools that change what shoppers see still stop for a human
+  in the page.
+- **`window.darwin`** for automation and devtools:
+
+```js
+window.darwin.commands                       // ["navigate", "build_dashboard", "simulate_traffic", …]
+window.darwin.manifest()                     // names, descriptions, risk, JSON Schemas
+await window.darwin.run("simulate_traffic", { humans: 200, agents: 20 })  // → { ok, text, href?, data? }
+await window.darwin.plan("roll back to gen 2")                             // plan only, nothing runs
+await window.darwin.do("send 200 shoppers then open the top issue")        // plan + run (confirms still ask)
+```
+
+`GET /api/command` returns the registry (admin-gated like the rest of mission control). Numbers in results come
+from Darwin's APIs, and simulated traffic is always labelled.
+
 ### Honest notes
 
 - **Security:** mission control and every state-changing API (loop, GitHub PRs, simulator, LLM shoppers, raw

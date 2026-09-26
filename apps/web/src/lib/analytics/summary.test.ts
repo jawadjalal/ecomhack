@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AnalyticsEvent, EventProperties, FrictionSignal } from "@/lib/contracts";
-import { compareVariants, getAnalyticsSummary, normalizePath, summarize } from "./summary";
+import { compareVariants, getAnalyticsSummary, getAnalyticsSummaryShared, normalizePath, summarize } from "./summary";
 import { eventStore, track } from "./store";
 
 let seq = 0;
@@ -248,6 +248,22 @@ describe("store + getAnalyticsSummary", () => {
     expect(eventStore().since(last.uuid, 10)).toEqual(next);
     // Unknown (evicted / reset) cursor → latest events instead of the whole history.
     expect(eventStore().since("gone", 2).map((e) => e.distinct_id)).toEqual(["a3", "h99"]);
+  });
+
+  it("shares the summary between polls until an event arrives or the store resets", () => {
+    track(dataset());
+    const first = getAnalyticsSummaryShared();
+    expect(getAnalyticsSummaryShared()).toBe(first);
+    expect(getAnalyticsSummaryShared({ visitorKind: "agent" })).not.toBe(first);
+
+    track({ event: "$pageview", distinct_id: "h99", properties: { visitor_kind: "human" } });
+    const afterEvent = getAnalyticsSummaryShared();
+    expect(afterEvent).not.toBe(first);
+    expect(afterEvent.totalEvents).toBe(first.totalEvents + 1);
+    expect(afterEvent).toEqual(getAnalyticsSummary());
+
+    eventStore().clear();
+    expect(getAnalyticsSummaryShared().totalEvents).toBe(0);
   });
 });
 

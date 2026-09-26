@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
+import { CommandPill } from "./command/pill";
 import { Mascot } from "./mascot";
 import { useDarwin } from "./provider";
 
@@ -44,7 +45,7 @@ export function TopNav() {
     .find((n) => (n.href === "/console" ? path === "/console" : path?.startsWith(n.href)))?.key;
 
   return (
-    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3">
+    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-lg:grid-cols-[auto_1fr] max-lg:gap-y-3 max-sm:min-h-12 max-sm:gap-2">
       <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
         <Mascot kind="analyst" size={34} active />
         <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>
@@ -52,7 +53,7 @@ export function TopNav() {
 
       <nav
         aria-label="Main"
-        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-lg:order-last max-lg:col-span-2 max-lg:justify-self-center"
+        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink max-sm:hidden p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-lg:order-last max-lg:col-span-2 max-lg:justify-self-center"
       >
         {NAV.map((n, i) => {
           const on = n.key === active;
@@ -86,22 +87,32 @@ export function TopNav() {
         })}
       </nav>
 
-      <div className="flex items-center gap-2.5 justify-self-end">
+      <div className="flex items-center gap-2.5 justify-self-end max-sm:gap-1.5">
         <button
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
           title={autopilot ? "Darwin is improving the store on its own. Click to pause." : "Paused. Click to let Darwin run the loop on its own."}
-          className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb]"
+          className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb] max-sm:h-9 max-sm:px-3"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
-          <span className="max-sm:hidden">{autopilot ? "Darwin running" : "Paused"}</span>
+          <span className="max-sm:text-[13.5px] max-sm:font-medium">
+            {autopilot ? (
+              <>
+                <span className="max-sm:hidden">Darwin running</span>
+                <span className="sm:hidden">Running</span>
+              </>
+            ) : (
+              "Paused"
+            )}
+          </span>
           {mock && <span className="text-[12px] text-dw-ink/50">(demo data)</span>}
         </button>
+        <CommandPill />
         <MoreMenu />
         <Link
           href="/console/settings"
           aria-label="Profile and settings"
-          className="grid size-11 place-items-center rounded-full bg-dw-ink text-[14px] font-semibold text-white transition-transform hover:scale-[1.06]"
+          className="grid size-11 place-items-center rounded-full bg-dw-ink text-[14px] font-semibold text-white transition-transform hover:scale-[1.06] max-sm:size-9 max-sm:text-[12.5px]"
         >
           JJ
         </Link>
@@ -131,7 +142,7 @@ function MoreMenu() {
         aria-label="More tools"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="grid size-11 place-items-center rounded-full bg-dw-sand text-dw-ink transition-colors hover:bg-[#e4dccb]"
+        className="grid size-11 place-items-center rounded-full bg-dw-sand text-dw-ink transition-colors hover:bg-[#e4dccb] max-sm:size-9"
       >
         <Ellipsis className="size-5" />
       </button>

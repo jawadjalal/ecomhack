@@ -7,15 +7,17 @@
  *   2. start tests for the traffic sources with the biggest conversion gap that have no test running,
  *      at most MAX_RUNNING at once, one per source (so tests never overlap), never retrying an idea.
  * Autopilot publishes only copy the merchant's page backs up (claims.ts): an idea that needs a fact the page
- * doesn't state is left for the merchant, and a live autopilot rule whose claims aren't on the page is taken down.
+ * doesn't state is left for the merchant, and any live rule (whoever wrote it) whose claims aren't on the page is
+ * paused, with the reason in the decision log.
  * Steps are driven by the console (POST /api/web/autopilot/step) while autopilot is on.
  */
 import type { PageElement, TrafficSource, WebAutopilotEntry, WebAutopilotState, WebRule, WebRuleResult } from "@/lib/contracts";
 import { TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { kvGet, kvUpdate } from "@/lib/db/json-store";
 import { eventStore } from "@/lib/analytics/store";
-import { pageTexts, readyToPublish, unverifiedClaims } from "./claims";
+import { needsMerchant, readyToPublish, unbackedTexts } from "./claims";
 import { ideaDraft, ideasFor, rankSources } from "./drafts";
+import { pageFor } from "./pages";
 import { computeSite } from "./results";
 import { createRule, endRule, listRules } from "./store";
 
@@ -95,18 +97,27 @@ export function judge(res: WebRuleResult | undefined): { decision: "shipped" | "
   return undefined;
 }
 
-/** Pause live autopilot rules whose copy makes a claim the page doesn't (needs the page's outline). */
+const short = (v: string) => (v.length > 80 ? `${v.slice(0, 79).trimEnd()}…` : v);
+
+/**
+ * Pause every live rule, whoever wrote it, whose copy states something the site's page doesn't (a rating, a
+ * customer count, an offer, a delivery promise) or still has [bracketed] text for the merchant. Checked against
+ * the outline just read, else the page Darwin last read; a page it has never read can't back anything up, so
+ * only the [bracketed] check runs then (it doesn't guess).
+ */
 function takeDown(site: string, outline: PageElement[]): WebAutopilotEntry[] {
-  if (!outline.length) return []; // page unreadable: can't tell, so don't guess
-  const page = pageTexts(outline);
+  const page = pageFor(site, outline);
   const out: WebAutopilotEntry[] = [];
-  for (const rule of listRules(site).filter((r) => r.author === "autopilot" && (r.status === "running" || r.status === "shipped"))) {
-    const claims = [...new Set(rule.changes.flatMap((c) => (c.action === "style" ? [] : unverifiedClaims(c.value, page))))];
-    if (!claims.length) continue;
-    const list = claims.map((c) => `“${c}”`).join(", ");
-    endRule(rule.id, { decision: "stopped", reason: `its copy says ${list}, which isn't on your page`, at: new Date().toISOString(), by: "autopilot" });
+  for (const rule of listRules(site).filter((r) => r.status === "running" || r.status === "shipped")) {
+    const unbacked = page.length ? unbackedTexts(rule.changes, page).map((u) => u.value) : [];
+    const pending = rule.changes.flatMap((c) => (needsMerchant(c.value) ? [c.value!] : []));
+    if (!unbacked.length && !pending.length) continue;
+    const why = unbacked.length
+      ? `it claimed ${unbacked.map((v) => `“${short(v)}”`).join(" and ")} and nothing on your site backs that up`
+      : `it still shows ${pending.map((v) => `“${short(v)}”`).join(" and ")}, which only you can fill in`;
+    endRule(rule.id, { decision: "stopped", reason: `Paused: ${why}`, at: new Date().toISOString(), by: "autopilot" }, { outline: page });
     out.push(
-      entry("stopped", `Took down “${rule.name}” for ${who(rule)}: its copy says ${list}, and Darwin can't find that on your page. It only publishes what your page already says.`, {
+      entry("stopped", `Paused “${rule.name}” for ${who(rule)}: ${why}. Darwin only publishes what your page already says.`, {
         ruleId: rule.id,
         source: rule.audience.sources?.[0],
       }),
@@ -116,24 +127,27 @@ function takeDown(site: string, outline: PageElement[]): WebAutopilotEntry[] {
 }
 
 /**
- * Take down live autopilot copy the page doesn't back up, and log it. Runs on every step, and when autopilot
- * is switched on or off, so copy an older Darwin made up leaves the live page even while autopilot is off.
+ * Pause live copy the page doesn't back up (any author), and log why. Runs on every autopilot step, when autopilot
+ * is switched on or off, and whenever the site's rules are loaded (webState, runtime.js), so copy an older Darwin
+ * (or anyone) made up leaves the live page even while autopilot is off. `outline` defaults to the page Darwin last read.
  */
-export function retractUnbackedCopy(site: string, outline: PageElement[]): WebAutopilotState {
+export function retractUnbackedCopy(site: string, outline: PageElement[] = []): WebAutopilotState {
   const taken = takeDown(site, outline);
   const state = getAutopilot(site);
   return taken.length ? save({ ...state, log: [...taken].reverse().concat(state.log) }) : state;
 }
 
 /** One autopilot step for a site. Runs even when autopilot is off (the console only calls it when on). */
-export function stepAutopilot(site: string, outline: PageElement[] = []): { state: WebAutopilotState; actions: WebAutopilotEntry[] } {
+export function stepAutopilot(site: string, read: PageElement[] = []): { state: WebAutopilotState; actions: WebAutopilotEntry[] } {
+  // The page just read, else the one Darwin last read: every claim autopilot publishes must be on it.
+  const outline = pageFor(site, read);
   const state = getAutopilot(site);
   const actions: WebAutopilotEntry[] = [];
   const tried = new Set(state.tried);
   let rules = listRules(site);
   const { overview, results } = computeSite(site, rules, eventStore().all());
 
-  // 0. Take down live autopilot copy that states something the page doesn't (e.g. an old "★ 4.8/5" badge).
+  // 0. Pause live copy that states something the page doesn't (e.g. an old "★ 4.8/5" badge), whoever wrote it.
   actions.push(...takeDown(site, outline));
   rules = listRules(site);
 
@@ -144,7 +158,7 @@ export function stepAutopilot(site: string, outline: PageElement[] = []): { stat
     // Never ship copy the page can't back up (page unreadable right now): leave it running until it is.
     if (verdict.decision === "shipped" && !readyToPublish(rule, outline)) continue;
     const res = results.find((r) => r.ruleId === rule.id)!;
-    endRule(rule.id, { ...verdict, probabilityToBeat: res.probabilityToBeat, lift: res.lift, at: new Date().toISOString(), by: "autopilot" });
+    endRule(rule.id, { ...verdict, probabilityToBeat: res.probabilityToBeat, lift: res.lift, at: new Date().toISOString(), by: "autopilot" }, { outline });
     actions.push(
       entry(
         verdict.decision,
@@ -174,7 +188,7 @@ export function stepAutopilot(site: string, outline: PageElement[] = []): { stat
     }
     if (index < 0 || !draft) continue;
     tried.add(`${source}:${index}`);
-    const rule = createRule({ ...draft, author: "autopilot" }, "running");
+    const rule = createRule({ ...draft, author: "autopilot" }, "running", { outline });
     slots--;
     actions.push(entry("started", `Started A/B test “${rule.name}” for ${who(rule)}. ${draft.hypothesis ?? ""}`.trim(), { ruleId: rule.id, source }));
   }

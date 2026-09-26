@@ -10,6 +10,7 @@ import { ArrowRight, Globe, Plus } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "@/components/dw/mascot";
 import { PillButton, Typing } from "@/components/dw/ui";
+import { Gel } from "@/components/dw/gel";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { WhopLogo } from "@/components/dw/brand-logos";
 import { AgentBubble, BrainChip, CheckPop, EASE, YouBubble, type Brain } from "./bits";
@@ -129,9 +130,10 @@ export function AskChat({
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [typing, setTyping] = useState(true);
   const [heard] = useState<string[]>(() => TRACK_OPTIONS.filter((o) => o.match.test(prompt.toLowerCase())).map((o) => o.id));
-  const [track, setTrack] = useState<string[]>(() => initial?.track ?? heard);
+  // AI shoppers are ticked from the start: they're half of what Darwin is for.
+  const [track, setTrack] = useState<string[]>(() => initial?.track ?? [...heard, ...(heard.includes("agents") ? [] : ["agents"])]);
   const [note, setNote] = useState(initial?.note ?? "");
-  const [where, setWhere] = useState<string[]>(() => initial?.where ?? ["website", ...(whop ? ["whop"] : [])]);
+  const [where, setWhere] = useState<string[]>(() => initial?.where ?? ["website", "agents", ...(whop ? ["whop"] : [])]);
 
   // Darwin "types" for a beat before each question.
   useEffect(() => {
@@ -178,7 +180,7 @@ export function AskChat({
               and <b className="font-semibold text-dw-ink">{whop}</b> on Whop
             </>
           ) : null}
-          . Two quick questions, so I plan the right things.
+          . Two quick questions.
         </AgentBubble>
       </motion.div>
 
@@ -203,8 +205,8 @@ export function AskChat({
                       </Chip>
                     ))}
                   </div>
-                  {heard.length > 0 && <p className="text-[13px] text-dw-ink/55">I ticked what I heard in your message. Change anything.</p>}
-                  <div className="flex items-center gap-2 rounded-full border border-dw-hairline bg-white py-1 pr-1 pl-4 focus-within:border-dw-ink/40">
+                  {heard.length > 0 && <p className="text-[13px] text-dw-ink/55">Ticked from your message. Change anything.</p>}
+                  <div className="flex items-center gap-2 rounded-full border border-dw-hairline bg-white py-1 pr-1 pl-4 focus-within:border-dw-ink/40 max-sm:border-dw-ink/10 max-sm:bg-dw-bg">
                     <input
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
@@ -213,9 +215,9 @@ export function AskChat({
                       maxLength={200}
                       className="h-9 min-w-0 flex-1 bg-transparent text-[14.5px] outline-none placeholder:text-dw-ink/35"
                     />
-                    <PillButton type="submit" size="sm">
+                    <Gel type="submit" h={34} fontSize={13.5}>
                       Next <ArrowRight />
-                    </PillButton>
+                    </Gel>
                   </div>
                 </form>
               )}
@@ -248,7 +250,7 @@ export function AskChat({
                           onClick={() => setWhere((w) => flip(w, o.id))}
                           className={cn(
                             "dw-row flex w-full items-center gap-3 rounded-[18px] px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none",
-                            on ? "bg-dw-ink text-white" : "bg-dw-sand/80 text-dw-ink hover:bg-dw-sand",
+                            on ? "bg-dw-ink text-white" : "bg-dw-sand/80 text-dw-ink hover:bg-dw-sand max-sm:bg-dw-bg",
                           )}
                         >
                           <span
@@ -279,10 +281,10 @@ export function AskChat({
                         </button>
                       );
                     })}
-                    <div className="mt-1 flex justify-end">
-                      <PillButton onClick={finish} disabled={!where.length}>
+                    <div className="mt-2 flex justify-end">
+                      <Gel h={46} onClick={finish} disabled={!where.length} className="max-sm:w-full">
                         Make my plan <ArrowRight />
-                      </PillButton>
+                      </Gel>
                     </div>
                   </div>
                 )}
@@ -310,7 +312,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       onClick={onClick}
       className={cn(
         "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-[background-color,color,transform] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none",
-        on ? "bg-dw-ink text-white" : "border border-dw-hairline bg-white text-dw-ink/80 hover:border-dw-ink/25 hover:text-dw-ink",
+        on ? "bg-dw-ink text-white" : "border border-dw-hairline bg-white text-dw-ink/80 hover:border-dw-ink/25 hover:text-dw-ink max-sm:border-dw-ink/15 max-sm:bg-transparent",
       )}
     >
       {on ? (
