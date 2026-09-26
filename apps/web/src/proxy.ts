@@ -97,5 +97,8 @@ export const config = {
     "/api/web/heatmap",
     "/api/onboarding/:path*",
     "/api/dashboards",
+    // Not /a2a/* or /api/store-agent/demo-pay: buyer agents and the demo checkout are public.
+    "/api/store-agent/stats",
+    "/api/store-agent/buyer",
   ],
 };
