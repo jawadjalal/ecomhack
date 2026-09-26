@@ -12,7 +12,8 @@
  */
 import { parseArgs } from "node:util";
 import { runScriptedBuyer, sizeLabel, deadlineLabel, parseGoalBrief, type BuyerRunResult, type BuyerStep } from "@/lib/agent-commerce/buyer";
-import { runLlmBuyer, type ToolDescriptor } from "@/lib/agent-commerce/buyer-llm";
+import { runLlmBuyer } from "@/lib/agent-commerce/buyer-llm";
+import { connectMcp, type McpConnection } from "@/lib/agent-commerce/mcp-client";
 import type { AgentOrder, AgentToolName, AgentToolResult, CartView, NegotiationOutcome, ToolCaller } from "@/lib/agent-commerce/types";
 import type { AgentProduct, ShoppingGoal } from "@/lib/contracts";
 import { llmLabel, llmProvider } from "@/lib/llm/client";
@@ -46,83 +47,8 @@ const indent = (s: string, n = 4) => s.replace(/^/gm, " ".repeat(n));
 
 /* ------------------------------------------------------------------ MCP client */
 
-interface JsonRpcResponse {
-  jsonrpc: "2.0";
-  id: string | number | null;
-  result?: Record<string, unknown>;
-  error?: { code: number; message: string; data?: unknown };
-}
-
-class McpHttpClient {
-  sessionId?: string;
-  private nextId = 1;
-
-  constructor(
-    private endpoint: string,
-    private headers: Record<string, string>,
-  ) {}
-
-  private async post(message: Record<string, unknown>): Promise<Response> {
-    const res = await fetch(this.endpoint, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json, text/event-stream",
-        "mcp-protocol-version": "2025-06-18",
-        ...(this.sessionId ? { "mcp-session-id": this.sessionId } : {}),
-        ...this.headers,
-      },
-      body: JSON.stringify(message),
-    });
-    const sid = res.headers.get("mcp-session-id");
-    if (sid) this.sessionId = sid;
-    return res;
-  }
-
-  async request(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-    const id = this.nextId++;
-    const res = await this.post({ jsonrpc: "2.0", id, method, params });
-    const text = await res.text();
-    // Servers may answer with a one-shot SSE stream; take the first data line.
-    const payload = (res.headers.get("content-type") ?? "").includes("text/event-stream")
-      ? (text.split("\n").find((l) => l.startsWith("data:"))?.slice(5) ?? "")
-      : text;
-    let msg: JsonRpcResponse;
-    try {
-      msg = JSON.parse(payload);
-    } catch {
-      throw new Error(`${method}: HTTP ${res.status}, non-JSON response`);
-    }
-    if (msg.error) throw new Error(`${method}: ${msg.error.message} (${msg.error.code})`);
-    return msg.result ?? {};
-  }
-
-  async notify(method: string, params: Record<string, unknown> = {}) {
-    await this.post({ jsonrpc: "2.0", method, params });
-  }
-
-  async callTool(name: string, args: Record<string, unknown>): Promise<AgentToolResult> {
-    const result = await this.request("tools/call", { name, arguments: args });
-    if (result.structuredContent) return result.structuredContent as AgentToolResult;
-    const text = (result.content as { type: string; text?: string }[] | undefined)?.find((b) => b.type === "text")?.text;
-    try {
-      return JSON.parse(text ?? "");
-    } catch {
-      return { ok: !result.isError, data: text };
-    }
-  }
-}
-
 async function connect(endpoint: string, headers: Record<string, string>) {
-  const client = new McpHttpClient(endpoint, headers);
-  const init = await client.request("initialize", {
-    protocolVersion: "2025-06-18",
-    capabilities: {},
-    clientInfo: { name: headers["x-agent-name"], version: "1.0.0" },
-  });
-  await client.notify("notifications/initialized");
-  const { tools } = (await client.request("tools/list")) as { tools: ToolDescriptor[] };
-  return { client, init, tools };
+  return connectMcp(endpoint, { headers, clientName: headers["x-agent-name"] });
 }
 
 /* ------------------------------------------------------------------ transcript */
@@ -221,8 +147,8 @@ async function main() {
     log(c.gray("  Is the store running? cd apps/web && npm run dev"));
     process.exit(1);
   }
-  const info = session.init.serverInfo as { name: string; version: string };
-  log(c.blue(`  ⇄ initialize  → ${info.name} ${info.version}, protocol ${session.init.protocolVersion}, session ${session.client.sessionId}`));
+  const info = session.serverInfo ?? {};
+  log(c.blue(`  ⇄ initialize  → ${info.name} ${info.version}, protocol ${session.protocolVersion}, session ${session.sessionId}`));
   log(c.blue(`  ⇄ tools/list  → ${session.tools.map((t) => t.name).join(", ")}\n`));
 
   let n = 0;
@@ -234,11 +160,11 @@ async function main() {
     log(indent(summarise(step.tool, step.result), 6));
   };
 
-  const makeCaller = (client: McpHttpClient): ToolCaller => (tool, args) => client.callTool(tool, args);
+  const makeCaller = (client: McpConnection): ToolCaller => (tool, args) => client.call(tool, args);
   let result: BuyerRunResult | undefined;
   if (useLlm) {
     try {
-      result = await runLlmBuyer(goal, makeCaller(session.client), {
+      result = await runLlmBuyer(goal, makeCaller(session), {
         tools: session.tools,
         maxSteps: Number(values["max-steps"]) || 8,
         onStep,
@@ -249,7 +175,7 @@ async function main() {
       session = await connect(endpoint, { ...headers, "x-darwin-synthetic": "1" });
     }
   }
-  result ??= await runScriptedBuyer(goal, makeCaller(session.client), { seed: session.client.sessionId ?? agentName, onStep, onThought });
+  result ??= await runScriptedBuyer(goal, makeCaller(session), { seed: session.sessionId ?? agentName, onStep, onThought });
 
   log("");
   if (result.outcome === "purchased" && result.order) {
@@ -260,7 +186,7 @@ async function main() {
   } else {
     log(c.bold(c.red(`  ✗ ABANDONED  ${result.reason ?? "no reason"}`)));
   }
-  log(c.gray(`  ${result.steps.length} tool calls · policy: ${result.policy} · session ${session.client.sessionId}\n`));
+  log(c.gray(`  ${result.steps.length} tool calls · policy: ${result.policy} · session ${session.sessionId}\n`));
 }
 
 main().catch((err) => {

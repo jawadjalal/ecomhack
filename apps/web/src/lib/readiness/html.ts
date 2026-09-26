@@ -88,6 +88,25 @@ export function visibleTextLength(html: string): number {
     .trim().length;
 }
 
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", pound: "£", euro: "€", dollar: "$" };
+
+/** The server-rendered text an agent sees without JavaScript (scripts, styles, tags dropped), capped at `max` chars. */
+export function visibleText(html: string, max = 6000): string {
+  return html
+    .replace(/<(script|style|noscript|svg|template)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+      if (e[0] === "#") {
+        const code = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+        return Number.isFinite(code) && code > 0 && code < 0x110000 ? String.fromCodePoint(code) : " ";
+      }
+      return ENTITIES[e.toLowerCase()] ?? m;
+    })
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
 /** A price-looking string in the server-rendered text (£12.00, $9.99, 12,00 €). */
 export function hasVisiblePrice(html: string): boolean {
   const text = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ");
