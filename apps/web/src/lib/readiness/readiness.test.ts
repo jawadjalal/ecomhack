@@ -273,36 +273,14 @@ describe("safety", () => {
   });
 
   it("re-checks every redirect hop: a public page redirecting to a private address is never fetched", async () => {
-    const seen: string[] = [];
-    vi.stubGlobal("fetch", async (input: string | URL | Request) => {
-      const url = String(input instanceof Request ? input.url : input);
-      seen.push(url);
-      if (url.startsWith("http://93.184.216.34/start"))
-        return new Response(null, {
-          status: 302,
-          headers: { location: "http://93.184.216.34/next" },
-        });
-      if (url.startsWith("http://93.184.216.34/next"))
-        return new Response(null, {
-          status: 301,
-          headers: {
-            location: "http://[::ffff:169.254.169.254]/latest/meta-data",
-          },
-        });
-      return new Response("SECRET", { status: 200 });
-    });
-    try {
-      const r = await safeFetch("http://93.184.216.34/start");
-      expect(seen).toEqual([
-        "http://93.184.216.34/start",
-        "http://93.184.216.34/next",
-      ]);
-      expect(r.status).toBe(0);
-      expect(r.body).toBe("");
-      expect(r.error).toMatch(/can't be checked/);
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    // safeFetch connects only to the address it vetted (node:http, pinned lookup) and vets every hop again;
+    // the full redirect round trip against a local server lives in fetcher.test.ts ("re-checks every redirect hop").
+    // Here: the private hop from this scenario is refused before any request is made.
+    await expect(assertPublicUrl("http://[::ffff:169.254.169.254]/latest/meta-data")).rejects.toThrow(/can't be checked/);
+    const r = await safeFetch("http://[::ffff:169.254.169.254]/latest/meta-data");
+    expect(r.status).toBe(0);
+    expect(r.body).toBe("");
+    expect(r.error).toMatch(/can't be checked/);
   });
 
   it("rejects non-http URLs and credentials, and normalises bare domains", async () => {
