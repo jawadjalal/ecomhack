@@ -135,6 +135,18 @@ function KindRow({ result, kind }: { result: ExperimentResult; kind: "human" | "
   const t = result.treatment.byKind[kind];
   const lift = c.conversionRate > 0 ? (t.conversionRate - c.conversionRate) / c.conversionRate : undefined;
   const digits = kind === "human" ? 1 : 0;
+  // A single-audience change is invisible to the other audience: any gap there is noise, not signal.
+  const audience = audienceOf(result);
+  if (audience && audience !== kind) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg bg-white/[0.015] px-3 py-2 text-[0.85rem] text-white/35">
+        <span className="opacity-60">{kind === "human" ? "🧑" : "🤖"}</span>
+        <span className="w-[4.5rem]">{kind === "human" ? "Humans" : "Agents"}</span>
+        <span>{kind === "human" ? "can't see this change: not counted" : "never see page changes: not counted"}</span>
+        <span className="ml-auto text-[0.75rem] tabular">{count(c.visitors + t.visitors)} visitors</span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-3 rounded-lg bg-white/[0.03] px-3 py-2 text-[0.85rem]">
       <span>{kind === "human" ? "🧑" : "🤖"}</span>

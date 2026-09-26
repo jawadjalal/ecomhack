@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { ArrowUpRight, GitPullRequest, TrendingUp } from "lucide-react";
-import type { Experiment, GenerationRecord } from "@/lib/contracts";
+import type { Experiment, ExperimentResult, GenerationRecord } from "@/lib/contracts";
 import { pct, prNumberFromUrl, signedPct, type PrInfo } from "@/lib/console/format";
 import { useMeasure } from "@/lib/console/hooks";
 import { Panel, PanelHeader } from "@/components/ui/panel";
@@ -170,11 +170,15 @@ export function EvolutionChart({
   const [hover, setHover] = useState<number | null>(null);
 
   const r = experiment?.status === "running" ? experiment.result : undefined;
+  // Only forecast the audience the change can affect (the other arm's gap is noise).
+  const audience = (r as (ExperimentResult & { audience?: string }) | undefined)?.audience;
   const candidate: Candidate | undefined =
     r && r.treatment.visitors >= 60
       ? {
-          human: r.treatment.byKind.human.visitors >= 40 ? r.treatment.byKind.human.conversionRate : undefined,
-          agent: r.treatment.byKind.agent.visitors >= 15 ? r.treatment.byKind.agent.conversionRate : undefined,
+          human:
+            audience !== "agent" && r.treatment.byKind.human.visitors >= 40 ? r.treatment.byKind.human.conversionRate : undefined,
+          agent:
+            audience !== "human" && r.treatment.byKind.agent.visitors >= 15 ? r.treatment.byKind.agent.conversionRate : undefined,
           p: r.probabilityToBeat,
         }
       : undefined;
