@@ -9,3 +9,5 @@ export { computeTrafficReport, DEMO_STORE_SITE, NOT_PROVIDED, TRAFFIC_DIMENSIONS
 export type { TrafficDimension, TrafficReport, TrafficRow, TrafficTotals } from "./report";
 export { countryFlag, countryFromHeaders, countryName, simulatedCountry, withGeo } from "./geo";
 export { hostOf, referrerName, utmSourceName } from "./referrers";
+export { heuristicInsights, llmInsights } from "./insights";
+export type { InsightCategory, InsightsResponse, TrafficInsight } from "./insights";
