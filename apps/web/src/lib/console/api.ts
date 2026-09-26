@@ -185,7 +185,7 @@ export function createConsoleApi(mode: ApiMode = "auto", engineOrFactory: MockEn
       call(
         "agents",
         () => request<AgentShopResponse>("POST", "/api/agent/shop", { brief, useLlm, via }),
-        () => eng().sendShopper(brief),
+        () => eng().sendShopper(brief, via),
       ),
 
     simulate: (opts) => call("simulator", () => request<SimulationResult>("POST", "/api/simulate", opts), () => eng().simulate(opts)),

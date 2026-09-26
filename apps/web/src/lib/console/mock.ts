@@ -43,6 +43,31 @@ import { PRODUCTS, SHIPPING_FEE, type Product } from "@/lib/catalog/products";
 import type { SimulationOptions, SimulationResult } from "@/lib/simulator";
 import type { PullRequestResult } from "@/lib/github";
 
+/** Offline stand-in for the A2A chat shopper: the same outcome, told as a plain-English conversation. */
+function asA2aChat(s: AgentSessionSummary, productId: string): AgentSessionSummary {
+  const p = PRODUCTS.find((x) => x.id === productId) ?? PRODUCTS[0];
+  const gbp = (pence: number) => `£${(pence / 100).toFixed(2)}`;
+  const hidden = s.toolCalls.flatMap((c) => c.missing ?? []);
+  const turns: NegotiationTurn[] = [
+    { from: "buyer", message: s.goal?.brief ?? "Running shoes please" },
+    {
+      from: "merchant",
+      message: `1 option: ${p.name} ${gbp(p.price)}.${hidden.length ? " I'm not able to share some of that with agents yet." : ""}`,
+    },
+    ...(s.negotiation ?? []),
+    ...(s.outcome === "purchased"
+      ? [
+          { from: "buyer" as const, message: `Great, I'll take the ${p.name}. Please place the order.` },
+          { from: "merchant" as const, message: `Ordered ${p.name} for ${gbp(s.orderTotal ?? p.price)}.` },
+        ]
+      : [
+          { from: "buyer" as const, message: `No thanks: ${s.reason ?? "it doesn't fit my brief"}` },
+          { from: "merchant" as const, message: "Thanks for stopping by." },
+        ]),
+  ];
+  return { ...s, sessionId: `a2a_${s.sessionId}`, agentName: "a2a-buyer", negotiation: turns };
+}
+
 /* ------------------------------------------------------------------ rng */
 
 function mulberry32(seed: number) {
@@ -1319,7 +1344,7 @@ export class MockEngine {
   }
 
   /** Mirrors POST /api/agent/shop: one scripted buyer agent against the live spec. */
-  async sendShopper(brief: string): Promise<{ session: AgentSessionSummary }> {
+  async sendShopper(brief: string, via: "tools" | "a2a" = "tools"): Promise<{ session: AgentSessionSummary }> {
     await this.wait(Math.max(this.latency, this.latency * 6));
     const b = brief.toLowerCase();
     const productId = /trail|fell|mud/.test(b)
@@ -1352,7 +1377,8 @@ export class MockEngine {
     this.runTraffic(0, 1, 1, 400);
     const session = this.sessions[0];
     if (!session || session === before) throw new Error("shopper did not start");
-    return { session: structuredClone(session) };
+    if (via === "a2a") this.sessions[0] = asA2aChat(session, productId);
+    return { session: structuredClone(this.sessions[0]) };
   }
 
   async getSessions(limit = 20): Promise<AgentSessionsResponse> {
