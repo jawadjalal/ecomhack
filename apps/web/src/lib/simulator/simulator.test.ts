@@ -158,7 +158,8 @@ describe("calibration", () => {
       const base = await measure(null, 20_000, 3_000);
       expect(base.human).toBeGreaterThanOrEqual(0.02);
       expect(base.human).toBeLessThanOrEqual(0.026);
-      expect(base.agent).toBeGreaterThanOrEqual(0.15);
+      // Negotiators carry a budget under list price, so at Gen 0 (no haggling) they walk: ~12–22%.
+      expect(base.agent).toBeGreaterThanOrEqual(0.12);
       expect(base.agent).toBeLessThanOrEqual(0.22);
 
       const best = await measure(bestKnownSpec(), 20_000, 3_000);

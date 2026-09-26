@@ -22,10 +22,10 @@
  *   negotiator      negotiate tool        agentSurface.negotiation
  *   web-browsing agents also need schema.org data   agentSurface.structuredData
  *
- * Calibration: DEFAULT_SPEC ~15–22% of agents buy; full surface + negotiation ~55–70%.
+ * Calibration: DEFAULT_SPEC ~12–22% of agents buy; full surface + negotiation ~55–70%.
  */
 import type { AnalyticsEventInput, EventProperties, PageSpec, ShoppingGoal } from "@/lib/contracts";
-import { PRODUCTS, type Product } from "@/lib/catalog/products";
+import { PRODUCTS, SHIPPING_FEE, type Product } from "@/lib/catalog/products";
 import { SHOE_SIZES, shippingFor } from "./behavior-model";
 import { placeSession, type SimClock } from "./clock";
 import { createRng, deriveSeed, type Rng } from "./rng";
@@ -133,14 +133,19 @@ export function generateGoal(rng: Rng): SimGoal {
     }
     case "negotiator": {
       const desiredDiscountPct = Math.round(rng.range(4, 14));
+      // A hard budget a little under list price (plus delivery): these buyers only convert if the
+      // merchant will haggle, which is what makes `agentSurface.negotiation` worth testing.
+      const ref = rng.pick(inCat);
+      const maxBudget = Math.round((ref.price * (1 - desiredDiscountPct / 100) + SHIPPING_FEE) / 100) * 100;
       return {
         kind,
         needsStock,
         category,
         size,
+        maxBudget,
         negotiates: true,
         desiredDiscountPct,
-        brief: `${label}${sizeText}, get the best price (aim for ${desiredDiscountPct}% off)`,
+        brief: `${label}${sizeText}, best price, max £${maxBudget / 100} delivered`,
       };
     }
   }

@@ -160,6 +160,17 @@ describe("sampled agent population", () => {
     expect(open.reasons.get("no delivery ETA exposed")).toBeUndefined();
     expect(open.rate).toBeGreaterThan(gen0.rate + 0.25);
   });
+
+  it("never converts worse when the store starts negotiating (same shoppers)", async () => {
+    const surface = OPEN_SURFACE.agentSurface!;
+    resetWorld();
+    useSpec({ agentSurface: { ...surface, negotiation: { enabled: false, maxDiscountPct: 0 } } });
+    const off = await conversion("noneg");
+    resetWorld();
+    useSpec({ agentSurface: { ...surface, negotiation: { enabled: true, maxDiscountPct: 10 } } });
+    const on = await conversion("neg");
+    expect(on.rate).toBeGreaterThanOrEqual(off.rate);
+  });
 });
 
 describe("buyer agent (LLM policy)", () => {

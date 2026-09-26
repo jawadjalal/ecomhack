@@ -411,10 +411,7 @@ async function observe(ctx: Persisted, deps: LoopDeps) {
     current.agentConversionRate = pool(current.agentConversionRate, aN, A.conversionRate, A.visitors);
     current.humanVisitors = hN + H.visitors;
     current.agentVisitors = aN + A.visitors;
-    const all = current.humanVisitors + current.agentVisitors;
-    current.overallConversionRate = all
-      ? (current.humanConversionRate * current.humanVisitors + current.agentConversionRate * current.agentVisitors) / all
-      : current.overallConversionRate;
+    current.overallConversionRate = standardOverall(ctx, current.humanConversionRate, current.agentConversionRate, current.overallConversionRate);
   }
 
   if (ctx.state.generation === 0 && ctx.state.history.length === 0 && summary.overall.visitors > 0) {
@@ -569,6 +566,18 @@ function experimentAudience(ctx: Persisted, exp: Experiment) {
 }
 
 /**
+ * Overall conversion at the Gen 0 human/agent traffic mix. Experiment rounds deliberately skew the
+ * mix toward the audience under test, and agents convert ~20x better than humans, so a raw pooled
+ * rate would jump around with the mix instead of the store. Falls back to `raw` before Gen 0 exists.
+ */
+function standardOverall(ctx: Persisted, human: number, agent: number, raw: number): number {
+  const base = ctx.state.history[0];
+  const h = base?.humanVisitors ?? 0;
+  const a = base?.agentVisitors ?? 0;
+  return h + a > 0 ? (human * h + agent * a) / (h + a) : raw;
+}
+
+/**
  * Experiment result after a round. Simulated traffic is tallied by the simulator and accumulated
  * round by round (the event store is capped, so early rounds may already be evicted); real
  * (non-synthetic) visitors in the experiment are read from events and added on top.
@@ -600,9 +609,14 @@ function measureRound(
 
 async function runRound(ctx: Persisted, deps: LoopDeps, exp: Experiment) {
   const round = ctx.memory.round + 1;
-  const sim = await runTraffic(ctx, deps, deps.config.roundHumans, deps.config.roundAgents);
-  ctx.memory.round = round;
   const audience = experimentAudience(ctx, exp);
+  // Spend each round's traffic where the decision is measured: agent-only changes need many more
+  // agents (a +5% lift on a ~75% base rate), human-only changes don't need agents at all.
+  const { roundHumans, roundAgents } = deps.config;
+  const humans = audience === "agent" ? Math.round(roundHumans / 5) : roundHumans;
+  const agents = audience === "agent" ? roundAgents * 3 : audience === "human" ? Math.round(roundAgents / 2) : roundAgents;
+  const sim = await runTraffic(ctx, deps, humans, agents);
+  ctx.memory.round = round;
   const { result, synthetic } = measureRound(ctx, deps, exp, round, audience, sim);
   saveExperiment({ ...exp, result });
 
@@ -744,7 +758,7 @@ async function ship(ctx: Persisted, deps: LoopDeps, exp: Experiment, result: Exp
     label: promoted.label,
     humanConversionRate: t.byKind.human.conversionRate,
     agentConversionRate: t.byKind.agent.conversionRate,
-    overallConversionRate: t.conversionRate,
+    overallConversionRate: standardOverall(ctx, t.byKind.human.conversionRate, t.byKind.agent.conversionRate, t.conversionRate),
     humanVisitors: t.byKind.human.visitors,
     agentVisitors: t.byKind.agent.visitors,
     experimentId: exp.id,

@@ -322,8 +322,14 @@ export async function runScriptedBuyer(
         if (stretch) return abandon(`${formatGBP(detail.price.amount)} is over the ${formatGBP(budget!)} budget and the store won't negotiate`);
         think("No negotiation here; paying list price.");
       } else if (deal.kind === "walk") {
-        lastReason = `merchant's best and final ${formatGBP(deal.finalPrice)} for ${p.name} is over my ${formatGBP(budget ?? deal.finalPrice)} budget`;
-        continue;
+        if (stretch) {
+          lastReason = `merchant's best and final ${formatGBP(deal.finalPrice)} for ${p.name} is over my ${formatGBP(budget ?? deal.finalPrice)} budget`;
+          continue;
+        }
+        // The list price was within budget before we haggled, so a failed negotiation must not leave
+        // us worse off than a store that doesn't negotiate: buy at list and let checkout's budget
+        // check (with the real shipping cost) decide.
+        think(`No deal on ${p.name}; it was within budget at list price, so buying at list.`);
       } else {
         unitPrice = deal.price;
         bundle = deal.bundle;
