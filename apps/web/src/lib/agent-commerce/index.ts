@@ -14,6 +14,7 @@ import { resetMcpSessions } from "./mcp";
 import {
   AGENT_KV_KEYS,
   getAgentSession,
+  emptyCommerceState,
   getCommerceState,
   listAgentSessions,
   resetAgentState,
@@ -77,13 +78,14 @@ export async function runBuyerAgent(
   opts: { useLlm?: boolean } & BuyerHooks = {},
 ): Promise<AgentSessionSummary> {
   const now = ctx.now?.() ?? new Date().toISOString();
-  upsertAgentSession(
-    ctx.sessionId,
-    () => newSessionSummary(ctx, resolveSpecForVisitor(ctx.agentId), now),
-    (s) => {
-      s.goal = goal;
-    },
-  );
+  // A buyer run is a new shopping trip: never inherit a previous run's cart, deals or history,
+  // even if a caller reuses a session id (e.g. the simulator replaying a seed).
+  saveCommerceState(ctx.sessionId, emptyCommerceState());
+  const fresh = () => newSessionSummary(ctx, resolveSpecForVisitor(ctx.agentId), now);
+  upsertAgentSession(ctx.sessionId, fresh, (s) => {
+    for (const key of Object.keys(s)) delete (s as unknown as Record<string, unknown>)[key];
+    Object.assign(s, fresh(), { goal });
+  });
   const call: ToolCaller = (tool, args) => dispatchAgentTool(tool, args, ctx);
   const hooks: BuyerHooks = { onStep: opts.onStep, onThought: opts.onThought };
 

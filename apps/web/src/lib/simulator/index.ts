@@ -50,6 +50,9 @@ export interface SimulationInternals {
   agentDriver?: "auto" | "builtin";
 }
 
+/** Simulated gap between an agent's tool calls, ms. */
+const AGENT_STEP_MS = 800;
+
 /** Max agents that get a real LLM brain when `useLlmAgents` is set. */
 const MAX_LLM_AGENTS = 3;
 
@@ -97,9 +100,15 @@ export async function runSimulation(opts: SimulationOptions, internals: Simulati
     if (!builtin) {
       const lastBefore = eventStore().all().at(-1)?.uuid;
       try {
+        // Place the agent's session on the simulator clock (same rule as humans) so its events are
+        // spread over the window and a seed reproduces identical timestamps.
+        const end = clock.spreadMs > 0 ? clock.now - rng.next() * clock.spreadMs : clock.now - rng.next() * 3_000;
+        const start = end - AGENT_STEP_MS * 8;
+        let step = 0;
+        const now = () => new Date(Math.round(Math.min(end, start + AGENT_STEP_MS * step++))).toISOString();
         const summary = await runBuyerAgent(
           toShoppingGoal(goal),
-          { agentId, agentName: who.name, sessionId, synthetic: true, persona: `agent:${goal.kind}` },
+          { agentId, agentName: who.name, sessionId, synthetic: true, persona: `agent:${goal.kind}`, now },
           { useLlm: useLlm && i < MAX_LLM_AGENTS },
         );
         if (summary.reason !== "not implemented") {

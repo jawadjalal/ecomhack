@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Experiment, PageSpec, SpecPatch } from "@/lib/contracts";
 import { eventStore } from "@/lib/analytics/store";
+import { resetAgentCommerce } from "@/lib/agent-commerce";
 import { getAnalyticsSummary } from "@/lib/analytics/summary";
 import { resetExperiments, saveExperiment } from "@/lib/experiments/store";
 import { DEFAULT_SPEC } from "@/lib/spec/default-spec";
@@ -16,6 +17,7 @@ const SLOW = 60_000;
 function reset() {
   resetSpec();
   resetExperiments();
+  resetAgentCommerce();
   eventStore().clear();
 }
 
@@ -28,7 +30,15 @@ async function measure(spec: PageSpec | null, humans: number, agents: number, se
   return { result, human: s.byKind.human.conversionRate, agent: s.byKind.agent.conversionRate };
 }
 
-const snapshot = () => eventStore().all().map(({ event, distinct_id, timestamp, properties }) => ({ event, distinct_id, timestamp, properties }));
+/** Event stream minus ids that are unique by design (event uuid, order ids minted at checkout). */
+const snapshot = () =>
+  eventStore()
+    .all()
+    .map(({ event, distinct_id, timestamp, properties }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { order_id, ...rest } = properties;
+      return { event, distinct_id, timestamp, properties: rest };
+    });
 
 beforeEach(reset);
 afterEach(reset);
