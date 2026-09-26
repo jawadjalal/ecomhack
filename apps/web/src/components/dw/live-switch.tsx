@@ -16,7 +16,7 @@ export function LiveSwitch() {
       title={live ? "Live: the numbers refresh every few seconds. Click to hold the screen still." : "Held still. Click to turn live updates back on."}
       onClick={() => setLive(!live)}
       className={cn(
-        "flex h-11 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium whitespace-nowrap transition-colors",
+        "flex h-11 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium whitespace-nowrap transition-colors max-sm:hidden",
         live ? "bg-dw-sand text-dw-ink hover:bg-[#e4dccb]" : "bg-dw-ink text-dw-bg hover:bg-dw-ink/90",
       )}
     >
