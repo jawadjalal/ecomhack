@@ -51,6 +51,7 @@ export const DashboardSpecSchema = z.strictObject({
   display: z.enum(["line", "bars"]).optional(),
   period: z.enum(["hour", "today", "week"]).optional(),
   from: z.string().max(120).optional(),
+  board: z.string().max(40).optional(),
 });
 
 export const TrackingPlanSchema = z.strictObject({

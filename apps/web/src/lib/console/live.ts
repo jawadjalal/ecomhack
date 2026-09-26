@@ -1,7 +1,8 @@
 "use client";
 /**
  * "Live updates" on or off for this browser (the header switch). Off stops every console poll, so the
- * screen holds still while the merchant reads it. Remembered in localStorage; on by default.
+ * screen holds still while the merchant reads it. Off by default: the console turns it on while Darwin is
+ * running (autopilot, "Watch Darwin fix it") and the merchant can flip it. Remembered in localStorage.
  */
 import { useSyncExternalStore } from "react";
 
@@ -10,9 +11,9 @@ const listeners = new Set<() => void>();
 
 function read(): boolean {
   try {
-    return localStorage.getItem(KEY) !== "0";
+    return localStorage.getItem(KEY) === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -33,7 +34,7 @@ export function setLive(on: boolean): void {
 }
 
 export function useLive(): boolean {
-  return useSyncExternalStore(subscribe, read, () => true);
+  return useSyncExternalStore(subscribe, read, () => false);
 }
 
 /** A poll interval that stops while live updates are off. */

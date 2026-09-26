@@ -14,6 +14,7 @@ import { humanizeInsightText } from "@/lib/optimizer/humanize";
 import { cn } from "@/components/ui/cn";
 import { useDarwin } from "../provider";
 import { countText, liftText, pctSmart } from "./model";
+import { setLive } from "@/lib/console/live";
 
 /** Safety cap: a test can need several rounds, and a "keep A" verdict sends Darwin back to diagnose. */
 const MAX_STEPS = 14;
@@ -139,6 +140,7 @@ export function useWatchRun() {
     const id = ++run.current;
     seen.current = loopRef.current?.log.length ?? 0;
     setRunning(true);
+    setLive(true); // the cards follow the run while it plays
     if (!trafficOn) setTrafficOn(true);
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const startLen = loopRef.current?.log.length ?? 0;
@@ -159,6 +161,19 @@ export function useWatchRun() {
 
   // Leaving the page ends the run (the loop itself just stays where it is).
   useEffect(() => () => void (run.current += 1), []);
+
+  // The watch_fix command (lib/commands/run.ts): /console?watch=1, or its "darwin:watch" event when already here.
+  useEffect(() => {
+    const go = () => void start();
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("watch") === "1") {
+      q.delete("watch");
+      window.history.replaceState(null, "", `${window.location.pathname}${q.size ? `?${q}` : ""}`);
+      go();
+    }
+    window.addEventListener("darwin:watch", go);
+    return () => window.removeEventListener("darwin:watch", go);
+  }, [start]);
 
   return { running, start, stop };
 }

@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, Ellipsis } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
 import { AccountAvatar } from "./account-avatar";
 import { CommandPill } from "./command/pill";
 import { LiveSwitch } from "./live-switch";
-import { Mascot } from "./mascot";
+import { Mascot, type MascotKind } from "./mascot";
 import { useDarwin } from "./provider";
 import { StoreChip } from "./store-context";
 
@@ -21,6 +21,15 @@ export const NAV = [
   { key: "experiments", label: "Experiments", href: "/console/experiments" },
   { key: "changes", label: "Changes", href: "/console/changes" },
 ] as const;
+
+/** Each section is run by one agent of the crew; its mascot stands in for a step number. */
+const NAV_AGENT: Record<(typeof NAV)[number]["key"], MascotKind> = {
+  overview: "analyst",
+  issues: "observer",
+  fixes: "designer",
+  experiments: "experimenter",
+  changes: "shipper",
+};
 
 const MORE = [
   { label: "Store agent", hint: "Mika sells to AI shoppers", href: "/console/agents" },
@@ -58,7 +67,7 @@ export function TopNav() {
         aria-label="Main"
         className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink max-sm:hidden p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-lg:order-last max-lg:col-span-2 max-lg:justify-self-center"
       >
-        {NAV.map((n, i) => {
+        {NAV.map((n) => {
           const on = n.key === active;
           const count = counts[n.key];
           return (
@@ -71,20 +80,13 @@ export function TopNav() {
                   on ? "bg-dw-bg font-semibold text-dw-ink" : "font-medium text-[#CFCAC0] hover:text-white",
                 )}
               >
-                {i > 0 && (
-                  <span
-                    className={cn(
-                      "grid size-[18px] place-items-center rounded-full text-[11px] font-semibold",
-                      on ? "bg-dw-ink text-dw-bg" : "bg-white/[0.12] text-[#CFCAC0]",
-                    )}
-                  >
-                    {i}
-                  </span>
-                )}
+                <span className={cn("grid size-[22px] shrink-0 place-items-center rounded-full", on ? "bg-dw-sand" : "bg-white/[0.10]")} aria-hidden>
+                  <Mascot kind={NAV_AGENT[n.key]} size={18} active={on} />
+                </span>
                 {n.label}
-                {!!count && <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-dw-pink px-[5px] text-[11px] font-semibold text-dw-ink">{count}</span>}
+                {!!count && <span className="size-[7px] rounded-full bg-dw-pink" title={`${count} new`} aria-label={`${count} new`} />}
               </Link>
-              {i < NAV.length - 1 && <ChevronRight className="mx-0.5 size-3 shrink-0 text-[#5E5A52]" strokeWidth={2.2} aria-hidden />}
+
             </div>
           );
         })}

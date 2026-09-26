@@ -3,8 +3,8 @@
  * Isomorphic (the /api/command planner and the browser both read it). The browser runners live in
  * ./run.ts; the natural-language parser in ./parse.ts.
  *
- * Adding a user-facing action to Darwin? Add it here (spec) and in run.ts (runner): ⌘K, WebMCP and
- * window.darwin pick it up automatically.
+ * Adding a user-facing action to Darwin? Add it here (spec), in run.ts (browser runner) and server-run.ts (headless
+ * runner), plus phrases in parse.ts: ⌘K, WebMCP, window.darwin, the MCP server and the CLI pick it up automatically.
  */
 import { z } from "zod";
 import { ROADMAP, ROADMAP_KEYS, roadmapArea } from "@/lib/status/roadmap";
@@ -323,6 +323,122 @@ export const COMMANDS = {
       { text: "what's left on this page?", input: {} },
       { text: "what's left to do on dashboards", input: { area: "dashboards" } },
     ],
+  }),
+
+  start_demo: define({
+    name: "start_demo",
+    title: "Watch Darwin improve the demo store",
+    description:
+      "Point Darwin at the demo store (/store, PACE running shoes), fill it with SIMULATED shoppers (people and AI agents, all labelled synthetic) and turn autopilot on, so Darwin observes, tests and ships fixes by itself. Use for “start the demo”, “watch Darwin improve the demo store”, “show me how it works”.",
+    input: z.object({}),
+    risk: "safe",
+    actor: "experimenter",
+    describe: () => "Fill the demo store with simulated shoppers and turn autopilot on",
+    examples: [
+      { text: "watch darwin improve the demo store", input: {} },
+      { text: "start the demo", input: {} },
+    ],
+  }),
+
+  watch_fix: define({
+    name: "watch_fix",
+    title: "Watch Darwin fix it",
+    description:
+      "Run Darwin's loop live, phase by phase (observe → diagnose → propose → experiment → decide → ship), until it ships a fix or finds no winner, narrating each phase. In the console it starts the Overview's watch run; headless it steps the loop up to `steps` times. The experiment phase uses labelled simulated traffic.",
+    input: z.object({ steps: z.number().int().min(1).max(10).default(6).describe("Most loop phases to run (headless).") }),
+    risk: "safe",
+    actor: "designer",
+    aliases: ["watch_darwin_fix"],
+    describe: () => "Watch Darwin fix the top issue, phase by phase",
+    examples: [
+      { text: "watch darwin fix it", input: {} },
+      { text: "watch the fix", input: { steps: 6 } },
+    ],
+  }),
+
+  check_install: define({
+    name: "check_install",
+    title: "Test my install",
+    description:
+      "Check whether darwin.js is installed on the merchant's store: waiting (no tag or events yet), installed (the tag is on the homepage) or verified (Darwin has received real events from the store). `url` is the store's address; `site` the darwin.js site id (defaults to the one for that address, or the only store set up).",
+    input: z.object({
+      url: z.string().trim().min(3).max(300).optional().describe("The store's address, e.g. \"https://shop.example.com\". Omit to use the store saved in onboarding."),
+      site: Site.optional(),
+    }),
+    risk: "safe",
+    readOnly: true,
+    actor: "observer",
+    aliases: ["verify_install", "test_install"],
+    describe: ({ url, site }) => `Check the darwin.js install${url ? ` on ${url}` : site ? ` for ${site}` : ""}`,
+    examples: [
+      { text: "test my install on https://shop.example.com", input: { url: "https://shop.example.com" } },
+      { text: "is darwin installed?", input: {} },
+    ],
+  }),
+
+  save_setup: define({
+    name: "save_setup",
+    title: "Save my setup",
+    description:
+      "Save the merchant's setup (their email and store) so they can pick up where they left off on any browser: returns a 30-day resume link. Nothing is emailed: the merchant keeps the link. Needs an email address.",
+    input: z.object({
+      email: z.email().max(254).optional().describe("The merchant's email address. Required to save; without it Darwin asks for one."),
+      site: Site.optional(),
+    }),
+    risk: "safe",
+    actor: "shipper",
+    aliases: ["save_account"],
+    describe: ({ email }) => (email ? `Save your setup under ${email}` : "Save your setup"),
+    examples: [
+      { text: "save my setup as jo@example.com", input: { email: "jo@example.com" } },
+      { text: "save my setup for trail-shop-co-uk under jo@example.com", input: { email: "jo@example.com", site: "trail-shop-co-uk" } },
+    ],
+  }),
+
+  which_store: define({
+    name: "which_store",
+    title: "Which store is this?",
+    description:
+      "Say which store the console is showing: the demo store (/store, simulated shoppers) or the merchant's own (connected GitHub repo, darwin.js sites with a tracking plan, saved account). Use for “which store am I looking at?”, “is this my store or the demo?”.",
+    input: z.object({}),
+    risk: "safe",
+    readOnly: true,
+    actor: "analyst",
+    describe: () => "Check which store Darwin is showing",
+    examples: [
+      { text: "which store am I looking at?", input: {} },
+      { text: "is this the demo store?", input: {} },
+    ],
+  }),
+
+  detect_platform: define({
+    name: "detect_platform",
+    title: "Detect a store's platform",
+    description:
+      "Look at a store's homepage and say what it runs on (Shopify, Webflow, WordPress, Squarespace, Wix, BigCommerce, custom or unknown), with the evidence. Use before installing darwin.js to pick the right instructions.",
+    input: z.object({ url: z.string().trim().min(3).max(300).describe("The store's address, e.g. \"https://shop.example.com\".") }),
+    risk: "safe",
+    readOnly: true,
+    actor: "observer",
+    aliases: ["inspect_store"],
+    describe: ({ url }) => `Detect the platform of ${url}`,
+    examples: [{ text: "what platform is shop.example.com on?", input: { url: "shop.example.com" } }],
+  }),
+
+  research_competitors: define({
+    name: "research_competitors",
+    title: "Research competitors",
+    description:
+      "Research the merchant's competitors on the web: who they are, their prices, shipping and returns, trends, and suggestions for the store, with sources. Without a TAVILY_API_KEY the report is a labelled sample. `query` is what to research (\"trail running shoes in the UK\"); `store` optionally describes the merchant's store or its URL.",
+    input: z.object({
+      query: z.string().trim().min(2).max(500).describe("What to research, e.g. \"trail running shoes in the UK\"."),
+      store: z.string().trim().max(500).optional().describe("The merchant's store: a short description or its URL."),
+    }),
+    risk: "safe",
+    actor: "analyst",
+    aliases: ["competitor_research"],
+    describe: ({ query }) => `Research competitors: “${query}”`,
+    examples: [{ text: "research competitors for trail running shoes in the UK", input: { query: "trail running shoes in the UK" } }],
   }),
 } satisfies Record<CommandName, CommandSpec<z.ZodObject>>;
 

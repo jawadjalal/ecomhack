@@ -10,7 +10,8 @@ import type { Insight, LoopState } from "@/lib/contracts";
 import type { ConsoleApi } from "@/lib/console/api";
 import { money, PHASE_META } from "@/lib/console/format";
 import { roadmapArea, roadmapFor, whatsLeftText } from "@/lib/status/roadmap";
-import { resolveSite } from "./parse";
+import { resolveSite, siteSlug } from "./parse";
+import { describeStore, installState, installText, platformText, researchText, type InspectLite, type ResearchLite, type VerifyLite } from "./results";
 import { AGENT_LEVERS, pageHref, PAGES, resolveCommand, specOf, type CommandInput } from "./specs";
 import type { CommandName, CommandResult, CommandSites } from "./types";
 
@@ -298,7 +299,110 @@ const RUNNERS: { [N in CommandName]: Runner<N> } = {
       return { ok: true, text: whatsLeftText(a), data: a };
     },
   },
+
+  start_demo: {
+    async run(_input, ctx) {
+      const demo = await http<{ action?: "seeded" | "refilled" | "none"; status: { mode: string; generation: number } }>("POST", "/api/demo");
+      await ctx.setAutopilot(true); // also keeps simulated shoppers coming while the console is open
+      const loop = await ctx.api.getLoop().catch(() => undefined);
+      ctx.refresh();
+      if (ctx.location().pathname !== "/console") ctx.navigate("/console");
+      const filled =
+        demo.action === "seeded"
+          ? `Darwin filled the demo store with simulated shoppers and ran its loop to Gen ${demo.status.generation}`
+          : demo.action === "refilled"
+            ? "Darwin sent a fresh round of simulated shoppers to the demo store"
+            : "The demo store has simulated shoppers";
+      const on = loop ? loop.autopilot : true;
+      return {
+        ok: on,
+        text: `${filled}. ${on ? "Autopilot is on: watch Darwin observe, test and ship fixes by itself." : "Autopilot didn't switch on: try again."} Every shopper here is simulated and labelled.`,
+        synthetic: true,
+        href: "/console",
+        linkLabel: "See Overview",
+        data: demo,
+      };
+    },
+  },
+
+  watch_fix: {
+    async run(_input, ctx) {
+      // The Overview's watch run (components/dw/overview/watch.tsx) starts on ?watch=1, or on this event when it's already open.
+      if (ctx.location().pathname === "/console") window.dispatchEvent(new Event(WATCH_EVENT));
+      else ctx.navigate("/console?watch=1");
+      return { ok: true, text: "Watching Darwin fix it on the Overview: each phase shows up as it happens, until it ships a fix or finds no winner. Test traffic is simulated.", synthetic: true, href: "/console", linkLabel: "See Overview" };
+    },
+  },
+
+  check_install: {
+    async run({ url: given, site: named }, ctx) {
+      const known = await ctx.sites().catch(() => ({ tracking: [], web: [] }) as CommandSites);
+      const all = [...new Set([...known.tracking, ...known.web])];
+      const site = named ? resolveSite(named, all) : (pageSite(ctx) ?? (given ? resolveSite(siteSlug(given), all) : all.length === 1 ? all[0] : undefined));
+      const url = given ?? (site ? await savedUrl(site) : undefined);
+      if (!url) return { ok: false, text: "Which store should Darwin check? Say its address, like “test my install on https://shop.example.com”.", href: "/onboarding", linkLabel: "Set up a store" };
+      if (!site) return { ok: false, text: `Which darwin.js site is ${url}? Name it too.` };
+      const v = await http<VerifyLite>("GET", `/api/onboarding/verify?${new URLSearchParams({ site, url })}`);
+      const state = installState(v);
+      return { ok: true, text: installText(state, v), href: "/onboarding", linkLabel: "Open setup", data: { state, site, ...v } };
+    },
+  },
+
+  save_setup: {
+    async run({ email, site: named }, ctx) {
+      if (!email) return { ok: false, text: "What email should Darwin save your setup under? Say “save my setup as you@example.com”. Nothing is sent to it: you get a link to keep." };
+      const known = await ctx.sites().catch(() => ({ tracking: [], web: [] }) as CommandSites);
+      const site = named ? resolveSite(named, known.tracking) : pageSite(ctx);
+      const r = await http<{ email: string; resumeUrl: string }>("POST", "/api/account", { email, ...(site ? { site } : {}) });
+      ctx.refresh();
+      return {
+        ok: true,
+        text: `Saved your setup under ${r.email}${site ? ` for ${site}` : ""}. Keep the resume link to pick up where you left off on any browser (valid 30 days). Nothing was emailed.`,
+        href: r.resumeUrl,
+        linkLabel: "Copy the resume link",
+        data: { email: r.email, site, resumeUrl: r.resumeUrl },
+      };
+    },
+  },
+
+  which_store: {
+    async run(_input, ctx) {
+      const [gh, account, known] = await Promise.all([
+        http<{ repo?: string; connection?: { repo?: string } }>("GET", "/api/github/status").catch(() => undefined),
+        http<{ email?: string; sites?: string[] }>("GET", "/api/account").catch(() => undefined),
+        ctx.sites().catch(() => ({ tracking: [], web: [] }) as CommandSites),
+      ]);
+      const w = describeStore(gh, account, known);
+      return { ok: true, text: w.text, href: w.demo ? "/store" : "/console/settings", linkLabel: w.demo ? "Open the demo store" : "Open Settings", data: w };
+    },
+  },
+
+  detect_platform: {
+    async run({ url }) {
+      const r = await http<InspectLite>("GET", `/api/onboarding/inspect?${new URLSearchParams({ url })}`);
+      return { ok: r.reachable, text: platformText(r), href: "/onboarding", linkLabel: "Set up this store", data: r };
+    },
+  },
+
+  research_competitors: {
+    async run({ query, store }, ctx) {
+      const r = await http<ResearchLite>("POST", "/api/research", { kind: "competitors", query, ...(store ? { store } : {}) });
+      const href = `/console/research?id=${encodeURIComponent(r.id)}`;
+      ctx.navigate(href);
+      return { ok: true, text: researchText(r), href, linkLabel: "Open the report", data: r };
+    },
+  },
 };
+
+/** Fired on window to start the Overview's watch run when it's already on screen (see watch_fix). */
+export const WATCH_EVENT = "darwin:watch";
+
+/** The store address saved with a site's tracking plan (one-tag installs), if any. */
+async function savedUrl(site: string): Promise<string | undefined> {
+  const r = await http<{ plan?: { siteUrl?: string } }>("GET", `/api/onboarding/plan?${new URLSearchParams({ site })}`).catch(() => undefined);
+  const url = r?.plan?.siteUrl;
+  return url && /^https?:\/\//.test(url) ? url : undefined;
+}
 
 interface BriefingItemLite {
   id: string;

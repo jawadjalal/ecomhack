@@ -79,6 +79,8 @@ export interface DashboardSpec {
   period?: "hour" | "today" | "week";
   /** paths: start from this page ("/products") or event ("product_viewed"). */
   from?: string;
+  /** The named dashboard (tab) this card belongs to, e.g. "My coupon launch". Unset: built-in tabs by kind. */
+  board?: string;
 }
 
 export interface TrackingPlan {
@@ -166,6 +168,30 @@ export interface DashboardData {
   simulated?: number;
   /** Nothing recorded yet for this dashboard. */
   empty: boolean;
+  /** The named dashboard (tab) this card belongs to; see DashboardSpec.board. */
+  board?: string;
+  /** funnel: the events behind the steps (for tabs). */
+  events?: string[];
+}
+
+/** GET /api/dashboards?site=…&drill=<funnel id>&step=<n>: who dropped between step n-1 and n, and why. */
+export interface FunnelDrill {
+  dashboardId: string;
+  step: number;
+  /** Step label before the drop ("" for the first step). */
+  from: string;
+  to: string;
+  /** Visitors who reached the step before. */
+  previous: number;
+  dropped: number;
+  humans: number;
+  agents: number;
+  /** dropped / previous (0–1). */
+  share: number;
+  /** How many of the dropped visitors were simulated. */
+  simulated: number;
+  reasons: { text: string; count: number }[];
+  journeys: { id: string; kind: "human" | "agent"; simulated: boolean; at: string; steps: string[] }[];
 }
 
 export interface DashboardsResponse {
@@ -184,6 +210,8 @@ export interface DashboardsResponse {
 // PUT   /api/onboarding/plan { plan }                      → { plan } toggles saved            (admin)
 // GET   /api/dashboards?site=…                             → DashboardsResponse               (admin)
 // POST  /api/dashboards { site, message }                  → { plan, reply, id } ask for a chart (admin)
+// GET   /api/dashboards?site=…&drill=<id>&step=<n>          → { drill: FunnelDrill } funnel drop drill-down (admin)
+// POST  /api/dashboards { site, board: name }              → { plan, reply, ids, board } new named dashboard (admin)
 // POST  /api/dashboards { site, remove: id }               → { plan } remove an asked-for chart  (admin)
 // POST  /api/onboarding/restore { plan }                   → { restored, plan } browser copy → this instance, only if it has none (admin)
 // GET   /api/onboarding/verify?site=…&url=…              → { verified, via?: "events"|"tag", host, checkedAt, detail } ownership proof, cached ~10 s (admin)
