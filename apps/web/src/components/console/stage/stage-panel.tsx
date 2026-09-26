@@ -9,7 +9,7 @@ import { Panel } from "@/components/ui/panel";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/components/ui/cn";
 import { moodForPhase, phaseRole } from "@/lib/mascot/state";
-import { Mascot } from "../mascot";
+import { Mascot } from "@/components/dw/mascot";
 import { GithubMark } from "../brand";
 import { ObserveStage } from "./observe";
 import { DiagnoseStage } from "./diagnose";

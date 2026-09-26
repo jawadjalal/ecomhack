@@ -6,7 +6,7 @@ import type { LoopPhase } from "@/lib/contracts";
 import { PHASES, PHASE_META, phaseIndex } from "@/lib/console/format";
 import { moodForPhase, phaseRole } from "@/lib/mascot/state";
 import { cn } from "@/components/ui/cn";
-import { Mascot } from "./mascot";
+import { Mascot } from "@/components/dw/mascot";
 
 export const PHASE_ICONS: Record<Exclude<LoopPhase, "idle">, LucideIcon> = {
   observe: Eye,
