@@ -54,7 +54,7 @@ export function DiffBlock({ lines, className }: { lines: string[]; className?: s
               </div>
               <div className="flex min-w-0 items-center justify-end gap-1.5 font-mono text-[0.76rem]">
                 {d.before !== undefined && (
-                  <span className="max-w-[40%] truncate rounded bg-bad/12 px-1.5 py-0.5 text-[#ff9b9b] line-through decoration-[#ff9b9b]/50" title={d.before}>
+                  <span className="max-w-[9rem] shrink-0 truncate rounded bg-bad/12 px-1.5 py-0.5 text-[#ff9b9b] line-through decoration-[#ff9b9b]/50" title={d.before}>
                     {prettyValue(d.before)}
                   </span>
                 )}
@@ -111,8 +111,10 @@ export function ProposeStage({
             <div className="text-[0.62rem] tracking-[0.12em] text-white/40 uppercase">expected lift</div>
           </div>
         </div>
-        <h3 className="text-[1.4rem] leading-tight font-semibold tracking-[-0.015em] text-white">{proposal.title}</h3>
-        <p className="line-clamp-3 text-[0.86rem] leading-relaxed text-white/55">{proposal.hypothesis}</p>
+        <h3 className="shrink-0 text-[1.4rem] leading-tight font-semibold tracking-[-0.015em] text-white">{proposal.title}</h3>
+        <p className="line-clamp-3 shrink-0 text-[0.86rem] leading-relaxed text-white/55" title={proposal.hypothesis}>
+          {proposal.hypothesis}
+        </p>
         <DiffBlock lines={proposal.diff} className="min-h-0 overflow-y-auto scrollbar-thin" />
       </motion.div>
 
@@ -136,8 +138,8 @@ export function ProposeStage({
           </div>
         </div>
         <div className="flex gap-3">
-          <StoreFrame page={page} query={controlQuery} tone="control" label={`Control · ${liveSpec.label}`} />
-          <StoreFrame page={page} query={specQuery(treatment)} tone="treatment" label="Treatment · proposal" />
+          <StoreFrame page={page} query={controlQuery} tone="control" label={`Control · ${liveSpec.label}`} tall={!touchesAgents} />
+          <StoreFrame page={page} query={specQuery(treatment)} tone="treatment" label="Treatment · proposal" tall={!touchesAgents} />
         </div>
         {touchesAgents ? (
           <AgentSurfaceDiff control={liveSpec} treatment={treatment} className="flex-1" />

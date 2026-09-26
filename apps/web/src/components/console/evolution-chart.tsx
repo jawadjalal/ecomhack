@@ -140,7 +140,7 @@ function Row({
             {showLabel && (
               <text
                 x={i === 0 ? px + 9 : px}
-                y={i === 0 ? py - 9 : py - 11}
+                y={i === 0 ? (py < top + plotH / 2 ? py + 17 : py - 9) : py - 11}
                 textAnchor={i === 0 ? "start" : "middle"}
                 className={cn("tabular", i === last ? "fill-white" : "fill-white/65")}
                 style={{ fontSize: i === last ? "0.95rem" : "0.76rem", fontWeight: 600 }}
@@ -247,7 +247,8 @@ export function EvolutionChart({
                       <text
                         x={x(i)}
                         y={size.height - 6}
-                        textAnchor="middle"
+                        textAnchor={isCandidate && i === slots - 1 ? "end" : "middle"}
+                        dx={isCandidate && i === slots - 1 ? 12 : 0}
                         className={cn(g ? (hover === i ? "fill-white" : "fill-white/55") : isCandidate ? "fill-brand/80" : "fill-white/20")}
                         style={{ fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.06em" }}
                       >

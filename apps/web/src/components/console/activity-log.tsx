@@ -20,7 +20,7 @@ export const ACTORS: Record<LoopLogEntry["actor"], { name: string; icon: LucideI
 
 /** Highlight numbers and percentages in a log message. */
 function Rich({ text }: { text: string }) {
-  const parts = text.split(/(\b\d[\d,.]*%?|[+−-]\d[\d.]*%|P\(beat\)[^,.]*|SHIP|REJECT|INCONCLUSIVE)/g);
+  const parts = text.split(/(\b\d[\d,.]*%?|[+−-]\d[\d.]*%|P\(beat\)[^,.]*|SHIP|REJECT|INCONCLUSIVE|Wildcard)/g);
   return (
     <>
       {parts.map((p, i) =>
@@ -29,7 +29,13 @@ function Rich({ text }: { text: string }) {
             key={i}
             className={cn(
               "font-semibold",
-              p === "SHIP" ? "text-brand" : p === "REJECT" ? "text-[#ff9b9b]" : p === "INCONCLUSIVE" ? "text-[#ffd27a]" : "text-white",
+              p === "SHIP"
+                ? "text-brand"
+                : p === "REJECT"
+                  ? "text-[#ff9b9b]"
+                  : p === "INCONCLUSIVE" || p === "Wildcard"
+                    ? "text-[#ffd27a]"
+                    : "text-white",
             )}
           >
             {p}

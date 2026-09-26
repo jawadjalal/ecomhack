@@ -7,7 +7,6 @@ import { useSWRConfig } from "swr";
 import type { AgentSessionSummary } from "@/lib/contracts";
 import { money, timeAgo } from "@/lib/console/format";
 import { useApi, useHotkeys, useNow } from "@/lib/console/hooks";
-import { Kbd } from "@/components/ui/kbd";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Badge, Tag } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
@@ -243,12 +242,12 @@ export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
     <Panel className="h-full">
       <PanelHeader
         icon={<Handshake />}
-        title="Agent-to-agent commerce"
+        title="Agent-to-agent"
         right={
           <div className="flex items-center gap-2">
             {list.length > 0 && (
-              <span className="text-[0.74rem] text-white/45 tabular">
-                <span className="font-semibold text-white/80">{purchased}</span>/{list.length} bought
+              <span className="text-[0.74rem] text-white/45 tabular" title={`${purchased} of the last ${list.length} agent sessions bought`}>
+                <span className="font-semibold text-[#7ee2a0]">{purchased}</span>/{list.length}
               </span>
             )}
             <button
@@ -256,7 +255,7 @@ export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
               title="Send an AI shopper (S)"
               className="flex h-7 items-center gap-1.5 rounded-lg border border-agent/30 bg-agent/10 px-2 text-[0.72rem] font-medium text-[#f5a6cb] hover:bg-agent/20"
             >
-              <Bot className="size-3.5" /> Send shopper <Kbd className="h-4 min-w-4 text-[0.6rem]">S</Kbd>
+              <Bot className="size-3.5" /> Send shopper
             </button>
           </div>
         }

@@ -73,10 +73,20 @@ export function ProbabilityGauge({ p, size = "lg" }: { p: number; size?: "lg" | 
   );
 }
 
-/** Optional `audience` (beyond the base contract): agent-only changes are measured on agents. */
-function measuredOn(r: ExperimentResult): string | undefined {
+/**
+ * Optional `audience` (beyond the base contract): agent-only patches are judged on agents,
+ * human-only patches on humans. Lift / P(beat) are computed on that segment, so the bars are too.
+ */
+function audienceOf(r: ExperimentResult): "agent" | "human" | undefined {
   const a = (r as ExperimentResult & { audience?: string }).audience;
-  return a === "agent" ? "AI agents" : a === "human" ? "humans" : undefined;
+  return a === "agent" || a === "human" ? a : undefined;
+}
+
+/** The arm stats the verdict is computed on (whole arm, or one audience segment). */
+function segment(stats: VariantStats, audience?: "agent" | "human"): VariantStats {
+  if (!audience) return stats;
+  const k = stats.byKind[audience];
+  return { ...stats, visitors: k.visitors, conversions: k.conversions, conversionRate: k.conversionRate };
 }
 
 /* ------------------------------------------------------------------ arms */
@@ -177,7 +187,10 @@ function LiftInterval({ result }: { result: ExperimentResult }) {
 export function ExperimentStage({ experiment, compact }: { experiment?: Experiment; compact?: boolean }) {
   const r = experiment?.result;
   if (!experiment || !r) return <ThinkingCards label="Setting up the A/B test…" n={2} />;
-  const max = Math.max(r.control.conversionRate, r.treatment.conversionRate, 0.0001) * 1.08;
+  const audience = audienceOf(r);
+  const control = segment(r.control, audience);
+  const treatment = segment(r.treatment, audience);
+  const max = Math.max(control.conversionRate, treatment.conversionRate, 0.0001) * 1.08;
   const total = r.control.visitors + r.treatment.visitors;
   return (
     <div className={cn("grid h-full min-h-0 gap-6", compact ? "grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" : "grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]")}>
@@ -193,7 +206,17 @@ export function ExperimentStage({ experiment, compact }: { experiment?: Experime
           </span>
           <span>·</span>
           <span className="tabular">{count(total)} visitors</span>
-          {measuredOn(r) && <span className="rounded-md bg-agent/15 px-1.5 text-[0.72rem] text-[#f5a6cb]">measured on {measuredOn(r)}</span>}
+          {audience && (
+            <span
+              className={cn(
+                "rounded-md px-1.5 text-[0.72rem]",
+                audience === "agent" ? "bg-agent/15 text-[#f5a6cb]" : "bg-human/15 text-[#9cc5ff]",
+              )}
+              title="This change can only affect one audience, so the verdict is computed on that segment"
+            >
+              {audience === "agent" ? "🤖 AI shoppers only" : "🧑 Human shoppers"}
+            </span>
+          )}
           {experiment.status === "running" && (
             <span className="ml-auto flex items-center gap-1.5 text-[0.75rem] text-brand">
               <span className="size-1.5 rounded-full bg-brand pulse-dot" /> live
@@ -201,8 +224,8 @@ export function ExperimentStage({ experiment, compact }: { experiment?: Experime
           )}
         </div>
         <div className="flex flex-col gap-4">
-          <ArmBar stats={r.control} tone="control" max={max} label={`Control · spec v${experiment.controlVersion}`} />
-          <ArmBar stats={r.treatment} tone="treatment" max={max} label="Treatment · proposal" />
+          <ArmBar stats={control} tone="control" max={max} label={`Control · spec v${experiment.controlVersion}`} />
+          <ArmBar stats={treatment} tone="treatment" max={max} label="Treatment · proposal" />
         </div>
         <div className="flex flex-col gap-1.5">
           <KindRow result={r} kind="human" />

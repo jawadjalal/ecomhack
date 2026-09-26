@@ -88,7 +88,7 @@ const FRICTION_LABEL: Record<FrictionSignal["kind"], string> = {
 
 export function ObserveStage({ summary, generation }: { summary?: AnalyticsSummary; generation: number }) {
   const hasData = (summary?.overall.visitors ?? 0) > 0;
-  const friction = (summary?.friction ?? []).slice(0, 5);
+  const friction = [...(summary?.friction ?? [])].sort((a, b) => b.share - a.share).slice(0, 4);
   return (
     <div className="flex h-full flex-col gap-4">
       {!hasData && (
@@ -102,7 +102,7 @@ export function ObserveStage({ summary, generation }: { summary?: AnalyticsSumma
         <div className="w-px bg-white/[0.06]" />
         <Funnel kind="agent" seg={summary?.byKind.agent} />
       </div>
-      <div className="flex min-h-[2rem] flex-wrap items-center gap-2">
+      <div className="flex max-h-[4.8rem] min-h-[2rem] flex-wrap items-center gap-2 overflow-hidden">
         <span className="mr-1 text-[0.72rem] font-medium tracking-[0.14em] text-white/35 uppercase">Friction</span>
         {friction.length === 0 && <span className="text-[0.8rem] text-white/30">No friction signals yet</span>}
         {friction.map((f) => (

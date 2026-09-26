@@ -74,7 +74,9 @@ export function PrCard({
           <GitPullRequest className="size-[1.1rem]" />
         </span>
         <div className="flex min-w-0 flex-col">
-          <span className="text-[0.75rem] text-white/45">Pull request {number ? `#${number}` : ""}</span>
+          <span className="text-[0.75rem] text-white/45">
+            {dry && !url ? "PR preview (dry run)" : `Pull request ${number ? `#${number}` : ""}`}
+          </span>
           <span className="flex items-center gap-1.5">
             <Badge tone={dry ? "warn" : "good"}>{status}</Badge>
             {dry && <span className="text-[0.72rem] text-white/35">{pr?.repo ? `${pr.repo} · ` : ""}nothing pushed</span>}

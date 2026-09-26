@@ -58,7 +58,10 @@ export function StoreFrame({
   label,
   tone,
   className,
+  tall,
 }: {
+  /** Show more of the page (used when there is no agent-API diff below). */
+  tall?: boolean;
   page: PreviewPage;
   /** Query string without "?" (e.g. variant=control or previewSpec=…). */
   query: string;
@@ -76,6 +79,7 @@ export function StoreFrame({
   const src = path === undefined ? undefined : path === null ? null : `${path}?${query}`;
   const [loaded, setLoaded] = useState<string | null>(null);
   const scale = size.width ? size.width / FRAME_W : 0;
+  const frameH = tall ? 1180 : FRAME_H;
 
   return (
     <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5", className)}>
@@ -103,7 +107,7 @@ export function StoreFrame({
           "relative w-full overflow-hidden rounded-lg border bg-[#0e1117]",
           tone === "treatment" ? "border-brand/35 shadow-[0_0_30px_-12px_rgba(182,240,90,0.5)]" : "border-white/[0.08]",
         )}
-        style={{ aspectRatio: `${FRAME_W} / ${FRAME_H}` }}
+        style={{ aspectRatio: `${FRAME_W} / ${frameH}` }}
       >
         {src && scale > 0 && (
           <iframe
@@ -113,7 +117,7 @@ export function StoreFrame({
             tabIndex={-1}
             onLoad={() => setLoaded(src)}
             className="pointer-events-none absolute top-0 left-0 origin-top-left border-0 bg-white"
-            style={{ width: FRAME_W, height: FRAME_H, transform: `scale(${scale})`, opacity: loaded === src ? 1 : 0, transition: "opacity .4s" }}
+            style={{ width: FRAME_W, height: frameH, transform: `scale(${scale})`, opacity: loaded === src ? 1 : 0, transition: "opacity .4s" }}
           />
         )}
         {(isLoading || (src && loaded !== src)) && <div className="shimmer absolute inset-0" />}

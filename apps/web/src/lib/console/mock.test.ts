@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { compareArms, MockEngine } from "./mock";
 import { createConsoleApi } from "./api";
-import { describeEvent, findPullRequest, parseDiffLine, sourceBadge } from "./format";
+import { describeEvent, findPullRequest, parseDiffLine, prsByGeneration, sourceBadge, withStatusPrs } from "./format";
 
 describe("mock engine", () => {
   it("walks the full loop and ships a winner with a PR", async () => {
@@ -121,6 +121,36 @@ describe("format", () => {
     expect(sourceBadge("llm:claude-opus-5")?.label).toBe("Claude");
     expect(sourceBadge("llm:deepseek/deepseek-chat")?.label).toBe("OpenRouter");
     expect(sourceBadge("heuristic")?.label).toBe("Heuristic");
+  });
+
+  it("maps optimizer PR payloads (full or partial) to generations", () => {
+    const at = new Date().toISOString();
+    const loop = {
+      generation: 2,
+      history: [
+        { generation: 0, specVersion: 0, label: "Baseline", humanConversionRate: 0.02, agentConversionRate: 0.4, overallConversionRate: 0.06, shippedAt: at },
+        { generation: 1, specVersion: 1, label: "Gen 1: A", humanConversionRate: 0.03, agentConversionRate: 0.6, overallConversionRate: 0.08, shippedAt: at },
+        { generation: 2, specVersion: 2, label: "Gen 2: B", humanConversionRate: 0.04, agentConversionRate: 0.7, overallConversionRate: 0.1, shippedAt: at },
+      ],
+      log: [
+        { at, phase: "ship" as const, actor: "shipper" as const, message: "Shipped v1", data: { specVersion: 1, diff: [] } },
+        { at, phase: "ship" as const, actor: "shipper" as const, message: "PR queued (dry run): no token", data: { pr: { dryRun: true, queued: true, repo: "a/b" } } },
+        { at, phase: "ship" as const, actor: "shipper" as const, message: "Shipped v2", data: { specVersion: 2 } },
+        {
+          at,
+          phase: "ship" as const,
+          actor: "shipper" as const,
+          message: "PR opened",
+          data: { pr: { dryRun: false, url: "https://github.com/a/b/pull/7", number: 7, branch: "darwin/gen-2-b", title: "Darwin Gen 2: B" } },
+        },
+      ],
+    };
+    const prs = prsByGeneration(loop);
+    expect(prs.get(1)).toMatchObject({ dryRun: true, queued: true, note: "PR queued (dry run): no token" });
+    expect(prs.get(2)).toMatchObject({ number: 7, url: "https://github.com/a/b/pull/7" });
+    expect(findPullRequest(loop)?.number).toBe(7);
+    const merged = withStatusPrs(prs, { recentPullRequests: [{ kind: "spec", specVersion: 1, url: "https://github.com/a/b/pull/5", number: 5, dryRun: false }] }, loop.history);
+    expect(merged.get(1)).toMatchObject({ number: 5, dryRun: false });
   });
 
   it("parses diff lines", () => {
