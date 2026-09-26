@@ -7,13 +7,10 @@ export function PaceMark({ className = "h-5 w-auto" }: { className?: string }) {
   );
 }
 
+export function BrandWordmark({ brand, className = "" }: { brand: string; className?: string }) {
+  return <span className={`text-[1.15rem] font-medium uppercase tracking-[0.28em] ${className}`}>{brand}</span>;
+}
+
 export function PaceLogo({ className = "" }: { className?: string }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 ${className}`}>
-      <PaceMark className="h-[18px] w-auto text-(--accent-logo)" />
-      <span className="pace-display text-[1.35rem] font-extrabold tracking-[0.02em]" style={{ fontVariationSettings: '"wdth" 125' }}>
-        PACE
-      </span>
-    </span>
-  );
+  return <BrandWordmark brand="PACE" className={className} />;
 }

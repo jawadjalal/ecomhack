@@ -10,18 +10,26 @@
   --line: #e7e5e4;
   --surface: #f5f4f1;
   --surface-2: #faf9f7;
-  background: #ffffff;
+  background: #f6f4f1;
   color: var(--ink);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 .pace-display {
-  font-family: var(--font-pace-display), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  font-variation-settings: "wdth" 112;
-  letter-spacing: -0.025em;
+  font-family: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   line-height: 0.98;
   text-wrap: balance;
+}
+
+.pace-wordmark {
+  font-family: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  line-height: 0.78;
+  font-size: clamp(5.4rem, 22vw, 16.5rem);
 }
 
 .pace-eyebrow {
