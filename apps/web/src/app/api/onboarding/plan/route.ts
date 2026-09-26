@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { githubTokenFor } from "@/lib/auth/oauth";
 import { githubErrorStatus, inspectRepository } from "@/lib/github";
 import { amendPlan, applyToggles, buildPlan, getPlan, planIntro, savePlan } from "@/lib/tracking";
 
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     return bad(err);
   }
   try {
-    const repo = await inspectRepository(input.repoUrl);
+    const repo = await inspectRepository(input.repoUrl, { token: githubTokenFor(req) });
     const plan = savePlan(
       await buildPlan({ site: repo.siteId, prompt: input.prompt?.trim() || undefined, repo: repo.repo, framework: repo.framework, whop: input.whop, analytics: repo.analytics, repoRead: !repo.assumed }),
     );
