@@ -116,6 +116,9 @@ export interface StoredOrder {
   lines: CartLine[];
   subtotal: number;
   shipping: number;
+  /** Discount-code saving (pence), when a code was applied. `total` already has it taken off. */
+  discount?: number;
+  coupon?: string;
   total: number;
   deliveryDate?: string;
   express?: boolean;
@@ -172,6 +175,23 @@ export function useStoredOrder(id?: string): { hydrated: boolean; order: StoredO
     }
   }, [raw, id]);
   return { hydrated: raw !== undefined, order };
+}
+
+/** Every order saved in this browser, newest first (empty until hydrated). */
+export function useStoredOrders(): { hydrated: boolean; orders: StoredOrder[] } {
+  const raw = useSyncExternalStore(noopSubscribe, readOrdersRaw, () => undefined);
+  const orders = useMemo<StoredOrder[]>(() => {
+    if (!raw) return [];
+    try {
+      const all = Object.values(JSON.parse(raw) as Record<string, StoredOrder>);
+      return all
+        .filter((o) => o && typeof o.id === "string" && Array.isArray(o.lines) && typeof o.total === "number")
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+    } catch {
+      return [];
+    }
+  }, [raw]);
+  return { hydrated: raw !== undefined, orders };
 }
 
 /** Returns true exactly once per order id (per browser) — used to fire order_completed once. */

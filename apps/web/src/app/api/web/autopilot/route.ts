@@ -1,13 +1,18 @@
 import { z } from "zod";
-import { errorResponse, readJson, setAutopilot, SiteSchema } from "@/lib/web";
+import { errorResponse, pageOutline, readJson, requestOrigin, retractUnbackedCopy, setAutopilot, SiteSchema, siteUrl, webState } from "@/lib/web";
 
-/** POST /api/web/autopilot { site, on } → WebAutopilotState */
+/**
+ * POST /api/web/autopilot { site, on } → WebAutopilotState
+ * Either way, live autopilot copy that states something the page doesn't (a made-up rating, say) is taken down.
+ */
 export async function POST(req: Request) {
   const body = await readJson(req);
   if (body instanceof Response) return body;
   try {
     const { site, on } = z.object({ site: SiteSchema, on: z.boolean() }).parse(body);
-    return Response.json(setAutopilot(site, on));
+    setAutopilot(site, on);
+    const outline = await pageOutline(siteUrl(site, requestOrigin(req), webState(site).overview.url)); // cached 5 min
+    return Response.json(retractUnbackedCopy(site, outline));
   } catch (err) {
     return errorResponse(err);
   }

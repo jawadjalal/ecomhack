@@ -153,6 +153,8 @@ export function agentTestResults(events: readonly AnalyticsEvent[], s = getAgent
 }
 
 const pct = (x?: number) => (x === undefined ? "?" : `${Math.round(x * 100)}%`);
+const numbersOf = (r: AgentTestResult) =>
+  `${pct(r.control.rate)} → ${pct(r.treatment.rate)} of conversations paid, ${pct(r.probabilityToBeat)} chance better, ${r.control.conversations + r.treatment.conversations} conversations`;
 
 /** Decide the running test; start the next lever when autopilot is on. Returns what happened. */
 export function stepAgentTests(events: readonly AnalyticsEvent[]): string[] {
@@ -164,7 +166,7 @@ export function stepAgentTests(events: readonly AnalyticsEvent[]): string[] {
     const n = Math.min(r.control.conversations, r.treatment.conversations);
     const enough = n >= AGENT_TEST_RULES.minPerArm && r.control.paid + r.treatment.paid >= AGENT_TEST_RULES.minPaid;
     const p = r.probabilityToBeat;
-    const numbers = `${pct(r.control.rate)} → ${pct(r.treatment.rate)} of conversations paid, ${pct(p)} chance better, ${r.control.conversations + r.treatment.conversations} conversations`;
+    const numbers = numbersOf(r);
     let decision: "shipped" | "stopped" | undefined;
     if (enough && p !== undefined && p >= AGENT_TEST_RULES.ship) decision = "shipped";
     else if (enough && p !== undefined && p <= AGENT_TEST_RULES.stop) decision = "stopped";
@@ -191,4 +193,49 @@ export function stepAgentTests(events: readonly AnalyticsEvent[]): string[] {
   }
   save(s);
   return did;
+}
+
+export interface AgentTestDecision {
+  ok: boolean;
+  /** Plain English: what happened, or why nothing did. */
+  text: string;
+  test?: AgentTest;
+}
+
+/**
+ * The merchant's call on a running test (e.g. a "yes, ship it" to the briefing bot), ending it the same way
+ * stepAgentTests does: shipping puts its lever into the default pitch, stopping leaves the pitch as it was.
+ * Pass the events to write the test's numbers into its reason and the log.
+ */
+function decideAgentTest(testId: string, decision: "shipped" | "stopped", events: readonly AnalyticsEvent[]): AgentTestDecision {
+  let s = getAgentTests();
+  const t = s.tests.find((x) => x.id === testId);
+  if (!t) return { ok: false, text: "There's no store agent test with that id." };
+  const label = LEVERS[t.lever].label;
+  if (t.status !== "running") return { ok: false, text: `“${label}” isn't running any more: it was already ${t.status}.`, test: t };
+  const r = agentTestResults(events, s).find((x) => x.testId === t.id);
+  const numbers = r && r.control.conversations + r.treatment.conversations > 0 ? numbersOf(r) : undefined;
+  const reason = `${decision === "shipped" ? "Approved" : "Stopped"} by the merchant${numbers ? `: ${numbers}` : ""}`;
+  const ended: AgentTest = { ...t, status: decision, endedAt: new Date().toISOString(), reason };
+  s = {
+    ...s,
+    levers: decision === "shipped" ? [...t.base, t.lever] : s.levers,
+    tests: s.tests.map((x) => (x.id === t.id ? ended : x)),
+  };
+  const text =
+    decision === "shipped"
+      ? `Shipped “${label}” (approved by the merchant): it's now part of the store agent's pitch.${numbers ? ` ${numbers}.` : ""}`
+      : `Stopped “${label}” (stopped by the merchant): the store agent's pitch stays as it was.${numbers ? ` ${numbers}.` : ""}`;
+  save(log(s, text));
+  return { ok: true, text, test: ended };
+}
+
+/** Ship a running test's lever into the default pitch, on the merchant's say-so. */
+export function shipAgentTest(testId: string, events: readonly AnalyticsEvent[] = []): AgentTestDecision {
+  return decideAgentTest(testId, "shipped", events);
+}
+
+/** Stop a running test on the merchant's say-so; the default pitch doesn't change. */
+export function stopAgentTest(testId: string, events: readonly AnalyticsEvent[] = []): AgentTestDecision {
+  return decideAgentTest(testId, "stopped", events);
 }

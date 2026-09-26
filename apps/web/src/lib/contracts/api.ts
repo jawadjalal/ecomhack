@@ -59,9 +59,16 @@ export interface ExperimentsResponse {
 /* github PR */
 // POST /api/github/connect  { repoUrl }        → PullRequestResult (analytics install PR)
 // POST /api/github/ship     { experimentId? }  → PullRequestResult (winning spec PR)
-// GET  /api/github/status                      → { configured: boolean, repo?: string }
+// GET  /api/github/status                      → { configured, valid, login?, error?, repo? }
 export interface GithubStatusResponse {
+  /** GITHUB_TOKEN is set on the server (says nothing about whether GitHub accepts it: see `valid`). */
   configured: boolean;
+  /** GitHub accepted the token (GET /user, checked at most every 5 minutes). */
+  valid?: boolean;
+  /** The GitHub account the token belongs to, when valid. */
+  login?: string;
+  /** Why the token can't be used: "GitHub rejected the token (401)", "Couldn't reach GitHub …". PRs are previews. */
+  error?: string;
   repo?: string;
 }
 

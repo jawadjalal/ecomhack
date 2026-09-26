@@ -9,6 +9,9 @@
  *   XAI_MODEL / ANTHROPIC_MODEL / OPENROUTER_MODEL override the default model.
  *   OPENROUTER_REASONING=off  → ask OpenRouter to skip the model's thinking (faster loop steps).
  *
+ * If a Grok (xAI) call fails and OPENROUTER_API_KEY is set, the call is retried once through OpenRouter
+ * (OPENROUTER_MODEL). Every answered call logs one line with the provider and model (never the prompt).
+ *
  * With no key, `llmAvailable()` is false and callers MUST fall back to heuristics,
  * so the demo always runs offline.
  */
@@ -35,7 +38,11 @@ export function llmAvailable() {
 }
 
 export function llmModel(): string {
-  switch (llmProvider()) {
+  return modelFor(llmProvider());
+}
+
+function modelFor(provider: LlmProvider): string {
+  switch (provider) {
     case "xai":
       return process.env.XAI_MODEL || "grok-4";
     case "anthropic":
@@ -58,43 +65,74 @@ export interface TextRequest {
   maxTokens?: number;
 }
 
+/** One line per answered call: which provider and model answered, and how long it took. Never the prompt. */
+function logAnswer(provider: LlmProvider, model: string, startedAt: number, note = "") {
+  console.info(`[llm] ${provider} ${model} answered in ${Date.now() - startedAt}ms${note}`);
+}
+
+const errorLine = (err: unknown) => (err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 160);
+
+/** xAI and OpenRouter both speak the OpenAI chat completions API. */
+async function openAiCompatible(provider: "xai" | "openrouter", { system, prompt, maxTokens = 4000 }: TextRequest): Promise<{ text: string; model: string }> {
+  const client =
+    provider === "xai"
+      ? new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1" })
+      : new OpenAI({
+          apiKey: process.env.OPENROUTER_API_KEY,
+          baseURL: "https://openrouter.ai/api/v1",
+          defaultHeaders: { "X-Title": "Darwin" },
+        });
+  const model = modelFor(provider);
+  const reasoningOff = provider === "openrouter" && process.env.OPENROUTER_REASONING === "off";
+  const res = await client.chat.completions.create({
+    model,
+    max_tokens: maxTokens,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: prompt },
+    ],
+    // OpenRouter extension, not in the OpenAI types.
+    ...(reasoningOff ? ({ reasoning: { enabled: false } } as object) : {}),
+  });
+  return { text: res.choices[0]?.message?.content ?? "", model: res.model || model };
+}
+
 /** Plain text completion. Throws if no provider is configured. */
-export async function generateText({ system, prompt, maxTokens = 4000 }: TextRequest): Promise<string> {
+export async function generateText(req: TextRequest): Promise<string> {
   const provider = llmProvider();
-  if (provider === "xai" || provider === "openrouter") {
-    const client =
-      provider === "xai"
-        ? new OpenAI({ apiKey: process.env.XAI_API_KEY, baseURL: "https://api.x.ai/v1" })
-        : new OpenAI({
-            apiKey: process.env.OPENROUTER_API_KEY,
-            baseURL: "https://openrouter.ai/api/v1",
-            defaultHeaders: { "X-Title": "Darwin" },
-          });
-    const reasoningOff = provider === "openrouter" && process.env.OPENROUTER_REASONING === "off";
-    const res = await client.chat.completions.create({
-      model: llmModel(),
-      max_tokens: maxTokens,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt },
-      ],
-      // OpenRouter extension, not in the OpenAI types.
-      ...(reasoningOff ? ({ reasoning: { enabled: false } } as object) : {}),
-    });
-    return res.choices[0]?.message?.content ?? "";
+  const startedAt = Date.now();
+  if (provider === "xai") {
+    try {
+      const res = await openAiCompatible("xai", req);
+      logAnswer("xai", res.model, startedAt);
+      return res.text;
+    } catch (err) {
+      if (!process.env.OPENROUTER_API_KEY) throw err;
+      console.warn(`[llm] xai ${modelFor("xai")} failed (${errorLine(err)}); retrying once via OpenRouter`);
+      const retryAt = Date.now();
+      const res = await openAiCompatible("openrouter", req);
+      logAnswer("openrouter", res.model, retryAt, " (fallback after xai failed)");
+      return res.text;
+    }
+  }
+  if (provider === "openrouter") {
+    const res = await openAiCompatible("openrouter", req);
+    logAnswer("openrouter", res.model, startedAt);
+    return res.text;
   }
   if (provider === "anthropic") {
     const client = new Anthropic();
     const res = await client.beta.messages.create({
       model: llmModel(),
-      max_tokens: maxTokens,
+      max_tokens: req.maxTokens ?? 4000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       output_config: { effort: "low" },
-      system,
-      messages: [{ role: "user", content: prompt }],
+      system: req.system,
+      messages: [{ role: "user", content: req.prompt }],
     });
     if (res.stop_reason === "refusal") throw new Error("LLM refused the request");
+    logAnswer("anthropic", res.model || llmModel(), startedAt);
     return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   }
   throw new Error("No LLM provider configured (set XAI_API_KEY, ANTHROPIC_API_KEY or OPENROUTER_API_KEY)");

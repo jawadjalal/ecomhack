@@ -51,7 +51,7 @@ const confidenceOf = (n: number): TrafficInsight["confidence"] => (n >= 200 ? "h
 const SOURCE_FIX: Record<string, { action: string; prompt: string }> = {
   ai: {
     action: "AI-assistant visitors arrive with a specific question. Answer it above the fold: delivery, returns and stock.",
-    prompt: "Visitors from ChatGPT and other AI assistants: banner saying Free UK delivery over £60 · Free 60-day returns · Ships in 24h",
+    prompt: "Visitors from ChatGPT and other AI assistants: a banner with our delivery and returns terms",
   },
   search: {
     action: "Search visitors want the thing they typed. Echo their search in the headline so they know they're in the right place.",
@@ -59,19 +59,19 @@ const SOURCE_FIX: Record<string, { action: string; prompt: string }> = {
   },
   social: {
     action: "Social visitors are browsing, not buying yet. Add social proof right next to the buy button.",
-    prompt: 'Instagram and TikTok: add a badge "★ 4.8 from 2,000+ runners" next to Add to cart',
+    prompt: "Instagram and TikTok: add a badge with our star rating next to Add to cart",
   },
   paid: {
     action: "You pay for these clicks. Match the landing page to the ad's keyword and lead with the offer.",
-    prompt: "Paid ad visitors: put their search in the headline and add a banner Free delivery and 60-day returns",
+    prompt: "Paid ad visitors: put their search in the headline and add a banner with the ad's offer",
   },
   email: {
     action: "Subscribers already know you. Skip the pitch: show what's new and a clear reason to buy today.",
-    prompt: "Email visitors: banner saying New this week · Free delivery for subscribers",
+    prompt: "Email visitors: a welcome-back banner",
   },
   referral: {
     action: "Visitors from reviews and blogs want confirmation. Show ratings and the review quote near the price.",
-    prompt: 'Visitors from other websites: add a badge "Rated 4.8 by 2,000+ runners" next to Add to cart',
+    prompt: "Visitors from other websites: add a badge with our returns terms next to Add to cart",
   },
   direct: {
     action: "Direct visitors are returning or typed your URL. Remove friction: hide pop-ups, show delivery info.",
@@ -319,7 +319,7 @@ Rules:
 - Use ONLY numbers present in the input. Never invent data, benchmarks or percentages.
 - "(not provided)" means Google hid the organic search term: never guess it.
 - Each insight: category (seo | conversion | agents | tracking), a short title, evidence quoting the input's numbers, one concrete action.
-- testPrompt (optional): one sentence describing a page change for one audience, e.g. "Visitors from Instagram: add a badge ★ 4.8 from 2,000+ runners next to Add to cart". Text, banners, badges, hiding or styling only.
+- testPrompt (optional): one sentence describing a page change for one audience, e.g. "Visitors from Instagram: add a badge with our star rating next to Add to cart". Text, banners, badges, hiding or styling only. Never put facts about the store in it (ratings, review or customer counts, delivery or returns terms, discounts, stock): say "our returns terms" and Darwin uses the page's own words.
 - basedOn (optional): the id of the rule-based finding you built on, if any.
 - Keep the rule-based findings' substance; merge duplicates; add at most 3 new ones.`;
 

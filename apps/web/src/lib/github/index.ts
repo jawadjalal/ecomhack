@@ -8,7 +8,7 @@
  *   getGithubStatus         what the console shows (mode, repo, framework, recent PRs)
  *
  * Modes (see githubMode()):
- *   offline  — no GITHUB_TOKEN: no network at all; returns the would-be PR (files + body).
+ *   offline  — no GITHUB_TOKEN, or GitHub rejected it (401): no network; returns the would-be PR (files + body).
  *   dry-run  — GITHUB_TOKEN + DARWIN_GITHUB_DRY_RUN=1: reads the repo, never writes.
  *   live     — GITHUB_TOKEN: creates the branch, commits via the Git Data API, opens the PR.
  * Every call is idempotent: an open PR for the same branch is updated, never duplicated.
@@ -58,8 +58,10 @@ import {
   type GithubMode,
   type PullRequestRecord,
 } from "./store";
+import { effectiveToken, isKnownRejected, lastTokenCheck, markTokenRejected, verifyGithubToken } from "./token";
 
 export { GitHubClient, GitHubError, parseRepoUrl } from "./client";
+export { verifyGithubToken, lastTokenCheck, resetTokenChecks, TOKEN_CHECK_TTL_MS, type GithubTokenCheck } from "./token";
 export { detectAnalytics, detectFramework, planInstall, scriptTag, type Framework, type FrameworkDetection } from "./install";
 export type { TrafficMix } from "./spec-pr";
 export type { GithubConnection, GithubMode, PullRequestRecord } from "./store";
@@ -132,6 +134,8 @@ async function withOfflineFallback(run: (mode: GithubMode) => Promise<PullReques
     return await run(mode);
   } catch (err) {
     if (mode === "offline") throw err;
+    // A 401 means the token is dead: remember it, so the next flow is an honest preview up front.
+    if (err instanceof GitHubError && err.status === 401) markTokenRejected(token);
     const reason = err instanceof Error ? err.message : String(err);
     console.warn(`[github] ${mode} PR failed, falling back to a dry run: ${reason}`);
     const result = await run("offline");
@@ -139,10 +143,18 @@ async function withOfflineFallback(run: (mode: GithubMode) => Promise<PullReques
   }
 }
 
-/** "live" with a token (the signed-in merchant's, else GITHUB_TOKEN); "offline" without one. */
+/**
+ * "live" with a token (the signed-in merchant's, else GITHUB_TOKEN); "offline" without one, or when GitHub
+ * has rejected it (401, see token.ts), so Darwin says "preview" up front instead of pretending.
+ */
 export function githubMode(token?: string): GithubMode {
-  if (!token && !process.env.GITHUB_TOKEN?.trim()) return "offline";
+  if (!effectiveToken(token) || isKnownRejected(token)) return "offline";
   return /^(1|true|yes|on)$/i.test(process.env.DARWIN_GITHUB_DRY_RUN?.trim() ?? "") ? "dry-run" : "live";
+}
+
+/** Why PRs are previews right now, for notes: "GITHUB_TOKEN is not set" / "GitHub rejected the token (401)". */
+function offlineReason(token?: string): string {
+  return effectiveToken(token) && isKnownRejected(token) ? "GitHub rejected the token (401)" : "GITHUB_TOKEN is not set";
 }
 
 export function targetConfigPath(): string {
@@ -298,7 +310,7 @@ async function installPR(repo: RepoRef, opts: InstallOptions, mode: GithubMode):
           base: repo.base,
           detection,
           notes: [
-            "Dry run: GITHUB_TOKEN is not set, so the repository was not read and no PR was opened.",
+            `Dry run: ${offlineReason(opts.token)}, so the repository was not read and no PR was opened.`,
             `Assumed ${detection.label} with ${detection.targets[0]} (representative layout).`,
           ],
         },
@@ -450,7 +462,7 @@ async function specPR(repo: RepoRef, spec: PageSpec, ctx: SpecPRContext, mode: G
         files,
         repo: fullName,
         base: repo.base,
-        notes: ["Dry run: GITHUB_TOKEN is not set, so no branch or PR was created."],
+        notes: [`Dry run: ${offlineReason()}, so no branch or PR was created.`],
       },
       recordExtra,
     );
@@ -509,9 +521,15 @@ export async function inspectRepository(
     throw new GithubIntegrationError(`"${repoUrl}" is not a GitHub repository. Use https://github.com/owner/repo or owner/repo.`, 400);
   }
   const base = { repo: `${coords.owner}/${coords.repo}`, siteId: siteIdFor(coords) };
+  await verifyGithubToken(opts.token); // cached 5 min: a rejected token means "preview", said up front
   const mode = githubMode(opts.token);
   const assumed = () => ({ ...base, framework: assumedDetection().label, assumed: true, mode, analytics: [] as string[] });
-  if (mode === "offline") return { ...assumed(), note: "Darwin isn't connected to GitHub yet (no GITHUB_TOKEN), so the pull request will be a preview." };
+  if (mode === "offline") {
+    const note = isKnownRejected(opts.token)
+      ? "GitHub rejected Darwin's token (401), so the pull request will be a preview until the token is replaced."
+      : "Darwin isn't connected to GitHub yet (no GITHUB_TOKEN), so the pull request will be a preview.";
+    return { ...assumed(), note };
+  }
   try {
     const gh = githubClient(mode, opts.token);
     const { baseSha, fullName } = await resolveBase(gh, { ...coords });
@@ -619,6 +637,12 @@ export async function shipWinningSpec(
 export interface GithubStatus {
   /** GITHUB_TOKEN is set. */
   configured: boolean;
+  /** GitHub accepted GITHUB_TOKEN the last time Darwin asked (GET /user). False when unset, rejected or unchecked. */
+  valid: boolean;
+  /** The GitHub account the token belongs to, when valid. */
+  login?: string;
+  /** Why the token isn't usable: "GitHub rejected the token (401)", "Couldn't reach GitHub …". */
+  error?: string;
   /** Connected repo, else DARWIN_TARGET_REPO ("owner/repo"). */
   repo?: string;
   mode: GithubMode;
@@ -629,20 +653,33 @@ export interface GithubStatus {
   recentPullRequests: PullRequestRecord[];
 }
 
+/** Status from what Darwin already knows about the token (see checkGithubStatus to ask GitHub first). */
 export function getGithubStatus(): GithubStatus {
   const mode = githubMode();
   const connection = getConnection();
   const target = getTargetRepo();
+  const configured = !!process.env.GITHUB_TOKEN?.trim();
+  const check = configured ? lastTokenCheck() : undefined;
   return {
-    configured: mode !== "offline",
+    configured,
+    valid: !!check?.valid,
+    ...(check?.login ? { login: check.login } : {}),
+    ...(check?.error ? { error: check.error } : {}),
     repo: connection?.repo ?? (target ? `${target.owner}/${target.repo}` : undefined),
     mode,
     dryRun: mode !== "live",
     targetConfigPath: targetConfigPath(),
-    connection,
+    // A repo connected while the token worked: its PRs are previews now that GitHub rejects the token.
+    connection: connection && check?.rejected && connection.mode !== "offline" ? { ...connection, mode: "offline" } : connection,
     framework: connection?.frameworkLabel,
     recentPullRequests: listPullRequests(),
   };
+}
+
+/** GET /api/github/status: ask GitHub whether GITHUB_TOKEN works (cached 5 min), then report. */
+export async function checkGithubStatus(): Promise<GithubStatus> {
+  await verifyGithubToken();
+  return getGithubStatus();
 }
 
 /** Map any error from this module to an HTTP status + message. */

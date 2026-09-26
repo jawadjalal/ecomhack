@@ -612,6 +612,8 @@ export class MockEngine {
   private experiment?: MockExperimentState;
   private experiments: Experiment[] = [];
   private history: GenerationRecord[] = [];
+  /** The spec (and simulated shopper quality) each generation shipped, for rollbacks. */
+  private genSpecs = new Map<number, { spec: PageSpec; quality: Quality }>();
   private log: LoopLogEntry[] = [];
   private updatedAt = new Date().toISOString();
 
@@ -1009,6 +1011,7 @@ export class MockEngine {
 
   private recordGen0() {
     if (this.history.length) return;
+    this.genSpecs.set(0, { spec: this.liveSpec, quality: this.liveQuality });
     this.history.push({
       generation: 0,
       specVersion: this.liveSpec.version,
@@ -1170,6 +1173,7 @@ export class MockEngine {
     this.liveSpec = spec;
     this.liveQuality = a.quality;
     this.generation = nextGen;
+    this.genSpecs.set(nextGen, { spec, quality: a.quality });
     this.phase = "ship";
     this.prCounter += 1;
     const slug = a.short.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -1241,6 +1245,59 @@ export class MockEngine {
     const fresh = new MockEngine({ latency: this.latency });
     Object.assign(this, fresh, { repo: this.repo });
     this.say("system", "Reset to Gen 0. Events, experiments and history cleared.");
+    return this.snapshot();
+  }
+
+  /** Mirrors POST /api/loop/rollback (lib/optimizer rollbackTo): restore a generation as a new live version. */
+  async rollback(generation: number): Promise<LoopState> {
+    await this.wait();
+    const target = this.history.find((h) => h.generation === generation);
+    const stored = this.genSpecs.get(generation);
+    if (!Number.isInteger(generation) || !target || !stored) throw new Error(`Gen ${generation} was never shipped, so there is nothing to roll back to.`);
+    const diff = describeDiff(this.liveSpec, stored.spec);
+    if (!diff.length) throw new Error(`The store already has Gen ${generation}'s settings.`);
+
+    const running = this.experiment?.exp;
+    if (running && running.status === "running") {
+      running.status = "stopped";
+      running.completedAt = new Date().toISOString();
+      this.say("experimenter", `Stopped “${running.name}” without a verdict: the store it was tested against was rolled back.`, {
+        experimentId: running.id,
+        decision: "stopped",
+      });
+      this.attemptIndex += 1;
+    }
+    this.experiment = undefined;
+    this.currentAttempt = undefined;
+    this.proposal = undefined;
+    this.insights = [];
+
+    const fromVersion = this.liveSpec.version;
+    const version = Math.max(this.liveSpec.version, ...this.experiments.map((e) => e.treatmentSpec.version)) + 1;
+    for (const [k, b] of this.buckets) if (b.specVersion === version) this.buckets.delete(k);
+    const spec: PageSpec = { ...stored.spec, version, label: `Rolled back to Gen ${generation}` };
+    this.generation += 1;
+    this.liveSpec = spec;
+    this.liveQuality = stored.quality;
+    this.genSpecs.set(this.generation, { spec, quality: stored.quality });
+    this.phase = "idle";
+    this.say("shipper", `Rolled back to Gen ${generation}: v${version} is live with Gen ${generation}'s settings (${diff.length} setting${diff.length === 1 ? "" : "s"} restored).`, {
+      specVersion: version,
+      diff,
+      rollback: { toGeneration: generation, fromVersion },
+    });
+    this.history.push({
+      generation: this.generation,
+      specVersion: version,
+      label: spec.label,
+      humanConversionRate: target.humanConversionRate,
+      agentConversionRate: target.agentConversionRate,
+      overallConversionRate: target.overallConversionRate,
+      humanVisitors: target.humanVisitors,
+      agentVisitors: target.agentVisitors,
+      shippedAt: new Date().toISOString(),
+    });
+    this.touch();
     return this.snapshot();
   }
 

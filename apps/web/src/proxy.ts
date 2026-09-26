@@ -102,5 +102,9 @@ export const config = {
     "/api/store-agent/stats",
     "/api/store-agent/buyer",
     "/api/store-agent/tests",
+    // The merchant briefing (read by the team's chat bot with a bearer token) and its ship / stop action.
+    "/api/briefing",
+    "/api/briefing/:path*",
+    "/api/ask",
   ],
 };

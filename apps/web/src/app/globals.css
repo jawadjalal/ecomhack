@@ -116,3 +116,171 @@ body {
   }
 }
 /* /console ----------------------------------------------------------------------------------- */
+
+/* darwin app (cream) ---------------------------------------------------------------------------
+ * The Darwin app design (docs: apps/web/src/components/dw/README.md). Everything under [data-dw].
+ * Tokens: bg-dw-bg, text-dw-ink, bg-dw-yellow, bg-dw-pink … ; fonts: font-dw (Outfit), font-dwmono (DM Mono).
+ */
+@theme {
+  --color-dw-bg: #f7f1e5;
+  --color-dw-ink: #141413;
+  --color-dw-sand: #ede6d6;
+  --color-dw-surface: #fffdf8;
+  --color-dw-hairline: #ede4d2;
+  --color-dw-muted: #6b665c;
+  --color-dw-yellow: #f6d76b;
+  --color-dw-yellow-shape: #edc957;
+  --color-dw-pink: #f3b5d5;
+  --color-dw-pink-shape: #eda5c9;
+  --color-dw-olive: #a9b46e;
+  --color-dw-olive-shape: #99a460;
+  --color-dw-blue: #b8caee;
+  --color-dw-blue-shape: #a8bce7;
+  --color-dw-lilac: #d5ccf5;
+  --color-dw-lilac-shape: #c7bcf0;
+  --color-dw-live: #1fb57a;
+  --color-dw-hot: #f0579e;
+  --color-dw-warn-bg: #fbe7d3;
+  --color-dw-warn: #b8621b;
+  --color-dw-win-bg: #ddf3e8;
+  --color-dw-win: #137a52;
+  --font-dw: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-dwmono: var(--font-dm-mono), ui-monospace, monospace;
+  --radius-dw-card: 26px;
+  --radius-dw-row: 22px;
+}
+
+:root:has([data-dw]) {
+  background: #f7f1e5;
+  color-scheme: light;
+}
+:root:has([data-dw]) body {
+  background: #f7f1e5;
+  color: #141413;
+}
+[data-dw] {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  color: #141413;
+  font-feature-settings: "ss01";
+}
+[data-dw] .tabular,
+[data-dw] .num {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes dm-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4%);
+  }
+}
+@keyframes dm-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.12);
+  }
+}
+@keyframes dw-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(31, 181, 122, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(31, 181, 122, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(31, 181, 122, 0);
+  }
+}
+@keyframes dw-typing {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+.dm-bob {
+  animation: dm-bob 2.6s ease-in-out infinite;
+}
+.dm-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.dm-live .dm-eyes {
+  animation: dm-blink 4.4s ease-in-out infinite;
+}
+.dw-live-dot {
+  animation: dw-pulse 1.8s ease-out infinite;
+}
+.dw-typing > span {
+  animation: dw-typing 1.2s ease-in-out infinite;
+}
+.dw-typing > span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.dw-typing > span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+/* Cards lift and their corner silhouette turns; rows slide; tiles tilt. */
+.dw-card {
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dw-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px -18px rgba(20, 20, 19, 0.28);
+}
+.dw-card .dw-silhouette {
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dw-card:hover .dw-silhouette {
+  transform: rotate(-10deg);
+}
+.dw-row {
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 0.2s;
+}
+.dw-row:hover {
+  transform: translateX(4px);
+}
+.dw-row .dw-tilt {
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dw-row:hover .dw-tilt {
+  transform: rotate(-8deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dm-bob,
+  .dm-live .dm-eyes,
+  .dw-live-dot,
+  .dw-typing > span {
+    animation: none;
+  }
+  .dw-card,
+  .dw-card .dw-silhouette,
+  .dw-row,
+  .dw-row .dw-tilt {
+    transition: none;
+  }
+  .dw-card:hover,
+  .dw-row:hover {
+    transform: none;
+  }
+  .dw-card:hover .dw-silhouette,
+  .dw-row:hover .dw-tilt {
+    transform: none;
+  }
+}

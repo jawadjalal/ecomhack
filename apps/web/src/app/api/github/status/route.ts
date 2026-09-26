@@ -1,11 +1,12 @@
-import { getGithubStatus } from "@/lib/github";
+import { checkGithubStatus } from "@/lib/github";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/github/status → GithubStatusResponse (+ mode, connection, framework, recent PRs)
- * `configured` is true when GITHUB_TOKEN is set; `dryRun` when no PRs will actually be opened.
+ * `configured`: GITHUB_TOKEN is set. `valid`: GitHub accepted it (GET /user, cached 5 min), with `login`;
+ * otherwise `error` says why ("GitHub rejected the token (401)"). `dryRun` when no PRs will actually be opened.
  */
-export function GET() {
-  return Response.json(getGithubStatus());
+export async function GET() {
+  return Response.json(await checkGithubStatus());
 }

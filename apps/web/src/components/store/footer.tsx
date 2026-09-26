@@ -1,4 +1,5 @@
 import { BrandWordmark } from "./logo";
+import { NewsletterForm } from "./newsletter-form";
 import { StoreLink } from "./store-provider";
 
 /** Footer entries that have a real page. */
@@ -26,20 +27,7 @@ export function StoreFooter({ slim = false, brand = "PACE" }: { slim?: boolean; 
           <p className="mt-4 text-sm leading-relaxed text-white/60">
             Performance running shoes designed in London and tested on the towpaths, trails and track of the UK.
           </p>
-          <form className="mt-6 flex gap-2" aria-label="Newsletter">
-            <label htmlFor="pace-newsletter" className="sr-only">
-              Email address
-            </label>
-            <input
-              id="pace-newsletter"
-              type="email"
-              placeholder="Email for early access"
-              className="min-h-11 w-full rounded-(--r-input) border border-white/15 bg-white/5 px-4 text-sm text-white placeholder:text-white/40 focus:border-white/50 focus:outline-none"
-            />
-            <button type="button" className="pace-btn pace-btn-dark-surface min-h-11 px-5 text-sm">
-              Join
-            </button>
-          </form>
+          <NewsletterForm />
         </div>
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
           {COLS.map((c) => (

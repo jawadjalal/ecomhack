@@ -5,6 +5,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import type { AnalyticsSummary, LoopState } from "@/lib/contracts";
 import { count, money, pct, pp, signedPct } from "@/lib/console/format";
 import { useSamples } from "@/lib/console/hooks";
+import { compareRevenuePerVisitor } from "@/lib/console/kpis";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { cn } from "@/components/ui/cn";
 
@@ -104,18 +105,18 @@ function Tile({
   sparkColor: string;
 }) {
   return (
-    <div className="relative flex min-w-0 flex-col justify-between overflow-hidden rounded-[1.1rem] border border-white/[0.07] bg-[#0b0d12]/85 px-5 pt-3.5 pb-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.045)]">
-      <div className="flex items-center gap-2 text-[0.74rem] font-medium tracking-[0.1em] whitespace-nowrap text-white/50 uppercase">
+    <div className="relative flex min-h-[7.2rem] min-w-0 flex-col justify-between overflow-hidden rounded-[1.1rem] border border-white/[0.07] bg-[#0b0d12]/85 px-3.5 pt-3.5 pb-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.045)] sm:px-5 xl:min-h-0">
+      <div className="flex min-w-0 items-center gap-2 text-[0.74rem] font-medium tracking-[0.1em] whitespace-nowrap text-white/50 uppercase">
         {dot && <span className="size-[0.55rem] shrink-0 rounded-full" style={{ background: dot }} />}
-        {label}
+        <span className="min-w-0 truncate">{label}</span>
       </div>
       <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0 text-[2.4rem] leading-[1.05] font-semibold tracking-[-0.025em] whitespace-nowrap text-white tabular">
+        <div className="min-w-0 text-[1.85rem] leading-[1.05] font-semibold tracking-[-0.025em] whitespace-nowrap text-white tabular sm:text-[2.4rem]">
           {value === undefined ? <span className="text-white/25">–</span> : <AnimatedNumber value={value} format={format} />}
         </div>
         <Sparkline values={spark} color={sparkColor} className="mb-1.5 h-[2.4rem] w-[34%] max-w-[7rem] shrink-0" />
       </div>
-      <div className="flex h-[1.4rem] items-center justify-between gap-2">
+      <div className="flex h-[1.4rem] min-w-0 items-center justify-between gap-2">
         {delta}
         {sub && <span className="truncate text-[0.7rem] text-white/30 tabular">{sub}</span>}
       </div>
@@ -151,9 +152,20 @@ export function KpiTiles({
   const human = measured("human");
   const agent = measured("agent");
 
-  const rpvOf = (s?: AnalyticsSummary) => (s && s.overall.visitors >= MIN_SAMPLE ? s.overall.revenue / s.overall.visitors : undefined);
-  const rpv = rpvOf(summaryGen) ?? rpvOf(summaryAll);
-  const rpv0 = rpvOf(summaryGen0);
+  // Like for like: live generation vs Gen 0, same filter, both weighted by Gen 0's human/agent mix
+  // (a pooled revenue/visitors swings with the traffic mix: agents spend ~20x more per visitor).
+  const rpvKpi = compareRevenuePerVisitor({
+    current: summaryGen,
+    baseline: gen > 0 ? summaryGen0 : undefined,
+    all: summaryAll,
+    mix: gen0 ? { human: gen0.humanVisitors, agent: gen0.agentVisitors } : undefined,
+    min: { human: MIN_SAMPLE, agent: MIN_SAMPLE / 3 },
+  });
+  const rpv = rpvKpi.value;
+  const rpvTitle =
+    `Revenue per unique visitor, humans and AI agents weighted at ${rpvKpi.weights ? pct(rpvKpi.weights.agent, 1) : "Gen 0's share of"} agents ` +
+    `so a change in traffic mix can't pass for a change in revenue.` +
+    (rpvKpi.baseline !== undefined ? ` Gen 0: ${money(rpvKpi.baseline)}.` : "");
   const orders = summaryAll?.overall.orders;
   const revenue = summaryAll?.overall.revenue;
 
@@ -173,7 +185,7 @@ export function KpiTiles({
 
 
   return (
-    <div className="grid h-full grid-cols-4 gap-4">
+    <div className="grid h-full grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       <Tile
         label="Human conversion"
         dot="var(--color-human)"
@@ -197,11 +209,13 @@ export function KpiTiles({
         value={rpv}
         format={(v) => money(v)}
         delta={
-          rpv !== undefined && rpv0 !== undefined && gen > 0 ? (
-            <Delta value={(rpv - rpv0) / rpv0} format={(d) => signedPct(d)} label="vs Gen 0" />
-          ) : (
-            <Delta value={undefined} format={pct} label="all visitors" />
-          )
+          <span title={rpvTitle} className="min-w-0 truncate">
+            {rpvKpi.delta !== undefined ? (
+              <Delta value={rpvKpi.delta} format={(d) => signedPct(d)} label="vs Gen 0" />
+            ) : (
+              <Delta value={undefined} format={pct} label={`– · ${rpvKpi.note}`} />
+            )}
+          </span>
         }
         spark={rpvSpark}
         sparkColor="#b6f05a"
@@ -211,7 +225,7 @@ export function KpiTiles({
         value={orders}
         format={(v) => count(v)}
         delta={
-          <span className="text-[0.8rem] text-white/45">
+          <span className="min-w-0 truncate text-[0.8rem] text-white/45">
             {revenue !== undefined ? <span className="font-medium text-white/70 tabular">{money(revenue, { compact: true })}</span> : "–"} revenue
           </span>
         }

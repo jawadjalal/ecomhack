@@ -39,7 +39,7 @@ export default async function StoreHome(props: PageProps<"/store">) {
         />
       )}
       <PageView page="home" />
-      <EditorialHome spec={spec} brand={brand} category={ctx.query.category} showcase={showcase} />
+      <EditorialHome spec={spec} brand={brand} category={ctx.query.category} query={ctx.query.q} showcase={showcase} />
     </StoreShell>
   );
 }

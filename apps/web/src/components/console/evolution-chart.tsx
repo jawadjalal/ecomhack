@@ -242,7 +242,7 @@ export function EvolutionChart({
           )
         }
       />
-      <div className="flex min-h-0 flex-1 gap-4 px-5 pb-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 pb-4 sm:flex-row">
         <div ref={ref} className="relative min-w-0 flex-[1.9]" onMouseLeave={() => setHover(null)}>
           {history.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.08] text-center">

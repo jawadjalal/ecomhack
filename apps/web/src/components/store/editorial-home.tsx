@@ -48,11 +48,14 @@ export function EditorialHome({
   spec,
   brand,
   category,
+  query,
   showcase,
 }: {
   spec: PageSpec;
   brand: string;
   category?: string;
+  /** Store search (`/store?q=…`), shown in the collection grid. */
+  query?: string;
   showcase: WhopShowcase | null;
 }) {
   const heroProduct = getProduct("p_aurora");
@@ -221,7 +224,7 @@ export function EditorialHome({
         </section>
       )}
 
-      <ProductGrid spec={spec} category={category} editorial brand={brand} />
+      <ProductGrid spec={spec} category={category} query={query} editorial brand={brand} />
     </>
   );
 }
