@@ -107,7 +107,8 @@ npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
 ### Honest notes
 
 - **Security:** mission control and every state-changing API (loop, GitHub PRs, simulator, LLM shoppers, raw
-  analytics) sit behind `DARWIN_ADMIN_TOKEN` (sign in at `/console?key=…`). Set it on any public deploy. Browser
+  analytics) can sit behind `DARWIN_ADMIN_TOKEN` (sign in at `/console?key=…`). It's optional: without it the
+  console is open, public deploys included, and anyone with the URL can drive the loop and spend the LLM key. Browser
   events can't claim to be synthetic or pick an experiment arm (attribution is re-derived server-side), and ingest is
   size- and rate-limited.
 - **Simulated traffic in the demo:** the demo runs on simulated traffic, labelled everywhere. The simulator's behaviour model is

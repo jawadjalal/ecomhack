@@ -9,7 +9,7 @@
 ```bash
 cd apps/web
 npm run build && npm start          # production build; never demo on `next dev`
-# On a LAN/public URL, set DARWIN_ADMIN_TOKEN first and open /console?key=<token> once (sets a cookie)
+# Optional: set DARWIN_ADMIN_TOKEN to lock the console, then open /console?key=<token> once (sets a cookie)
 ```
 
 - [ ] Open **http://localhost:3000/console** in ONE tab (autopilot runs in the browser; two tabs = double speed)
