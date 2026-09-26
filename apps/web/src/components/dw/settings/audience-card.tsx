@@ -7,9 +7,13 @@ import type { Audience, Experiment } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
 import { BrandGlyph } from "../brand-logos";
-import { Card, CardTitle } from "../ui";
+import { Card, CardTitle, DEPTH } from "../ui";
 
-const WHO: Record<Audience, string> = { human: "people", agent: "AI shoppers", all: "everyone" };
+const WHO: Record<Audience, string> = {
+  human: "people",
+  agent: "AI shoppers",
+  all: "everyone",
+};
 
 /**
  * An honest explainer, not toggles: Darwin picks who judges each test from what the fix touches
@@ -23,8 +27,8 @@ export function AudienceCard({ className }: { className?: string }) {
   const runningAudience = running?.result?.audience ?? (running?.result ? "all" : undefined);
 
   return (
-    <Card tone="blue" shape="observer" corner="br" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Who Darwin tests for">
-      <CardTitle>Who Darwin tests for</CardTitle>
+    <Card tone="blue" shape="observer" corner="br" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Who Darwin tests for">
+      <CardTitle className="[&>h2]:text-[20px]">Who Darwin tests for</CardTitle>
       <p className="mt-2 text-[14.5px] leading-snug text-[#2E3A55]">
         Each fix is judged only on the shoppers it can reach, so the others can&apos;t add noise to the call. Darwin works this out from what the fix changes.
       </p>
@@ -84,9 +88,7 @@ function Who({ i, icon, name, detail, n, live }: { i: number; icon: ReactNode; n
       transition={{ delay: 0.15 + i * 0.07, duration: 0.3 }}
       className={cn("dw-row flex items-center gap-3.5 rounded-2xl bg-white/55 px-3.5 py-3 hover:bg-white/75", live && "bg-white/85 ring-2 ring-dw-ink")}
     >
-      <span className="dw-tilt grid size-10 shrink-0 place-items-center rounded-[13px] bg-white text-dw-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_0_0_1px_rgba(20,20,19,0.06)]">
-        {icon}
-      </span>
+      <span className="dw-tilt grid size-10 shrink-0 place-items-center rounded-[13px] bg-white text-dw-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_0_0_1px_rgba(20,20,19,0.06)]">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2 text-[15px] leading-tight font-semibold">
           {name}

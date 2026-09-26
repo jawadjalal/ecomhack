@@ -1,15 +1,18 @@
 /**
- * Onboarding progress survives a reload: the stage, what was typed and answered, the connection and the
- * install result live in sessionStorage (this tab only). The plan itself is re-fetched from the server by
- * its site id so it's never stale. Every access is wrapped: storage can be blocked or full.
+ * Onboarding progress survives a reload, a closed tab and a revisit: the stage, what was typed and
+ * answered, the connection and the install result live in localStorage (versioned key). The plan itself is
+ * kept by lib/tracking/remember.ts (rememberPlan / recallPlan), so a revisit never regenerates it.
+ * v1 lived in sessionStorage (this tab only); it's read once as a fallback. Every access is wrapped:
+ * storage can be blocked or full.
  */
 import type { PullRequestResult } from "@/lib/github";
 import type { WhopConnection } from "@/lib/whop";
 import type { Answers } from "./ask";
 
-export const PROGRESS_KEY = "darwin-onboarding-progress:v1";
+export const PROGRESS_KEY = "darwin-onboarding-progress:v2";
+const LEGACY_KEY = "darwin-onboarding-progress:v1";
 
-export type SavedStage = "connect" | "team" | "ask" | "plan" | "install" | "live";
+export type SavedStage = "connect" | "ask" | "plan" | "install" | "live";
 
 export interface SavedMessage {
   from: "you" | "darwin";
@@ -17,8 +20,14 @@ export interface SavedMessage {
   chips?: string[];
 }
 
+/** "Save your setup" (POST /api/account): the email and the link back from any device. */
+export interface SavedAccount {
+  email: string;
+  resumeUrl: string;
+}
+
 export interface SavedProgress {
-  v: 1;
+  v: 2;
   stage: SavedStage;
   prompt: string;
   answers?: Answers;
@@ -26,24 +35,50 @@ export interface SavedProgress {
   website: string | null;
   /** A summary only (no products): what the chip and the plan need. */
   whop: Pick<WhopConnection, "mode" | "title" | "accountId" | "connectedAt"> | null;
-  /** The plan's darwin.js site id: GET /api/onboarding/plan?site=… */
+  /** The plan's darwin.js site id: recallPlan(site), else GET /api/onboarding/plan?site=… */
   site: string | null;
   snippet: string | null;
   pr: PullRequestResult | null;
   chat: SavedMessage[];
+  account?: SavedAccount | null;
+  /** "How do you like to work?" (tools.tsx TOOL_OPTIONS ids). */
+  tools?: string[];
+  /** The furthest stage reached (going back to edit answers doesn't lose it). */
+  furthest?: SavedStage;
+  savedAt?: string;
 }
 
-const STAGES: SavedStage[] = ["connect", "team", "ask", "plan", "install", "live"];
+export const STAGES: SavedStage[] = ["connect", "ask", "plan", "install", "live"];
 
-export function loadProgress(): SavedProgress | null {
+export const stageIndex = (s: SavedStage) => STAGES.indexOf(s);
+
+function local(): Storage | undefined {
   try {
-    const raw = sessionStorage.getItem(PROGRESS_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as Partial<SavedProgress>;
-    if (p?.v !== 1 || !STAGES.includes(p.stage as SavedStage)) return null;
+    return typeof window === "undefined" ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+function session(): Storage | undefined {
+  try {
+    return typeof window === "undefined" ? undefined : window.sessionStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+function parse(raw: string | null | undefined): SavedProgress | null {
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw) as Partial<Omit<SavedProgress, "v">> & { v?: number };
+    if ((p?.v !== 1 && p?.v !== 2) || !STAGES.includes(p.stage as SavedStage)) return null;
+    const stage = p.stage as SavedStage;
+    const furthest = STAGES.includes(p.furthest as SavedStage) && stageIndex(p.furthest as SavedStage) > stageIndex(stage) ? (p.furthest as SavedStage) : stage;
     return {
-      v: 1,
-      stage: p.stage as SavedStage,
+      v: 2,
+      stage,
+      furthest,
       prompt: typeof p.prompt === "string" ? p.prompt : "",
       answers:
         p.answers && Array.isArray(p.answers.track) && Array.isArray(p.answers.where)
@@ -60,7 +95,18 @@ export function loadProgress(): SavedProgress | null {
       snippet: typeof p.snippet === "string" ? p.snippet : null,
       pr: p.pr && typeof p.pr === "object" ? p.pr : null,
       chat: Array.isArray(p.chat) ? p.chat.filter((m) => m && (m.from === "you" || m.from === "darwin") && typeof m.text === "string").slice(-30) : [],
+      account: p.account && typeof p.account.email === "string" && typeof p.account.resumeUrl === "string" ? { email: p.account.email, resumeUrl: p.account.resumeUrl } : null,
+      tools: Array.isArray(p.tools) ? p.tools.filter((t): t is string => typeof t === "string").slice(0, 10) : undefined,
+      savedAt: typeof p.savedAt === "string" ? p.savedAt : undefined,
     };
+  } catch {
+    return null;
+  }
+}
+
+export function loadProgress(): SavedProgress | null {
+  try {
+    return parse(local()?.getItem(PROGRESS_KEY)) ?? parse(session()?.getItem(LEGACY_KEY));
   } catch {
     return null;
   }
@@ -68,16 +114,18 @@ export function loadProgress(): SavedProgress | null {
 
 export function saveProgress(p: SavedProgress) {
   try {
-    sessionStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+    local()?.setItem(PROGRESS_KEY, JSON.stringify({ ...p, savedAt: new Date().toISOString() }));
   } catch {
     /* storage blocked or full: progress just won't survive a reload */
   }
 }
 
+/** Wipes onboarding progress (not the remembered plans: the console still opens earlier stores). */
 export function clearProgress(...extraKeys: string[]) {
   try {
-    sessionStorage.removeItem(PROGRESS_KEY);
-    for (const k of extraKeys) sessionStorage.removeItem(k);
+    local()?.removeItem(PROGRESS_KEY);
+    session()?.removeItem(LEGACY_KEY);
+    for (const k of extraKeys) session()?.removeItem(k);
   } catch {
     /* nothing to clear */
   }

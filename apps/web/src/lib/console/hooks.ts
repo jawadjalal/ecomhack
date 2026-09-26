@@ -5,6 +5,7 @@ import useSWR, { type KeyedMutator } from "swr";
 import type { AnalyticsSummary, Experiment, LoopState } from "@/lib/contracts";
 import type { ApiGroup, ConsoleApi } from "./api";
 import { describeEvent, type FeedRow } from "./format";
+import { useLiveInterval } from "./live";
 
 /* ------------------------------------------------------------------ api context */
 
@@ -62,24 +63,27 @@ const SWR_OPTS = { keepPreviousData: true, revalidateOnFocus: false, dedupingInt
 
 export function useLoop(): { loop?: LoopState; error?: Error; mutate: KeyedMutator<LoopState> } {
   const api = useApi();
+  const refreshInterval = useLiveInterval(2000);
   const { data, error, mutate } = useSWR<LoopState>([api.mode, "loop"], () => api.getLoop(), {
     ...SWR_OPTS,
-    refreshInterval: 1000,
+    refreshInterval,
   });
   return { loop: data, error, mutate };
 }
 
 export function useExperiments(): Experiment[] | undefined {
   const api = useApi();
-  const { data } = useSWR([api.mode, "experiments"], () => api.getExperiments(), { ...SWR_OPTS, refreshInterval: 1500 });
+  const refreshInterval = useLiveInterval(3000);
+  const { data } = useSWR([api.mode, "experiments"], () => api.getExperiments(), { ...SWR_OPTS, refreshInterval });
   return data?.experiments;
 }
 
 export function useSummary(
   filter: { specVersion?: number } | null,
-  refreshInterval = 2000,
+  every = 4000,
 ): { summary?: AnalyticsSummary; error?: Error } {
   const api = useApi();
+  const refreshInterval = useLiveInterval(every);
   const { data, error } = useSWR(
     filter ? [api.mode, "summary", filter.specVersion ?? "all"] : null,
     () => api.getSummary(filter ?? {}),
@@ -90,7 +94,8 @@ export function useSummary(
 
 export function useSessions(limit = 12) {
   const api = useApi();
-  const { data } = useSWR([api.mode, "sessions", limit], () => api.getSessions(limit), { ...SWR_OPTS, refreshInterval: 3000 });
+  const refreshInterval = useLiveInterval(5000);
+  const { data } = useSWR([api.mode, "sessions", limit], () => api.getSessions(limit), { ...SWR_OPTS, refreshInterval });
   return data?.sessions;
 }
 

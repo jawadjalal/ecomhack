@@ -17,11 +17,13 @@ import type {
   WebSimulateResponse,
 } from "@/lib/contracts";
 import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
+import { INSTALL_STATUS_LABEL, installStatus } from "@/lib/web/install-status";
 import { cn } from "@/components/ui/cn";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { Card, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
 import { BrowserFrame, CardHead, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
+import { useLiveInterval } from "@/lib/console/live";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -141,14 +143,16 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
     }
   }, [site]);
 
+  const every = useLiveInterval(4000);
   useEffect(() => {
     const first = setTimeout(load, 0);
-    const t = setInterval(load, 4000);
+    // Static unless the Live switch is on: on a multi-server host each poll can land on a server with other numbers.
+    const t = every ? setInterval(load, every) : undefined;
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      if (t) clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   useEffect(() => {
     if (!toast) return;
@@ -269,7 +273,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         tone: "good",
         text:
           mode === "test"
-            ? `A/B test live: ${audienceLabel(saved)} split ${Math.round(saved.allocation * 100)}/${100 - Math.round(saved.allocation * 100)}.`
+            ? `Test live: ${audienceLabel(saved)} split ${Math.round(saved.allocation * 100)}/${100 - Math.round(saved.allocation * 100)}.`
             : `Live for ${audienceLabel(saved)}.`,
       });
       await load();
@@ -301,7 +305,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   const simulate = () =>
     run("simulate", async () => {
       const res = await api<WebSimulateResponse>("/api/web/simulate", { body: { site, visitors: 500 } });
-      setToast({ tone: "good", text: `${res.visitors} simulated visitors sent (${res.orders} orders). Labelled synthetic.` });
+      setToast({ tone: "good", text: `${res.visitors} simulated visitors sent (${res.orders} orders). Labelled simulated.` });
       await load();
     });
 
@@ -345,6 +349,28 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   const rules = useMemo(() => [...(data?.rules ?? [])].filter((r) => r.id !== draft?.savedId).reverse(), [data, draft?.savedId]);
   const resultOf = (id: string) => data?.results.find((r) => r.ruleId === id);
 
+  // A new draft lands below the live tests: bring it into view.
+  const draftRef = useRef<HTMLDivElement>(null);
+  const hasDraft = !!draft;
+  useEffect(() => {
+    if (hasDraft) draftRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [hasDraft]);
+
+  const running = rules.filter((r) => r.status === "running" && r.mode === "test");
+  const liveTests = (className: string) => (
+    <LiveTests
+      className={className}
+      loading={!data}
+      tests={running}
+      shipped={data?.rules.filter((r) => r.status === "shipped").length ?? 0}
+      resultOf={resultOf}
+      busy={busy}
+      onView={(r) => setView((v) => ({ ...v, source: r.audience.sources?.[0] ?? "direct", previewRuleId: undefined }))}
+      onPause={(r) => patch(r, { status: "paused" }, `Paused “${r.name}”.`)}
+      onShip={(r) => patch(r, { status: "shipped" }, `Shipped “${r.name}” to everyone in its audience.`)}
+    />
+  );
+
   const siteOptions = [...new Set([site, ...(data?.sites ?? []).map((s) => s.site)])].map((s) => ({ value: s, label: s }));
   const viewOptions = (["original", ...TRAFFIC_SOURCES] as const).map((s) => ({
     value: s,
@@ -358,23 +384,23 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="designer" size={50} active />}
+        mascot={<Mascot kind="designer" size={50} active title="Pixel, the designer" />}
         title="Personalize"
-        lede="Change any store page for each traffic source and search, then let an A/B test decide."
+        lede="Pixel changes the page for each traffic source. Fizz runs an A vs B test to decide."
         right={
           <div className={HEAD_CONTROLS}>
             <SiteSelect value={site} options={siteOptions} onChange={switchSite} />
-            <PillButton tone="white" onClick={simulate} disabled={!!busy} title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
+            <PillButton tone="white" onClick={simulate} disabled={!!busy} title="500 simulated visitors through this site's live rules. Every visit is labelled simulated.">
               {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
               Send 500 test visitors
             </PillButton>
-            <DwSwitch on={trafficOn} onChange={setTrafficOn} label="Traffic" title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic." />
+            <DwSwitch on={trafficOn} onChange={setTrafficOn} label="Traffic" title="Simulated shoppers: 300 every 3 s, mixed sources. Every visit is labelled simulated." />
             <DwSwitch
               on={autopilotOn}
               onChange={setAutopilot}
               busy={busy === "autopilot"}
               label="Autopilot"
-              title="Darwin tests one idea per traffic source (biggest gap first), ships winners, stops losers, and tries the next idea"
+              title="Fizz tests one idea per traffic source (biggest gap first). Dash ships winners, losers stop, and the next idea starts."
             />
           </div>
         }
@@ -385,6 +411,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         {/* ---------------- left: preview + traffic */}
         <div className="flex min-w-0 flex-col gap-4">
+          {liveTests("xl:hidden")}
           <Card tone="white" hover={false} className="p-4 sm:p-6">
             <CardHead
               right={
@@ -460,7 +487,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                 </>
               }
             >
-              <div className="relative h-[min(72vh,52rem)] min-h-[28rem] bg-white">
+              <div className="relative h-[26rem] bg-white xl:h-[clamp(22rem,calc(100svh-27rem),30rem)]">
                 {src ? (
                   <iframe ref={frame} key={src} src={src} onLoad={paint} title={`${site} preview`} className="absolute inset-0 h-full w-full" />
                 ) : (
@@ -479,8 +506,9 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
           <TrafficPanel data={data} site={site} />
         </div>
 
-        {/* ---------------- right: ask, draft, rules */}
+        {/* ---------------- right: live tests, ask, draft */}
         <div className="flex min-w-0 flex-col gap-4">
+          {liveTests("hidden xl:block")}
           <Card tone="yellow" shape="designer" corner="tr" hover={false}>
             <CardHead>Ask Darwin to change the page</CardHead>
             <div className="mt-4 flex flex-col gap-3">
@@ -491,7 +519,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) draftFromPrompt();
                   }}
-                  rows={3}
+                  rows={2}
                   aria-label="Ask Darwin to change the page"
                   placeholder="e.g. People coming from ChatGPT should see delivery and returns up front"
                   className="block w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[15px] leading-snug outline-none placeholder:text-dw-ink/40"
@@ -504,7 +532,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                   </PillButton>
                 </div>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {EXAMPLES.map((ex) => (
                   <button
                     key={ex}
@@ -513,10 +541,11 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                       setPrompt(ex);
                       draftFromPrompt(ex);
                     }}
-                    className="dw-row group flex min-h-9 items-center gap-2 rounded-full bg-white/45 px-3.5 py-1.5 text-left text-[13px] text-dw-ink/75 hover:bg-white/80 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-dw-ink"
+                    title={ex}
+                    className="group flex h-8 max-w-full items-center gap-1.5 rounded-full bg-white/45 px-3 text-left text-[12.5px] text-dw-ink/75 transition-colors hover:bg-white/85 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-dw-ink"
                   >
-                    <Sparkles className="dw-tilt size-3.5 shrink-0 text-dw-ink/40 group-hover:text-dw-ink" aria-hidden />
-                    <span className="min-w-0 truncate">{ex}</span>
+                    <Sparkles className="size-3.5 shrink-0 text-dw-ink/40 transition-transform group-hover:rotate-12 group-hover:text-dw-ink" aria-hidden />
+                    <span className="min-w-0 truncate">{ex.split(":")[0]}</span>
                   </button>
                 ))}
               </div>
@@ -561,10 +590,14 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
             </Card>
           )}
 
-          {draft && <DraftCard draft={draft} busy={busy} onEdit={editDraft} onPreview={previewDraft} onLaunch={launch} onDiscard={discard} />}
+          {draft && (
+            <div ref={draftRef} className="scroll-mt-6">
+              <DraftCard draft={draft} busy={busy} onEdit={editDraft} onPreview={previewDraft} onLaunch={launch} onDiscard={discard} />
+            </div>
+          )}
 
           {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
-          <InstallPanel site={site} origin={origin} />
+          <InstallPanel install={data?.install} realVisitors={data ? data.overview.visitors - data.overview.syntheticVisitors : 0} />
         </div>
       </div>
 
@@ -572,13 +605,13 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         <CardHead
           right={
             <span className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
-              <LegendKey dashed>Original</LegendKey>
-              <LegendKey>With change</LegendKey>
+              <LegendKey dashed>Current page</LegendKey>
+              <LegendKey>New version</LegendKey>
               <span className="num">{data?.rules.length ?? 0} rules</span>
             </span>
           }
         >
-          Live rules &amp; tests
+          All rules &amp; tests
         </CardHead>
         <div className="mt-4 grid grid-cols-1 items-start gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
           {!data &&
@@ -611,6 +644,126 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
 
 /* ------------------------------------------------------------------ pieces */
 
+function SourceChip({ source }: { source?: TrafficSource }) {
+  if (!source)
+    return (
+      <span className="flex h-7 shrink-0 items-center rounded-full bg-dw-sand px-2.5 text-[12px] font-medium" title="Every traffic source">
+        Everyone
+      </span>
+    );
+  return (
+    <span className="flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-dw-sand pr-2.5 pl-1 text-[12px] font-medium" title={TRAFFIC_SOURCE_LABEL[source]}>
+      {source === "ai" ? (
+        <AiStack size={18} />
+      ) : (
+        <span className="grid size-5 place-items-center rounded-full bg-white text-dw-ink/70 [&>svg]:size-3">{SOURCE_ICON[source]}</span>
+      )}
+      {source === "ai" ? "AI" : SHORT[source]}
+    </span>
+  );
+}
+
+/** The results, compact: one row per running test, with its chance to beat the original. */
+function LiveTests({
+  className,
+  loading,
+  tests,
+  shipped,
+  resultOf,
+  busy,
+  onView,
+  onPause,
+  onShip,
+}: {
+  className?: string;
+  loading: boolean;
+  tests: WebRule[];
+  shipped: number;
+  resultOf: (id: string) => WebRuleResult | undefined;
+  busy?: string;
+  onView: (r: WebRule) => void;
+  onPause: (r: WebRule) => void;
+  onShip: (r: WebRule) => void;
+}) {
+  return (
+    <Card tone="pink" shape="experimenter" corner="br" hover={false} className={cn("p-5", className)}>
+      <CardHead
+        right={
+          <span className="num">
+            {tests.length} running{shipped ? ` · ${shipped} shipped` : ""}
+          </span>
+        }
+      >
+        <span className="flex items-center gap-2.5">
+          Live tests
+          {tests.length > 0 && <span className="dw-live-dot size-2 rounded-full bg-dw-live" aria-hidden />}
+        </span>
+      </CardHead>
+      <p className="mt-1 text-[13px] text-dw-ink/65">Your current page → the new version, and the chance the new version wins.</p>
+      <ul className="mt-3 flex flex-col gap-1.5">
+        {loading && [0, 1].map((i) => <li key={i} className="h-[62px] animate-pulse rounded-[18px] bg-white/50" />)}
+        {!loading && tests.length === 0 && (
+          <li className="flex items-center gap-3 rounded-[18px] bg-white/60 p-3 text-[13.5px] text-dw-ink/70">
+            <Mascot kind="experimenter" size={36} frame active={false} />
+            No tests running. Draft a change below, or turn on Autopilot.
+          </li>
+        )}
+        {tests.map((r) => {
+          const res = resultOf(r.id);
+          const p = res?.probabilityToBeat;
+          const enough = (res?.control.visitors ?? 0) >= 100 && (res?.treatment.visitors ?? 0) >= 100;
+          const verdict = p === undefined || !enough ? undefined : p >= 0.95 ? "win" : p <= 0.05 ? "lose" : undefined;
+          const n = (res?.control.visitors ?? 0) + (res?.treatment.visitors ?? 0);
+          return (
+            <li key={r.id} className={cn("rounded-[18px] px-3 py-2", verdict === "win" ? "bg-dw-win-bg" : verdict === "lose" ? "bg-dw-warn-bg" : "bg-white/75")}>
+              <div className="flex items-center gap-2">
+                <SourceChip source={r.audience.sources?.[0]} />
+                <button
+                  type="button"
+                  onClick={() => onView(r)}
+                  title="Show this test in the preview"
+                  className="min-w-0 flex-1 truncate text-left text-[14px] font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-dw-ink"
+                >
+                  {r.name}
+                </button>
+                <span className="-mr-1.5 flex shrink-0 items-center">
+                  <IconBtn title={`Ship “${r.name}” to everyone in its audience`} onClick={() => onShip(r)} busy={busy === `${r.id}:shipped`} className="size-8">
+                    <Rocket />
+                  </IconBtn>
+                  <IconBtn title={`Pause “${r.name}”`} onClick={() => onPause(r)} busy={busy === `${r.id}:paused`} className="size-8">
+                    <Pause />
+                  </IconBtn>
+                </span>
+              </div>
+              {res && n > 0 ? (
+                <div className="mt-1 grid grid-cols-[auto_minmax(0,1fr)_2.75rem] items-center gap-3 text-[12.5px]">
+                  <span className="num whitespace-nowrap text-dw-ink/65">
+                    {pct(res.control.conversionRate)} → <span className="font-semibold text-dw-ink">{pct(res.treatment.conversionRate)}</span>
+                  </span>
+                  <span
+                    className="relative block h-2 rounded-full bg-dw-ink/10"
+                    role="meter"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round((p ?? 0) * 100)}
+                    aria-label={`Chance “${r.name}” beats the original`}
+                  >
+                    <span className="block h-full rounded-full bg-dw-ink transition-[width] duration-700" style={{ width: `${Math.max(2, Math.round((p ?? 0) * 100))}%` }} />
+                    <span className="absolute -top-0.5 h-3 w-[2px] rounded-full bg-dw-ink/60" style={{ left: "95%" }} aria-hidden />
+                  </span>
+                  <span className={cn("num text-right font-semibold", verdict === "win" ? "text-dw-win" : verdict === "lose" ? "text-dw-warn" : "")}>{p !== undefined ? pct(p, 0) : "–"}</span>
+                </div>
+              ) : (
+                <div className="mt-1 text-[12.5px] text-dw-ink/55">Collecting data: needs 100+ visitors in each group.</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
 function DraftCard({
   draft,
   busy,
@@ -637,14 +790,14 @@ function DraftCard({
     <Card tone="pink" shape="experimenter" corner="br" hover={false}>
       <CardHead
         right={
-          <span title={r.author}>
-            <Tag tone={draft.source === "llm" ? "ink" : "white"}>{draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Heuristic"}</Tag>
+          <span title={draft.source === "llm" ? "Written by AI" : "Written from Darwin's rules"}>
+            <Tag tone={draft.source === "llm" ? "ink" : "white"}>{draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Darwin's rules"}</Tag>
           </span>
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="designer" size={34} active />
-          Draft
+          <Mascot kind="designer" size={34} active title="Pixel, the designer" />
+          Pixel&apos;s draft
         </span>
       </CardHead>
       <div className="mt-4 flex flex-col gap-4">
@@ -712,11 +865,11 @@ function DraftCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it; Darwin measures orders against the unchanged page">
+          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it. Fizz compares orders against your current page.">
             {busy === "test" ? <LoaderCircle className="animate-spin" /> : <FlaskConical />}
-            Start A/B test
+            Start a test
           </PillButton>
-          <PillButton tone="white" onClick={() => onLaunch("always")} disabled={!!busy} title="Everyone in the audience sees it (no control group)">
+          <PillButton tone="white" onClick={() => onLaunch("always")} disabled={!!busy} title="Everyone in the audience sees it (nothing to compare against)">
             {busy === "always" ? <LoaderCircle className="animate-spin" /> : <Rocket />}
             Show to all of them
           </PillButton>
@@ -774,7 +927,7 @@ function RuleRow({
       </Tag>
     ) : rule.mode === "test" ? (
       <Tag tone="ink" className={T}>
-        A/B testing
+        Testing
       </Tag>
     ) : (
       <Tag tone="yellow" className={T}>
@@ -856,19 +1009,19 @@ function RuleRow({
           {test ? (
             <>
               <div className="flex flex-col gap-2">
-                <ArmBar label="Original" rate={result.control.conversionRate} visitors={result.control.visitors} max={maxRate} dashed />
-                <ArmBar label="With change" rate={result.treatment.conversionRate} visitors={result.treatment.visitors} max={maxRate} />
+                <ArmBar label="Current page" rate={result.control.conversionRate} visitors={result.control.visitors} max={maxRate} dashed />
+                <ArmBar label="New version" rate={result.treatment.conversionRate} visitors={result.treatment.visitors} max={maxRate} />
               </div>
               {p !== undefined && (
                 <div className="mt-3.5">
                   <div className="flex items-end justify-between gap-2">
-                    <span className="text-[13px] text-dw-ink/65">Chance the change is better</span>
+                    <span className="text-[13px] text-dw-ink/65">Chance the new version is better</span>
                     <span className="num text-[13px]">
                       <span className="text-[20px] leading-none font-semibold tracking-[-0.02em]">{pct(p, 0)}</span>
-                      {result.lift !== undefined && <span className="ml-1.5 text-dw-ink/60">{`${result.lift >= 0 ? "+" : ""}${pct(result.lift, 0)} lift`}</span>}
+                      {result.lift !== undefined && <span className="ml-1.5 text-dw-ink/60">{`${result.lift >= 0 ? "+" : ""}${pct(result.lift, 0)} vs now`}</span>}
                     </span>
                   </div>
-                  <div className="relative mt-2 h-2.5 rounded-full bg-dw-ink/10" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)} aria-label="Chance the change is better">
+                  <div className="relative mt-2 h-2.5 rounded-full bg-dw-ink/10" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)} aria-label="Chance the new version is better">
                     <div className="h-full rounded-full bg-dw-ink transition-[width] duration-700" style={{ width: `${Math.max(2, Math.round(p * 100))}%` }} />
                     <span className="absolute -top-1 h-[18px] w-[2px] rounded-full bg-dw-ink" style={{ left: "95%" }} title="Winning at 95%" />
                   </div>
@@ -879,7 +1032,7 @@ function RuleRow({
                         ? "Losing. Pause it and try another idea."
                         : enough
                           ? "Not decisive yet. Keep it running."
-                          : "Collecting data: needs 100+ visitors in each group."}
+                          : "Collecting data. It needs 100+ visitors on each version."}
                   </div>
                 </div>
               )}
@@ -899,7 +1052,7 @@ function RuleRow({
 /** One arm of a test: a horizontal pill (dashed = original, solid = with the change). */
 function ArmBar({ label, rate, visitors, max, dashed }: { label: string; rate: number; visitors: number; max: number; dashed?: boolean }) {
   return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_7rem] items-center gap-3 text-[13px] max-sm:grid-cols-[5.75rem_minmax(0,1fr)_5.5rem] max-sm:gap-2">
+    <div className="grid grid-cols-[7.25rem_minmax(0,1fr)_7rem] items-center gap-3 text-[13px] max-sm:grid-cols-[6.5rem_minmax(0,1fr)_5.5rem] max-sm:gap-2">
       <span className="flex items-center gap-1.5 whitespace-nowrap text-dw-ink/70">
         <span className={cn("size-2.5 shrink-0 rounded-[3px]", dashed ? "border border-dashed border-dw-ink" : "bg-dw-ink")} aria-hidden />
         {label}
@@ -984,9 +1137,9 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
         <span className="num">
           {audience} · {heat?.clicks ?? 0} clicks from {heat?.visitors ?? 0} visitors
         </span>
-        {!!heat?.rageClicks && <Tag tone="warn">{heat.rageClicks} rage clicks</Tag>}
+        {!!heat?.rageClicks && <Tag tone="warn">{heat.rageClicks} repeated angry taps</Tag>}
         {!!heat?.syntheticClicks && (
-          <span title="Clicks generated by Darwin's simulator (properties.synthetic = true)">
+          <span title="Clicks made by Darwin's simulator, kept apart from real ones">
             <Tag tone="white">
               <Bot className="size-3" aria-hidden /> {heat.syntheticClicks} simulated
             </Tag>
@@ -1019,12 +1172,12 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
 
 /** Which crew member speaks for each autopilot decision. */
 const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: string }> = {
-  on: { mascot: "analyst", who: "Darwin" },
-  off: { mascot: "analyst", who: "Darwin" },
-  started: { mascot: "experimenter", who: "Experimenter" },
-  shipped: { mascot: "shipper", who: "Shipper" },
-  stopped: { mascot: "experimenter", who: "Experimenter" },
-  waiting: { mascot: "observer", who: "Observer" },
+  on: { mascot: "leader", who: "Darwin" },
+  off: { mascot: "leader", who: "Darwin" },
+  started: { mascot: "experimenter", who: "Fizz" },
+  shipped: { mascot: "shipper", who: "Dash" },
+  stopped: { mascot: "experimenter", who: "Fizz" },
+  waiting: { mascot: "observer", who: "Iris" },
 };
 
 function DecisionLog({ state }: { state: WebAutopilotState }) {
@@ -1042,7 +1195,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
           )
         }
       >
-        Darwin&apos;s decisions
+        What the crew decided
       </CardHead>
       <ol className="mt-4 flex max-h-[22rem] flex-col overflow-y-auto pr-1">
         {entries.map((e, i) => {
@@ -1059,7 +1212,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
                   </span>
                   {e.source && <span className="text-dw-ink/55">· {SHORT[e.source]}</span>}
                 </div>
-                <p className={cn("mt-0.5 text-[13.5px] leading-snug", e.kind === "shipped" ? "font-medium text-dw-win" : "text-dw-ink/80")}>{e.message}</p>
+                <p className={cn("mt-0.5 text-[13.5px] leading-snug", e.kind === "shipped" ? "font-medium text-dw-win" : "text-dw-ink/80")}>{e.message.replace(/^Started A\/B test/, "Started a test")}</p>
               </div>
             </li>
           );
@@ -1085,7 +1238,7 @@ function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string })
                 {o.visitors.toLocaleString()} visitors · {pct(o.conversionRate)} ordered
               </span>
               {o.syntheticVisitors > 0 && (
-                <span title="Visitors generated by Darwin's simulator (properties.synthetic = true)">
+                <span title="Visitors made by Darwin's simulator, kept apart from real ones">
                   <Tag tone="white">
                     <Bot className="size-3" aria-hidden /> {o.syntheticVisitors.toLocaleString()} simulated
                   </Tag>
@@ -1157,9 +1310,34 @@ function TrafficPanel({ data, site }: { data?: WebRulesResponse; site: string })
   );
 }
 
-function InstallPanel({ site, origin }: { site: string; origin: string }) {
+/**
+ * The install tag comes from the server (GET /api/web/rules → install, built by lib/github installSnippet: the
+ * same helper onboarding, the install PR and llms.txt use), never from window.location. One tag: darwin.js loads
+ * the personalization runtime itself. Status uses the three shared words (lib/web/install-status).
+ */
+function InstallPanel({ install, realVisitors }: { install?: WebRulesResponse["install"]; realVisitors: number }) {
   const [copied, setCopied] = useState(false);
-  const snippet = `<script src="${origin}/api/web/runtime.js?site=${site}"></script>\n<script async src="${origin}/darwin.js" data-darwin-site="${site}"></script>`;
+  const [verify, setVerify] = useState<{ verified: boolean; via?: "events" | "tag" } | null>(null);
+  const snippet = install?.tag ?? "";
+  const storeUrl = install?.storeUrl;
+  const siteId = install?.siteId;
+  useEffect(() => {
+    if (!storeUrl || !siteId || realVisitors > 0) return;
+    let stop = false;
+    const check = () =>
+      fetch(`/api/onboarding/verify?site=${encodeURIComponent(siteId)}&url=${encodeURIComponent(storeUrl)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((v) => !stop && setVerify(v))
+        .catch(() => undefined);
+    const first = setTimeout(check, 0);
+    const t = setInterval(check, 10_000);
+    return () => {
+      stop = true;
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [storeUrl, siteId, realVisitors]);
+  const status = installStatus({ verify, realVisitors });
   return (
     <Card tone="white" hover={false}>
       <CardHead
@@ -1167,6 +1345,7 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
           <PillButton
             size="sm"
             tone="sand"
+            disabled={!snippet}
             onClick={() => {
               navigator.clipboard?.writeText(snippet).then(() => {
                 setCopied(true);
@@ -1181,10 +1360,14 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
       >
         Install on any store
       </CardHead>
-      <pre className="mt-4 overflow-x-auto rounded-[18px] bg-dw-ink p-4 font-dwmono text-[12px] leading-relaxed whitespace-pre text-[#EDE6D6]">{snippet}</pre>
+      <p className="mt-3 flex items-center gap-2 text-[13px] font-medium text-dw-ink/75" title="Installed = the tag was found on your store's page. Verified = a real (not simulated) event arrived.">
+        <span className={cn("size-2 rounded-full", status === "verified" ? "bg-dw-live" : status === "installed" ? "bg-dw-olive" : "bg-dw-ink/25")} aria-hidden />
+        {INSTALL_STATUS_LABEL[status]}
+      </p>
+      <pre className="mt-3 overflow-x-auto rounded-[18px] bg-dw-ink p-4 font-dwmono text-[12px] leading-relaxed whitespace-pre text-[#EDE6D6]">{snippet || "Loading…"}</pre>
       <p className="mt-3 text-[13px] leading-snug text-dw-ink/60">
-        Paste both in <code className="font-dwmono">&lt;head&gt;</code>. darwin.js alone works too (it loads the rules itself); the first line stops the page flickering. Changes are
-        text and styles only, never scripts.
+        Paste it in <code className="font-dwmono">&lt;head&gt;</code>. This one tag records visits and loads the personalization rules. Changes are text and styles only, never
+        scripts.
       </p>
     </Card>
   );

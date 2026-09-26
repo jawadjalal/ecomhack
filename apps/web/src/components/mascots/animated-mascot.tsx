@@ -23,6 +23,7 @@
  */
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import type { MascotKind, MascotState } from "@/lib/contracts/team";
+import { TEAM } from "@/lib/team/roster";
 import { cn } from "@/components/ui/cn";
 
 export type { MascotKind, MascotState };
@@ -30,14 +31,13 @@ export type { MascotKind, MascotState };
 /** How long a one-shot plays before settling back (ms). */
 const ONE_SHOT_MS: Partial<Record<MascotState, number>> = { tapped: 1400, success: 2600, error: 2600 };
 
+/** Default accessible names: the team member who wears each mascot (the analyst disc isn't on the team). */
 const NAMES: Record<MascotKind, string> = {
-  leader: "Darwin",
-  analyst: "Darwin",
-  observer: "Observer",
-  designer: "Designer",
-  experimenter: "Experimenter",
-  shipper: "Shipper",
-};
+  analyst: "Analyst",
+  ...(Object.fromEntries(TEAM.map((a) => [a.mascot, `${a.name}, ${a.role.toLowerCase()}`])) as Partial<Record<MascotKind, string>>),
+} as Record<MascotKind, string>;
+
+export const mascotName = (kind: MascotKind) => NAMES[kind];
 
 const STATES: MascotState[] = ["idle", "thinking", "working", "success", "error", "sleeping", "tapped"];
 
@@ -93,6 +93,10 @@ export interface AnimatedMascotProps {
   size?: number;
   /** Tap (click / Enter / Space) plays the one-shot reaction. Renders a button. */
   interactive?: boolean;
+  /** Not a button, but a click still plays the reaction (for mascots inside links, cards and buttons). */
+  tapOnClick?: boolean;
+  /** Hold the resting pose with no motion (a click still plays the reaction). */
+  still?: boolean;
   onTap?: () => void;
   /** Change `key` to play `state` once (tapped / success / error), then settle back. */
   flash?: { state: MascotState; key: string | number };
@@ -104,7 +108,7 @@ export interface AnimatedMascotProps {
   style?: CSSProperties;
 }
 
-export function AnimatedMascot({ kind, state = "idle", size = 64, interactive, onTap, flash, title, decorative, className, style }: AnimatedMascotProps) {
+export function AnimatedMascot({ kind, state = "idle", size = 64, interactive, tapOnClick, still, onTap, flash, title, decorative, className, style }: AnimatedMascotProps) {
   const scope = `dmm-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   // A one-shot playing over `state`: which state, and a counter so replays restart the animation.
   const [shot, setShot] = useState<{ state: MascotState; n: number } | null>(null);
@@ -158,11 +162,25 @@ export function AnimatedMascot({ kind, state = "idle", size = 64, interactive, o
 
   const name = title ?? NAMES[kind];
   const box: CSSProperties = { width: size, height: size, ...style };
-  const cls = cn(scope, "relative inline-block shrink-0 leading-none", className);
+  const cls = cn(scope, "relative inline-block shrink-0 leading-none", still && !shot && "[&_*]:animate-none!", className);
 
   if (!interactive) {
     return (
-      <span className={cls} style={box} role={decorative ? undefined : "img"} aria-label={decorative ? undefined : name} aria-hidden={decorative || undefined}>
+      <span
+        className={cls}
+        style={box}
+        role={decorative ? undefined : "img"}
+        aria-label={decorative ? undefined : name}
+        aria-hidden={decorative || undefined}
+        onClick={
+          tapOnClick
+            ? () => {
+                play("tapped");
+                onTap?.();
+              }
+            : undefined
+        }
+      >
         {body}
       </span>
     );

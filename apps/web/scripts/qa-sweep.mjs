@@ -534,7 +534,8 @@ async function startServer(port, dataDir, extraEnv = {}) {
   const log = [];
   const child = spawn(process.execPath, [path.join(APP_DIR, "node_modules/next/dist/bin/next"), "start", "-p", String(port)], {
     cwd: APP_DIR,
-    env: { ...process.env, ...extraEnv, DARWIN_DATA_DIR: dataDir, NODE_ENV: "production" },
+    // DARWIN_DEMO_SEED=0: these servers start from a known loop state; boot seeding would step it concurrently.
+    env: { ...process.env, DARWIN_DEMO_SEED: "0", ...extraEnv, DARWIN_DATA_DIR: dataDir, NODE_ENV: "production" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (d) => log.push(String(d)));

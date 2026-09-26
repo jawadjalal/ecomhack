@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { Silhouette, type MascotKind } from "../mascot";
-import { TONE, type Tone } from "../ui";
+import { TONE, usePlainSurface, type Tone } from "../ui";
 
 const CORNER: Record<"tr" | "br" | "bl" | "tl", CSSProperties> = {
   tr: { right: -60, top: -80 },
@@ -26,6 +26,7 @@ export function Panel({
   label,
   className,
   children,
+  plain,
 }: {
   tone: Tone;
   shape?: MascotKind;
@@ -35,28 +36,32 @@ export function Panel({
   label?: string;
   className?: string;
   children: ReactNode;
+  plain?: boolean;
 }) {
   const t = TONE[tone];
+  const surface = usePlainSurface();
+  const flat = plain ?? surface;
   const cls = cn(
-    "dw-card relative isolate flex min-w-0 flex-col overflow-hidden rounded-[26px] px-[26px] py-[22px] text-dw-ink",
+    "relative isolate flex min-w-0 flex-col text-dw-ink",
+    flat ? "bg-transparent" : "dw-card overflow-hidden rounded-[26px] px-[26px] py-[22px]",
     href && "outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:ring-offset-dw-bg",
     className,
   );
   const body = (
     <>
-      {shape && <Silhouette kind={shape} color={t.shape} size={silhouette} style={{ ...CORNER[corner], zIndex: -1 }} />}
+      {!flat && shape && <Silhouette kind={shape} color={t.shape} size={silhouette} style={{ ...CORNER[corner], zIndex: -1 }} />}
       {children}
     </>
   );
   if (href) {
     return (
-      <Link href={href} aria-label={label} className={cls} style={{ background: t.bg }}>
+      <Link href={href} aria-label={label} className={cls} style={flat ? undefined : { background: t.bg }}>
         {body}
       </Link>
     );
   }
   return (
-    <section aria-label={label} className={cls} style={{ background: t.bg }}>
+    <section aria-label={label} className={cls} style={flat ? undefined : { background: t.bg }}>
       {body}
     </section>
   );

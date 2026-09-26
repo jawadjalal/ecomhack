@@ -2,13 +2,29 @@
  * Keyword heuristics over Tavily results: used when there's no LLM key, and to ground the LLM's
  * output in facts we extracted ourselves (llms.txt presence, prices).
  */
-import type { ResearchClaim, ResearchCompetitor, ResearchSuggestion } from "@/lib/contracts";
+import type {
+  ResearchClaim,
+  ResearchCompetitor,
+  ResearchSuggestion,
+} from "@/lib/contracts";
 import type { TavilyResult } from "./tavily";
 
 /** Social, forums and encyclopedias: useful sources, but not competitors. */
 const NOT_COMPETITORS = [
-  "reddit.com", "youtube.com", "wikipedia.org", "quora.com", "facebook.com", "instagram.com", "tiktok.com",
-  "pinterest.com", "x.com", "twitter.com", "linkedin.com", "medium.com", "trustpilot.com", "google.com",
+  "reddit.com",
+  "youtube.com",
+  "wikipedia.org",
+  "quora.com",
+  "facebook.com",
+  "instagram.com",
+  "tiktok.com",
+  "pinterest.com",
+  "x.com",
+  "twitter.com",
+  "linkedin.com",
+  "medium.com",
+  "trustpilot.com",
+  "google.com",
 ];
 
 export function domainOf(url: string): string {
@@ -36,7 +52,10 @@ export function brandName(title: string, url: string): string {
 }
 
 /** Up to `max` distinct competitor domains from search results, skipping the merchant's own site. */
-export function pickCompetitors(results: TavilyResult[], opts: { exclude?: string; max?: number } = {}): TavilyResult[] {
+export function pickCompetitors(
+  results: TavilyResult[],
+  opts: { exclude?: string; max?: number } = {},
+): TavilyResult[] {
   const own = opts.exclude ? domainOf(opts.exclude) : "";
   const seen = new Set<string>();
   const out: TavilyResult[] = [];
@@ -53,9 +72,16 @@ export function pickCompetitors(results: TavilyResult[], opts: { exclude?: strin
 
 export function priceRange(text: string): string | undefined {
   const found: { cur: string; v: number }[] = [];
-  for (const m of text.matchAll(/([£$€])\s?(\d{1,4}(?:,\d{3})?(?:\.\d{2})?)/g)) {
+  for (const m of text.matchAll(
+    /([£$€])\s?(\d{1,4}(?:,\d{3})?(?:\.\d{2})?)/g,
+  )) {
     // "free delivery over £50" is a threshold, not a product price.
-    if (/(?:over|above|spend|orders of|off)\s*$/i.test(text.slice(Math.max(0, (m.index ?? 0) - 14), m.index))) continue;
+    if (
+      /(?:over|above|spend|orders of|off)\s*$/i.test(
+        text.slice(Math.max(0, (m.index ?? 0) - 14), m.index),
+      )
+    )
+      continue;
     const v = Number(m[2].replace(/,/g, ""));
     if (v >= 1 && v <= 5000) found.push({ cur: m[1], v });
   }
@@ -74,18 +100,32 @@ function sentence(text: string, re: RegExp): string | undefined {
 }
 
 export const shippingOffer = (t: string) =>
-  sentence(t, /[^.\n]{0,50}\bfree (?:standard |uk |us |next[- ]day )?(?:shipping|delivery)[^.\n]{0,60}/i) ??
-  sentence(t, /[^.\n]{0,30}\b(?:next[- ]day|same[- ]day|express) (?:shipping|delivery)[^.\n]{0,50}/i);
+  sentence(
+    t,
+    /[^.\n]{0,50}\bfree (?:standard |uk |us |next[- ]day )?(?:shipping|delivery)[^.\n]{0,60}/i,
+  ) ??
+  sentence(
+    t,
+    /[^.\n]{0,30}\b(?:next[- ]day|same[- ]day|express) (?:shipping|delivery)[^.\n]{0,50}/i,
+  );
 
 export const returnsOffer = (t: string) =>
-  sentence(t, /[^.\n]{0,40}\b\d{1,3}[- ]days? (?:free )?returns?[^.\n]{0,40}/i) ??
-  sentence(t, /[^.\n]{0,40}\bfree returns?[^.\n]{0,40}/i);
+  sentence(
+    t,
+    /[^.\n]{0,40}\b\d{1,3}[- ]days? (?:free )?returns?[^.\n]{0,40}/i,
+  ) ?? sentence(t, /[^.\n]{0,40}\bfree returns?[^.\n]{0,40}/i);
 
 const TACTICS: [RegExp, string][] = [
-  [/free (?:shipping|delivery) (?:on orders )?over/i, "Free-shipping threshold"],
+  [
+    /free (?:shipping|delivery) (?:on orders )?over/i,
+    "Free-shipping threshold",
+  ],
   [/\bsubscribe|subscription\b/i, "Subscription / membership"],
   [/\bbundle|buy \d+ get|multi-?buy/i, "Bundles and multibuys"],
-  [/\b\d{1,2}% off|\bsale\b|discount code|promo code/i, "Discounts and promo codes"],
+  [
+    /\b\d{1,2}% off|\bsale\b|discount code|promo code/i,
+    "Discounts and promo codes",
+  ],
   [/\breviews?\b|\bstars?\b|rated/i, "Social proof (reviews/ratings)"],
   [/klarna|clearpay|afterpay|pay in 3|pay later/i, "Buy now, pay later"],
   [/gait analysis|fit finder|size guide|quiz/i, "Fit / size guidance"],
@@ -101,27 +141,42 @@ export function agentNotes(text: string, llmsTxt: boolean | null): string[] {
   const notes: string[] = [];
   if (llmsTxt === true) notes.push("Publishes /llms.txt for AI agents");
   if (llmsTxt === false) notes.push("No /llms.txt found");
-  if (/chatgpt|ai (?:shopping )?assistant|agentic|model context protocol|\bmcp\b/i.test(text)) notes.push("Mentions AI assistants / agents");
+  if (
+    /chatgpt|ai (?:shopping )?assistant|agentic|model context protocol|\bmcp\b/i.test(
+      text,
+    )
+  )
+    notes.push("Mentions AI assistants / agents");
   return notes;
 }
 
 /** Build a competitor card from its search hit plus the page text we extracted. */
-export function heuristicCompetitor(hit: TavilyResult, pageText: string, llmsTxt: boolean | null): ResearchCompetitor {
+export function heuristicCompetitor(
+  hit: TavilyResult,
+  pageText: string,
+  llmsTxt: boolean | null,
+): ResearchCompetitor {
   const text = `${hit.content}\n${pageText}`;
   const shipping = shippingOffer(text);
   const returns = returnsOffer(text);
   const tactics = tacticsIn(text);
-  const strengths = [shipping && "Clear delivery offer", returns && "Stated returns policy", tactics.includes("Social proof (reviews/ratings)") && "Uses reviews as proof"].filter(
-    Boolean,
-  ) as string[];
-  const weaknesses = [!shipping && "No delivery offer found on the page", !returns && "Returns policy not visible", llmsTxt === false && "Not set up for AI agents (no llms.txt)"].filter(
-    Boolean,
-  ) as string[];
+  const strengths = [
+    shipping && "Clear delivery offer",
+    returns && "Stated returns policy",
+    tactics.includes("Social proof (reviews/ratings)") &&
+      "Uses reviews as proof",
+  ].filter(Boolean) as string[];
+  const weaknesses = [
+    !shipping && "No delivery offer found on the page",
+    !returns && "Returns policy not visible",
+    llmsTxt === false && "Not set up for AI agents (no llms.txt)",
+  ].filter(Boolean) as string[];
   return {
     name: brandName(hit.title, hit.url),
     url: originOf(hit.url),
     priceRange: priceRange(text),
-    positioning: hit.content.split(/(?<=[.!?])\s/)[0]?.slice(0, 160) || undefined,
+    positioning:
+      hit.content.split(/(?<=[.!?])\s/)[0]?.slice(0, 160) || undefined,
     shipping,
     returns,
     strengths,
@@ -133,23 +188,38 @@ export function heuristicCompetitor(hit: TavilyResult, pageText: string, llmsTxt
 }
 
 /** First sentence of each result as a sourced trend line. */
-export function heuristicTrends(results: TavilyResult[], max = 4): ResearchClaim[] {
+export function heuristicTrends(
+  results: TavilyResult[],
+  max = 4,
+): ResearchClaim[] {
   return results
     .filter((r) => r.content.trim().length > 40)
     .slice(0, max)
-    .map((r) => ({ text: (r.content.split(/(?<=[.!?])\s/)[0] ?? r.content).replace(/\s+/g, " ").slice(0, 220), sources: [r.url] }));
+    .map((r) => ({
+      text: (r.content.split(/(?<=[.!?])\s/)[0] ?? r.content)
+        .replace(/\s+/g, " ")
+        .slice(0, 220),
+      sources: [r.url],
+    }));
 }
 
 /** Test ideas driven by what competitors do that a store could copy (or beat). */
-export function heuristicSuggestions(competitors: ResearchCompetitor[]): ResearchSuggestion[] {
+export function heuristicSuggestions(
+  competitors: ResearchCompetitor[],
+): ResearchSuggestion[] {
   const out: ResearchSuggestion[] = [];
-  const src = (pred: (c: ResearchCompetitor) => boolean) => competitors.filter(pred).map((c) => c.sources[0]).slice(0, 3);
+  const src = (pred: (c: ResearchCompetitor) => boolean) =>
+    competitors
+      .filter(pred)
+      .map((c) => c.sources[0])
+      .slice(0, 3);
   const withShip = src((c) => Boolean(c.shipping));
   if (withShip.length) {
     out.push({
       title: "Show the delivery offer before the bag",
       why: `${withShip.length} of ${competitors.length} competitors lead with a delivery offer.`,
-      testIdea: "Show a free delivery banner with the threshold and delivery date above the add to cart button",
+      testIdea:
+        "Show a free delivery banner with the threshold and delivery date above the add to cart button",
       audience: "both",
       sources: withShip,
     });
@@ -164,22 +234,28 @@ export function heuristicSuggestions(competitors: ResearchCompetitor[]): Researc
       sources: withReturns,
     });
   }
-  const proof = src((c) => c.tactics.includes("Social proof (reviews/ratings)"));
+  const proof = src((c) =>
+    c.tactics.includes("Social proof (reviews/ratings)"),
+  );
   if (proof.length) {
     out.push({
       title: "Lead with ratings on product pages",
       why: "Competitors use reviews and star ratings as proof.",
-      testIdea: "Change the product headline to include the average star rating and review count",
+      testIdea:
+        "Change the product headline to include the average star rating and review count",
       audience: "humans",
       sources: proof,
     });
   }
-  const noAgents = competitors.filter((c) => c.agentReadiness.llmsTxt === false);
+  const noAgents = competitors.filter(
+    (c) => c.agentReadiness.llmsTxt === false,
+  );
   if (noAgents.length) {
     out.push({
       title: "Win the AI shoppers competitors ignore",
       why: `${noAgents.length} competitor${noAgents.length > 1 ? "s have" : " has"} no llms.txt, so agents see less of them.`,
-      testIdea: "For AI agent visitors, show price, stock and delivery date as plain text at the top of the product page",
+      testIdea:
+        "For AI agent visitors, show price, stock and delivery date as plain text at the top of the product page",
       audience: "agents",
       sources: noAgents.map((c) => c.sources[0]).slice(0, 3),
     });

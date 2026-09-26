@@ -39,6 +39,7 @@ import {
   detectFramework,
   manualDocPath,
   planInstall,
+  scriptTag,
   type FrameworkDetection,
 } from "./install";
 import {
@@ -201,6 +202,32 @@ export function publicOrigin(req: Request): string {
   return requestOrigin(req);
 }
 
+/** The one darwin.js install tag every surface shows (onboarding, Personalize, llms.txt, the install PR). */
+export interface InstallSnippet {
+  /** Darwin's public origin: DARWIN_PUBLIC_URL, else the request's origin. */
+  origin: string;
+  /** Absolute darwin.js URL. darwin.js loads the personalization runtime itself, so this is the only tag. */
+  src: string;
+  siteId: string;
+  /** `<script src=… data-darwin-site=… defer></script>` */
+  tag: string;
+}
+
+/** The darwin.js path on Darwin's origin (no version parameter: the script is served no-cache). */
+export const DARWIN_SCRIPT_PATH = "/darwin.js";
+
+/** Pure: the install tag for a site on a given Darwin origin. */
+export function installSnippetFor(origin: string, siteId: string): InstallSnippet {
+  const o = normalizeHost(origin);
+  const src = `${o}${DARWIN_SCRIPT_PATH}`;
+  return { origin: o, src, siteId, tag: scriptTag({ src, siteId }) };
+}
+
+/** The canonical install tag for this request: every snippet Darwin shows comes from here. */
+export function installSnippet(req: Request, siteId: string): InstallSnippet {
+  return installSnippetFor(publicOrigin(req), siteId);
+}
+
 /**
  * The origin this request actually arrived on (proxy headers first). Round trips that rely on a cookie set on this
  * host, like GitHub sign-in, must come back here, not to DARWIN_PUBLIC_URL.
@@ -321,7 +348,7 @@ The full plan, with the one line per event your store sends, is in \`${path}\`.`
 
 async function installPR(repo: RepoRef, opts: InstallOptions, mode: GithubMode): Promise<PullRequestResult> {
   const fullName = `${repo.owner}/${repo.repo}`;
-  const snippet = { src: `${normalizeHost(opts.host)}/darwin.js`, siteId: opts.siteId ?? siteIdFor(repo) };
+  const snippet = installSnippetFor(opts.host, opts.siteId ?? siteIdFor(repo));
   const commitMessage = `Install Darwin analytics\n\nLoads darwin.js (site id "${snippet.siteId}") to measure how human shoppers and AI shopping agents use the store.`;
 
   if (mode === "offline") {

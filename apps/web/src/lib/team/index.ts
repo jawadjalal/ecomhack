@@ -8,7 +8,7 @@
  *   TEAM, getAgent, SPECIALISTS  the roster (roster.ts, client-safe)
  */
 import type { AgentId, Chat, CreateChatRequest, TeamChatResponse, TeamStateResponse } from "@/lib/contracts/team";
-import { routeLabel } from "@/lib/llm/client";
+import { routeLabel } from "@/lib/llm/team";
 import { TEAM, TEAM_BY_ID } from "./roster";
 import { createChat, ensureDirectChat, getChat, listChatSummaries, listMessages, markRead, resetTeamStore } from "./store";
 import { resetWatchStore } from "./watch-store";

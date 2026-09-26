@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { WatchRun, WatchStateResponse } from "@/lib/contracts/watch";
 import { cn } from "@/components/ui/cn";
+import { useLive } from "@/lib/console/live";
+import { DEPTH } from "../ui";
 
 function ago(iso: string | undefined, now: number): string {
   if (!iso) return "not yet";
@@ -28,6 +30,8 @@ function until(iso: string | undefined, now: number): string {
 export function WatchStrip() {
   const [state, setState] = useState<WatchStateResponse | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  // Same rule as every console page: load once, and keep polling only while the Live switch is on.
+  const live = useLive();
 
   useEffect(() => {
     let stop = false;
@@ -40,6 +44,11 @@ export function WatchStrip() {
         .catch(() => {});
     };
     load();
+    if (!live) {
+      return () => {
+        stop = true;
+      };
+    }
     const timer = setInterval(() => {
       setNow(Date.now());
       load();
@@ -48,14 +57,14 @@ export function WatchStrip() {
       stop = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [live]);
 
   const run: WatchRun | undefined = state?.runs[0];
   const looked = run?.checks.filter((c) => c.ok).map((c) => c.label) ?? [];
   const quiet = (state?.signalsToday ?? 0) > (state?.messagesToday ?? 0);
 
   return (
-    <section aria-label="Darwin’s watch" className="flex flex-col gap-2 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-3.5">
+    <section aria-label="Darwin’s watch" className={cn("flex flex-col gap-2 rounded-[22px] border border-dw-hairline bg-dw-surface px-5 py-3.5", DEPTH)}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-[15px] font-semibold tracking-[-0.01em]">
           Darwin’s watch

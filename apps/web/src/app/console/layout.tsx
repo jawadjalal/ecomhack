@@ -5,7 +5,11 @@ import { AssistantPanel } from "@/components/console/assistant-panel";
 const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["400", "500", "600"] });
 const dmMono = DM_Mono({ variable: "--font-dm-mono", subsets: ["latin"], weight: ["400", "500"] });
 
-/** Every console page (mission control, dashboards, personalize, agents, traffic) gets the "Ask Darwin" assistant. */
+/**
+ * Every console page (mission control, dashboards, personalize, agents, traffic) gets the "Ask Darwin" assistant.
+ * The "which store is this" note lives in the header only (StoreChip in top-nav: a pill from 640px, a bar on
+ * phones), so the console no longer mounts DemoBadge: it said the same thing a second time.
+ */
 export default function ConsoleLayout({ children }: LayoutProps<"/console">) {
   return (
     <>

@@ -30,14 +30,16 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/web/                 Web personalization for ANY store with darwin.js: rules, runtime.js, results, drafts.
   src/lib/store-agent/         The Whop store's own AI agent (A2A): catalog from Whop plans, tagged checkout links, agent funnel, A/B tests on the pitch.
   src/lib/tracking/            Tracking plans (what to record, from the merchant's words) and the dashboards built from them.
+  src/lib/demo/                Demo store mode: no site connected → the console is about /store (PACE) with labelled
+                               simulated shoppers; seeds on boot (src/instrumentation.ts) and from onboarding's "Skip".
   src/lib/research/            Market & competitor research (Tavily + LLM, sourced claims, A/B test ideas).
   src/lib/assistant/           "Ask Darwin": the merchant's managing assistant (tool registry over public APIs + LLM loop).
   src/lib/team/                The agent team: Darwin (lead) delegates to Iris/Pixel/Fizz/Dash concurrently in group chats;
                                roster.ts (names/roles/tools, client-safe), tools.ts (per-agent registries), orchestrator.ts.
   src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher,
-                               Grok certificate (agent trial over MCP or page reading → Gold/Silver/Bronze + badge).
-  src/lib/llm/                 Providers: DeepSeek V4 Flash via OpenRouter (default), APINex (Pixel/editor, hard tasks,
-                               overflow), Grok (xAI), Claude; runToolLoop (tools → JSON fallback → next provider) → heuristic.
+                               AI-agent certificate (agent trial over MCP or page reading → Gold/Silver/Bronze + badge).
+  src/lib/llm/                 OpenRouter (default DeepSeek V4 Flash) / APINex / xAI Grok / Claude, native tool loop (runToolLoop),
+                               heuristic fallback. lib/llm/team: the team's routed loop (APINex for Pixel / hard tasks / overflow).
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
   src/app/store/**             The demo storefront (what shoppers see).
   src/app/onboarding/**        First-run setup: prompt bar, connect Whop + GitHub, meet Darwin's team, analytics PR, dashboards.
@@ -64,6 +66,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel`, `stepAgentTests`, `agentTestsView` |
 | tracking | `lib/tracking/**`, `/api/onboarding/**`, `/api/dashboards`, `app/console/dashboards`, `components/dashboards/**` | `heuristicPlan`, `amendPlan`, `getPlan`, `savePlan`, `computeDashboards`, `trackingDoc` |
 | briefing | `lib/briefing/**`, `/api/briefing/**` | `getBriefing`, `actOnBriefing` |
+| demo | `lib/demo/**`, `/api/demo`, `components/demo/**`, `lib/storefront/showcase.ts`, `src/instrumentation.ts` | `demoStatus`, `ensureDemoStore`, `getStoreBranding` |
 | research | `lib/research/**`, `/api/research/**`, `app/console/research`, `components/research/**`, `contracts/research.ts` | `researchCompetitors`, `askResearch`, `listReports`, `getReport` |
 | team | `lib/team/**`, `/api/team/**`, `contracts/team.ts`, `lib/github/edit.ts` (with github) | `runTeamTurn`, `teamState`, `chatView`, `createUserChat`, `TEAM`, `toolsFor` (add a tool: an entry in `lib/team/tools.ts` + the agent's `tools` in `roster.ts`) |
 | assistant | `lib/assistant/**`, `/api/assistant`, `components/console/assistant-panel.tsx`, `components/console/mascot.tsx`, `app/console/layout.tsx` | `runAssistant`, `TOOLS`, `runTool` (add a tool: one entry in `lib/assistant/tools.ts`, wrapping another area's public API) |
@@ -79,6 +82,8 @@ Cross-module calls go through the public API above, never deep imports into anot
   `experiment_id`, `variant`, `spec_version` (use `attributionProps()` from `lib/spec/resolve.ts`).
 - Simulated traffic sets `properties.synthetic = true`. The console must label it. No faking results.
 - LLM calls must have a heuristic fallback (`llmAvailable()`), so the demo runs with no API keys.
+- Provider: `OPENROUTER_API_KEY` (preferred, `OPENROUTER_MODEL` default `deepseek/deepseek-v4-flash`), then `XAI_API_KEY`,
+  then `ANTHROPIC_API_KEY`. Agentic features use `runToolLoop` (native tool calling, JSON fallback).
 - No new dependencies without a reason in the PR description (they're pre-installed in the scaffold).
 - Before pushing: `cd apps/web && npm run typecheck && npm run lint && npm test && npm run build`.
 

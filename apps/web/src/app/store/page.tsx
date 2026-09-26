@@ -2,13 +2,12 @@ import { EditorialHome } from "@/components/store/editorial-home";
 import { PageView } from "@/components/store/store-provider";
 import { StoreShell } from "@/components/store/store-shell";
 import { getStoreContext } from "@/lib/storefront/context";
-import { getWhopShowcase } from "@/lib/whop";
+import { getStoreBranding } from "@/lib/storefront/showcase";
 
 export default async function StoreHome(props: PageProps<"/store">) {
   const ctx = await getStoreContext(props.searchParams);
-  const showcase = await getWhopShowcase();
+  const { brand, showcase } = await getStoreBranding();
   const { spec } = ctx;
-  const brand = showcase?.title?.trim() || "PACE";
   return (
     <StoreShell ctx={ctx}>
       {spec.agentSurface.structuredData && (

@@ -5,49 +5,67 @@
  * (olive). Ink-only charts: solid pills = series 1 (people / B), dashed pills = series 2 (agents / A).
  */
 import Link from "next/link";
-import { useId, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, type MouseEvent } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { AnalyticsSummary } from "@/lib/contracts";
+import { useMeasure } from "@/lib/console/hooks";
 import { cn } from "@/components/ui/cn";
 import { AgentTile, agentBrand } from "../agent-tile";
 import { Mascot } from "../mascot";
-import { Card, LegendKey, PillButton } from "../ui";
+import { Card, DEPTH, LegendKey, PillButton } from "../ui";
 import { CountUp, EASE, Grow, Tip, type CountFormat } from "./fx";
-import {
-  SHIP_AT,
-  countText,
-  funnelSteps,
-  pctSmart,
-  seriesText,
-  seriesValue,
-  smoothPath,
-  whom,
-  type BoardRow,
-  type ChartPoint,
-  type ChartTab,
-  type TestView,
-} from "./model";
+import { SHIP_AT, countText, funnelSteps, pctSmart, seriesText, seriesValue, smoothPath, whom, type BoardRow, type ChartPoint, type ChartTab, type TestView } from "./model";
 
 const FILL = "[&>div]:flex [&>div]:h-full [&>div]:flex-col";
+/**
+ * Desktop card heights scale with the viewport so both card rows sit above the fold (with the prompt bar
+ * showing) from 800px tall screens up; phones size to content.
+ */
+const ROW1 = "lg:h-[clamp(220px,calc(100vh_-_630px),270px)] lg:py-5";
+const ROW2 = "lg:h-[clamp(184px,calc(100vh_-_686px),214px)] lg:py-[18px]";
+/** Phones: every card in the carousel is as tall as the tallest, and gives under a press. */
+const PHONE = "max-sm:h-full max-sm:min-h-[300px] max-sm:active:scale-[0.985] max-sm:active:brightness-[0.98]";
 
-function CardHead({ title, right }: { title: string; right?: React.ReactNode }) {
+/** Every Overview card is a door to its page: the title is the link, and a click on the card's empty space follows it. */
+const CLICK = "cursor-pointer";
+function useCardClick(href: string) {
+  const router = useRouter();
+  return (e: MouseEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).closest("a,button,input,textarea,select,[role=tab]")) return;
+    if (window.getSelection()?.toString()) return;
+    router.push(href);
+  };
+}
+
+/** The card title as a link, with a small arrow that nudges on hover. 20px semibold, like every Darwin card. */
+function TitleLink({ href, children, hint }: { href: string; children: React.ReactNode; hint: string }) {
+  return (
+    <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">
+      <Link href={href} title={hint} className="group/t inline-flex items-center gap-1.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2">
+        {children}
+        <ArrowUpRight
+          aria-hidden
+          className="size-[18px] opacity-45 transition-[opacity,transform] duration-200 group-hover/t:translate-x-0.5 group-hover/t:-translate-y-0.5 group-hover/t:opacity-100"
+        />
+      </Link>
+    </h2>
+  );
+}
+
+function CardHead({ title, href, hint, right }: { title: string; href: string; hint: string; right?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-      <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{title}</h2>
-      {right && <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-[12px]">{right}</div>}
+      <TitleLink href={href} hint={hint}>
+        {title}
+      </TitleLink>
+      {right && <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-[12px] tabular-nums">{right}</div>}
     </div>
   );
 }
 
-function CardEmpty({
-  kind,
-  children,
-  action,
-}: {
-  kind: "designer" | "experimenter" | "observer" | "analyst";
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
+function CardEmpty({ kind, children, action }: { kind: "designer" | "experimenter" | "observer" | "leader" | "analyst"; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center text-[15px] text-dw-ink/75">
       <Mascot kind={kind} size={46} frame active />
@@ -59,27 +77,37 @@ function CardEmpty({
 
 /* ------------------------------------------------------------------ Conversion */
 
-export function ConversionCard({
-  points,
-  summary,
-  simulated,
-  onRun,
-}: {
-  points: ChartPoint[];
-  summary?: AnalyticsSummary;
-  simulated: boolean;
-  onRun?: () => void;
-}) {
+export function ConversionCard({ points, summary, simulated, onRun }: { points: ChartPoint[]; summary?: AnalyticsSummary; simulated: boolean; onRun?: () => void }) {
   const [tab, setTab] = useState<ChartTab>("converts");
+  const open = useCardClick("/console/changes");
   const reduce = useReducedMotion();
-  const gid = useId().replace(/:/g, "");
   const last = points.at(-1);
-  const tabs: { key: ChartTab; value: number; format: CountFormat; label: string }[] = last
+  const tabs: {
+    key: ChartTab;
+    value: number;
+    format: CountFormat;
+    label: string;
+  }[] = last
     ? [
         { key: "converts", value: last.rate, format: "pct", label: "Converts" },
-        { key: "shoppers", value: summary?.overall.visitors ?? last.shoppers, format: "int", label: "Shoppers" },
-        { key: "bought", value: summary?.overall.orders ?? last.bought, format: "int", label: "Bought" },
-        { key: "better", value: last.multiple, format: "mult", label: "Since Darwin started" },
+        {
+          key: "shoppers",
+          value: summary?.overall.visitors ?? last.shoppers,
+          format: "int",
+          label: "Shoppers",
+        },
+        {
+          key: "bought",
+          value: summary?.overall.orders ?? last.bought,
+          format: "int",
+          label: "Bought",
+        },
+        {
+          key: "better",
+          value: last.multiple,
+          format: "mult",
+          label: "Since Darwin started",
+        },
       ]
     : [];
 
@@ -99,29 +127,24 @@ export function ConversionCard({
   }, [points, tab]);
 
   return (
-    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[276px]", FILL)} aria-label="Conversion">
-      <CardHead
-        title="Conversion"
-        right={
-          points.length > 0 && (
-            <>
-              {simulated && <span className="rounded-full bg-dw-ink/[0.07] px-2 py-0.5 text-[11.5px] text-[#4F4417]">simulated shoppers</span>}
-              <LegendKey className="text-[#4F4417]">{tab === "converts" ? "Converts" : tabs.find((t) => t.key === tab)?.label}</LegendKey>
+    <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW1, PHONE, FILL)} aria-label="Conversion" onClick={open}>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <TitleLink href="/console/changes" hint="See every change Dash shipped">
+            Conversion
+          </TitleLink>
+          {points.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+              <LegendKey className="text-[#4F4417]">{tabs.find((t) => t.key === tab)?.label ?? "Converts"}</LegendKey>
               <span className="inline-flex items-center gap-1.5 text-[#4F4417]">
                 <span className="size-2.5 rounded-[3px] bg-dw-ink/20" />
-                Shoppers
+                Shoppers{simulated ? ", simulated" : ""}
               </span>
-            </>
-          )
-        }
-      />
-      {!last || !chart ? (
-        <CardEmpty kind="designer" action={onRun && <PillButton onClick={onRun}>Let Darwin run</PillButton>}>
-          Darwin hasn’t measured your store yet. Let it run and conversion shows up here after the first round.
-        </CardEmpty>
-      ) : (
-        <>
-          <div role="tablist" aria-label="Chart" className="mt-3.5 flex flex-wrap gap-x-7 gap-y-2">
+            </div>
+          )}
+        </div>
+        {last && chart && (
+          <div role="tablist" aria-label="Chart" className="flex flex-wrap gap-x-6 gap-y-2 max-sm:grid max-sm:w-full max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:gap-y-3">
             {tabs.map((t) => {
               const on = t.key === tab;
               return (
@@ -132,18 +155,25 @@ export function ConversionCard({
                   aria-selected={on}
                   onClick={() => setTab(t.key)}
                   className={cn(
-                    "flex flex-col items-start gap-0.5 border-b-2 pb-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-dw-ink",
+                    "flex flex-col items-start gap-0.5 border-b-2 pb-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-dw-ink",
                     on ? "border-dw-ink" : "border-transparent hover:border-dw-ink/25",
                   )}
                 >
                   <CountUp value={t.value} format={t.format} className="text-[18px] leading-tight font-semibold" />
-                  <span className="text-[12px] tracking-[0.02em] text-[#4F4417] uppercase">{t.label}</span>
+                  <span className="text-[11.5px] tracking-[0.02em] text-[#4F4417] uppercase">{t.label}</span>
                 </button>
               );
             })}
           </div>
-
-          <div className="relative mt-3.5 flex min-h-[150px] flex-1 flex-col gap-1.5">
+        )}
+      </div>
+      {!last || !chart ? (
+        <CardEmpty kind="designer" action={onRun && <PillButton tone="yellow" onClick={onRun}>Let Darwin run</PillButton>}>
+          Darwin hasn’t measured your store yet. Let it run and conversion shows up here after the first round.
+        </CardEmpty>
+      ) : (
+        <>
+          <div className="relative mt-3.5 flex min-h-[150px] flex-1 flex-col gap-1.5 lg:mt-2.5 lg:min-h-0">
             <div className="relative flex-1">
               {/* one faint pill per generation: how many shoppers Darwin measured */}
               <div className="absolute inset-0 flex items-end gap-2.5">
@@ -172,18 +202,14 @@ export function ConversionCard({
                 })}
               </div>
               <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden>
-                <defs>
-                  <linearGradient id={`conv-${gid}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#141413" stopOpacity="0.2" />
-                    <stop offset="1" stopColor="#141413" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
                 {points.length > 1 && (
                   <>
                     <motion.path
                       key={`a-${tab}`}
                       d={chart.area}
-                      fill={`url(#conv-${gid})`}
+                      fill="#141413"
+                      fillOpacity={0.08}
+                      className="max-sm:hidden"
                       initial={reduce ? false : { opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.6, delay: 0.3 }}
@@ -206,7 +232,10 @@ export function ConversionCard({
               <motion.div
                 key={`d-${tab}`}
                 className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-dw-ink shadow-[0_0_0_4px_#F6D76B]"
-                style={{ left: `${chart.lastPt[0] / 10}%`, top: `${chart.lastPt[1]}%` }}
+                style={{
+                  left: `${chart.lastPt[0] / 10}%`,
+                  top: `${chart.lastPt[1]}%`,
+                }}
                 initial={reduce ? false : { scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.4, delay: 0.8, ease: EASE }}
@@ -220,7 +249,9 @@ export function ConversionCard({
             <div className="flex gap-2.5 text-[12px] text-[#4F4417]">
               {points.map((p, i) => (
                 <span key={p.label} className={cn("flex-1 truncate text-center", i === points.length - 1 && "font-semibold text-dw-ink")} title={p.title}>
-                  {i === points.length - 1 ? `${p.label} · live` : p.label}
+                  <span className="max-sm:hidden">{i === points.length - 1 ? `${p.label} · live` : p.label}</span>
+                  {/* Phones: many generations share a narrow card, so just the generation number (0 … Now). */}
+                  <span className="sm:hidden">{i === 0 ? "0" : i === points.length - 1 ? "Now" : p.label.replace(/^Gen\s*/, "")}</span>
                 </span>
               ))}
             </div>
@@ -236,15 +267,21 @@ export function ConversionCard({
 export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: () => void; autopilot: boolean }) {
   const hasResult = !!test && test.aShoppers + test.bShoppers > 0;
   const max = Math.max(test?.a ?? 0, test?.b ?? 0, 1e-9);
-  const h = (v: number) => Math.max(34, Math.round((v / max) * 130));
+  // Pills fill the measured column (value label + arm label take 46px) up to 130px.
+  const [pillsRef, pills] = useMeasure<HTMLDivElement>();
+  const tallest = pills.height ? Math.max(40, Math.min(130, pills.height - 46)) : 130;
+  const h = (v: number) => Math.max(30, Math.round((v / max) * tallest));
   const chance = test?.chance ?? 0;
   const lift = test?.lift;
   const ended = test && !test.running;
   const decision = test?.experiment.result?.decision;
+  const open = useCardClick("/console/experiments");
   return (
-    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[276px]", FILL)} aria-label="A vs B">
+    <Card tone="pink" shape="experimenter" corner="br" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW1, PHONE, FILL)} aria-label="A vs B" onClick={open}>
       <CardHead
-        title={ended ? "Last test" : "A vs B"}
+        title={ended ? (decision === "ship" ? "Last win" : "Last test") : "A vs B"}
+        href="/console/experiments"
+        hint={test ? `Open Fizz's test: ${test.experiment.name}` : "Open Fizz's tests"}
         right={
           test && (
             <Link
@@ -257,12 +294,12 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
         }
       />
       {!test || !hasResult ? (
-        <CardEmpty kind="experimenter" action={!autopilot && onRun ? <PillButton onClick={onRun}>Let Darwin run</PillButton> : undefined}>
-          {test ? "The test just started. The first shoppers are on their way." : "No test yet. Darwin starts one as soon as it has a fix worth trying."}
+        <CardEmpty kind="experimenter" action={!autopilot && onRun ? <PillButton tone="yellow" onClick={onRun}>Let Darwin run</PillButton> : undefined}>
+          {test ? "Fizz just started this test. The first shoppers are on their way." : "No test yet. Fizz starts one as soon as Pixel has a fix worth trying."}
         </CardEmpty>
       ) : (
-        <div className="mt-3.5 grid flex-1 grid-cols-[auto_minmax(0,1fr)] items-end gap-6">
-          <div className="flex h-full items-end gap-3.5">
+        <div className="mt-3.5 grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-end gap-6 lg:mt-2">
+          <div ref={pillsRef} className="flex h-full items-end gap-3.5">
             {(["A", "B"] as const).map((arm, i) => {
               const v = arm === "A" ? test.a : test.b;
               const n = arm === "A" ? test.aShoppers : test.bShoppers;
@@ -285,7 +322,7 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
               );
             })}
           </div>
-          <div className="flex flex-col gap-3.5 pb-[22px]">
+          <div className="flex flex-col gap-3.5 pb-[22px] lg:gap-3">
             <div className="flex flex-col">
               {lift !== undefined ? (
                 <CountUp value={lift} format="lift" className="text-[40px] leading-none font-semibold tracking-[-0.02em]" />
@@ -295,8 +332,8 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
               <span className="mt-1 text-[13px] text-[#5A2744]">
                 {ended
                   ? decision === "ship"
-                    ? `B shipped: more ${whom(test.audience)} bought`
-                    : `Kept A: B didn’t beat it`
+                    ? `Dash shipped B: more ${whom(test.audience)} bought`
+                    : `Fizz kept A: B didn’t beat it`
                   : lift === undefined
                     ? "Waiting for buyers in A"
                     : `${lift >= 0 ? "more" : "fewer"} ${whom(test.audience)} buy in B`}
@@ -307,16 +344,15 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
                 <span>
                   <span className="num font-semibold text-dw-ink">{pctSmart(chance)}</span> chance B wins
                 </span>
-                <span>ships at {Math.round(SHIP_AT * 1000) / 10}%</span>
+                {ended ? (
+                  <Link href="/console/experiments" className="font-medium text-dw-ink underline decoration-dw-ink/30 underline-offset-4 hover:decoration-dw-ink">
+                    See all tests
+                  </Link>
+                ) : (
+                  <span>ships at {Math.round(SHIP_AT * 1000) / 10}%</span>
+                )}
               </div>
-              <div
-                className="relative h-2 rounded-full bg-dw-ink/[0.12]"
-                role="progressbar"
-                aria-label="Chance B wins"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(chance * 100)}
-              >
+              <div className="relative h-2 rounded-full bg-dw-ink/[0.12]" role="progressbar" aria-label="Chance B wins" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(chance * 100)}>
                 <Grow axis="x" size={`${Math.max(2, chance * 100)}%`} delay={0.35} className="h-2 rounded-full bg-dw-ink" />
                 <span className="absolute -top-1 h-4 w-0.5 rounded-full bg-dw-ink" style={{ left: `${SHIP_AT * 100}%` }} aria-hidden />
               </div>
@@ -334,10 +370,13 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
   const rows = board.slice(0, 5);
   const max = Math.max(...rows.map((r) => r.rate), peopleRate ?? 0, 1e-9);
   const people = agentBrand(undefined, "human");
+  const open = useCardClick("/console/agents");
   return (
-    <Card tone="blue" shape="observer" corner="tr" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[250px]", FILL)} aria-label="Which agents buy">
+    <Card tone="blue" shape="observer" corner="tr" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW2, PHONE, FILL)} aria-label="Which agents buy" onClick={open}>
       <CardHead
         title="Which agents buy"
+        href="/console/agents"
+        hint="Open Mika, your store agent"
         right={
           sample > 0 && (
             <span className="text-[#2E3A55]">
@@ -347,13 +386,17 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
         }
       />
       {!rows.length ? (
-        <CardEmpty kind="observer">No AI shoppers have finished a visit yet. When they do, Darwin ranks them by how often they buy.</CardEmpty>
+        <CardEmpty kind="observer">No AI shoppers have finished a visit yet. When they do, Iris ranks them by how often they buy.</CardEmpty>
       ) : (
-        <div className="mt-3.5 flex flex-1 flex-col justify-between gap-1.5">
+        <div className="mt-3.5 flex min-h-0 flex-1 flex-col justify-between gap-1.5 lg:mt-2.5 lg:gap-1">
           {rows.map((r, i) => (
             <div
               key={r.brand.key + r.brand.name}
-              className="group/lb grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 transition-transform duration-200 hover:translate-x-[3px]"
+              className={cn(
+                "group/lb grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 transition-transform duration-200 hover:translate-x-[3px] lg:h-[22px]",
+                // Short desktop screens: top 4 agents + people, so the row stays above the fold.
+                i === 4 && "[@media(min-width:1024px)_and_(max-height:860px)]:hidden",
+              )}
             >
               <span className="flex min-w-0 items-center gap-2.5 text-[14px] font-medium">
                 <span className="transition-transform duration-300 group-hover/lb:-translate-y-0.5 group-hover/lb:-rotate-6">
@@ -376,19 +419,14 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
             </div>
           ))}
           {peopleRate !== undefined && (
-            <div className="grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 text-[#2E3A55]">
+            <div className="grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 text-[#2E3A55] lg:h-[22px]">
               <span className="flex items-center gap-2.5 text-[14px]">
                 <AgentTile brand={people} size={24} />
                 People
               </span>
               <span tabIndex={0} className="group relative block h-3 outline-none">
                 <Tip align="right">{pctSmart(peopleRate)} of people buy</Tip>
-                <Grow
-                  axis="x"
-                  size={`${Math.max(4, (peopleRate / max) * 100)}%`}
-                  delay={0.6}
-                  className="absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink"
-                />
+                <Grow axis="x" size={`${Math.max(4, (peopleRate / max) * 100)}%`} delay={0.6} className="absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink" />
               </span>
               <span className="num text-right font-dwmono text-[13px]">{pctSmart(peopleRate)}</span>
             </div>
@@ -403,16 +441,22 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
 
 export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
   const steps = funnelSteps(summary);
+  // Bars fill the measured area (the value label takes 20px), up to 104px.
+  const [barsRef, bars] = useMeasure<HTMLDivElement>();
+  const tallest = bars.height ? Math.max(40, Math.min(104, bars.height - 20)) : 104;
   const any = steps.some((s) => s.people !== undefined || s.agents !== undefined);
   // The step that loses the most people: bold, it's where Darwin looks first.
   let weakest = -1;
   steps.forEach((s, i) => {
     if (s.people !== undefined && (weakest < 0 || s.people < (steps[weakest].people ?? 1))) weakest = i;
   });
+  const open = useCardClick("/console/issues");
   return (
-    <Card tone="olive" shape="analyst" corner="br" className={cn("flex flex-col px-[26px] py-[22px] lg:h-[250px]", FILL)} aria-label="How they convert">
+    <Card tone="olive" shape="analyst" corner="br" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW2, PHONE, FILL)} aria-label="How they convert" onClick={open}>
       <CardHead
         title="How they convert"
+        href="/console/issues"
+        hint="See where Iris found shoppers getting stuck"
         right={
           <>
             <LegendKey className="text-[#2F3517]">People</LegendKey>
@@ -423,12 +467,12 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
         }
       />
       {!any ? (
-        <CardEmpty kind="analyst">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
+        <CardEmpty kind="leader">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
       ) : (
-        <div className="mt-3.5 grid min-h-[150px] flex-1 grid-cols-4 gap-1.5 sm:gap-3">
+        <div className="mt-3.5 grid min-h-[150px] flex-1 grid-cols-4 gap-1.5 sm:gap-3 lg:mt-2 lg:min-h-0">
           {steps.map((s, i) => (
-            <div key={s.label} className="flex flex-col gap-2">
-              <div className="flex flex-1 items-end justify-center gap-1 sm:gap-2">
+            <div key={s.label} className="flex min-h-0 flex-col gap-1.5">
+              <div ref={i === 0 ? barsRef : undefined} className="flex min-h-0 flex-1 items-end justify-center gap-1 sm:gap-2">
                 {(["people", "agents"] as const).map((k, j) => {
                   const v = s[k];
                   if (v === undefined) return <span key={k} className="w-[26px]" />;
@@ -439,7 +483,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                       </Tip>
                       <span className="num text-[12px] font-semibold">{Math.round(v * 100)}%</span>
                       <Grow
-                        size={Math.max(26, Math.round(v * 104))}
+                        size={Math.max(22, Math.round(v * tallest))}
                         delay={0.3 + i * 0.07 + j * 0.04}
                         className={cn(
                           "w-[22px] rounded-full transition-[filter,background-color] duration-200 sm:w-[26px]",
@@ -450,14 +494,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                   );
                 })}
               </div>
-              <span
-                className={cn(
-                  "text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap",
-                  i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]",
-                )}
-              >
-                {s.label}
-              </span>
+              <span className={cn("text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap", i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]")}>{s.label}</span>
             </div>
           ))}
         </div>

@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, RefreshCw } from "lucide-react";
-import { DarwinWordmark } from "@/components/console/brand";
+import { ReadinessNav } from "@/components/readiness/readiness-nav";
 import { CertificateEmbed } from "@/components/readiness/certificate-embed";
 import { CertificateView, LEVEL_STYLE } from "@/components/readiness/certificate-view";
 import { getCertificate, isExpired } from "@/lib/readiness";
@@ -34,32 +34,28 @@ export default async function CertificatePage(props: PageProps<"/readiness/certi
   const expired = isExpired(cert);
 
   return (
-    <main data-darwin-dark className="darwin-bg relative min-h-screen w-full text-white">
-      <div className="darwin-grid pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto flex w-full max-w-[52rem] flex-col gap-6 px-5 pb-20 sm:px-8">
-        <nav className="flex h-20 items-center justify-between">
-          <Link href="/readiness">
-            <DarwinWordmark sub="agent readiness" />
-          </Link>
+    <main data-dw className="min-h-screen w-full bg-dw-bg font-dw text-dw-ink">
+      <div className="mx-auto flex w-full max-w-[52rem] flex-col gap-6 px-4 pb-20 sm:px-8">
+        <ReadinessNav>
           <Link
             href={`/readiness?url=${encodeURIComponent(cert.url)}`}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] px-3.5 py-2 text-[0.9rem] font-medium text-white/90 hover:bg-white/10"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-[14px] font-medium shadow-[0_0_0_1px_rgba(20,20,19,0.08)] hover:bg-[#fffaf0]"
           >
-            <RefreshCw className="size-4" /> Re-check this store
+            <RefreshCw className="size-4" /> Check again
           </Link>
-        </nav>
+        </ReadinessNav>
 
         <CertificateView cert={cert} expired={expired} />
 
-        <section className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
-          <div className="font-semibold text-white/90">Show it on your store</div>
+        <section className="flex flex-col gap-3 rounded-[26px] border border-dw-hairline bg-dw-surface p-6">
+          <div className="text-[18px] font-semibold">Show it on your store</div>
           <CertificateEmbed base={base} certId={cert.id} levelLabel={LEVEL_STYLE[cert.level].label} />
         </section>
 
-        <p className="text-[0.84rem] leading-relaxed text-white/45">
-          Darwin audits whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. With an LLM key, Grok also shops the store
-          itself (never completing a real checkout). Gold needs a score of 85+ and a passing agent trial, Silver 70+, Bronze 55+. Certificates are valid for 90 days.{" "}
-          <Link href="/readiness" className="inline-flex items-center gap-1 text-brand hover:underline">
+        <p className="text-[14px] leading-relaxed text-dw-muted">
+          Darwin checks whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. When an AI key is set, Grok also
+          shops the store itself (it never completes a real checkout). Gold needs 85+ and a passing trial, Silver 70+, Bronze 55+. Certificates last 90 days.{" "}
+          <Link href="/readiness" className="inline-flex items-center gap-1 font-medium text-dw-ink underline-offset-2 hover:underline">
             Check your store <ArrowRight className="size-3.5" />
           </Link>
         </p>
