@@ -78,7 +78,7 @@ function Detail({ s }: { s: AgentSessionSummary }) {
         {s.synthetic ? (
           <Tag>Synthetic</Tag>
         ) : (
-          <Tag className="border-good/40 bg-good/10 text-[#8ff0b2]" title="A real AI agent connected over MCP/REST, not simulated">
+          <Tag className="border-good/40 bg-good/10 text-[#8ff0b2]" title="A real AI agent connected over MCP, A2A or REST, not simulated">
             Real
           </Tag>
         )}
