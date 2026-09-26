@@ -8,6 +8,7 @@ import { cn } from "@/components/ui/cn";
 import { Mascot } from "@/components/dw/mascot";
 import { Card, Empty, PageHead, PillButton, Tag } from "@/components/dw/ui";
 import { SwitchPill } from "@/components/dw/agents/switch";
+import { recallLastSite, recallPlan, recallSimulated, rememberPlan, rememberSimulated, rememberSite } from "@/lib/tracking/remember";
 import { DashboardGrid } from "./dashboard-grid";
 
 async function get<T>(path: string, body?: unknown): Promise<T> {
@@ -21,6 +22,11 @@ async function get<T>(path: string, body?: unknown): Promise<T> {
   if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
   return j;
 }
+
+/** The simulator's per-call cap (lib/web MAX_SIM_VISITORS). */
+const MAX_RESEND = 2000;
+/** Don't retry a restore / re-send more often than this while polling. */
+const HEAL_EVERY_MS = 5000;
 
 const ASK_CHIPS = ["Wishlist adds per minute", "Mobile vs desktop", "Where do shoppers come from", "Revenue per minute"];
 
@@ -47,7 +53,19 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
   const [asking, setAsking] = useState(false);
   const [reply, setReply] = useState<string>();
   const [ideas, setIdeas] = useState(false);
+  const [restoredNote, setRestoredNote] = useState<string>();
   const ticking = useRef(false);
+  const healedAt = useRef(0);
+
+  // No ?site=: open on the site this browser set up last (lib/tracking/remember.ts), not an empty box.
+  useEffect(() => {
+    if (initialSite) return;
+    const t = setTimeout(() => {
+      const last = recallLastSite();
+      if (last) setSite((cur) => cur || last.site);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [initialSite]);
 
   const load = useCallback(async () => {
     if (!site) return;
@@ -76,11 +94,43 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
     .join(",");
   const simulate = useCallback(
     async (visitors: number) => {
-      await get<WebSimulateResponse>("/api/web/simulate", { site, visitors, events: goalsKey ? goalsKey.split(",") : [] });
+      const res = await get<WebSimulateResponse>("/api/web/simulate", { site, visitors, events: goalsKey ? goalsKey.split(",") : [] });
+      rememberSimulated(site, res.visitors);
       await load();
     },
     [site, load, goalsKey],
   );
+
+  // Vercel runs several instances, each with its own memory: the one answering may not have the plan (or the
+  // simulated shoppers) onboarding made on another. Keep the browser's copy fresh, and send it back when missing.
+  useEffect(() => {
+    if (!data || !site || data.site !== site) return;
+    if (data.plan) {
+      rememberPlan(data.plan);
+      rememberSite(site, data.plan.siteUrl);
+    }
+    if (Date.now() - healedAt.current < HEAL_EVERY_MS) return;
+    if (!data.plan) {
+      const saved = recallPlan(site);
+      if (!saved) return;
+      healedAt.current = Date.now();
+      get<{ restored: boolean; plan: TrackingPlan }>("/api/onboarding/restore", { plan: saved })
+        .then(() => load())
+        .catch(() => undefined);
+      return;
+    }
+    const sims = recallSimulated(site);
+    if (data.totalEvents > 0 || sims <= 0) return;
+    healedAt.current = Date.now();
+    const goals = data.plan.events.filter((e) => e.enabled && e.category === "goal").map((e) => e.name).slice(0, 12);
+    get<WebSimulateResponse>("/api/web/simulate", { site, visitors: Math.min(sims, MAX_RESEND), events: goals })
+      .then((res) => {
+        const n = res.visitors;
+        setRestoredNote(`Restored your ${n.toLocaleString("en-GB")} simulated shoppers (simulated)`);
+        return load();
+      })
+      .catch(() => undefined);
+  }, [data, site, load]);
 
   const askForChart = async (message: string) => {
     if (!message.trim() || asking) return;
@@ -188,7 +238,7 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
             >
               <Globe className="size-4 shrink-0" />
               <span className="hidden sm:inline">Site</span>
-              <input name="site" defaultValue={site} placeholder="site id" className="w-32 min-w-0 bg-transparent font-medium text-dw-ink outline-none placeholder:text-dw-ink/40 sm:w-44" aria-label="Site" />
+              <input key={site} name="site" defaultValue={site} placeholder="site id" className="w-32 min-w-0 bg-transparent font-medium text-dw-ink outline-none placeholder:text-dw-ink/40 sm:w-44" aria-label="Site" />
               <button type="submit" aria-label="Show this site" className="grid size-8 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink">
                 <ArrowRight className="size-4" />
               </button>
@@ -205,6 +255,12 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
       {error && (
         <p role="alert" className="rounded-[22px] bg-dw-warn-bg px-5 py-3 text-[14px] text-dw-warn">
           {error}
+        </p>
+      )}
+      {restoredNote && (
+        <p className="flex flex-wrap items-center gap-2 pl-2 text-[13.5px] leading-snug text-dw-ink/80" aria-live="polite" data-testid="restored-simulated">
+          <Tag tone="warn">Simulated</Tag>
+          {restoredNote}
         </p>
       )}
 

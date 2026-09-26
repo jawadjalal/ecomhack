@@ -113,3 +113,4 @@ export interface DashboardsResponse {
 // GET   /api/dashboards?site=…                             → DashboardsResponse               (admin)
 // POST  /api/dashboards { site, message }                  → { plan, reply, id } ask for a chart (admin)
 // POST  /api/dashboards { site, remove: id }               → { plan } remove an asked-for chart  (admin)
+// POST  /api/onboarding/restore { plan }                   → { restored, plan } browser copy → this instance, only if it has none (admin)

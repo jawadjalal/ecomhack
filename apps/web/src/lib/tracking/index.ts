@@ -9,6 +9,7 @@ export { buildPlan, heuristicPlan, amendPlan, heuristicAmend, applyToggles, dash
 export { computeDashboards } from "./dashboards";
 export { askForChart, removeChart, type ChartAnswer } from "./charts";
 export type { PlanInput } from "./plan";
+export { TrackingPlanSchema } from "./schema";
 
 const KEY = "tracking-plans";
 
@@ -19,6 +20,13 @@ export function getPlan(site: string): TrackingPlan | undefined {
 export function savePlan(plan: TrackingPlan): TrackingPlan {
   kvUpdate<Record<string, TrackingPlan>>(KEY, () => ({}), (all) => ({ ...all, [plan.site]: plan }));
   return plan;
+}
+
+/** The browser's copy of a plan, saved only when this instance has none for the site (see remember.ts). */
+export function restorePlan(plan: TrackingPlan): { restored: boolean; plan: TrackingPlan } {
+  const have = getPlan(plan.site);
+  if (have) return { restored: false, plan: have };
+  return { restored: true, plan: savePlan(plan) };
 }
 
 export function listPlans(): TrackingPlan[] {
