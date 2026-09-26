@@ -427,22 +427,22 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
 
             {current.includes("delivery") && (
               <FormSection title="Delivery address">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   {input("firstName", "First name", { autoComplete: "given-name" })}
                   {input("lastName", "Last name", { autoComplete: "family-name" })}
                 </div>
                 {input("address1", "Address", { autoComplete: "address-line1", placeholder: "House number and street" })}
                 {input("address2", "Apartment, suite, etc. (optional)", { autoComplete: "address-line2" })}
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   {input("city", "City", { autoComplete: "address-level2" })}
                   {input("postcode", "Postcode", { autoComplete: "postal-code", placeholder: "N1 5SB" })}
                 </div>
-                <div className="pace-card flex items-center justify-between border-2 border-(--ink) px-4 py-3.5 text-sm">
+                <div className="pace-card flex items-center justify-between gap-4 border-2 border-(--ink) px-4 py-3.5 text-sm">
                   <span>
                     <span className="block font-semibold">Standard tracked delivery</span>
                     <span className="text-(--muted)">Arrives {deliveryDate}</span>
                   </span>
-                  <span className="font-semibold">
+                  <span className="shrink-0 text-right font-semibold">
                     {shippingVisible ? (
                       totals.shipping === 0 ? (
                         <span className="text-emerald-700">Free</span>

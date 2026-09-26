@@ -50,7 +50,7 @@ export function ProductCard({ product, position, eager = false }: { product: Pro
           <ProductArt
             product={product}
             className="aspect-square w-full"
-            imgClassName="p-[6%] transition-transform duration-500 ease-out group-hover:scale-[1.05] group-hover:-rotate-2"
+            imgClassName="scale-[1.04] p-[5%] transition-transform duration-500 ease-out group-hover:-rotate-2 group-hover:scale-[1.1]"
             priority={eager}
           />
         </StoreLink>

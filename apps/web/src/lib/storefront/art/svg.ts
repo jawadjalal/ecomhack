@@ -118,9 +118,9 @@ export function vestSvg(title: string, base: string, accent: string): string {
   const dark = shade(base, 0.3);
   const outline = shade(base, 0.5);
   const panelL =
-    "M520,150 C470,150 440,190 430,240 L380,470 C360,560 360,660 390,740 L560,740 C570,640 570,520 560,420 L560,200 C560,170 545,150 520,150 Z";
+    "M548,138 C528,130 500,132 486,146 C478,240 440,300 384,360 C366,480 368,640 392,742 L562,742 C570,620 572,500 564,400 L556,200 C554,170 552,150 548,138 Z";
   const panelR =
-    "M680,150 C730,150 760,190 770,240 L820,470 C840,560 840,660 810,740 L640,740 C630,640 630,520 640,420 L640,200 C640,170 655,150 680,150 Z";
+    "M652,138 C672,130 700,132 714,146 C722,240 760,300 816,360 C834,480 832,640 808,742 L638,742 C630,620 628,500 636,400 L644,200 C646,170 648,150 652,138 Z";
   const flask = (x: number, flip: boolean) => `
 <g transform="translate(${x} 0)${flip ? " scale(-1 1)" : ""}">
 <path d="M-60,330 C-60,300 -40,290 0,290 C40,290 60,300 60,330 L66,520 C66,560 40,574 0,574 C-40,574 -66,560 -66,520 Z" fill="url(#g-flask)" stroke="#7dd3fc" stroke-opacity=".6" stroke-width="3"/>
@@ -134,23 +134,23 @@ export function vestSvg(title: string, base: string, accent: string): string {
 <pattern id="p-mesh" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M0 6 L6 0 L12 6 L6 12 Z" fill="none" stroke="${dark}" stroke-width="1.4" opacity=".6"/></pattern>`;
   const body = `${groundShadow(600, 790, 300, 0.14)}
 <g transform="translate(0 -10)">
-<path d="M520,150 C560,110 640,110 680,150 L680,190 C640,170 560,170 520,190 Z" fill="${dark}" stroke="${outline}" stroke-width="4"/>
-<path d="M450,300 C470,420 470,560 450,700 L750,700 C730,560 730,420 750,300 C700,340 500,340 450,300 Z" fill="${shade(base, 0.45)}"/>
+<path d="M520,150 C560,108 640,108 680,150 L676,196 C640,174 560,174 524,196 Z" fill="${dark}" stroke="${outline}" stroke-width="4"/>
+<path d="M430,380 C470,470 470,600 440,730 L760,730 C730,600 730,470 770,380 C700,420 500,420 430,380 Z" fill="${shade(base, 0.45)}"/>
 <path d="${panelL}" fill="url(#g-vest)" stroke="${outline}" stroke-width="4" stroke-linejoin="round"/>
 <path d="${panelR}" fill="url(#g-vest)" stroke="${outline}" stroke-width="4" stroke-linejoin="round"/>
 <path d="M392,600 C420,610 540,612 560,600 L560,736 L392,736 Z" fill="url(#p-mesh)"/>
 <path d="M808,600 C780,610 660,612 640,600 L640,736 L808,736 Z" fill="url(#p-mesh)"/>
-${flask(495, false)}
-${flask(705, true)}
+${flask(488, false)}
+${flask(712, true)}
 <path d="M470,470 L730,470" stroke="#1f2937" stroke-width="10" stroke-linecap="round"/>
 <path d="M470,540 L730,540" stroke="#1f2937" stroke-width="10" stroke-linecap="round"/>
 <rect x="580" y="458" width="40" height="24" rx="5" fill="${accent}"/>
 <rect x="580" y="528" width="40" height="24" rx="5" fill="${accent}"/>
-<path d="M470,190 C480,170 500,160 520,160" fill="none" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
-<path d="M730,190 C720,170 700,160 680,160" fill="none" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+<path d="M494,170 C488,230 460,280 420,330" fill="none" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+<path d="M706,170 C712,230 740,280 780,330" fill="none" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
 <path d="M398,700 L552,700" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".8"/>
 <path d="M648,700 L802,700" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".8"/>
-<circle cx="760" cy="420" r="12" fill="${accent}"/>
+<circle cx="786" cy="430" r="12" fill="${accent}"/>
 <path d="M470,640 l26,0 l-24,40 l-26,0 Z M504,640 l16,0 l-24,40 l-16,0 Z" fill="${accent}"/>
 </g>`;
   return svgDoc(title, defs, body);
