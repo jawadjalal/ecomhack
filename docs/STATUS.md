@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 15:00 UTC (Telegram tools via runAssistant)
+Last updated: 2026-09-26 17:00 UTC (merge #57 UI redesign into main)
 
 ---
 
@@ -18,7 +18,7 @@ Scored against the hackathon brief: *behaviour → insight → page change → b
 | AI leverage & autonomy | 7 | Autopilot ships winners, store agent A/B tests its own pitch, Grok teammate briefing ("want me to ship it?") | Lead agent that *acts* (⌘K / chat / WebMCP) — in progress; a real Grok key on stage |
 | Commerce innovation | 8 | A store that sells to AI agents three ways and optimises for them; agent checkout counted end to end | A real third-party agent buying live on the real Whop store |
 | Real-world usefulness | 5 | Mostly simulated traffic; the demo store is a demo | Real Whop store + script-tag install on a real site + one real purchase |
-| UX | 7 | Cream design system, mascots, real brand logos, mobile | Above-the-fold pass (in progress) |
+| UX | 7 | Cream type and mascots stay; landing, overview, experiments, issues, fixes, changes and settings no longer share one pastel bento. Agents, dashboards, personalize, traffic, research, onboarding and readiness still do. | Finish the pages listed in `docs/ui-redesign-plan.md` |
 | Demo quality | 7 | One story everywhere: /store is PACE and every console screen is about it, filled on boot with labelled simulated shoppers; onboarding has "Skip: explore with the demo store" | Rewrite `docs/DEMO.md` on the new screens and rehearse; `?mock=1` offline fallback |
 
 **The one question judges will ask: "is any of this real?"** Answer on stage with a real Grok bot buying on the Whop store (`/a2a/whop`), then the Grok teammate messaging the merchant what it learned.
@@ -30,7 +30,7 @@ Scored against the hackathon brief: *behaviour → insight → page change → b
 Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ### Landing `/`  ✅
-- **Done:** one screen, "Your store, improving itself.", live mini dashboard driven by the in-browser demo engine ("Live demo · simulated"), real AI-assistant logos.
+- **Done:** editorial split (left: headline, four-step loop, actions; right: live demo on a sand panel, no tilted device). Mini dashboard is a conversion sparkline plus a split, not a 2×2 pastel grid. "Your store, improving itself.", "Live demo · simulated", real AI-assistant logos.
 - **Left to do:** official Whop logo in `public/brand/whop.svg`; OG image + meta for link previews; A/B test the landing headline with Darwin itself.
 - **Limitations:** the mini dashboard is simulated by design (no real store behind the landing).
 - **Next-run ideas:** "Watch Darwin fix a store in 30 s" autoplay mode; a readiness score input right on the landing.
@@ -52,26 +52,26 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Next-run ideas:** a daily "what changed" digest card; pin a shopper journey to an issue; persist a compact per-generation summary so a restart doesn't need a refill round.
 
 ### Issues `/console/issues`  ✅ (🟡 above the fold)
-- **Done:** issues ranked by buyers lost per 1,000 visits, who/where cards, real sessions that hit each one, the fix, deep links.
+- **Done:** buyers-lost as a full-width figure, who/where as a quiet row, then the ranked list joined to the detail. Same ranking, sessions, fix, deep links.
 - **Left to do:** shorter summary cards so the detail is above the fold (in progress); humanise raw CSS selectors in rage-click issue titles.
 - **Next-run ideas:** "Fix this now" button that drafts a fix for the selected issue.
 
 ### Fixes `/console/fixes`  ✅ (🟡 above the fold)
-- **Done:** every fix with status, A→B settings in plain words, honest "written by" chip, results.
+- **Done:** in-test / up-next / thrown-away / list stacked in a narrow column, detail on the right. Status, A→B settings, "written by", results unchanged.
 - **Left to do:** above-the-fold pass (in progress); edit a drafted fix before it's tested.
 - **Limitations:** the 97.5% ship bar is mirrored client-side (not read from the optimizer).
 
 ### Experiments `/console/experiments`  ✅ (🟡 result strip above the fold)
-- **Done:** A vs B storefronts rendered from the spec, chance-B-wins curve, who buys, what B changes, every test so far.
+- **Done:** test list as a left rail, A and B side by side without pastel tiles, chance curve and who-buys beside it, what-B-changes as a table.
 - **Left to do:** verdict strip above the fold (in progress); an API to stop / ship early (`POST /api/loop/decide`) so "Stop test" / "Ship B now" can be real buttons.
 
 ### Changes `/console/changes`  ✅
-- **Done:** every shipped change, overall uplift, proof, "Live on your store" (+ PR only when GitHub is involved), **Roll back** (`POST /api/loop/rollback`, revert PR when GitHub is live). `/console/pulls` redirects.
+- **Done:** extra buyers as the headline, before/now as a strip, timeline plus a sticky inspector. Proof, "Live on your store" (+ PR only when GitHub is involved), **Roll back** (`POST /api/loop/rollback`, revert PR when GitHub is live). `/console/pulls` redirects.
 - **Left to do:** decide whether a rollback returns to `idle` (current: watch the restored store first) or `observe`; test the revert PR against a real repo.
 - **Limitations:** every PR is a dry-run preview until a valid `GITHUB_TOKEN` is set.
 
 ### Settings `/console/settings`  ✅
-- **Done:** autopilot, simulated shoppers, connections, Darwin's brain (model logo), who Darwin tests for, Grok teammate briefing preview + ship/stop, start over, demo mode.
+- **Done:** one column (autopilot, store, audience, Grok teammate, start over, demo mode) instead of alternating card rows. Same controls.
 - **Done (demo mode):** a WHOP_API_KEY on the server now counts as connected on boot (`connectServerWhop`), so Whop no longer reads "Not connected" while the store agent uses the key.
 - **Left to do:** real notification channels (email / Slack) instead of the Grok bot only; "who to test for" is read-only.
 
@@ -150,6 +150,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 17:00 UTC — merge #57 (UI redesign) into main.** Main had already redesigned the same screens after #57 branched (painted landing with timeline/crew sections, SummaryStrip + list/detail on Issues, Fixes, Experiments and Changes, #63's even 2-up Overview), so those screens keep main's layout and #57's versions of them were dropped, as were `issues/issue-cards.tsx` and `fix-cards.tsx` (deleted on main). Kept from #57: `PlainSurface` / `plain` on `Card` and `Panel` (no page uses it yet), Settings as one column, `overflow-x-clip` on the console shell, and `docs/ui-redesign-plan.md` as a plan for the pages still on tiles.
 - **2026-09-26 — de-jitter the Overview + drop the bento grid.** The four Overview cards (Conversion/A vs B/Which agents buy/How they convert) moved from a mirrored asymmetric `1.7fr/1fr` "bento" grid to a plain even 2-up grid (`components/dw/screens/overview.tsx`). `CountUp` and `Grow` (`components/dw/overview/fx.tsx`) used to fully replay their entrance animation (long duration + per-index delay) on every live poll refresh (`useSummary` 3-4s / `useSessions` 5s / `useExperiments` 3s), which read as constant number-counting/bar-growing jitter; they now animate fully once on mount, then glide briefly only when the displayed value actually changed, or jump instantly on an unchanged/negligible refresh. `npm run typecheck && npm run lint && npm test` all green (895 tests). Still open: the live feed (`MoneyFeed` 1.5s trickle, `useEventFeed`'s 230ms drain interval) still animates row reordering on a short cadence — worth a look if jitter is still reported there.
 - **2026-09-26 16:45 UTC — apple-site agent.** `demo-websites/apple-site/`: Orchard demo store (Next.js, :3001) with five PageSpec-driven conversion mistakes, darwin.js + funnel events, synthetic seed (humans + AI agents) verified on a local Darwin, local-only exact mirror mode, and `POST /api/simulate/events` so seeds are always labelled synthetic. Still open: lead-agent commands for seeding; real darwin.js events don't feed the loop (no spec_version on external events).
 - **2026-09-26 15:25 UTC — merge #42 into #46.** Crew registry (`lib/crew`), assistant personas and crew tabs use Pixel / Fizz / Dash (ids theo / ada / max stay; `pixel`, `fizz`, `dash` are aliases). Each loop page's start button names its own agent ("Let Iris watch", "Let Pixel draft a fix", "Let Fizz run the test", "Let Dash ship winners"); Darwin's own actions (Overview start, top-nav autopilot) are in his yellow. #46's team loop moved to `lib/llm/team.ts` on top of main's client (OpenRouter first, timeouts, cooldowns). Left: the team loop and the assistant loop are still two loops; merge them next run.
@@ -164,6 +165,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **2026-09-26 UTC — mascots (main session).** Every screen now uses the animated team mascots: `components/dw/mascot.tsx` keeps its API but renders the animated SVGs (same body size, so no layout moved). Darwin is the crowned leader everywhere the purple disc stood for him (logo, chats, empty states, "Built-in rules"); the loop crew on Issues reads Iris · Darwin · Pixel · Fizz · Dash; Darwin thinks while the bottom chat, the Overview chat, dashboards and traffic wait on an answer; clicking any mascot plays its tap reaction; `active={false}` holds a still pose. Favicon, `icon.svg` and `apple-icon.png` are Darwin's crowned logo. Open: shopper/buyer avatars still borrow crew shapes (e.g. a ChatGPT buyer shows the shipper diamond); the analyst disc is only a persona avatar now.
 - **2026-09-26 UTC — team (agent team backend).** Shipped `lib/team` (roster, per-agent tools, orchestrator with concurrent delegation, group chats, ask, confirm gate), `/api/team/**` NDJSON API, `runToolLoop` + OpenRouter/APINex routing in `lib/llm/client.ts` (default model now `deepseek/deepseek-v4.1-flash`), repo editing in `lib/github/edit.ts`. Open: panel UI, command-layer registration, live LLM check outside the sandbox.
 - **2026-09-26 UTC — onboarding (main session).** Onboarding now talks only through Darwin (the new red crowned leader mascot), with a "Meet your team" stage that introduces the four specialists and their tools; the handoff's animated mascots are in `public/mascots` with a calm idle (`scripts/mascots/calm-idle.mjs`). Open: the console screens still use the old static crew.
+- **2026-09-26 15:25 UTC — UI redesign.** Landing, overview, experiments, issues, fixes, changes and settings no longer share the pastel bento (`docs/ui-redesign-plan.md`). Plain surface on `Card`/`Panel`. Still the old tile layout: agents, dashboards, personalize, traffic, research, onboarding, readiness. Storefront and classic console left as they are. `src/lib/status/roadmap.ts` is not in the tree. (Superseded in part by main's redesign; see the merge entry above.)
 - **2026-09-26 14:30 UTC — demo-mode agent.** Demo store mode: /store is PACE end to end (no Whop strip / "STORE" brand), boot fills the console with labelled simulated shoppers (fresh → Gen 1 + test live; restart → one refill round), onboarding "Skip: explore with the demo store", "Demo store · Connect your site" note on every console page, dashboards default to the demo store's plan, North Trail seeded for Personalize/Traffic, Whop server key counts as connected, store agent never named `biz_…`, `explore_demo_store` assistant tool. Not touched (other agent's files): Overview lede while paused, conversion card sources, `roadmap.ts`. Still open: curl/headless hits on the agent API show as agent sessions.
 - **2026-09-26 13:59 UTC — readiness agent.** `/readiness` + certificate page restyled to the cream design (hero, loading crew, error state, score / agents-can-do / fixes / CTA to onboarding, Grok certify panel from #36 kept and restyled); screenshots at 1440×900 and 390×844, no horizontal overflow. Open: readiness command for the lead agent, prefill onboarding with the audited URL.
 - **2026-09-26 13:40 UTC — lead agent.** Redesign of every screen (PR #37), Grok teammate, ACP/MCP agent checkout, rollback, owner bug list fixed (double payments, invented claims, rejected GitHub token, RPV tile, mobile overflow, dead store buttons). In progress: above-the-fold pass, lead agent (⌘K / chat / WebMCP), brutal judge review.
