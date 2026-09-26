@@ -160,7 +160,7 @@ export function AgentsApp({ origin }: { origin: string }) {
       {cat?.source === "demo" && (
         <div role="note" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[22px] bg-dw-warn-bg px-5 py-3.5 text-[14px] text-dw-warn">
           <Store className="size-4 shrink-0" />
-          <p className="min-w-0 flex-1">
+          <p className="min-w-0 flex-1 basis-[15rem]">
             <b className="font-semibold">Demo catalog.</b> {cat.note ?? "These are demo offers, and payments are simulated."}
           </p>
           <Link

@@ -23,7 +23,7 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
   const best = Math.max(0.01, ...agents.map((a) => a.rate));
 
   return (
-    <Card tone="yellow" shape="shipper" corner="tr" className="min-w-0">
+    <Card tone="yellow" shape="shipper" corner="tr" className="flex min-w-0 flex-col [&>div.relative]:flex [&>div.relative]:flex-1 [&>div.relative]:flex-col">
       <CardTitle
         right={
           !!f?.simulated && (
@@ -72,7 +72,7 @@ export function SalesCard({ funnel: f }: { funnel?: AgentFunnel }) {
         ))}
       </div>
 
-      <div className="mt-6 rounded-[22px] bg-white/45 p-4">
+      <div className="mt-6 flex-1 rounded-[22px] bg-white/45 p-4">
         <div className="mb-2 flex items-baseline justify-between gap-3">
           <span className="text-[15px] font-semibold">By agent</span>
           <span className="text-[12px] text-dw-ink/60">paid · higher is better</span>

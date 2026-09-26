@@ -49,7 +49,7 @@ export function Landing() {
         {/* hero */}
         <section className="grid items-center gap-10 pt-10 pb-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6 lg:pt-14">
           <div className="flex min-w-0 flex-col items-start">
-            <motion.h1 {...rise(0)} className="max-w-[13ch] text-[46px] leading-[1.02] font-semibold tracking-[-0.04em] sm:text-[64px] xl:text-[80px]">
+            <motion.h1 {...rise(0)} className="max-w-[13ch] text-[46px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[64px] xl:text-[80px]">
               The storefront that improves itself
             </motion.h1>
             <motion.p {...rise(0.08)} className="mt-5 text-[22px] leading-snug font-medium tracking-[-0.01em] sm:text-[26px]">

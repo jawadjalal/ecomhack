@@ -137,23 +137,26 @@ export function CrewLoop({ className }: { className?: string }) {
               <span className="text-[11px] leading-none font-semibold sm:text-[13px]">Your store</span>
               <span className="h-1.5 w-4/5 rounded-full bg-dw-sand" aria-hidden />
               <span className="h-1.5 w-3/5 rounded-full bg-dw-sand" aria-hidden />
-              <ul className="flex min-h-[3.25rem] flex-col gap-1 max-sm:hidden" aria-label="Improvements shipped in this illustration">
-                <AnimatePresence initial={false}>
-                  {GAINS.slice(0, gained).map((g) => (
-                    <motion.li
-                      key={g}
-                      layout
-                      initial={{ opacity: 0, scale: 0.8, y: 6 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                      className="flex items-center gap-1 rounded-full bg-dw-win-bg px-1.5 py-0.5 text-[10.5px] font-medium text-dw-win"
-                    >
-                      <Check className="size-2.5 shrink-0" aria-hidden />
-                      <span className="truncate">{g}</span>
-                    </motion.li>
-                  ))}
-                </AnimatePresence>
+              <ul className="flex flex-col gap-1 max-sm:hidden" aria-label="Improvements shipped in this illustration">
+                {GAINS.map((g, i) => (
+                  <li key={g} className="relative h-[19px]">
+                    <span className="absolute inset-0 rounded-full border border-dashed border-dw-ink/15" aria-hidden />
+                    <AnimatePresence initial={false}>
+                      {i < gained && (
+                        <motion.span
+                          initial={{ opacity: 0, scale: 0.8, y: 4 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.92 }}
+                          transition={{ type: "spring", stiffness: 380, damping: 22 }}
+                          className="absolute inset-0 flex items-center gap-1 rounded-full bg-dw-win-bg px-1.5 text-[10.5px] font-medium text-dw-win"
+                        >
+                          <Check className="size-2.5 shrink-0" aria-hidden />
+                          <span className="truncate">{g}</span>
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </li>
+                ))}
               </ul>
               <span className="mt-0.5 h-5 rounded-full bg-dw-ink sm:h-6" aria-hidden />
             </div>

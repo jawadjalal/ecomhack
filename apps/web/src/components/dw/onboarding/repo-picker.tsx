@@ -90,7 +90,14 @@ export function RepoPicker({
       by.set(owner, [...(by.get(owner) ?? []), r]);
     }
     const me = login.toLowerCase();
-    return [...by.entries()].sort(([a], [b]) => (a.toLowerCase() === me ? -1 : b.toLowerCase() === me ? 1 : a.localeCompare(b))).map(([owner, repos]) => ({ owner, mine: owner.toLowerCase() === me, repos }));
+    const sorted = [...by.entries()].sort(([a], [b]) => (a.toLowerCase() === me ? -1 : b.toLowerCase() === me ? 1 : a.localeCompare(b)));
+    // `start`: the group's first index in the flat list (the keyboard moves through that).
+    let start = 0;
+    return sorted.map(([owner, repos]) => {
+      const g = { owner, mine: owner.toLowerCase() === me, repos, start };
+      start += repos.length;
+      return g;
+    });
   }, [load, query, login]);
   const flat = useMemo(() => groups.flatMap((g) => g.repos), [groups]);
   const at = Math.min(active, Math.max(0, flat.length - 1));
@@ -154,7 +161,6 @@ export function RepoPicker({
   };
 
   const [owner, name] = selected ? selected.split("/") : [];
-  let n = -1;
 
   return (
     <div ref={root} className="relative">
@@ -261,9 +267,8 @@ export function RepoPicker({
                       </Tag>
                     )}
                   </div>
-                  {g.repos.map((r) => {
-                    n += 1;
-                    const i = n;
+                  {g.repos.map((r, j) => {
+                    const i = g.start + j;
                     const on = i === at;
                     const isSel = r.fullName === selected;
                     const [o, nm] = r.fullName.split("/");

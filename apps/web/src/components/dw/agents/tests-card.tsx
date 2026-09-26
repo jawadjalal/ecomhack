@@ -132,7 +132,7 @@ export function TestsCard({
           </ul>
           <div className="mt-3 rounded-[22px] bg-white/45 p-4">
             <div className="text-[14px] font-semibold">How Darwin calls a test</div>
-            <dl className="mt-2.5 flex flex-wrap gap-x-6 gap-y-2">
+            <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
               {RULES.map((r) => (
                 <div key={r.label}>
                   <dt className="sr-only">{r.label}</dt>
