@@ -44,7 +44,7 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 |---|---|---|
 | **PageSpec** | `src/lib/contracts/page-spec.ts`, `apps/web/storefront.config.json` | Declarative description of the store: human UI *and* agent surface. Every change Darwin makes is a validated patch to it. |
 | **Storefront** | `src/app/store/**` | PACE store rendered from the PageSpec. Every setting visibly changes the page. |
-| **Agent commerce** | `src/lib/agent-commerce/**` | MCP + REST tools for AI shoppers, a merchant agent that negotiates within margin limits, `llms.txt`, agent card. |
+| **Agent commerce** | `src/lib/agent-commerce/**` | MCP + REST tools for AI shoppers, an A2A merchant agent that chats and negotiates within margin limits, `llms.txt`, agent card. |
 | **Analytics** | `src/lib/analytics/**` | PostHog-compatible ingest (`/ingest`, used by posthog-js), human vs AI-agent classification, funnels, friction signals. |
 | **Simulator** | `src/lib/simulator/**` | Synthetic shoppers (5 personas) and AI agents whose behaviour depends only on the page they're served. Labelled `synthetic`. |
 | **Optimizer** | `src/lib/optimizer/**` | The loop: diagnose → propose → Bayesian A/B test → decide → ship. LLM (Grok/Claude/OpenRouter) or heuristic playbook. |
@@ -68,6 +68,23 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 
 Overall conversion (at the Gen 0 traffic mix) goes 4.5% → 10.4%: humans about 2.1% → 4.4%, agents 35% → 87%. Shipping needs ≥97.5% posterior probability (99.5% to stop early), and bad ideas are
 rejected and never retried.
+
+### Talk to the store's agents
+
+The store is agent-ready: `GET /llms.txt` and `GET /.well-known/agent-card.json` describe it. What agents are told
+always follows the live PageSpec, so Darwin's changes reach them as well.
+
+```bash
+# A2A (v1.0): chat with the merchant agent; reuse the contextId from the reply to continue
+curl -s localhost:3000/api/a2a -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"SendMessage",
+  "params":{"message":{"role":"ROLE_USER","messageId":"m1","parts":[{"text":"Trail shoes, UK 10, under £150, by Friday"}]}}}'
+
+# MCP (Streamable HTTP): Cursor / Claude Code can connect directly
+claude mcp add --transport http pace-store http://localhost:3000/api/mcp
+
+# A scripted buyer agent chatting over A2A, in the terminal
+npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
+```
 
 ### Honest notes
 
