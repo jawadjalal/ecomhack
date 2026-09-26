@@ -732,7 +732,7 @@ export function AssistantPanel() {
                 transition={dragging || reduce ? { duration: 0 } : SPRING}
               >
                 <header className="flex h-[52px] shrink-0 items-center justify-between gap-2 px-1.5 sm:px-3" {...dragProps}>
-                  <div role="tablist" aria-label="Talk to the crew" className="flex min-w-0 flex-1 touch-pan-x items-center gap-1 overflow-x-auto py-1 [scrollbar-width:none]" data-crew-tabs>
+                  <div role="tablist" aria-label="Talk to the crew" className="flex min-w-0 flex-1 touch-pan-x items-center gap-1.5 overflow-x-auto py-1 [scrollbar-width:none]" data-crew-tabs>
                     {CREW.map((c) => {
                       const on = c.id === agent;
                       const tone = CREW_TONE[c.id];
@@ -822,7 +822,7 @@ export function AssistantPanel() {
                     >
                     {items.length === 0 && (
                       <div className="flex flex-col gap-3">
-                        <p className="m-0 text-[15px] leading-[1.5] text-[#4A463D]">
+                        <p className="m-0 text-[15px] leading-[1.5] text-pretty text-[#4A463D]">
                           {group
                             ? `${group.title}. Talk to the group, or start with @ and a name to ask one of them.`
                             : agent === "darwin"
@@ -839,7 +839,7 @@ export function AssistantPanel() {
                               initial={reduce ? false : { opacity: 0, y: 8 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.2, delay: 0.04 * i }}
-                              className="group flex min-h-[56px] items-center gap-3 rounded-[20px] px-4 py-3 text-left text-[15px] font-medium transition-transform hover:-translate-y-0.5 disabled:opacity-50 sm:min-h-[88px] sm:flex-col sm:items-start sm:justify-between motion-reduce:transition-none"
+                              className="group flex min-h-[56px] items-center gap-3 rounded-[20px] px-4 py-3 text-left text-[15px] leading-snug font-medium text-balance transition-transform hover:-translate-y-0.5 disabled:opacity-50 sm:min-h-[88px] sm:flex-col sm:items-start sm:justify-between motion-reduce:transition-none"
                               style={{ background: s.tone ?? "#EDE6D6", color: INK }}
                             >
                               <span className="transition-transform duration-300 group-hover:-rotate-6">
@@ -866,7 +866,7 @@ export function AssistantPanel() {
                               <span className="font-semibold text-[#2B2925]">You</span>
                               {m.at && <span style={MONO}>{clock(m.at)}</span>}
                             </span>
-                            <div className="rounded-[20px_20px_6px_20px] px-[18px] py-[11px] text-[16px] leading-[1.4] break-words" style={{ background: INK, color: CREAM }}>
+                            <div className="rounded-[20px_20px_6px_20px] px-[18px] py-[11px] text-[16px] leading-[1.45] break-words text-pretty" style={{ background: INK, color: CREAM }}>
                               {m.voice && (
                                 <span className="mb-0.5 block text-[11px] tracking-[0.04em] opacity-60" style={MONO}>
                                   SAID
@@ -1118,9 +1118,9 @@ function AgentBubble({
         <CrewAvatar member={who} size={28} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className="flex items-baseline gap-2 text-[12px] text-[#6B665C]">
-          <span className="font-semibold text-[#2B2925]">{who.name}</span>
-          <span>{who.role}</span>
+        <span className="flex min-w-0 items-baseline gap-2 text-[12px] text-[#6B665C]">
+          <span className="font-semibold whitespace-nowrap text-[#2B2925]">{who.name}</span>
+          <span className="truncate whitespace-nowrap">{who.role}</span>
           {when && <span style={MONO}>{when}</span>}
         </span>
         {replyText(item) && <Reply text={replyText(item)} error={item.error} />}
@@ -1143,7 +1143,7 @@ function AgentBubble({
 function Reply({ text, error }: { text: string; error?: boolean }) {
   const blocks = text.split(/\n{2,}/).map((b) => b.split("\n"));
   return (
-    <div className={cn("flex flex-col gap-2.5 text-[16px] leading-[1.55]", error && "rounded-[20px] bg-[#FBE7D3] px-[18px] py-3 text-[#8A4A14]")}>
+    <div className={cn("flex min-w-0 flex-col gap-2.5 text-[16px] leading-[1.55] text-pretty", error && "rounded-[20px] bg-[#FBE7D3] px-[18px] py-3 text-[#8A4A14]")}>
       {blocks.map((lines, i) =>
         lines.every((l) => /^\s*[-•]\s+/.test(l)) ? (
           <ul key={i} className="m-0 flex list-disc flex-col gap-1 pl-5">
@@ -1171,7 +1171,7 @@ function Reply({ text, error }: { text: string; error?: boolean }) {
 function Pill({ children, tone }: { children: ReactNode; tone: "warn" | "win" | "sand" }) {
   const s = tone === "warn" ? { background: "#FBE7D3", color: "#8A4A14" } : tone === "win" ? { background: "#DDF3E8", color: "#137A52" } : { background: "rgba(255,255,255,0.6)", color: INK };
   return (
-    <span className="inline-flex h-[22px] shrink-0 items-center rounded-full px-2.5 text-[11px] font-medium tracking-[0.02em]" style={{ ...s, ...MONO }}>
+    <span className="inline-flex h-[22px] shrink-0 items-center rounded-full px-2.5 text-[11px] font-medium tracking-[0.02em] whitespace-nowrap" style={{ ...s, ...MONO }}>
       {children}
     </span>
   );
@@ -1223,7 +1223,7 @@ function Thread({ thread, play }: { thread: ThreadView; play?: boolean }) {
             <span className="mt-0.5 shrink-0">
               <ThreadFace name={m.from} />
             </span>
-            <p className="m-0 min-w-0 text-[14px] leading-[1.45] break-words">
+            <p className="m-0 min-w-0 text-[14px] leading-[1.45] break-words text-pretty">
               <span className="font-semibold">
                 {whoIs(m.from).name}
                 {m.to && <span className="font-normal text-[#6B665C]"> → {whoIs(m.to).name}</span>}
@@ -1269,7 +1269,7 @@ function ResultCards({ actions, reply }: { actions: AssistantAction[]; reply: st
             </div>
             {/* the heuristic reply already says it; an LLM reply may not */}
             {!said.includes(flat(a.summary).slice(0, 60)) && (
-              <p className="m-0 line-clamp-3 text-[14px] leading-[1.45] text-[#4A463D]" title={a.summary}>
+              <p className="m-0 line-clamp-3 text-[14px] leading-[1.45] text-pretty text-[#4A463D]" title={a.summary}>
                 {a.summary.replace(/^- /gm, "").replace(/\n+/g, " · ")}
               </p>
             )}
@@ -1310,7 +1310,7 @@ function ConfirmCard({
         <span className="flex-1 text-[15px] font-semibold">{s.label}</span>
         {resolved ? <Pill tone={resolved === "confirmed" ? "win" : "sand"}>{resolved}</Pill> : <Pill tone="warn">needs your OK</Pill>}
       </div>
-      <p className="m-0 text-[14px] leading-[1.45] text-[#4A463D]">{pending.prompt}</p>
+      <p className="m-0 text-[14px] leading-[1.45] text-pretty text-[#4A463D]">{pending.prompt}</p>
       {!resolved && (
         <div className="flex gap-2">
           <button

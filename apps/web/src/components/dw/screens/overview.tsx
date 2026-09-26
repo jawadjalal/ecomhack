@@ -147,9 +147,9 @@ export function OverviewScreen() {
   return (
     <div className="flex flex-col gap-7 lg:-mt-2 lg:gap-6">
       {/* Desktop: the outcome and "Watch Darwin fix it" share row 1; the greeting + lede (or the live rail) is row 2. */}
-      <header className="grid grid-cols-1 gap-2.5 px-1 pt-1.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-5 lg:gap-y-1 lg:pt-0">
+      <header className="grid grid-cols-1 gap-3 px-1 pt-1.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-x-8 lg:gap-y-2 lg:pt-0">
         <motion.h1
-          className="min-h-[1.05em] text-[34px] leading-[1.05] font-semibold tracking-[-0.03em] sm:text-[44px] lg:col-start-1 lg:row-start-1 lg:whitespace-nowrap lg:text-[38px]"
+          className="min-h-[1.05em] text-[34px] leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-[44px] lg:col-start-1 lg:row-start-1 lg:max-w-[22ch] lg:text-[40px]"
           initial={reduce ? false : { opacity: 0, y: 10 }}
           animate={now ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
           transition={{ duration: 0.5, ease: EASE }}
@@ -158,7 +158,7 @@ export function OverviewScreen() {
         </motion.h1>
         <motion.p
           className={cn(
-            "max-w-[60rem] text-[17px] leading-[1.45] text-[#4A463D] sm:text-[18px] lg:col-span-2 lg:row-start-2 lg:min-w-0 lg:text-[16.5px]",
+            "max-w-[40rem] text-[17px] leading-relaxed text-pretty text-[#4A463D] sm:text-[18px] lg:col-span-2 lg:row-start-2 lg:min-w-0 lg:text-[16.5px]",
             watch.running && "lg:hidden",
           )}
           initial={reduce ? false : { opacity: 0, y: 8 }}

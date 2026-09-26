@@ -88,11 +88,11 @@ export function Landing() {
               improving itself.
             </span>
           </motion.h1>
-          <motion.p {...rise(0.12)} className={`mt-3 text-center text-[16px] font-medium max-sm:self-stretch max-sm:text-left max-sm:text-[17px] sm:text-[17px] ${ON_ART}`}>
+          <motion.p {...rise(0.12)} className={`mt-4 max-w-[28rem] text-center text-[16px] leading-relaxed font-medium text-pretty max-sm:self-stretch max-sm:text-left max-sm:text-[17px] sm:text-[17px] ${ON_ART}`}>
             For the people and the AI agents who shop there.
           </motion.p>
 
-          <motion.div {...rise(0.18)} className="mt-6 flex w-full flex-col items-center gap-2.5 max-sm:mt-7 sm:w-auto sm:flex-row">
+          <motion.div {...rise(0.18)} className="mt-7 flex w-full flex-col items-center gap-3 max-sm:mt-8 sm:w-auto sm:flex-row">
             <GelLink href="/onboarding" h={56} fontSize={17} className="group w-full sm:w-auto">
               Set up your store
               <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
@@ -110,9 +110,9 @@ export function Landing() {
 
           <motion.p
             {...rise(0.24)}
-            className={`mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13.5px] max-sm:mt-3 max-sm:rounded-full max-sm:bg-[#0b2533]/40 max-sm:px-3.5 max-sm:py-1.5 max-sm:font-medium ${ON_ART}`}
+            className={`mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13.5px] max-sm:mt-4 max-sm:rounded-full max-sm:bg-[#0b2533]/40 max-sm:px-3.5 max-sm:py-1.5 max-sm:font-medium ${ON_ART}`}
           >
-            <span>Sells to AI shoppers in</span>
+            <span className="whitespace-nowrap">Sells to AI shoppers in</span>
             <span className="flex items-center gap-3 [filter:drop-shadow(0_1px_4px_rgba(20,40,60,0.45))]">
               {SHOPPERS.map((s) => (
                 <BrandGlyph key={s.brand} brand={s.brand} size={16} title={s.name} />

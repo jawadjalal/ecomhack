@@ -202,13 +202,13 @@ export function TrafficApp() {
 
 function BigStat({ value, label, small }: { value?: string; label: string; small?: boolean }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-0 flex-col">
       {value === undefined ? (
         <span className={cn("block animate-pulse rounded-full bg-dw-ink/10", small ? "h-[24px] w-20" : "h-[40px] w-32")} aria-label="Loading" />
       ) : (
-        <span className={cn("num leading-none font-semibold tracking-[-0.03em]", small ? "text-[24px]" : "text-[40px]")}>{value}</span>
+        <span className={cn("num leading-none font-semibold tracking-[-0.03em] whitespace-nowrap", small ? "text-[24px]" : "text-[40px]")}>{value}</span>
       )}
-      <span className="mt-1 text-[13px] text-dw-ink/65">{label}</span>
+      <span className="mt-1.5 text-[13px] leading-tight whitespace-nowrap text-dw-ink/65">{label}</span>
     </div>
   );
 }
@@ -302,7 +302,7 @@ function DimensionPanel({
           const below = r.visitors >= 20 && r.conversionRate < avg * 0.75;
           const above = r.visitors >= 20 && r.conversionRate > avg * 1.25;
           return (
-            <div key={r.key} className="grid min-h-9 grid-cols-[minmax(0,10rem)_minmax(0,1fr)_7.5rem] items-center gap-3 text-[13.5px] max-sm:grid-cols-[minmax(0,7rem)_minmax(0,1fr)_6.5rem]">
+            <div key={r.key} className="grid min-h-10 grid-cols-[minmax(0,1fr)_minmax(3.5rem,1.15fr)_auto] items-center gap-x-3 py-1 text-[13.5px]">
               <span className="flex min-w-0 items-center gap-2" title={r.label}>
                 {marks && <SourceMark label={r.label} agents={r.agents > 0 && r.agents === r.visitors} size={24} />}
                 <span className="min-w-0 truncate">{PLAIN_LABEL[r.key] ?? r.label}</span>

@@ -159,8 +159,8 @@ export function ConversionCard({ points, summary, simulated, onRun }: { points: 
                     on ? "border-dw-ink" : "border-transparent hover:border-dw-ink/25",
                   )}
                 >
-                  <CountUp value={t.value} format={t.format} className="text-[18px] leading-tight font-semibold" />
-                  <span className="text-[11.5px] tracking-[0.02em] text-[#4F4417] uppercase">{t.label}</span>
+                  <CountUp value={t.value} format={t.format} className="text-[18px] leading-none font-semibold whitespace-nowrap" />
+                  <span className="text-[11.5px] tracking-[0.02em] whitespace-nowrap text-[#4F4417] uppercase">{t.label}</span>
                 </button>
               );
             })}
@@ -393,13 +393,13 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
             <div
               key={r.brand.key + r.brand.name}
               className={cn(
-                "group/lb grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 transition-transform duration-200 hover:translate-x-[3px] lg:h-[22px]",
+                "group/lb grid h-7 grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 transition-transform duration-200 hover:translate-x-[3px] lg:h-6",
                 // Short desktop screens: top 4 agents + people, so the row stays above the fold.
                 i === 4 && "[@media(min-width:1024px)_and_(max-height:860px)]:hidden",
               )}
             >
               <span className="flex min-w-0 items-center gap-2.5 text-[14px] font-medium">
-                <span className="transition-transform duration-300 group-hover/lb:-translate-y-0.5 group-hover/lb:-rotate-6">
+                <span className="shrink-0 transition-transform duration-300 group-hover/lb:-translate-y-0.5 group-hover/lb:-rotate-6">
                   <AgentTile brand={r.brand} size={24} />
                 </span>
                 <span className="truncate">{r.brand.name}</span>
@@ -415,11 +415,11 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
                   className="absolute inset-y-0 left-0 rounded-full bg-dw-ink transition-[filter] group-hover:brightness-75"
                 />
               </span>
-              <span className="num text-right font-dwmono text-[13px] font-medium">{pctSmart(r.rate)}</span>
+              <span className="num text-right font-dwmono text-[13px] font-medium whitespace-nowrap">{pctSmart(r.rate)}</span>
             </div>
           ))}
           {peopleRate !== undefined && (
-            <div className="grid h-6 grid-cols-[128px_minmax(0,1fr)_46px] items-center gap-2.5 text-[#2E3A55] lg:h-[22px]">
+            <div className="grid h-7 grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 text-[#2E3A55] lg:h-6">
               <span className="flex items-center gap-2.5 text-[14px]">
                 <AgentTile brand={people} size={24} />
                 People
@@ -428,12 +428,23 @@ export function AgentsCard({ board, peopleRate, sample, simulated }: { board: Bo
                 <Tip align="right">{pctSmart(peopleRate)} of people buy</Tip>
                 <Grow axis="x" size={`${Math.max(4, (peopleRate / max) * 100)}%`} delay={0.6} className="absolute inset-y-0 left-0 rounded-full border-[1.5px] border-dashed border-dw-ink" />
               </span>
-              <span className="num text-right font-dwmono text-[13px]">{pctSmart(peopleRate)}</span>
+              <span className="num text-right font-dwmono text-[13px] whitespace-nowrap">{pctSmart(peopleRate)}</span>
             </div>
           )}
         </div>
       )}
     </Card>
+  );
+}
+
+/** "Cart → checkout" stays two short lines so the label never orphans beside the bars. */
+function FunnelLabel({ label, strong }: { label: string; strong: boolean }) {
+  const [from, to] = label.split(" → ");
+  return (
+    <span className={cn("flex flex-col items-center text-center text-[12px] leading-[1.2] whitespace-nowrap sm:text-[13px]", strong ? "font-semibold text-dw-ink" : "text-[#2F3517]")}>
+      <span>{from}</span>
+      <span>{to ? `→ ${to}` : label}</span>
+    </span>
   );
 }
 
@@ -469,7 +480,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
       {!any ? (
         <CardEmpty kind="leader">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
       ) : (
-        <div className="mt-3.5 grid min-h-[150px] flex-1 grid-cols-4 gap-1.5 sm:gap-3 lg:mt-2 lg:min-h-0">
+        <div className="mt-5 grid min-h-[150px] flex-1 grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-3 lg:mt-3 lg:min-h-0">
           {steps.map((s, i) => (
             <div key={s.label} className="flex min-h-0 flex-col gap-1.5">
               <div ref={i === 0 ? barsRef : undefined} className="flex min-h-0 flex-1 items-end justify-center gap-1 sm:gap-2">
@@ -481,7 +492,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                       <Tip>
                         {Math.round(v * 100)} in 100 {k} move on
                       </Tip>
-                      <span className="num text-[12px] font-semibold">{Math.round(v * 100)}%</span>
+                      <span className="num text-[12px] font-semibold whitespace-nowrap">{Math.round(v * 100)}%</span>
                       <Grow
                         size={Math.max(22, Math.round(v * tallest))}
                         delay={0.3 + i * 0.07 + j * 0.04}
@@ -494,7 +505,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
                   );
                 })}
               </div>
-              <span className={cn("text-center text-[12px] leading-tight sm:text-[13px] lg:whitespace-nowrap", i === weakest ? "font-semibold text-dw-ink" : "text-[#2F3517]")}>{s.label}</span>
+              <FunnelLabel label={s.label} strong={i === weakest} />
             </div>
           ))}
         </div>

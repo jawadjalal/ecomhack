@@ -32,7 +32,7 @@ export function ResolvedIssues({ items }: { items: ResolvedIssue[] }) {
               <Check className="size-3.5" />
             </span>
             <span className="min-w-0 flex-1 text-[13.5px] leading-snug">
-              <span className="line-clamp-2 [overflow-wrap:anywhere]" title={`Fix: ${r.fix}`}>
+              <span className="line-clamp-2 text-balance" title={`Fix: ${r.fix}`}>
                 <span className="font-medium text-dw-ink/65">Fixed · </span>
                 {r.problem}
               </span>

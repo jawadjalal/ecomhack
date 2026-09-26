@@ -162,6 +162,15 @@ body {
   font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   color: #141413;
   font-feature-settings: "ss01";
+  /* Body copy avoids a leftover last word. Headings override this below. */
+  text-wrap: pretty;
+}
+[data-dw] :where(h1, h2, h3, h4) {
+  text-wrap: balance;
+  min-width: 0;
+}
+[data-dw] :where(p) {
+  min-width: 0;
 }
 [data-dw] .tabular,
 [data-dw] .num {
