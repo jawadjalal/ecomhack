@@ -6,3 +6,6 @@ node_modules/
 *.tsbuildinfo
 .vercel
 .claude/worktrees/
+
+# Local-only mirror of a third-party site (never commit or deploy)
+demo-websites/fleek-site/.mirror/
