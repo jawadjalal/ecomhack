@@ -1038,6 +1038,16 @@ function GithubConnect({
             <img src={auth!.github!.avatarUrl} alt="" className="size-6 rounded-full" />
           )}
           Signed in as <b className="text-white">{auth!.github!.login}</b>. Which repository is your store?
+          <button
+            type="button"
+            onClick={() => {
+              // Forgets the GitHub token server-side, then starts onboarding fresh.
+              fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.reload());
+            }}
+            className="ml-auto shrink-0 text-[0.78rem] text-white/40 underline-offset-2 hover:text-white hover:underline"
+          >
+            Sign out
+          </button>
         </div>
         <input ref={input} value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search your repositories" aria-label="Search your repositories" className={inputCls} />
         {!repos && !error && (
