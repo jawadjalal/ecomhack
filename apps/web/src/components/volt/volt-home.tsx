@@ -5,9 +5,9 @@ import "./volt.css";
 
 const satoshi = localFont({
   src: [
-    { path: "../../fonts/satoshi-regular.woff2", weight: "400", style: "normal" },
-    { path: "../../fonts/satoshi-medium.woff2", weight: "500", style: "normal" },
-    { path: "../../fonts/satoshi-bold.woff2", weight: "700", style: "normal" },
+    { path: "../../app/store/fonts/Satoshi-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../../app/store/fonts/Satoshi-Medium.woff2", weight: "500", style: "normal" },
+    { path: "../../app/store/fonts/Satoshi-Bold.woff2", weight: "700", style: "normal" },
   ],
   variable: "--font-volt-satoshi",
   display: "swap",
