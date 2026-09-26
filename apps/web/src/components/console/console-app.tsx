@@ -297,7 +297,7 @@ function Console({ mock }: { mock: boolean }) {
                 onOpenPr={() => setPrModal(pr)}
               />
             </div>
-            <div className="h-[18.5rem] shrink-0">
+            <div className="h-[30rem] shrink-0 sm:h-[18.5rem]">
               <EvolutionChart
                 history={loop?.history ?? []}
                 experiment={experiment}
