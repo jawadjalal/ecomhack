@@ -1,0 +1,30 @@
+{
+  "name": "orchard-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orchard: a fictional consumer-electronics storefront with planted conversion mistakes, for demoing Darwin.",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "next typegen && tsc --noEmit",
+    "seed": "node seed/seed.mjs",
+    "mirror": "node mirror/mirror.mjs",
+    "dev:mirror": "node mirror/serve.mjs"
+  },
+  "dependencies": {
+    "next": "16.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20.9"
+  }
+}

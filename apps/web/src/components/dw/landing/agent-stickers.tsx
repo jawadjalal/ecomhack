@@ -63,7 +63,7 @@ export function AgentStickers({ className }: { className?: string }) {
                 className="dw-stk-face grid place-items-center text-dw-ink"
                 style={{ width: s.size, height: s.size, borderRadius: Math.round(s.size * 0.3), background: s.face, padding: 0, gap: 0 }}
               >
-                {s.brand ? <BrandGlyph brand={s.brand} size={Math.round(s.size * 0.46)} /> : <Mascot kind="analyst" size={Math.round(s.size * 0.72)} />}
+                {s.brand ? <BrandGlyph brand={s.brand} size={Math.round(s.size * 0.46)} /> : <Mascot kind="leader" size={Math.round(s.size * 0.72)} />}
               </span>
               <span className="dw-stk-flap" />
             </span>

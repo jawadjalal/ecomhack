@@ -101,7 +101,7 @@ export function DemoCard({ className }: { className?: string }) {
   return (
     <Card tone="lilac" shape="experimenter" corner="br" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Demo mode">
       <div className="flex items-start gap-4">
-        <Mascot kind="experimenter" size={48} frame active title="Ada, the tester" />
+        <Mascot kind="experimenter" size={48} frame active title="Fizz, the tester" />
         <div className="min-w-0 flex-1">
           <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Demo mode</h2>
           <p className="mt-1.5 text-[14.5px] leading-snug text-[#3B3263]">

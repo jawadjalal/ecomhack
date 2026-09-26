@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+.DS_Store
+
+# Local-only mirror of third-party pages (npm run mirror). NEVER commit, push or deploy it.
+.mirror/

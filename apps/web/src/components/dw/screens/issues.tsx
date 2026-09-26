@@ -163,10 +163,10 @@ function summaryItems(
           key: "now",
           tone: "pink",
           value: nowTesting.nums.length || "–",
-          label: nowTesting.drafted ? `${nowTesting.nums.length === 1 ? "issue has" : "issues have"} a fix drafted by Theo` : `${nowTesting.nums.length === 1 ? "issue is" : "issues are"} being tested by Ada`,
+          label: nowTesting.drafted ? `${nowTesting.nums.length === 1 ? "issue has" : "issues have"} a fix drafted by Pixel` : `${nowTesting.nums.length === 1 ? "issue is" : "issues are"} being tested by Fizz`,
           art: <Mascot kind={nowTesting.drafted ? "designer" : "experimenter"} size={44} frame active />,
           href: nowTesting.drafted ? `/console/fixes?id=${encodeURIComponent(nowTesting.id)}` : "/console/experiments",
-          ariaLabel: nowTesting.drafted ? "See the fix Theo drafted" : "See the test Ada is running",
+          ariaLabel: nowTesting.drafted ? "See the fix Pixel drafted" : "See the test Fizz is running",
         }
       : {
           key: "now",

@@ -52,7 +52,7 @@ export function Landing() {
         {/* quiet nav */}
         <header className="mx-auto flex h-16 w-full max-w-[1600px] shrink-0 items-center justify-between gap-3 px-4 pt-4 sm:px-7">
           <Link href="/" className="flex items-center gap-2.5 rounded-full focus-visible:outline-2 focus-visible:outline-dw-ink" aria-label="Darwin home">
-            <Mascot kind="analyst" size={32} active />
+            <Mascot kind="leader" size={32} active />
             <span className={`text-[22px] font-semibold tracking-[-0.02em] ${ON_ART}`}>darwin</span>
           </Link>
           <nav aria-label="Main" className="flex items-center gap-1.5">
@@ -123,8 +123,6 @@ export function Landing() {
           {/* the dashboard, live */}
           <div className="relative mt-6 w-full max-w-[1320px] max-sm:mt-14 max-sm:pb-8 lg:mt-[clamp(1rem,3.5vh,2.25rem)] lg:min-h-0 lg:flex-1">
             <LandingLoop className="lg:h-full" />
-            {/* fade the bottom edge into the page */}
-            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-dw-bg to-transparent max-lg:hidden" />
           </div>
         </main>
       </div>

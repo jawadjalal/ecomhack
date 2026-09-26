@@ -102,6 +102,8 @@ export const config = {
     "/api/store-agent/stats",
     "/api/store-agent/buyer",
     "/api/assistant",
+    "/api/team",
+    "/api/team/:path*",
     "/api/research",
     "/api/research/:path*",
     "/api/store-agent/tests",

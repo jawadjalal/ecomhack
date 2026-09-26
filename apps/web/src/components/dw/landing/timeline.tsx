@@ -29,7 +29,7 @@ type Stop = {
   Picture: () => React.ReactElement;
 };
 
-const CREW_ROW: MascotKind[] = ["analyst", "observer", "designer", "experimenter", "shipper"];
+const CREW_ROW: MascotKind[] = ["leader", "observer", "designer", "experimenter", "shipper"];
 
 /* ── the pictures: small windows on the desk ───────────────────────────── */
 
@@ -110,7 +110,7 @@ function WatchPicture() {
 
 function DraftPicture() {
   return (
-    <Win title="Theo's draft" tag="Example">
+    <Win title="Pixel's draft" tag="Example">
       <div className="grid grid-cols-1 gap-2.5">
         <div className="rounded-[18px] border border-dw-hairline bg-white/70 p-3.5">
           <p className="text-[11.5px] font-medium text-dw-muted">Your current page</p>
@@ -140,7 +140,7 @@ function TestPicture() {
     <Win title="A vs B test" tag="Example">
       <div className="flex items-center gap-3">
         <span className={cn(RIM, "inline-grid shrink-0")}><Mascot kind="experimenter" size={40} /></span>
-        <p className="text-[13.5px] leading-snug text-dw-muted">Half your shoppers see each version. Ada counts who buys.</p>
+        <p className="text-[13.5px] leading-snug text-dw-muted">Half your shoppers see each version. Fizz counts who buys.</p>
       </div>
       <ul className="mt-4 grid gap-3">
         {bars.map((b, i) => (
@@ -172,7 +172,7 @@ function ShipPicture() {
           <span className={cn(RIM, "inline-grid shrink-0")}><Mascot kind="shipper" size={30} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-[14.5px] font-semibold">New version is live</span>
-            <span className="block truncate text-[12.5px] text-dw-muted">Shipped by Max, just now</span>
+            <span className="block truncate text-[12.5px] text-dw-muted">Shipped by Dash, just now</span>
           </span>
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-dw-win-bg px-2 py-0.5 text-[11.5px] font-medium text-dw-win"><Check className="size-3" aria-hidden />Live</span>
         </div>
@@ -242,24 +242,24 @@ const STOPS: Stop[] = [
   },
   {
     id: "draft",
-    head: ["Theo drafts ", "a page change", ""],
-    body: "Theo rewrites the part that trips shoppers up, using only facts that are already on your page.",
+    head: ["Pixel drafts ", "a page change", ""],
+    body: "Pixel rewrites the part that trips shoppers up, using only facts that are already on your page.",
     crew: "designer",
     icon: <PenLine />,
     Picture: DraftPicture,
   },
   {
     id: "test",
-    head: ["Ada ", "tests it", " against your current page"],
-    body: "Half your shoppers see your current page and half see the new version. Ada keeps score.",
+    head: ["Fizz ", "tests it", " against your current page"],
+    body: "Half your shoppers see your current page and half see the new version. Fizz keeps score.",
     crew: "experimenter",
     icon: <FlaskConical />,
     Picture: TestPicture,
   },
   {
     id: "ship",
-    head: ["Max ships ", "the winner", ""],
-    body: "If the new version sells more, Max ships it. If you change your mind, one click undoes it.",
+    head: ["Dash ships ", "the winner", ""],
+    body: "If the new version sells more, Dash ships it. If you change your mind, one click undoes it.",
     crew: "shipper",
     icon: <Rocket />,
     Picture: ShipPicture,

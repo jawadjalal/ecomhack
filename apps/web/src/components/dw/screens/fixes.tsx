@@ -18,7 +18,7 @@ import { StartDemo } from "../first-run";
 import { runScope, useSticky } from "../issues/sticky";
 import { StatusPill } from "../issues/status-pill";
 
-/** Fixes screen: every page change Theo has drafted, what it changes, and what happened to it. */
+/** Fixes screen: every page change Pixel has drafted, what it changes, and what happened to it. */
 export function FixesScreen() {
   return (
     <MotionConfig reducedMotion="user">
@@ -57,10 +57,10 @@ function Fixes() {
       <WatchingEmpty
         mascot="designer"
         title="No fixes yet"
-        lede="Theo drafts a fix as soon as Iris finds what stops shoppers buying. Each one is a small change to your page settings, and Max can undo it."
-        line={loop.insights.length ? `Iris has found ${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"} for Theo to work on.` : undefined}
+        lede="Pixel drafts a fix as soon as Iris finds what stops shoppers buying. Each one is a small change to your page settings, and Dash can undo it."
+        line={loop.insights.length ? `Iris has found ${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"} for Pixel to work on.` : undefined}
         action={
-          canDraft ? draftButton : <StartDemo />
+          canDraft ? draftButton : <StartDemo agent="pixel" />
         }
       />
     );
@@ -75,19 +75,19 @@ function Fixes() {
   const n = fixes.length;
   const lostOrShelved = fixes.filter((f) => f.status === "rejected" || f.status === "shelved" || f.status === "stopped").length;
   const tail = inTest ? "one in test" : drafted ? "one ready to test" : shipped ? `${shipped} shipped` : "none tested yet";
-  const upNext = drafted && !inTest ? `Up next: Ada tests “${drafted.title}”.` : next && !inTest ? `Up next: a fix for issue ${next.n}, ${next.insight.title.replace(/[.]$/, "")}.` : "";
+  const upNext = drafted && !inTest ? `Up next: Fizz tests “${drafted.title}”.` : next && !inTest ? `Up next: a fix for issue ${next.n}, ${next.insight.title.replace(/[.]$/, "")}.` : "";
 
   const busy = autopilot || stepping;
   const between = !loop.proposal && (loop.phase === "observe" || loop.phase === "diagnose" || loop.phase === "propose");
   const status = inTest
-    ? "Ada is testing Theo's fix"
+    ? "Fizz is testing Pixel's fix"
     : between
       ? busy
-        ? "Theo is drafting the next fix…"
-        : "Theo drafts the next fix on the next step"
+        ? "Pixel is drafting the next fix…"
+        : "Pixel drafts the next fix on the next step"
       : drafted
-        ? "Theo's fix is ready to test"
-        : `Theo is up to date with version ${loop.generation}`;
+        ? "Pixel's fix is ready to test"
+        : `Pixel is up to date with version ${loop.generation}`;
   const action = inTest ? (
     <PillButton href="/console/experiments" tone="white" className="group/cta">
       Watch the test <ArrowRight className="transition-transform group-hover/cta:translate-x-0.5" />
@@ -113,7 +113,7 @@ function Fixes() {
       <PageHead
         mascot={<Mascot kind="designer" size={52} frame active />}
         title={`${n} fix${n === 1 ? "" : "es"}, ${tail}`}
-        lede={`Theo drafted ${n === 1 ? "this fix" : `these ${n} fixes`}. Each is a small change to your page settings that Max can undo, and nothing reaches your store until it wins a test. ${upNext}`.trim()}
+        lede={`Pixel drafted ${n === 1 ? "this fix" : `these ${n} fixes`}. Each is a small change to your page settings that Dash can undo, and nothing reaches your store until it wins a test. ${upNext}`.trim()}
         right={right}
       />
 
@@ -127,11 +127,11 @@ function Fixes() {
   );
 }
 
-/** Four numbers: drafted by Theo, in test with Ada, shipped by Max, and the ones that lost. */
+/** Four numbers: drafted by Pixel, in test with Fizz, shipped by Dash, and the ones that lost. */
 function summaryItems(n: number, inTest: FixRow | undefined, drafted: FixRow | undefined, shipped: number, lost: number): SummaryItem[] {
   const p = inTest?.probability;
   return [
-    { key: "drafted", tone: "lilac", value: n, label: `${n === 1 ? "fix" : "fixes"} drafted by Theo`, art: <Mascot kind="designer" size={44} frame active={Boolean(drafted)} /> },
+    { key: "drafted", tone: "lilac", value: n, label: `${n === 1 ? "fix" : "fixes"} drafted by Pixel`, art: <Mascot kind="designer" size={44} frame active={Boolean(drafted)} /> },
     inTest
       ? {
           key: "test",
@@ -147,12 +147,12 @@ function summaryItems(n: number, inTest: FixRow | undefined, drafted: FixRow | u
           key: "test",
           tone: "pink",
           value: drafted ? 1 : 0,
-          label: drafted ? "fix ready for Ada to test" : "in test right now",
+          label: drafted ? "fix ready for Fizz to test" : "in test right now",
           art: <Mascot kind="experimenter" size={44} frame active={false} />,
           href: "/console/experiments",
           ariaLabel: "See tests",
         },
-    { key: "shipped", tone: "olive", value: shipped, label: `${shipped === 1 ? "fix" : "fixes"} shipped by Max`, art: <Mascot kind="shipper" size={44} frame active={false} />, href: "/console/changes", ariaLabel: `${shipped} shipped. See changes` },
+    { key: "shipped", tone: "olive", value: shipped, label: `${shipped === 1 ? "fix" : "fixes"} shipped by Dash`, art: <Mascot kind="shipper" size={44} frame active={false} />, href: "/console/changes", ariaLabel: `${shipped} shipped. See changes` },
     { key: "lost", tone: "sand", value: lost, label: "lost their test or set aside, never retried", art: <FixMark status="rejected" size={44} /> },
   ];
 }

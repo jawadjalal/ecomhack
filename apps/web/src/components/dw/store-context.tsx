@@ -250,7 +250,7 @@ function Panel({ store, shownSite, mine, onClose, className }: { store: StoreCon
         </div>
       ) : (
         <div className="flex items-start gap-3">
-          <Mascot kind="analyst" size={36} frame active={false} />
+          <Mascot kind="leader" size={36} frame active={false} />
           <div className="min-w-0">
             <p className="text-[15px] font-semibold">PACE, Darwin&apos;s demo store</p>
             <p className="text-dw-ink/70">Overview, Issues, Fixes, Experiments and Changes run on this demo running-shoe store. Its shoppers are simulated and labelled that way.</p>

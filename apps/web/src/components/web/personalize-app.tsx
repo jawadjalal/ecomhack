@@ -23,6 +23,7 @@ import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { Card, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
 import { BrowserFrame, CardHead, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
+import { useLiveInterval } from "@/lib/console/live";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -142,14 +143,16 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
     }
   }, [site]);
 
+  const every = useLiveInterval(4000);
   useEffect(() => {
     const first = setTimeout(load, 0);
-    const t = setInterval(load, 4000);
+    // Static unless the Live switch is on: on a multi-server host each poll can land on a server with other numbers.
+    const t = every ? setInterval(load, every) : undefined;
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      if (t) clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   useEffect(() => {
     if (!toast) return;
@@ -381,9 +384,9 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
   return (
     <>
       <PageHead
-        mascot={<Mascot kind="designer" size={50} active title="Theo, the designer" />}
+        mascot={<Mascot kind="designer" size={50} active title="Pixel, the designer" />}
         title="Personalize"
-        lede="Theo changes the page for each traffic source. Ada runs an A vs B test to decide."
+        lede="Pixel changes the page for each traffic source. Fizz runs an A vs B test to decide."
         right={
           <div className={HEAD_CONTROLS}>
             <SiteSelect value={site} options={siteOptions} onChange={switchSite} />
@@ -397,7 +400,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
               onChange={setAutopilot}
               busy={busy === "autopilot"}
               label="Autopilot"
-              title="Ada tests one idea per traffic source (biggest gap first). Max ships winners, losers stop, and the next idea starts."
+              title="Fizz tests one idea per traffic source (biggest gap first). Dash ships winners, losers stop, and the next idea starts."
             />
           </div>
         }
@@ -793,8 +796,8 @@ function DraftCard({
         }
       >
         <span className="flex items-center gap-3">
-          <Mascot kind="designer" size={34} active title="Theo, the designer" />
-          Theo&apos;s draft
+          <Mascot kind="designer" size={34} active title="Pixel, the designer" />
+          Pixel&apos;s draft
         </span>
       </CardHead>
       <div className="mt-4 flex flex-col gap-4">
@@ -862,7 +865,7 @@ function DraftCard({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it. Ada compares orders against your current page.">
+          <PillButton tone="ink" onClick={() => onLaunch("test")} disabled={!!busy} title="Half the audience sees it. Fizz compares orders against your current page.">
             {busy === "test" ? <LoaderCircle className="animate-spin" /> : <FlaskConical />}
             Start a test
           </PillButton>
@@ -1169,11 +1172,11 @@ function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: bo
 
 /** Which crew member speaks for each autopilot decision. */
 const LOG_ACTOR: Record<WebAutopilotEntry["kind"], { mascot: MascotKind; who: string }> = {
-  on: { mascot: "analyst", who: "Darwin" },
-  off: { mascot: "analyst", who: "Darwin" },
-  started: { mascot: "experimenter", who: "Ada" },
-  shipped: { mascot: "shipper", who: "Max" },
-  stopped: { mascot: "experimenter", who: "Ada" },
+  on: { mascot: "leader", who: "Darwin" },
+  off: { mascot: "leader", who: "Darwin" },
+  started: { mascot: "experimenter", who: "Fizz" },
+  shipped: { mascot: "shipper", who: "Dash" },
+  stopped: { mascot: "experimenter", who: "Fizz" },
   waiting: { mascot: "observer", who: "Iris" },
 };
 

@@ -53,9 +53,9 @@ describe("crew registry", () => {
     expect(CREW.map((c) => [c.id, c.name, c.role])).toEqual([
       ["darwin", "Darwin", "Lead"],
       ["iris", "Iris", "Watcher"],
-      ["theo", "Theo", "Designer"],
-      ["ada", "Ada", "Tester"],
-      ["max", "Max", "Shipper"],
+      ["theo", "Pixel", "Designer"],
+      ["ada", "Fizz", "Tester"],
+      ["max", "Dash", "Shipper"],
       ["mika", "Mika", "Store agent"],
       ["grok", "Grok", "Teammate"],
     ]);
@@ -75,9 +75,9 @@ describe("ask_agent (no LLM key: every specialist answers from its own data)", (
   it.each([
     ["analyst", "Iris"],
     ["iris", "Iris"],
-    ["designer", "Theo"],
-    ["ada", "Ada"],
-    ["max", "Max"],
+    ["designer", "Pixel"],
+    ["ada", "Fizz"],
+    ["max", "Dash"],
     ["grok", "Grok"],
   ])("%s answers with a Darwin → %s thread", async (agent, name) => {
     const out = await runTool(
@@ -197,13 +197,13 @@ describe("the lead consults specialists (heuristic router)", () => {
 });
 
 describe("talking to one crew member directly", () => {
-  it("answers as Ada (not Darwin), with a You → Ada thread", async () => {
+  it("answers as Fizz (not Darwin), with a You → Fizz thread", async () => {
     const res = await runAssistant({
       agent: "ada",
       messages: [{ role: "user", content: "How are the tests going?" }],
     });
     expect(res.agent).toBe("ada");
-    expectThread(res.threads![0], ["You", "Ada"]);
+    expectThread(res.threads![0], ["You", "Fizz"]);
     expect(res.reply).toMatch(/No A\/B tests yet|test/);
   });
 

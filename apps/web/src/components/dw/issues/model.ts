@@ -123,9 +123,9 @@ export function coverageSentence(rows: IssueRow[]): string {
   const inTest = rows.filter((r) => r.status === "test").map((r) => r.n);
   const drafted = rows.filter((r) => r.status === "drafted").map((r) => r.n);
   const nums = inTest.length ? inTest : drafted;
-  if (!nums.length) return "Theo drafts a fix for the biggest one first.";
+  if (!nums.length) return "Pixel drafts a fix for the biggest one first.";
   const firstK = nums.every((n, i) => n === i + 1);
-  const verb = inTest.length ? "already being tested with a fix" : "covered by a fix Theo just drafted";
+  const verb = inTest.length ? "already being tested with a fix" : "covered by a fix Pixel just drafted";
   if (firstK) {
     if (nums.length === rows.length && rows.length > 1) return `All of them are ${verb}.`;
     if (nums.length === 1) return `The biggest one is ${verb}.`;

@@ -65,7 +65,7 @@ function CardHead({ title, href, hint, right }: { title: string; href: string; h
   );
 }
 
-function CardEmpty({ kind, children, action }: { kind: "designer" | "experimenter" | "observer" | "analyst"; children: React.ReactNode; action?: React.ReactNode }) {
+function CardEmpty({ kind, children, action }: { kind: "designer" | "experimenter" | "observer" | "leader" | "analyst"; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center text-[15px] text-dw-ink/75">
       <Mascot kind={kind} size={46} frame active />
@@ -130,7 +130,7 @@ export function ConversionCard({ points, summary, simulated, onRun }: { points: 
     <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col px-6 py-[22px]", DEPTH, CLICK, ROW1, PHONE, FILL)} aria-label="Conversion" onClick={open}>
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <TitleLink href="/console/changes" hint="See every change Max shipped">
+          <TitleLink href="/console/changes" hint="See every change Dash shipped">
             Conversion
           </TitleLink>
           {points.length > 0 && (
@@ -168,7 +168,7 @@ export function ConversionCard({ points, summary, simulated, onRun }: { points: 
         )}
       </div>
       {!last || !chart ? (
-        <CardEmpty kind="designer" action={onRun && <PillButton onClick={onRun}>Let Darwin run</PillButton>}>
+        <CardEmpty kind="designer" action={onRun && <PillButton tone="yellow" onClick={onRun}>Let Darwin run</PillButton>}>
           Darwin hasn’t measured your store yet. Let it run and conversion shows up here after the first round.
         </CardEmpty>
       ) : (
@@ -281,7 +281,7 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
       <CardHead
         title={ended ? (decision === "ship" ? "Last win" : "Last test") : "A vs B"}
         href="/console/experiments"
-        hint={test ? `Open Ada's test: ${test.experiment.name}` : "Open Ada's tests"}
+        hint={test ? `Open Fizz's test: ${test.experiment.name}` : "Open Fizz's tests"}
         right={
           test && (
             <Link
@@ -294,8 +294,8 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
         }
       />
       {!test || !hasResult ? (
-        <CardEmpty kind="experimenter" action={!autopilot && onRun ? <PillButton onClick={onRun}>Let Darwin run</PillButton> : undefined}>
-          {test ? "Ada just started this test. The first shoppers are on their way." : "No test yet. Ada starts one as soon as Theo has a fix worth trying."}
+        <CardEmpty kind="experimenter" action={!autopilot && onRun ? <PillButton tone="yellow" onClick={onRun}>Let Darwin run</PillButton> : undefined}>
+          {test ? "Fizz just started this test. The first shoppers are on their way." : "No test yet. Fizz starts one as soon as Pixel has a fix worth trying."}
         </CardEmpty>
       ) : (
         <div className="mt-3.5 grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-end gap-6 lg:mt-2">
@@ -332,8 +332,8 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
               <span className="mt-1 text-[13px] text-[#5A2744]">
                 {ended
                   ? decision === "ship"
-                    ? `Max shipped B: more ${whom(test.audience)} bought`
-                    : `Ada kept A: B didn’t beat it`
+                    ? `Dash shipped B: more ${whom(test.audience)} bought`
+                    : `Fizz kept A: B didn’t beat it`
                   : lift === undefined
                     ? "Waiting for buyers in A"
                     : `${lift >= 0 ? "more" : "fewer"} ${whom(test.audience)} buy in B`}
@@ -467,7 +467,7 @@ export function FunnelCard({ summary }: { summary?: AnalyticsSummary }) {
         }
       />
       {!any ? (
-        <CardEmpty kind="analyst">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
+        <CardEmpty kind="leader">Once shoppers arrive, you’ll see how many move on at each step, people next to agents.</CardEmpty>
       ) : (
         <div className="mt-3.5 grid min-h-[150px] flex-1 grid-cols-4 gap-1.5 sm:gap-3 lg:mt-2 lg:min-h-0">
           {steps.map((s, i) => (

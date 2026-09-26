@@ -40,10 +40,10 @@ const shipPct = (x: number) => `${Math.round(x * 1000) / 10}%`;
 function ideaSource(source: string | undefined): string | undefined {
   const b = sourceBadge(source);
   if (!b) return undefined;
-  return b.label === "Heuristic" ? "Theo drafted it from Darwin's rules" : "Theo drafted it with AI";
+  return b.label === "Heuristic" ? "Pixel drafted it from Darwin's rules" : "Pixel drafted it with AI";
 }
 
-/** Experiments: every A vs B test Ada ran (list left) and the selected one with its evidence (detail right). */
+/** Experiments: every A vs B test Fizz ran (list left) and the selected one with its evidence (detail right). */
 export function ExperimentsScreen() {
   const { loop, mock, step, stepping, autopilot, setAutopilot } = useDarwin();
   const experiments = useExperiments();
@@ -98,7 +98,7 @@ export function ExperimentsScreen() {
   if (!experiments || !loop) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Ada is loading the tests <Typing /></span>} />
+        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="Experiments" lede={<span className="inline-flex items-center gap-2">Fizz is loading the tests <Typing /></span>} />
         <div className="h-[92px] animate-pulse rounded-[22px] bg-dw-surface sm:h-[100px]" aria-hidden />
         <div className={LIST_DETAIL} aria-hidden>
           <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
@@ -111,7 +111,7 @@ export function ExperimentsScreen() {
   if (!exp || !view) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="No tests yet" lede="When Theo has a fix worth trying, Ada shows half your shoppers the new version and counts who buys." />
+        <PageHead mascot={<Mascot kind="experimenter" size={52} frame active />} title="No tests yet" lede="When Pixel has a fix worth trying, Fizz shows half your shoppers the new version and counts who buys." />
         <Card tone="pink" shape="experimenter" hover={false} className={`rounded-[28px] ${DEPTH}`}>
           <Empty
             mascot={<Mascot kind="experimenter" size={88} frame active />}
@@ -121,11 +121,11 @@ export function ExperimentsScreen() {
                   <LiveDot /> Iris is looking for the first problem to fix <Typing />
                 </span>
               ) : (
-                <StartDemo />
+                <StartDemo agent="fizz" />
               )
             }
           >
-            The first A vs B test starts right after Iris finds a problem and Theo drafts a fix for it.
+            The first A vs B test starts right after Iris finds a problem and Pixel drafts a fix for it.
           </Empty>
         </Card>
       </>
@@ -140,26 +140,26 @@ export function ExperimentsScreen() {
   const P = result ? <b className="font-semibold text-dw-ink">{chance(result.probabilityToBeat)} chance</b> : null;
   const ver = view.record ? ` as version ${view.record.generation}` : "";
   let lede: ReactNode;
-  if (!result || !m) lede = "Ada just started this test: half of your shoppers see the new version. The first results land after one round of shoppers.";
+  if (!result || !m) lede = "Fizz just started this test: half of your shoppers see the new version. The first results land after one round of shoppers.";
   else if (running)
     lede = (
       <>
         {P} the new version is better after {count(m.visitors)} {noun}
-        {sim}. Ada ships it once she&apos;s {shipPct(rules.ship)} sure.
+        {sim}. Fizz ships it once it&apos;s {shipPct(rules.ship)} sure.
       </>
     );
   else if (view.outcome === "shipped")
     lede = (
       <>
         The new version won with a {P} of being better after {count(m.visitors)} {noun}
-        {sim}. Max shipped it{ver}.
+        {sim}. Dash shipped it{ver}.
       </>
     );
   else if (view.outcome === "lost")
     lede = (
       <>
         The new version lost: only a {P} of being better after {count(m.visitors)} {noun}
-        {sim}, so Ada dropped it.
+        {sim}, so Fizz dropped it.
       </>
     );
   else if (view.outcome === "unclear")
@@ -190,9 +190,9 @@ export function ExperimentsScreen() {
           : view.outcome === "stopped"
             ? { text: "Stopped before a verdict" }
             : isLoopTest && autopilot
-              ? { text: "Ada reads the next round on autopilot" }
+              ? { text: "Fizz reads the next round on autopilot" }
               : isLoopTest
-                ? { text: "Next round when you let Ada decide" }
+                ? { text: "Next round when you let Fizz decide" }
                 : { text: "Waiting for the next round" };
   const canDecide = isLoopTest && (loop.phase === "experiment" || loop.phase === "decide");
   let actions: ReactNode = null;
@@ -217,11 +217,11 @@ export function ExperimentsScreen() {
           wide
           side="bottom"
           align="end"
-          tip={`Sends the next round of shoppers and reads the result. Ada never ships early: the new version goes live only once she's ${shipPct(rules.ship)} sure, and gets dropped under ${pct0(rules.drop)}.`}
+          tip={`Sends the next round of shoppers and reads the result. Fizz never ships early: the new version goes live only once it's ${shipPct(rules.ship)} sure, and gets dropped under ${pct0(rules.drop)}.`}
         >
           <PillButton size="lg" onClick={() => void step()} disabled={stepping} aria-busy={stepping}>
             {stepping && <LoaderCircle className="animate-spin" aria-hidden />}
-            Let Ada decide
+            Let Fizz decide
           </PillButton>
         </Tip>
       </>
@@ -270,8 +270,8 @@ export function ExperimentsScreen() {
   const nTests = past.length;
   const pageTitle = `${nTests} test${nTests === 1 ? "" : "s"}, ${wins} winner${wins === 1 ? "" : "s"}`;
   const pageLede = liveTest
-    ? `Ada is testing “${liveTest.name}” right now. Max shipped ${wins} winner${wins === 1 ? "" : "s"} so far.`
-    : `Ada ran ${nTests} test${nTests === 1 ? "" : "s"} and Max shipped ${wins} winner${wins === 1 ? "" : "s"}.${dropped ? ` Ada dropped ${dropped} that didn't clearly help.` : ""}`;
+    ? `Fizz is testing “${liveTest.name}” right now. Dash shipped ${wins} winner${wins === 1 ? "" : "s"} so far.`
+    : `Fizz ran ${nTests} test${nTests === 1 ? "" : "s"} and Dash shipped ${wins} winner${wins === 1 ? "" : "s"}.${dropped ? ` Fizz dropped ${dropped} that didn't clearly help.` : ""}`;
   const stagger = (i: number) => ({
     initial: reduce ? false : { opacity: 0, y: 14 },
     animate: { opacity: 1, y: 0 },
@@ -285,8 +285,8 @@ export function ExperimentsScreen() {
 
       <SummaryStrip
         items={[
-          { key: "tests", tone: "pink", value: count(nTests), label: "A vs B tests Ada ran", art: <Mascot kind="experimenter" size={44} frame active={Boolean(liveTest)} /> },
-          { key: "wins", tone: "olive", value: count(wins), label: "winners Max shipped", art: <Mascot kind="shipper" size={44} frame active={false} />, href: appHref("/console/changes", mock), ariaLabel: `${wins} winners shipped. See changes` },
+          { key: "tests", tone: "pink", value: count(nTests), label: "A vs B tests Fizz ran", art: <Mascot kind="experimenter" size={44} frame active={Boolean(liveTest)} /> },
+          { key: "wins", tone: "olive", value: count(wins), label: "winners Dash shipped", art: <Mascot kind="shipper" size={44} frame active={false} />, href: appHref("/console/changes", mock), ariaLabel: `${wins} winners shipped. See changes` },
           liveTest
             ? {
                 key: "live",
