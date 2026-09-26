@@ -36,6 +36,8 @@ export interface DashboardSpec {
   why: string;
   /** funnel: the steps in order; events: the events to chart. */
   events?: string[];
+  /** Asked for by the merchant ("show coupon codes per minute"): kept when the plan changes, removable. */
+  custom?: boolean;
 }
 
 export interface TrackingPlan {
@@ -75,6 +77,7 @@ export interface DashboardData {
   kind: DashboardKind;
   title: string;
   why: string;
+  custom?: boolean;
   /** kpis */
   kpis?: { label: string; value: string; hint?: string }[];
   /** funnel: visitors reaching each step (in order). */
@@ -106,3 +109,5 @@ export interface DashboardsResponse {
 // PATCH /api/onboarding/plan { site, message }             → { plan, reply } chat amend         (admin)
 // PUT   /api/onboarding/plan { plan }                      → { plan } toggles saved            (admin)
 // GET   /api/dashboards?site=…                             → DashboardsResponse               (admin)
+// POST  /api/dashboards { site, message }                  → { plan, reply, id } ask for a chart (admin)
+// POST  /api/dashboards { site, remove: id }               → { plan } remove an asked-for chart  (admin)

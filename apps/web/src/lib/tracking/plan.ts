@@ -133,6 +133,12 @@ export function dashboardsFor(plan: Pick<TrackingPlan, "events" | "whop" | "prom
   return out;
 }
 
+/** Recompute a plan's dashboards after its events changed, keeping goal extras and the merchant's own charts. */
+function rebuild<T extends Pick<TrackingPlan, "events" | "whop" | "prompt">>(next: T, prev: Pick<TrackingPlan, "dashboards">): T & { dashboards: DashboardSpec[] } {
+  const custom = prev.dashboards.filter((d) => d.custom);
+  return { ...next, dashboards: [...dashboardsFor(next, prev.dashboards.filter((d) => d.kind === "devices" && !d.custom)), ...custom] };
+}
+
 /* ------------------------------------------------------------------ build */
 
 export interface PlanInput {
@@ -199,7 +205,7 @@ export async function buildPlan(input: PlanInput): Promise<TrackingPlan> {
       .map((e) => enable({ ...e, category: "goal", automatic: false }, true));
     if (!extra.length) return plan;
     const next = { ...plan, events: [...plan.events, ...extra], author: llmLabel() };
-    return { ...next, dashboards: dashboardsFor(next, plan.dashboards.filter((d) => d.kind === "devices")) };
+    return rebuild(next, plan);
   } catch {
     return plan;
   }
@@ -265,21 +271,21 @@ export function heuristicAmend(plan: TrackingPlan, message: string): { plan: Tra
     if (!hit) return { plan, reply: `I'm not tracking anything like "${off[1]}" yet.` };
     const events = plan.events.map((e) => (e === hit ? { ...e, enabled: false } : e));
     const next = { ...plan, events, updatedAt: now };
-    return { plan: { ...next, dashboards: dashboardsFor(next, plan.dashboards.filter((d) => d.kind === "devices")) }, reply: `Done: I won't record ${hit.label.toLowerCase()}.` };
+    return { plan: rebuild(next, plan), reply: `Done: I won't record ${hit.label.toLowerCase()}.` };
   }
   const phrase = m.replace(/^(?:(?:can you|could you|please|also|and)\s+)*(?:track|record|measure|log|add|count|capture)\s+/i, "").replace(/[.!?]+$/, "");
   const existing = findEvent(plan, phrase);
   if (existing) {
     const events = plan.events.map((e) => (e === existing ? { ...e, enabled: true } : e));
     const next = { ...plan, events, updatedAt: now };
-    return { plan: { ...next, dashboards: dashboardsFor(next, plan.dashboards.filter((d) => d.kind === "devices")) }, reply: `${existing.label} is in the plan${existing.enabled ? " already" : " again"}.` };
+    return { plan: rebuild(next, plan), reply: `${existing.label} is in the plan${existing.enabled ? " already" : " again"}.` };
   }
   const name = toEventName(phrase);
   if (!name) return { plan, reply: `Tell me what to track, e.g. "also track wishlist adds".` };
   const ev = enable({ name, label: titleize(name), why: `You asked for it: "${phrase}".`, category: "goal", automatic: false, properties: [] }, true);
   const next = { ...plan, events: [...plan.events, ev], updatedAt: now };
   return {
-    plan: { ...next, dashboards: dashboardsFor(next, plan.dashboards.filter((d) => d.kind === "devices")) },
+    plan: rebuild(next, plan),
     reply: `Added ${name}. Your store sends it with one line: ${ev.snippet}`,
   };
 }
@@ -310,7 +316,7 @@ export async function amendPlan(plan: TrackingPlan, message: string): Promise<{ 
         else events.push(enable({ ...a, category: "goal", automatic: false }, true));
       }
       const next = { ...plan, events, author: llmLabel(), updatedAt: now };
-      return { plan: { ...next, dashboards: dashboardsFor(next, plan.dashboards.filter((d) => d.kind === "devices")) }, reply: out.reply };
+      return { plan: rebuild(next, plan), reply: out.reply };
     } catch {
       /* fall through */
     }
@@ -322,7 +328,7 @@ export async function amendPlan(plan: TrackingPlan, message: string): Promise<{ 
 export function applyToggles(plan: TrackingPlan, enabled: Record<string, boolean>): TrackingPlan {
   const events = plan.events.map((e) => (e.name in enabled ? { ...e, enabled: !!enabled[e.name] } : e));
   const next = { ...plan, events, updatedAt: new Date().toISOString() };
-  return { ...next, dashboards: dashboardsFor(next, plan.dashboards.filter((d) => d.kind === "devices")) };
+  return rebuild(next, plan);
 }
 
 /* ------------------------------------------------------------------ for the install PR */

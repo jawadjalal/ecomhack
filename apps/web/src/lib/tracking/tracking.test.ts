@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eventStore, track } from "@/lib/analytics/store";
 import { resetWebRules, simulateWebTraffic } from "@/lib/web";
 import { detectAnalytics } from "@/lib/github";
-import { applyToggles, buildPlan, computeDashboards, getPlan, heuristicAmend, heuristicPlan, planIntro, resetPlans, savePlan, trackingDoc, trackingSummary } from ".";
+import { applyToggles, askForChart, buildPlan, computeDashboards, removeChart, getPlan, heuristicAmend, heuristicPlan, planIntro, resetPlans, savePlan, trackingDoc, trackingSummary } from ".";
 
 beforeEach(() => {
   eventStore().clear();
@@ -70,6 +70,34 @@ describe("tracking plan", () => {
     expect(doc).toContain('window.darwin?.capture("newsletter_signup", { placement: … });');
     expect(doc).toContain("| `order_completed` |");
     expect(trackingSummary(plan)).toMatch(/Your store sends \(one line each\):\*\* `product_viewed`.*`newsletter_signup`/);
+  });
+});
+
+describe("ask for a chart", () => {
+  it("charts events the plan records, picks the chart from the words, and adds tracking it doesn't have yet", () => {
+    const plan = heuristicPlan({ site: SITE, prompt: "discount codes matter" });
+    const coupons = askForChart(plan, "Show me coupon codes per minute");
+    const chart = coupons.plan.dashboards.find((d) => d.id === coupons.id)!;
+    expect(chart).toMatchObject({ kind: "events", title: "Coupon codes per minute", custom: true, events: ["coupon_applied"] });
+    expect(coupons.reply).toBe("Added “Coupon codes per minute” to your dashboards.");
+
+    expect(askForChart(plan, "mobile vs desktop conversion").plan.dashboards.at(-1)?.kind).toBe("devices");
+    // Already in the plan: no duplicate, just point to it.
+    const sources = askForChart(plan, "where do shoppers come from");
+    expect(sources).toMatchObject({ id: "sources", reply: "You already have “Where shoppers come from”: it's highlighted below." });
+    expect(sources.plan.dashboards).toHaveLength(plan.dashboards.length);
+    const funnel = askForChart(plan, "funnel from product view to order").plan.dashboards.at(-1)!;
+    expect(funnel).toMatchObject({ kind: "funnel", events: ["$pageview", "product_viewed", "product_added", "checkout_started", "order_completed"] });
+
+    const wish = askForChart(plan, "Wishlist adds per day");
+    expect(wish.plan.events.find((e) => e.name === "wishlist_adds")).toMatchObject({ enabled: true, snippet: 'window.darwin?.capture("wishlist_adds");' });
+    expect(wish.reply).toMatch(/doesn't send wishlist_adds yet/);
+
+    // Asked-for charts survive plan changes, and can be removed.
+    const toggled = applyToggles(coupons.plan, { $rageclick: false });
+    expect(toggled.dashboards.some((d) => d.id === coupons.id)).toBe(true);
+    expect(removeChart(toggled, coupons.id!).dashboards.some((d) => d.id === coupons.id)).toBe(false);
+    expect(askForChart(plan, "?!").reply).toMatch(/Tell me what to chart/);
   });
 });
 
