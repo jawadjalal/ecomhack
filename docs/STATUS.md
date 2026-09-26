@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 15:25 UTC (UI redesign)
+Last updated: 2026-09-26 15:56 UTC (animated mascots)
 
 ---
 
@@ -18,7 +18,7 @@ Scored against the hackathon brief: *behaviour → insight → page change → b
 | AI leverage & autonomy | 7 | Autopilot ships winners, store agent A/B tests its own pitch, Grok teammate briefing ("want me to ship it?") | Lead agent that *acts* (⌘K / chat / WebMCP) — in progress; a real Grok key on stage |
 | Commerce innovation | 8 | A store that sells to AI agents three ways and optimises for them; agent checkout counted end to end | A real third-party agent buying live on the real Whop store |
 | Real-world usefulness | 5 | Mostly simulated traffic; the demo store is a demo | Real Whop store + script-tag install on a real site + one real purchase |
-| UX | 7 | Cream type and mascots stay; landing, overview, experiments, issues, fixes, changes and settings no longer share one pastel bento. Agents, dashboards, personalize, traffic, research, onboarding and readiness still do. | Finish the pages listed in `docs/ui-redesign-plan.md` |
+| UX | 7 | Cream pages plus the six animated crew mascots (pose follows the loop and chat). Agents, dashboards, personalize, traffic, research, onboarding and readiness still use the older tile layout. | Finish the pages listed in `docs/ui-redesign-plan.md` |
 | Demo quality | 7 | One story everywhere: /store is PACE and every console screen is about it, filled on boot with labelled simulated shoppers; onboarding has "Skip: explore with the demo store" | Rewrite `docs/DEMO.md` on the new screens and rehearse; `?mock=1` offline fallback |
 
 **The one question judges will ask: "is any of this real?"** Answer on stage with a real Grok bot buying on the Whop store (`/a2a/whop`), then the Grok teammate messaging the merchant what it learned.
@@ -131,6 +131,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 15:56 UTC — animated mascots.** Final pack in `public/mascots` (not in the JS bundle). Darwin is the red crowned leader; observer / analyst / designer / experimenter / shipper keep their shapes. Poses follow the loop, autopilot, and Ask Darwin (thinking → brief success or error → idle). Tap plays the 1.4s reaction and does not follow a parent link. Header chrome untouched (logo mark only). Still open: flat card silhouettes, official buyer-brand glyphs, purple/penguin leader alternates not shipped, `src/lib/status/roadmap.ts` still not in the tree.
 - **2026-09-26 15:25 UTC — UI redesign.** Landing, overview, experiments, issues, fixes, changes and settings no longer share the pastel bento (`docs/ui-redesign-plan.md`). Plain surface on `Card`/`Panel`. Still the old tile layout: agents, dashboards, personalize, traffic, research, onboarding, readiness. Storefront and classic console left as they are. `src/lib/status/roadmap.ts` is not in the tree.
 - **2026-09-26 14:30 UTC — demo-mode agent.** Demo store mode: /store is PACE end to end (no Whop strip / "STORE" brand), boot fills the console with labelled simulated shoppers (fresh → Gen 1 + test live; restart → one refill round), onboarding "Skip: explore with the demo store", "Demo store · Connect your site" note on every console page, dashboards default to the demo store's plan, North Trail seeded for Personalize/Traffic, Whop server key counts as connected, store agent never named `biz_…`, `explore_demo_store` assistant tool. Not touched (other agent's files): Overview lede while paused, conversion card sources, `roadmap.ts`. Still open: curl/headless hits on the agent API show as agent sessions.
 - **2026-09-26 13:59 UTC — readiness agent.** `/readiness` + certificate page restyled to the cream design (hero, loading crew, error state, score / agents-can-do / fixes / CTA to onboarding, Grok certify panel from #36 kept and restyled); screenshots at 1440×900 and 390×844, no horizontal overflow. Open: readiness command for the lead agent, prefill onboarding with the audited URL.
