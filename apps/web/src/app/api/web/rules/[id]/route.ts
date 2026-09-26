@@ -10,7 +10,9 @@ export async function PATCH(req: Request, ctx: RouteContext<"/api/web/rules/[id]
   if (body instanceof Response) return body;
   try {
     const site = getRule(id)?.site;
-    const outline = site ? await readSitePage(site, siteUrl(site, requestOrigin(req), webState(site).overview.url)) : undefined;
+    // Only a patch that can make it live (a status or new copy) needs the page; pausing or renaming doesn't.
+    const goesLive = !!body && typeof body === "object" && ("status" in body || "changes" in body);
+    const outline = site && goesLive ? await readSitePage(site, siteUrl(site, requestOrigin(req), webState(site).overview.url)) : undefined;
     return Response.json({ rule: updateRule(id, body, { outline }) });
   } catch (err) {
     return errorResponse(err);

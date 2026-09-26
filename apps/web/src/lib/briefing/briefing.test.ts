@@ -120,6 +120,21 @@ describe("merchant briefing", () => {
     expect(after.say).toContain("(simulated traffic)");
   }, 60_000);
 
+  it("a test decided before decisions were stamped, whose simulated conversations are gone, isn't shown as real with 0", async () => {
+    const { kvSet } = await import("@/lib/db/json-store");
+    const at = new Date().toISOString();
+    kvSet("store-agent-tests", {
+      levers: ["facts"],
+      autopilot: false,
+      log: [],
+      tests: [{ id: "at_legacy", lever: "facts", base: [], status: "shipped", startedAt: at, endedAt: at, reason: "Winner: 18% → 27% of conversations paid, 98% chance better, 640 conversations" }],
+    });
+    const item = (await getBriefing({ origin: ORIGIN })).items.find((i) => i.id === "agent:at_legacy")!;
+    expect(item).toMatchObject({ status: "shipped", traffic: "simulated" });
+    expect(item.sample).toBeUndefined();
+    expect(item.say).toContain("(simulated traffic)");
+  });
+
   it("stops an agent test without changing the pitch", async () => {
     const test = startAgentTest("upsell");
     await runSimulatedBuyers(50, ORIGIN, 3);
