@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="1200" height="900" role="img" aria-label="Flow Hydration Vest 5L — Graphite">
+<title>Flow Hydration Vest 5L — Graphite</title>
+<defs>
+<filter id="blur-shadow" x="-20%" y="-200%" width="140%" height="500%"><feGaussianBlur stdDeviation="16"/></filter>
+<filter id="blur-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+
+<linearGradient id="g-vest" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b6370"/><stop offset="1" stop-color="#272e39"/></linearGradient>
+<linearGradient id="g-flask" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e0f2fe" stop-opacity=".95"/><stop offset=".5" stop-color="#bae6fd" stop-opacity=".85"/><stop offset="1" stop-color="#7dd3fc" stop-opacity=".9"/></linearGradient>
+<pattern id="p-mesh" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M0 6 L6 0 L12 6 L6 12 Z" fill="none" stroke="#272e39" stroke-width="1.4" opacity=".6"/></pattern>
+</defs>
+<ellipse cx="600" cy="790" rx="300" ry="22" fill="#0b1220" opacity="0.14" filter="url(#blur-shadow)"/>
+<ellipse cx="600" cy="788" rx="216" ry="9" fill="#0b1220" opacity="0.12600000000000003" filter="url(#blur-soft)"/>
+<g transform="translate(0 -10)">
+<path d="M520,150 C560,108 640,108 680,150 L676,196 C640,174 560,174 524,196 Z" fill="#272e39" stroke="#1c2129" stroke-width="4"/>
+<path d="M430,380 C470,470 470,600 440,730 L760,730 C730,600 730,470 770,380 C700,420 500,420 430,380 Z" fill="#1e242d"/>
+<path d="M548,138 C528,130 500,132 486,146 C478,240 440,300 384,360 C366,480 368,640 392,742 L562,742 C570,620 572,500 564,400 L556,200 C554,170 552,150 548,138 Z" fill="url(#g-vest)" stroke="#1c2129" stroke-width="4" stroke-linejoin="round"/>
+<path d="M652,138 C672,130 700,132 714,146 C722,240 760,300 816,360 C834,480 832,640 808,742 L638,742 C630,620 628,500 636,400 L644,200 C646,170 648,150 652,138 Z" fill="url(#g-vest)" stroke="#1c2129" stroke-width="4" stroke-linejoin="round"/>
+<path d="M392,600 C420,610 540,612 560,600 L560,736 L392,736 Z" fill="url(#p-mesh)"/>
+<path d="M808,600 C780,610 660,612 640,600 L640,736 L808,736 Z" fill="url(#p-mesh)"/>
+
+<g transform="translate(488 0)">
+<path d="M-60,330 C-60,300 -40,290 0,290 C40,290 60,300 60,330 L66,520 C66,560 40,574 0,574 C-40,574 -66,560 -66,520 Z" fill="url(#g-flask)" stroke="#7dd3fc" stroke-opacity=".6" stroke-width="3"/>
+<path d="M-40,340 C-40,320 -30,312 -18,312 L-22,540" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity=".55"/>
+<rect x="-18" y="248" width="36" height="46" rx="8" fill="#111827"/>
+<rect x="-10" y="224" width="20" height="30" rx="7" fill="#f97316"/>
+</g>
+
+<g transform="translate(712 0) scale(-1 1)">
+<path d="M-60,330 C-60,300 -40,290 0,290 C40,290 60,300 60,330 L66,520 C66,560 40,574 0,574 C-40,574 -66,560 -66,520 Z" fill="url(#g-flask)" stroke="#7dd3fc" stroke-opacity=".6" stroke-width="3"/>
+<path d="M-40,340 C-40,320 -30,312 -18,312 L-22,540" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity=".55"/>
+<rect x="-18" y="248" width="36" height="46" rx="8" fill="#111827"/>
+<rect x="-10" y="224" width="20" height="30" rx="7" fill="#f97316"/>
+</g>
+<path d="M470,470 L730,470" stroke="#1f2937" stroke-width="10" stroke-linecap="round"/>
+<path d="M470,540 L730,540" stroke="#1f2937" stroke-width="10" stroke-linecap="round"/>
+<rect x="580" y="458" width="40" height="24" rx="5" fill="#f97316"/>
+<rect x="580" y="528" width="40" height="24" rx="5" fill="#f97316"/>
+<path d="M494,170 C488,230 460,280 420,330" fill="none" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+<path d="M706,170 C712,230 740,280 780,330" fill="none" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+<path d="M398,700 L552,700" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+<path d="M648,700 L802,700" stroke="#e5e7eb" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+<circle cx="786" cy="430" r="12" fill="#f97316"/>
+<path d="M470,640 l26,0 l-24,40 l-26,0 Z M504,640 l16,0 l-24,40 l-16,0 Z" fill="#f97316"/>
+</g>
+</svg>

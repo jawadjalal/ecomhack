@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* console ------------------------------------------------------------------------------------
+ * Mission control (/console) + landing (/). OWNED BY: console PR. Keep console styles in here.
+ * Series colours validated for CVD separation on the dark surface: human #4c94f0, agent #e0609a.
+ */
+@theme {
+  --color-human: #4c94f0;
+  --color-agent: #e0609a;
+  --color-brand: #b6f05a;
+  --color-good: #3ccf73;
+  --color-bad: #f05252;
+  --color-warn: #f5b429;
+  --color-control: #8b93a7;
+}
+
+:root:has([data-darwin-dark]) {
+  background: #05060a;
+  color-scheme: dark;
+}
+:root:has([data-darwin-dark]) body {
+  background: #05060a;
+  color: #eef0f4;
+}
+
+/* The console is laid out in rem for a 1920×1080 projector (120rem × 67.5rem) and scales with
+ * the viewport, so it stays proportional on laptops without layout changes. */
+:root:has([data-console-root]) {
+  font-size: clamp(12.5px, min(calc(100vw / 120), calc(100vh / 66)), 20px);
+}
+@media (max-width: 1279px) {
+  :root:has([data-console-root]) {
+    font-size: 14px;
+  }
+}
+
+.darwin-bg {
+  background:
+    radial-gradient(60rem 40rem at 12% -10%, rgba(182, 240, 90, 0.07), transparent 60%),
+    radial-gradient(50rem 40rem at 100% 0%, rgba(76, 148, 240, 0.08), transparent 60%),
+    radial-gradient(50rem 30rem at 60% 120%, rgba(224, 96, 154, 0.06), transparent 60%),
+    #05060a;
+}
+.darwin-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+  mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+.fade-bottom {
+  mask-image: linear-gradient(to bottom, black calc(100% - 3rem), transparent);
+}
+.fade-top {
+  mask-image: linear-gradient(to top, black calc(100% - 2.5rem), transparent);
+}
+@keyframes darwin-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes darwin-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.03) 75%);
+  background-size: 200% 100%;
+  animation: darwin-shimmer 1.6s linear infinite;
+}
+@keyframes darwin-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.pulse-dot {
+  animation: darwin-pulse-dot 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .pulse-dot {
+    animation: none;
+  }
+}
+/* /console ----------------------------------------------------------------------------------- */

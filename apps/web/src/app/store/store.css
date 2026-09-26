@@ -1,0 +1,219 @@
+/*
+ * PACE storefront theme. Theme knobs from the PageSpec arrive as CSS variables on `.pace-root`
+ * (see components/store/store-shell.tsx):
+ *   --accent, --accent-fg, --accent-soft, --accent-on-dark, --r-btn, --r-card, --r-input, --r-chip
+ */
+
+.pace-root {
+  --ink: #0c0a09;
+  --muted: #57534e;
+  --line: #e7e5e4;
+  --surface: #f5f4f1;
+  --surface-2: #faf9f7;
+  background: #ffffff;
+  color: var(--ink);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.pace-display {
+  font-family: var(--font-pace-display), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-variation-settings: "wdth" 112;
+  letter-spacing: -0.025em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.pace-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pace-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0 1.5rem;
+  border-radius: var(--r-btn);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+/* Full-width buttons whose copy comes from the PageSpec (up to 32 chars + a price): wrap onto two lines
+   on small phones instead of spilling out of the button. */
+.pace-btn-block {
+  padding: 0.5rem 1rem;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+/* Inline buttons whose copy comes from the PageSpec (hero CTA, up to 32 chars): stay one line when they fit,
+   wrap on the smallest phones instead of overflowing. */
+.pace-btn-wrap {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+.pace-btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+.pace-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.pace-btn:focus-visible,
+.pace-focus:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pace-btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.12) inset, 0 8px 24px -12px var(--accent);
+}
+.pace-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.12) saturate(1.05);
+}
+
+.pace-btn-dark-surface {
+  background: var(--accent-on-dark);
+  color: var(--accent-on-dark-fg);
+}
+.pace-btn-dark-surface:hover {
+  filter: brightness(1.08);
+}
+
+.pace-btn-secondary {
+  background: #ffffff;
+  color: var(--ink);
+  border: 1px solid #d6d3d1;
+}
+.pace-btn-secondary:hover {
+  border-color: var(--ink);
+}
+
+.pace-btn-ghost-light {
+  color: #ffffff;
+  border: 1px solid rgb(255 255 255 / 0.4);
+}
+.pace-btn-ghost-light:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.pace-input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0 0.95rem;
+  border: 1px solid #d6d3d1;
+  border-radius: var(--r-input);
+  background: #ffffff;
+  font-size: 0.95rem;
+  color: var(--ink);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.pace-input::placeholder {
+  color: #a8a29e;
+}
+.pace-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.pace-input[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+
+.pace-card {
+  border-radius: var(--r-card);
+}
+.pace-chip {
+  border-radius: var(--r-chip);
+}
+.pace-tile {
+  border-radius: var(--r-card);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.pace-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: #a8a29e;
+}
+.pace-link:hover {
+  text-decoration-color: currentColor;
+}
+
+@keyframes pace-shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+.pace-shake {
+  animation: pace-shake 0.45s both;
+}
+
+@keyframes pace-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pace-rise {
+  animation: pace-rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes pace-ping {
+  75%,
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.pace-ping {
+  animation: pace-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pace-root *,
+  .pace-root *::before,
+  .pace-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

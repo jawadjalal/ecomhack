@@ -1,0 +1,56 @@
+{
+  "version": 0,
+  "label": "Baseline",
+  "hero": {
+    "headline": "Engineered for every stride",
+    "subheadline": "Performance running shoes designed in London.",
+    "ctaText": "Explore collection",
+    "layout": "centered",
+    "showSocialProof": false
+  },
+  "announcement": {
+    "enabled": false,
+    "text": ""
+  },
+  "productGrid": {
+    "columns": 3,
+    "showRatings": false,
+    "showQuickAdd": false,
+    "sort": "featured"
+  },
+  "productPage": {
+    "ctaText": "Add to bag",
+    "ctaPosition": "below-description",
+    "showReviews": false,
+    "showSizeGuide": false,
+    "showDeliveryEstimate": false,
+    "showReturnsPolicy": false,
+    "urgency": "none",
+    "trustBadges": false
+  },
+  "cart": {
+    "showShippingUpfront": false,
+    "freeShippingThreshold": null,
+    "upsell": false
+  },
+  "checkout": {
+    "steps": 3,
+    "guestCheckout": false,
+    "expressPay": false
+  },
+  "theme": {
+    "accent": "#111827",
+    "radius": "md"
+  },
+  "agentSurface": {
+    "structuredData": false,
+    "exposeStock": false,
+    "exposeDeliveryEta": false,
+    "exposeReturnPolicy": false,
+    "exposeLandedPrice": false,
+    "negotiation": {
+      "enabled": false,
+      "maxDiscountPct": 0
+    }
+  }
+}
