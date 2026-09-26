@@ -1,0 +1,318 @@
+/* VANTA — the "after" storefront.
+   Same Apple layout system as the before page (44px nav, 980px copy column,
+   1680px unit grid, 12px gutters) with the defects removed and the type set in
+   Satoshi. Everything here is tuned for a single obvious action per unit. */
+
+.a {
+  --blue: #0071e3;
+  --blue-link: #0066cc;
+  --ink: #1d1d1f;
+  --grey: #6e6e73;
+  --ground: #f5f5f7;
+  --line: #d2d2d7;
+  --nav-h: 44px;
+
+  color: var(--ink);
+  background: var(--ground);
+  font-family: var(--font-vanta), -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+.a *, .a *::before, .a *::after { box-sizing: border-box; }
+
+/* Zero-specificity resets so class rules below always win. */
+:where(.a) :where(a) { text-decoration: none; color: inherit; }
+:where(.a) :where(ul) { list-style: none; margin: 0; padding: 0; }
+:where(.a) :where(h1, h2, h3, p) { margin: 0; }
+
+.a a:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 4px; }
+.a section { scroll-margin-top: var(--nav-h); }
+
+.a-skip {
+  position: absolute; left: 12px; top: -120px; z-index: 200;
+  background: #fff; color: var(--ink); padding: 10px 18px; border-radius: 10px; font-size: 14px;
+}
+.a-skip:focus { top: 8px; }
+
+/* ---- Nav ---------------------------------------------------------------- */
+
+.a-nav-bar {
+  position: sticky; top: 0; z-index: 100; height: var(--nav-h);
+  background: rgba(22, 22, 23, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.a-nav {
+  height: var(--nav-h); max-width: 1024px; margin: 0 auto; padding: 0 22px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.a-nav a {
+  font-size: 12px; line-height: 1; font-weight: 400; letter-spacing: -0.01em;
+  color: rgba(245, 245, 247, 0.8); display: inline-flex; align-items: center;
+  transition: color 0.2s;
+}
+.a-nav a:hover { color: #f5f5f7; }
+.a-wordmark { font-size: 15px !important; font-weight: 700; letter-spacing: 0.16em !important; }
+
+.a-promo {
+  background: var(--ground); color: var(--grey);
+  font-size: 14px; line-height: 1.43; text-align: center; padding: 13px 20px;
+}
+.a-promo a { color: var(--blue-link); display: inline-flex; align-items: center; gap: 1px; }
+.a-promo a:hover { text-decoration: underline; }
+
+/* ---- Units --------------------------------------------------------------- */
+
+.a-unit {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; background: #fff;
+}
+/* Apple sets 66px above the marquee copy and 55px above a tile's. The bottom
+   padding is ours: this page carries a rating and a stock line that Apple's
+   units do not, and without it the last line sits flush on the photograph. */
+.a-copy {
+  position: relative; z-index: 2; width: 100%; max-width: 980px;
+  padding: 55px 24px 32px; display: flex; flex-direction: column; align-items: center;
+}
+.a-art { position: relative; flex: 1; width: 100%; min-height: 0; }
+.a-art img { object-fit: cover; object-position: center; }
+
+.a-eyebrow {
+  font-size: 19px; line-height: 1.21; letter-spacing: 0.011em;
+  color: #f56300; margin-bottom: 6px;
+}
+
+.a-marquee { height: 820px; background: #000; color: #f5f5f7; }
+.a-marquee .a-copy { padding-top: 66px; padding-bottom: 38px; }
+.a-marquee h1 { font-size: 56px; line-height: 1.07; font-weight: 700; letter-spacing: -0.02em; }
+.a-marquee .a-subhead { font-size: 28px; line-height: 1.11; font-weight: 400; letter-spacing: -0.005em; }
+
+.a-tile { height: 700px; }
+.a-tile h2 { font-size: 40px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; }
+.a-tile .a-subhead { font-size: 19px; line-height: 1.21; font-weight: 400; }
+
+.a-subhead { margin-top: 6px; }
+
+.a-dark { background: #000; color: #f5f5f7; }
+.a-light { background: #fafafa; color: var(--ink); }
+
+/* Pale-background product photography needs its own plate on a dark unit,
+   otherwise it reads as a floating white box. */
+.a-dark .a-art { background: linear-gradient(180deg, #f7f8fa, #e8eaee); }
+.a-dark .a-art img { object-fit: contain; padding: 4% 6% 6%; }
+
+/* ---- Social proof, price, actions ----------------------------------------- */
+
+.a-rating {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 15px; color: var(--grey); margin-top: 14px;
+}
+.a-star { fill: #f5a623; color: #f5a623; }
+.a-dark .a-rating, .a-marquee .a-rating { color: #a1a1a6; }
+
+.a-actions {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 14px 26px; margin-top: 24px;
+}
+.a-actions-lg { margin-top: 30px; }
+
+/* FIX 1: the primary action is a filled control at 4.6:1 against its own
+   background, identical on light and dark units. */
+.a-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding-inline: 22px;
+  border-radius: 980px; background: var(--blue); color: #fff;
+  font-size: 17px; line-height: 1.18; font-weight: 500; white-space: nowrap;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.a-btn:hover { background: #0077ed; transform: translateY(-1px); }
+.a-btn-lg { min-height: 50px; padding-inline: 28px; font-size: 19px; }
+
+.a-link {
+  display: inline-flex; align-items: center; gap: 1px;
+  font-size: 17px; line-height: 1.24; color: var(--blue-link);
+}
+.a-link:hover { text-decoration: underline; }
+.a-marquee .a-link, .a-dark .a-link { color: #2997ff; }
+.a-marquee .a-link { font-size: 19px; }
+
+.a-finance { font-size: 15px; color: var(--grey); margin-top: 12px; }
+.a-dark .a-finance, .a-marquee .a-finance { color: #a1a1a6; }
+
+.a-stock {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 14px; color: #1d8a3e; margin-top: 14px;
+}
+.a-dark .a-stock, .a-marquee .a-stock { color: #41c463; }
+.a-stock-low { color: #b8500f; }
+.a-dark .a-stock-low, .a-marquee .a-stock-low { color: #ff9f45; }
+
+.a-assure {
+  display: inline-flex; align-items: center; flex-wrap: wrap;
+  gap: 5px 9px; font-size: 13px; color: #86868b; margin-top: 16px;
+}
+.a-assure svg { margin-right: -2px; }
+
+/* ---- Sticky buy bar --------------------------------------------------------- */
+
+.a-sticky {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--line);
+  transform: translateY(100%); opacity: 0;
+  transition: transform 0.32s ease, opacity 0.32s ease;
+  pointer-events: none;
+}
+.a-sticky-on { transform: none; opacity: 1; pointer-events: auto; }
+.a-sticky-inner {
+  max-width: 1024px; margin: 0 auto; padding: 13px 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+}
+.a-sticky-copy { display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; }
+.a-sticky-copy strong { font-size: 15px; font-weight: 700; letter-spacing: -0.015em; color: var(--ink); }
+.a-sticky-copy span { font-size: 13px; color: var(--grey); }
+
+/* ---- Review quotes ------------------------------------------------------------ */
+
+.a-quotes { background: var(--ground); margin-top: 12px; padding: 96px 22px 100px; text-align: center; }
+.a-quotes h2 { font-size: 40px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; }
+.a-quote-grid {
+  max-width: 1024px; margin: 52px auto 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+}
+.a-quote-grid figure {
+  margin: 0; background: #fff; border-radius: 18px; padding: 28px 26px 26px;
+  text-align: left; display: flex; flex-direction: column; gap: 14px;
+}
+.a-quote-stars { display: inline-flex; gap: 2px; }
+.a-quote-grid blockquote {
+  margin: 0; font-size: 17px; line-height: 1.47; color: var(--ink); flex: 1;
+}
+.a-quote-grid figcaption { display: flex; flex-direction: column; gap: 2px; }
+.a-quote-grid figcaption strong { font-size: 15px; font-weight: 700; color: var(--ink); }
+.a-quote-grid figcaption span { font-size: 13px; color: var(--grey); }
+
+/* ---- Guarantee ------------------------------------------------------------------ */
+
+.a-guarantee {
+  background: #fff; margin-top: 12px; text-align: center;
+  padding: 88px 22px 92px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.a-guarantee svg { color: var(--ink); }
+.a-guarantee h2 {
+  font-size: 40px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; margin-top: 18px;
+}
+.a-guarantee p { font-size: 19px; line-height: 1.47; color: var(--grey); max-width: 54ch; margin-top: 14px; }
+.a-pay {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 14px !important; color: #86868b !important; margin-top: 22px !important;
+}
+
+/* ---- Trust strip ------------------------------------------------------------ */
+
+.a-trust {
+  background: #fff; margin-top: 12px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px;
+  padding: 68px max(22px, calc((100vw - 1024px) / 2));
+}
+.a-trust div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; color: var(--grey); }
+.a-trust svg { color: var(--ink); margin-bottom: 9px; }
+.a-trust strong { font-size: 16px; font-weight: 700; letter-spacing: -0.015em; color: var(--ink); }
+.a-trust span { font-size: 14px; line-height: 1.42; }
+
+.a-grid {
+  max-width: 1680px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px 0 0;
+}
+
+/* ---- Close --------------------------------------------------------------------- */
+
+.a-close {
+  background: #fff; margin-top: 12px; text-align: center;
+  padding: 112px 24px 120px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.a-close h2 { font-size: 48px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; }
+.a-close p { font-size: 19px; line-height: 1.42; color: var(--grey); max-width: 46ch; margin-top: 16px; }
+.a-close .a-btn { margin-top: 34px; }
+
+/* ---- Footer ---------------------------------------------------------------------- */
+
+.a-footer { background: var(--ground); color: var(--grey); font-size: 12px; line-height: 1.33; }
+.a-footer-inner { max-width: 1024px; margin: 0 auto; padding: 0 22px 20px; }
+.a-fine { padding: 17px 0; border-bottom: 1px solid var(--line); }
+.a-footer-cols {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 26px;
+  padding: 18px 0 22px; border-bottom: 1px solid var(--line);
+}
+.a-footer-cols h3 { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 9px; }
+.a-footer-cols li { margin-bottom: 8px; }
+.a-footer-cols a:hover { text-decoration: underline; color: var(--ink); }
+.a-footer-legal {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 20px; padding-top: 17px;
+}
+.a-footer-legal nav { display: flex; flex-wrap: wrap; gap: 0 10px; }
+.a-footer-legal nav a { position: relative; padding-right: 10px; }
+.a-footer-legal nav a:not(:last-child)::after {
+  content: ""; position: absolute; right: 0; top: 50%;
+  transform: translateY(-50%); height: 12px; width: 1px; background: var(--line);
+}
+.a-footer-legal nav a:hover { text-decoration: underline; color: var(--ink); }
+
+/* ---- Responsive -------------------------------------------------------------------- */
+
+@media (max-width: 1068px) {
+  .a-marquee h1 { font-size: 48px; }
+  .a-marquee .a-subhead { font-size: 24px; }
+  .a-tile h2 { font-size: 32px; }
+  .a-trust { grid-template-columns: repeat(2, 1fr); gap: 30px 26px; }
+  .a-close h2 { font-size: 40px; }
+  .a-quote-grid { grid-template-columns: 1fr; max-width: 640px; }
+  .a-quotes h2, .a-guarantee h2 { font-size: 32px; }
+}
+
+@media (max-width: 734px) {
+  .a-nav { padding: 0 16px; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+  .a-nav::-webkit-scrollbar { display: none; }
+  .a-promo { font-size: 12px; padding: 11px 16px; }
+
+  .a-grid { grid-template-columns: 1fr; }
+  .a-marquee { height: 700px; }
+  .a-marquee .a-copy { padding-top: 48px; padding-bottom: 30px; }
+  .a-marquee h1 { font-size: 40px; }
+  .a-marquee .a-subhead { font-size: 19px; }
+  .a-marquee .a-link { font-size: 17px; }
+  .a-tile { height: 640px; }
+  .a-tile h2 { font-size: 30px; }
+  .a-tile .a-subhead { font-size: 17px; }
+  .a-copy { padding: 44px 22px 28px; }
+  .a-trust { grid-template-columns: 1fr; padding: 48px 22px; gap: 30px; }
+  .a-close { padding: 80px 22px 84px; }
+  .a-close h2 { font-size: 32px; }
+  .a-close p { font-size: 17px; }
+
+  .a-footer-cols { grid-template-columns: repeat(2, 1fr); }
+  .a-footer-legal { flex-direction: column; align-items: flex-start; }
+
+  .a-marquee { height: 780px; }
+  .a-quotes { padding: 68px 22px 72px; }
+  .a-guarantee { padding: 64px 22px 68px; }
+  .a-sticky-inner { padding: 11px 16px; gap: 12px; }
+  .a-sticky-copy span { display: none; }
+  /* The bar overlays the page bottom, so the footer needs clearance. */
+  .a-footer-inner { padding-bottom: 86px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a *, .a *::before, .a *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}

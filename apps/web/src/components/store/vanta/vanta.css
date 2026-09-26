@@ -1,0 +1,199 @@
+/* VANTA storefront.
+   Layout, type scale and spacing follow Apple's marketing-page system:
+   44px global nav, 980px copy column, 1680px unit grid, 12px gutters between
+   units, #f5f5f7 page ground showing through as hairline gaps. Type uses the
+   system stack, which resolves to SF Pro on Apple hardware. */
+
+.v {
+  --blue: #0066cc;
+  --ink: #1d1d1f;
+  --grey: #6e6e73;
+  --ground: #f5f5f7;
+  --nav-h: 44px;
+
+  color: var(--ink);
+  background: var(--ground);
+  font-family: var(--font-vanta), -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+.v *,
+.v *::before,
+.v *::after { box-sizing: border-box; }
+
+/* Zero-specificity reset so any class rule below wins without !important. */
+:where(.v) :where(a) { text-decoration: none; color: inherit; }
+:where(.v) :where(ul) { list-style: none; margin: 0; padding: 0; }
+:where(.v) :where(h1, h2, h3, p) { margin: 0; }
+
+.v a:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 3px; }
+.v section { scroll-margin-top: var(--nav-h); }
+
+.v-skip {
+  position: absolute; left: 12px; top: -120px; z-index: 200;
+  background: #fff; color: var(--ink);
+  padding: 10px 18px; border-radius: 10px; font-size: 14px;
+}
+.v-skip:focus { top: 8px; }
+
+/* ---- Global nav -------------------------------------------------------- */
+
+.v-nav-bar {
+  position: sticky; top: 0; z-index: 100;
+  height: var(--nav-h);
+  background: rgba(22, 22, 23, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.v-nav {
+  height: var(--nav-h); max-width: 1024px; margin: 0 auto; padding: 0 22px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.v-nav a {
+  font-size: 12px; line-height: 1; font-weight: 400;
+  letter-spacing: -0.01em; color: rgba(245, 245, 247, 0.8);
+  display: inline-flex; align-items: center; transition: color 0.2s;
+}
+.v-nav a:hover { color: #f5f5f7; }
+.v-wordmark { font-size: 15px !important; font-weight: 600; letter-spacing: 0.16em !important; }
+
+.v-promo {
+  background: var(--ground); color: var(--grey);
+  font-size: 14px; line-height: 1.43; text-align: center;
+  padding: 13px 20px;
+}
+.v-promo a { color: var(--blue); display: inline-flex; align-items: center; gap: 1px; }
+.v-promo a:hover { text-decoration: underline; }
+
+/* ---- Units (marquee + tiles) -------------------------------------------- */
+
+.v-unit {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; background: #fff;
+}
+.v-copy {
+  position: relative; z-index: 2;
+  width: 100%; max-width: 980px; padding: 52px 24px 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.v-art { position: relative; flex: 1; width: 100%; min-height: 0; }
+.v-art img { object-fit: cover; object-position: center; }
+
+.v-eyebrow {
+  font-size: 19px; line-height: 1.21; font-weight: 400;
+  letter-spacing: 0.011em; color: #f56300; margin-bottom: 6px;
+}
+
+.v-marquee { height: 692px; background: #000; color: #f5f5f7; }
+.v-marquee h1 {
+  font-size: 56px; line-height: 1.07; font-weight: 600; letter-spacing: -0.005em;
+}
+.v-marquee .v-subhead { font-size: 28px; line-height: 1.11; font-weight: 400; letter-spacing: 0.007em; }
+
+.v-tile { height: 580px; }
+.v-tile h2 {
+  font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: 0em;
+}
+.v-tile .v-subhead { font-size: 19px; line-height: 1.21; font-weight: 400; letter-spacing: 0.012em; }
+
+.v-subhead { margin-top: 6px; }
+
+.v-dark { background: #000; color: #f5f5f7; }
+.v-light { background: #fafafa; color: var(--ink); }
+
+/* A product photographed on a pale background would read as a floating white
+   box on a black unit, so dark units get a contained shot on their own plate. */
+.v-dark .v-art { background: linear-gradient(180deg, #f7f8fa, #e8eaee); }
+.v-dark .v-art img { object-fit: contain; padding: 4% 6% 6%; }
+
+.v-links {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 8px 26px; margin-top: 17px;
+}
+.v-link {
+  display: inline-flex; align-items: center; gap: 1px;
+  font-size: 21px; line-height: 1.19; letter-spacing: 0.011em; color: var(--blue);
+}
+.v-link:hover { text-decoration: underline; }
+
+/* FLAW 1 (seeded): the primary buy CTA sits at roughly 1.3:1 against white and
+   1.4:1 against black. Fails WCAG AA badly and reads as a disabled control. */
+.v-link.v-buy { color: #d2d2d7; }
+.v-dark .v-link.v-buy, .v-marquee .v-link.v-buy { color: #2f2f31; }
+
+/* FLAW 3 (seeded): delivery surcharge that contradicts the promo bar above it. */
+.v-delivery { margin-top: 10px; font-size: 14px; color: var(--grey); }
+.v-dark .v-delivery, .v-marquee .v-delivery { color: #86868b; }
+.v-tile .v-link { font-size: 17px; line-height: 1.24; }
+.v-from { font-size: 17px; line-height: 1.24; color: var(--grey); }
+.v-dark .v-from, .v-marquee .v-from { color: #86868b; }
+
+/* Apple's links sit on a brighter blue against black. */
+.v-dark .v-link, .v-marquee .v-link { color: #2997ff; }
+
+.v-grid {
+  max-width: 1680px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  padding: 12px 0 0;
+}
+
+/* ---- Footer -------------------------------------------------------------- */
+
+.v-footer { background: var(--ground); color: var(--grey); font-size: 12px; line-height: 1.33; }
+.v-footer-inner { max-width: 1024px; margin: 0 auto; padding: 0 22px 20px; }
+.v-fine { padding: 17px 0; border-bottom: 1px solid #d2d2d7; }
+.v-footer-cols {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 26px;
+  padding: 18px 0 22px; border-bottom: 1px solid #d2d2d7;
+}
+.v-footer-cols h3 { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 9px; }
+.v-footer-cols li { margin-bottom: 8px; }
+.v-footer-cols a:hover { text-decoration: underline; color: var(--ink); }
+.v-footer-legal {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 20px; padding-top: 17px;
+}
+.v-footer-legal nav { display: flex; flex-wrap: wrap; gap: 0 10px; }
+.v-footer-legal nav a { position: relative; padding-right: 10px; }
+.v-footer-legal nav a:not(:last-child)::after {
+  content: ""; position: absolute; right: 0; top: 50%;
+  transform: translateY(-50%); height: 12px; width: 1px; background: #d2d2d7;
+}
+.v-footer-legal nav a:hover { text-decoration: underline; color: var(--ink); }
+
+/* ---- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 1068px) {
+  .v-marquee h1 { font-size: 48px; }
+  .v-marquee .v-subhead { font-size: 24px; }
+  .v-tile h2 { font-size: 32px; }
+}
+
+@media (max-width: 734px) {
+  .v-nav { padding: 0 16px; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+  .v-nav::-webkit-scrollbar { display: none; }
+  .v-promo { font-size: 12px; padding: 11px 16px; }
+
+  .v-grid { grid-template-columns: 1fr; }
+  .v-marquee { height: 520px; }
+  .v-marquee h1 { font-size: 40px; }
+  .v-marquee .v-subhead { font-size: 19px; }
+  .v-tile { height: 490px; }
+  .v-tile h2 { font-size: 30px; }
+  .v-tile .v-subhead { font-size: 17px; }
+  .v-copy { padding-top: 42px; }
+  .v-link { font-size: 17px; }
+
+  .v-footer-cols { grid-template-columns: repeat(2, 1fr); }
+  .v-footer-legal { flex-direction: column; align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v *, .v *::before, .v *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}
