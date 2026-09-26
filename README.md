@@ -6,7 +6,7 @@ More and more shopping is done by AI agents, and most stores are not built for t
 
 **[Live demo](https://darwin-production-7899.up.railway.app)** ·
 [Demo websites](demo-websites/) ·
-[3-minute demo script](docs/DEMO.md) ·
+[3 minute demo script](docs/DEMO.md) ·
 [What works and what's left](docs/STATUS.md)
 
 ![Darwin's Overview: conversion per version, the live A vs B test, which AI agents buy, and the funnel for people and agents](docs/screenshots/03-overview.png)
@@ -145,7 +145,7 @@ shop the store and issue a certificate and badge. The result below is Rackd, the
 
 ### The demo store: PACE
 
-`/store` is PACE, a running-shoe shop that Darwin optimizes in the demo. Every page is drawn from a settings file
+`/store` is PACE, a running shoe shop that Darwin optimizes in the demo. Every page is drawn from a settings file
 (`storefront.config.json`), so each change Darwin ships shows up on the page. AI agents shop the same store through its
 own MCP server and A2A merchant agent, which can haggle within a set limit.
 
@@ -155,8 +155,8 @@ own MCP server and A2A merchant agent, which can haggle within a set limit.
 
 [`demo-websites/fleek-site`](demo-websites/fleek-site/) is Rackd, a standalone wholesale vintage store (laid out like
 Fleek) with conversion mistakes built in: a weak hero button, add to cart buried under the description, hidden
-shipping fees at the last step, a three-step checkout that forces an account. Each mistake comes from one setting, so
-Darwin's winning pull request fixes it. There is also a plain-HTML store at `/demo/north-trail` for Personalize.
+shipping fees at the last step, a three step checkout that forces an account. Each mistake comes from one setting, so
+Darwin's winning pull request fixes it. There is also a plain HTML store at `/demo/north-trail` for Personalize.
 
 ![Rackd demo site](docs/screenshots/16-demo-site-rackd.png)
 
@@ -174,7 +174,7 @@ changes for agents too, such as showing stock per size, delivery dates, the retu
 in the data agents read.
 
 **A crew, and you can drive it from anywhere.** Everything a merchant can do in the console is a command, so the same
-actions run from the chat bar, the ⌘K palette, the Agent view (the page as a machine-readable document), a browser
+actions run from the chat bar, the ⌘K palette, the Agent view (the page as a machine readable document), a browser
 agent over WebMCP, Darwin's own MCP server, a command line tool and Telegram.
 
 **Honesty rules.**
@@ -229,7 +229,7 @@ node seed/seed.mjs --darwin http://localhost:3000 --reset  # optional: makes Rac
 
 ## Environment keys
 
-All optional. Without any, the loop uses its built-in playbook, pull requests are previews and Whop runs on a demo
+All optional. Without any, the loop uses its built in playbook, pull requests are previews and Whop runs on a demo
 catalog. See [`apps/web/.env.example`](apps/web/.env.example) for every setting.
 
 | Key | What it turns on |
@@ -250,7 +250,7 @@ catalog. See [`apps/web/.env.example`](apps/web/.env.example) for every setting.
 
 Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Motion, Recharts, SWR and zod. Events arrive through
 posthog-js pointed at Darwin's own `/ingest` endpoint (no PostHog account needed). LLMs through OpenRouter, xAI or
-Anthropic, always with a rule-based fallback. Tavily for research, the Whop and GitHub APIs, optional Supabase. Tests
+Anthropic, always with a rule based fallback. Tavily for research, the Whop and GitHub APIs, optional Supabase. Tests
 with Vitest, browser checks with Playwright. The live demo runs on Railway.
 
 ## Limits worth knowing
