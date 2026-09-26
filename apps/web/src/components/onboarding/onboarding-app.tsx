@@ -52,6 +52,7 @@ import {
 } from "@/components/dw/onboarding/bits";
 import { AskChat, answerChips, composePrompt, type Answers } from "@/components/dw/onboarding/ask";
 import { PrCard } from "@/components/dw/onboarding/pr-card";
+import { RepoPicker } from "@/components/dw/onboarding/repo-picker";
 import { clearProgress, loadProgress, saveProgress, type SavedProgress } from "@/components/dw/onboarding/persist";
 
 /* ------------------------------------------------------------------ data */
@@ -89,14 +90,6 @@ const DRAFT_KEY = "darwin-onboarding-draft";
 interface AuthSession {
   providers: { github: boolean };
   github?: { login: string; name?: string; avatarUrl?: string };
-}
-
-interface RepoSummary {
-  fullName: string;
-  private: boolean;
-  defaultBranch: string;
-  updatedAt: string;
-  description?: string;
 }
 
 interface Message {
@@ -337,15 +330,16 @@ export function OnboardingApp() {
       <main data-dw className="relative min-h-screen w-full overflow-clip bg-dw-bg font-dw text-dw-ink">
         <Backdrop stage={stage} />
 
-        <div className={cn("relative mx-auto flex min-h-screen w-full flex-col px-4 transition-[max-width] duration-500 sm:px-7", WIDTH[stage])}>
+        <div className="relative flex min-h-screen w-full flex-col">
           {/* Screen 1 is the composer and nothing else; the nav arrives with the next step. */}
           <AnimatePresence>
             {stage !== "connect" && (
               <motion.nav
+                key="nav"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, ease: EASE }}
-                className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-3 pt-5 md:grid-cols-[1fr_auto_1fr]"
+                className="mx-auto grid w-full max-w-[1600px] grid-cols-[auto_1fr] items-center gap-x-3 gap-y-3 px-4 pt-5 sm:px-7 md:grid-cols-[1fr_auto_1fr]"
               >
                 <Link href="/console" aria-label="Darwin console" className="flex items-center gap-2.5 justify-self-start rounded-full focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none">
                   <Mascot kind="analyst" size={32} active />
@@ -366,7 +360,7 @@ export function OnboardingApp() {
             )}
           </AnimatePresence>
 
-          <div className={cn("flex flex-1 flex-col pb-20", stage === "connect" ? "justify-center py-10" : "pt-8 sm:pt-10")}>
+          <div className={cn("mx-auto flex w-full flex-1 flex-col px-4 pb-20 transition-[max-width] duration-500 sm:px-7", WIDTH[stage], stage === "connect" ? "justify-center py-10" : "pt-8 sm:pt-10")}>
             <AnimatePresence mode="wait">
               {stage === "connect" && (
                 <motion.section key="connect" {...fade} className="flex flex-col items-center gap-8 sm:gap-10">
@@ -429,6 +423,7 @@ export function OnboardingApp() {
                       {open === "github" && (
                         <Drawer key="github">
                           <GithubConnect
+                            current={repo}
                             status={ghStatus}
                             auth={auth}
                             authError={authError}
@@ -1331,6 +1326,7 @@ function WhopMarkInline() {
 }
 
 function GithubConnect({
+  current,
   status,
   auth,
   authError,
@@ -1338,6 +1334,7 @@ function GithubConnect({
   onConnected,
   onWebsite,
 }: {
+  current: string | null;
   status: (GithubStatusResponse & { dryRun?: boolean }) | null;
   auth: AuthSession | null;
   authError: string | null;
@@ -1349,23 +1346,16 @@ function GithubConnect({
   const [error, setError] = useState<string | null>(authError);
   const [paste, setPaste] = useState(false);
   const [noGithub, setNoGithub] = useState(false);
-  const [repos, setRepos] = useState<RepoSummary[] | null>(null);
-  const [filter, setFilter] = useState("");
+  /** The repos API said 401: the sign-in expired, so offer it again. */
+  const [expired, setExpired] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const signedIn = !!auth?.github;
+  const signedIn = !!auth?.github && !expired;
   const oauth = !!auth?.providers.github;
+  const onUnauthorized = useCallback(() => setExpired(true), []);
 
-  useEffect(() => {
-    if (!signedIn) return;
-    http<{ repos: RepoSummary[] }>("GET", "/api/auth/github/repos").then(
-      (r) => setRepos(r.repos),
-      (e) => setError((e as Error).message),
-    );
-  }, [signedIn]);
   useEffect(() => input.current?.focus(), [paste, signedIn]);
 
   const dryRun = !signedIn && (status ? (status.dryRun ?? !status.configured) : false);
-  const shown = (repos ?? []).filter((r) => r.fullName.toLowerCase().includes(filter.trim().toLowerCase())).slice(0, 8);
 
   if (noGithub) return <WebsiteConnect onWebsite={onWebsite} onGithub={() => setNoGithub(false)} />;
   const other = <NoGithub onChoose={() => setNoGithub(true)} />;
@@ -1374,7 +1364,9 @@ function GithubConnect({
   if (oauth && !signedIn && !paste) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-[14px] leading-snug text-dw-ink/70">Sign in so Darwin can see your repositories and open the install pull request as you. It only ever changes code through pull requests you review.</p>
+        <p className="text-[14px] leading-snug text-dw-ink/70">
+          {expired ? "Your GitHub sign-in has expired. Sign in again to pick your repository." : "Sign in so Darwin can see your repositories and open the install pull request as you. It only ever changes code through pull requests you review."}
+        </p>
         <PillButton size="lg" onClick={onSignIn} className="w-full">
           <BrandGlyph brand="github" size={18} /> Sign in with GitHub
         </PillButton>
@@ -1387,7 +1379,7 @@ function GithubConnect({
     );
   }
 
-  // 2. Signed in: pick one of your repositories.
+  // 2. Signed in: pick one of your repositories from the dropdown.
   if (signedIn && !paste) {
     return (
       <div className="flex flex-col gap-3">
@@ -1409,35 +1401,7 @@ function GithubConnect({
             Sign out
           </button>
         </div>
-        <input ref={input} value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search your repositories" aria-label="Search your repositories" className={inputCls} />
-        {!repos && !error && (
-          <span className="flex items-center gap-2 text-[13.5px] text-dw-ink/55">
-            <LoaderCircle className="size-4 animate-spin" /> Loading your repositories…
-          </span>
-        )}
-        {repos && (
-          <ul className="flex max-h-72 flex-col gap-1.5 overflow-y-auto" role="listbox" aria-label="Your repositories">
-            {shown.map((r) => (
-              <li key={r.fullName}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  onClick={() => onConnected(r.fullName)}
-                  className="dw-row flex w-full items-center gap-3 rounded-[16px] bg-white px-3.5 py-2.5 text-left hover:bg-dw-surface focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
-                >
-                  <BrandGlyph brand="github" size={16} className="dw-tilt shrink-0 text-dw-ink/60" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-dwmono text-[13.5px] text-dw-ink">{r.fullName}</span>
-                    {r.description && <span className="block truncate text-[12.5px] text-dw-ink/55">{r.description}</span>}
-                  </span>
-                  {r.private && <Tag tone="outline">private</Tag>}
-                </button>
-              </li>
-            ))}
-            {!shown.length && <li className="px-1 text-[13.5px] text-dw-ink/55">No repositories match.</li>}
-          </ul>
-        )}
+        <RepoPicker login={auth!.github!.login} selected={current} onPick={onConnected} onUnauthorized={onUnauthorized} />
         <button type="button" onClick={() => setPaste(true)} className={linkCls}>
           or paste a repository URL
         </button>

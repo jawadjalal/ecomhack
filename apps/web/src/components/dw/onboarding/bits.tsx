@@ -4,7 +4,7 @@
  * Onboarding pieces in the cream Darwin design: stepper, chat bubbles, the crew working through steps,
  * check animations, the "which brain" chip and the stage backdrop. Used by components/onboarding.
  */
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, ChevronRight, ListChecks, TriangleAlert } from "lucide-react";
 import { cn } from "@/components/ui/cn";
@@ -269,8 +269,18 @@ export function ErrorLine({ error }: { error: string }) {
 
 /** A drawer that opens inside the composer (GitHub, Whop). */
 export function Drawer({ children }: { children: ReactNode }) {
+  // Clipped while it slides open or shut; visible once open, so dropdowns inside can float over the page.
+  const [open, setOpen] = useState(false);
   return (
-    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease: EASE }} className="overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.28, ease: EASE }}
+      onAnimationStart={() => setOpen(false)}
+      onAnimationComplete={() => setOpen(true)}
+      className={open ? "relative z-30 overflow-visible" : "overflow-hidden"}
+    >
       <div className="mx-3 mb-1 rounded-[22px] bg-dw-sand/70 p-4 sm:mx-4">{children}</div>
     </motion.div>
   );

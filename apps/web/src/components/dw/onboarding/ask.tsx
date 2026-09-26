@@ -212,9 +212,9 @@ export function AskChat({
                             ) : o.id === "whop" ? (
                               <WhopLogo size={18} />
                             ) : (
-                              <span className="flex -space-x-1.5 px-1.5">
+                              <span className="flex -space-x-2 px-1.5">
                                 {AGENTS.map((b) => (
-                                  <AgentTile key={b.key} brand={b} size={20} />
+                                  <AgentTile key={b.key} brand={b} size={24} className="ring-2 ring-white" />
                                 ))}
                               </span>
                             )}
