@@ -2,7 +2,8 @@
 
 > **For the agent on the demo laptop (Jawad's):** work through every step in order, run the commands,
 > tick each check, and report back anything that fails. Don't skip the checks. The stage script itself is
-> [`DEMO.md`](./DEMO.md); this file gets the machine ready for it.
+> [`DEMO.md`](./DEMO.md); this file gets the machine ready for it. Filming the VANTA loop instead? Follow
+> [`VANTA-DEMO.md`](./VANTA-DEMO.md).
 
 **Why local, not Vercel:** the live site runs several copies of the app, each with its own in-memory data,
 so dashboards jump between full and empty on refresh (measured: 300 → 0 → 0 → 0 visitors on consecutive

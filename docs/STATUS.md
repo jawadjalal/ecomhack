@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 15:00 UTC (Telegram tools via runAssistant)
+Last updated: 2026-09-26 15:50 UTC (VANTA filmed demo loop)
 
 ---
 
@@ -19,7 +19,7 @@ Scored against the hackathon brief: *behaviour → insight → page change → b
 | Commerce innovation | 8 | A store that sells to AI agents three ways and optimises for them; agent checkout counted end to end | A real third-party agent buying live on the real Whop store |
 | Real-world usefulness | 5 | Mostly simulated traffic; the demo store is a demo | Real Whop store + script-tag install on a real site + one real purchase |
 | UX | 7 | Cream design system, mascots, real brand logos, mobile | Above-the-fold pass (in progress) |
-| Demo quality | 7 | One story everywhere: /store is PACE and every console screen is about it, filled on boot with labelled simulated shoppers; onboarding has "Skip: explore with the demo store" | Rewrite `docs/DEMO.md` on the new screens and rehearse; `?mock=1` offline fallback |
+| Demo quality | 7 | One story everywhere: /store is PACE and every console screen is about it, filled on boot with labelled simulated shoppers; onboarding has "Skip: explore with the demo store". A filmable 2-minute VANTA loop on `/console/classic` ships Gen 1 about 15 s after reset (`docs/VANTA-DEMO.md`) | Rewrite `docs/DEMO.md` on the new screens and rehearse; `?mock=1` offline fallback; real VANTA photos and a VANTA catalog for the simulator (the filmed feed still names PACE shoes) |
 
 **The one question judges will ask: "is any of this real?"** Answer on stage with a real Grok bot buying on the Whop store (`/a2a/whop`), then the Grok teammate messaging the merchant what it learned.
 
@@ -100,6 +100,13 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Done:** editorial store (#34), working Search, Account page, newsletter sign-up, `WELCOME10` discount code, mobile. **PACE end to end by default** (`lib/storefront/showcase.ts`): the Whop showcase used to rename the store "STORE" and add 8 unrelated Whop products (other creators', linking to whop.com) above the shoes, and made every page call Whop (1–4 s TTFB, images kept pages loading). `DARWIN_STORE_CATALOG=whop` brings the strip back for a Whop-only demo.
 - **Left to do:** "Already have an account? Sign in" is still a dead span; the PACE demo components hard-code "4.8/5 from 12,400+ runners" / "Rated 4.8 by 12,400 runners" (use real per-product ratings).
 
+### VANTA storefront `/vanta` (filmed loop)  ✅
+- **Done:** one spec-driven component (`components/store/vanta/vanta-home.tsx`) renders VANTA from existing PageSpec fields: ratings, trust strip, returns band, quotes, delivery estimate or the "+£9.95 delivery" line, the promo, low-stock urgency, stock counts, JSON-LD with descriptive alt text, and grey link vs blue pill vs sticky buy bar. `/vanta` serves the live spec or the visitor's experiment arm and accepts `?previewSpec=` (StoreProvider, PageView, `data-darwin` attributes). `/vanta/after` is a static reference of the full target spec. The drifting `vanta-after.tsx` is gone. Runbook with env, click path and measured runs: [`VANTA-DEMO.md`](./VANTA-DEMO.md).
+- **Demo env (seed 42):** `LLM_PROVIDER=none`, `DARWIN_DEMO_SEED=0`, `DARWIN_SEED=42`, `DARWIN_DEMO_HUMANS=8000`, `DARWIN_DEMO_AGENTS=800`, `DARWIN_ROUND_HUMANS=16000`, `DARWIN_ROUND_AGENTS=300`, `DARWIN_MIN_ARM_VISITORS=4000`, `DARWIN_MIN_ARM_AGENTS=500`, `DARWIN_MAX_ROUNDS=2`, `DARWIN_GITHUB_DRY_RUN=1`. Measured on the production build, autopilot at the console's cadence, synthetic traffic: Gen 1 "Expose per-size stock to AI shoppers" shipped 15.0 s after reset (AI shoppers 18.61% → 28.90%, +55.3%, P 100%); Gen 4 (sticky + reviews + delivery estimate) at 76.2 s. History: humans 2.27% → 3.65%, AI shoppers 16.81% → 40.00% (Gen 0 → Gen 4). In Chrome, about 16 s from pressing A to the Gen 1 ship. Over 16 resets, Gen 1 shipped at step 6 every time and the sticky change 13 times.
+- **Left to do:** replace `public/store/*.jpg`: they're copies of VOLT's phone, laptop and headphones placeholders, so the M1 Rangefinder hero shows phones. Give the simulator and agent API a VANTA catalog: the live feed and agent transcripts name PACE shoes.
+- **Limitations:** Gen 1 (stock for AI shoppers) barely changes the page for humans. Checkout changes don't render (VANTA has no checkout page). The loop didn't ship the free-delivery fix in the measured runs, so "delivery Thursday, £9.95" still sits under the free-delivery promo at Gen 4.
+- **Next-run ideas:** a VANTA-aware playbook that skips changes VANTA can't show (checkout); word "per-size stock" for any catalog, not only shoes.
+
 ### Grok teammate (briefing)  ✅
 - **Done:** `GET /api/briefing`, `POST /api/briefing/act`, `docs/GROK_BOT.md`, xAI → OpenRouter fallback.
 - **Left to do:** set `XAI_API_KEY` on Vercel and run the real bot; a loop test can't be shipped from chat while running (needs `POST /api/loop/decide`).
@@ -120,8 +127,11 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Limitations:** the badge SVG (`/api/readiness/badge/[id]`) keeps its dark shields style on purpose (it sits on merchants' sites); "Siri" has no official glyph in `dw/brand-logos` so it shows a monogram; results aren't persisted (share link re-runs the audit, 10-min cache).
 - **Next-run ideas:** a before/after preview ("with Darwin you'd score 95") computed from the fixable checks; re-check button that bypasses the cache (`?fresh=1`) after a merchant ships a fix; an OG image of the score for shared links.
 
-### Classic mission control `/console/classic`  ✅ (fallback)
-- Kept as the original loop view and offline fallback (`?mock=1`).
+### Classic mission control `/console/classic`  ✅ (fallback, and the console to film VANTA)
+- **Done:** kept as the original loop view and offline fallback (`?mock=1`). Now the filmed console for the VANTA loop: A/B previews, before/after and PR cards render `/vanta` (`?previewSpec=` for proposals). The Ship card names the audience a test was judged on ("Not counted: judged on AI shoppers" for the other) and colours negative deltas red. Pressing A or T turns on the shared live switch, so tiles, funnels and agent sessions refresh. The reset dialog now focuses Reset (the shared Modal ignored `data-autofocus`), so R then Enter resets.
+- **Left to do:** the Experiment row says humans "can't see this change" for agent-only changes, while VANTA also prints the stock line for humans.
+- **Limitations:** autopilot steps from the browser tab (two console tabs step twice as fast). At an agent-only ship the human tile, Evolution chart and before/after view show the test's small human sample (about 2.8%, "+22%" in the measured run) until the next Observe.
+- **Next-run ideas:** at ship, keep the non-target audience's rate from pooled data (or the previous generation) so an agent-only ship doesn't move the human tile.
 
 ---
 
@@ -137,6 +147,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 15:50 UTC — VANTA demo loop (cloud agent).** `/vanta` renders from the live PageSpec with `?previewSpec=`, and `/console/classic` previews it. Also: audience-aware Ship card, live refresh while autopilot or traffic runs, R then Enter resets, and a tuned demo env (seed 42) that ships Gen 1 15.0 s after reset. Runbook: `docs/VANTA-DEMO.md`. Still open: real product photos, a VANTA catalog for the simulator and agent API, and human-tile noise at agent-only ships.
 - **2026-09-26 15:05 UTC — install consistency.** One darwin.js tag everywhere: `installSnippet()` in lib/github (DARWIN_PUBLIC_URL, else request origin) feeds onboarding's plan response, Personalize (`install` on `GET /api/web/rules`, no more `window.location` or second `runtime.js` tag), the install PR and llms.txt. One site-id helper (`siteIdForUrl`, www/case-insensitive) and one site list (plans ∪ rules ∪ event sites) for Personalize and Traffic. Personalize's install card says Waiting for first event / Installed / Verified. Still open: onboarding's client fallback and Settings' `scriptTagFor` still build tags client-side; Dashboards/onboarding don't use the shared status words yet.
 - **2026-09-26 15:00 UTC — telegram.** Allowlisted Telegram chats now call `runAssistant` (same tools as the console assistant): step the loop, experiments, ship, autopilot, reset, with yes/no before side effects. Empty allowlist stays answer-only via `ask()` and `/help` says so. Still open: set the allowlist on Vercel.
 - **2026-09-26 14:45 UTC — telegram.** Text Darwin from Telegram through the Overview Ask Darwin chat (`ask` / `POST /api/ask` from merged PR #37), not a second assistant. Webhook secret, chat allowlist, typing, MarkdownV2, 4096 split, per-chat history (KV, Supabase when configured). Still open: set env on Vercel and register the webhook; not connected to the tool-using `/api/assistant` (PR #36). `roadmap.ts` is not on main.

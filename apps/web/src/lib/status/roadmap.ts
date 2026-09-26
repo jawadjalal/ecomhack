@@ -27,7 +27,7 @@ export interface RoadmapArea {
 }
 
 /** When docs/STATUS.md was last updated (copied from its header). */
-export const ROADMAP_UPDATED = "2026-09-26 13:40 UTC";
+export const ROADMAP_UPDATED = "2026-09-26 15:50 UTC";
 
 export const ROADMAP: RoadmapArea[] = [
   {
@@ -167,6 +167,24 @@ export const ROADMAP: RoadmapArea[] = [
     limitations: [],
     nextIdeas: [],
   },
+  // Before "store": roadmapSearch takes the first key found in the words, and "storefront" contains "store".
+  {
+    key: "vanta",
+    name: "VANTA storefront",
+    route: "/vanta",
+    status: "done",
+    done: "The filmed loop's store: one component renders VANTA from the live PageSpec (or ?previewSpec=), and /console/classic previews it. Gen 1 ships about 15 s after a reset with the demo env in docs/VANTA-DEMO.md.",
+    leftToDo: [
+      "Replace public/store/*.jpg: they're copies of VOLT's phone, laptop and headphones placeholders",
+      "Give the simulator and agent API a VANTA catalog: the live feed and agent transcripts name PACE shoes",
+    ],
+    limitations: [
+      "Checkout changes don't show on VANTA (it has no checkout page).",
+      "The loop didn't ship the free-delivery fix in the measured runs, so a delivery charge still sits under the free-delivery banner.",
+      "/vanta/after is a static reference of the full target page, not loop output.",
+    ],
+    nextIdeas: ["A VANTA-aware playbook that skips changes VANTA can't show", "Word “per-size stock” for any catalog, not only shoes"],
+  },
   {
     key: "store",
     name: "Demo storefront",
@@ -217,10 +235,13 @@ export const ROADMAP: RoadmapArea[] = [
     name: "Classic mission control",
     route: "/console/classic",
     status: "done",
-    done: "Kept as the original loop view and the offline fallback (?mock=1).",
-    leftToDo: [],
-    limitations: [],
-    nextIdeas: [],
+    done: "The original loop view, the offline fallback (?mock=1) and the console to film the VANTA loop: previews and before/after render /vanta, the Ship card names the audience a test was judged on, A or T turns live refresh on, R then Enter resets.",
+    leftToDo: ["The Experiment row says humans “can't see this change” for agent-only changes that VANTA also prints for humans"],
+    limitations: [
+      "Autopilot steps from the browser tab: two console tabs step twice as fast.",
+      "At an agent-only ship the human tile shows the test's small human sample until the next Observe.",
+    ],
+    nextIdeas: ["At ship, keep the non-target audience's rate from pooled data so an agent-only ship doesn't move the human tile"],
   },
 ];
 
