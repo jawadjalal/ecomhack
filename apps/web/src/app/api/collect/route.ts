@@ -1,3 +1,4 @@
+import { withGeo } from "@/lib/traffic";
 import { allowIngest, sanitizeClientEvents } from "@/lib/analytics/trust";
 import { z } from "zod";
 import type { AnalyticsEventInput } from "@/lib/contracts";
@@ -97,6 +98,6 @@ export async function POST(req: Request) {
   });
   if (!allowIngest(req, events.length)) return json({ error: "Too many events" }, 429);
   // Other sites' events never count towards Darwin's experiments.
-  const stored = track(sanitizeClientEvents(events, "external"));
+  const stored = track(withGeo(sanitizeClientEvents(events, "external"), req.headers));
   return json({ ok: true, count: stored.length });
 }

@@ -79,6 +79,7 @@ export const config = {
     "/api/loop",
     "/api/github/:path*",
     "/api/whop/:path*",
+    "/api/traffic",
     "/api/simulate",
     "/api/agent/shop",
     "/api/agent/sessions",
