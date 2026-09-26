@@ -21,6 +21,7 @@ import "./vanta.css";
  *   cart.showShippingUpfront           hides the +£9.95 line that contradicts the promo
  *   cart.freeShippingThreshold         0 = free delivery (honest promo)
  *   agentSurface.structuredData        JSON-LD graph AND descriptive alt text
+ *   agentSurface.exposeStock           per-product stock count (+ JSON-LD inventoryLevel)
  *   productPage.ctaPosition/ctaText    grey "below-description" link vs #0071e3 pill
  *   ctaPosition === "sticky"           sticky buy bar
  */
@@ -143,10 +144,10 @@ function promoCopy(spec: PageSpec): string {
   return `Next-day delivery ${formatGBP(DELIVERY_PENCE)}.`;
 }
 
-function deliveryEstimate(pence: number, spec: PageSpec): string {
+function deliveryEstimate(pence: number, spec: PageSpec, stock = "In stock"): string {
   const shipping = shippingPence(pence, spec);
-  if (shipping === 0) return "In stock — free delivery Thursday";
-  return `In stock — delivery Thursday, ${formatGBP(shipping)}`;
+  if (shipping === 0) return `${stock} — free delivery Thursday`;
+  return `${stock} — delivery Thursday, ${formatGBP(shipping)}`;
 }
 
 /** Descriptive alt only when agents get structured data — one knob, both readability fixes. */
@@ -183,6 +184,7 @@ function productGraph(spec: PageSpec) {
           price: (tile.pence / 100).toFixed(2),
           priceCurrency: "GBP",
           availability: "https://schema.org/InStock",
+          ...(spec.agentSurface.exposeStock ? { inventoryLevel: { "@type": "QuantitativeValue", value: tile.left } } : {}),
           shippingDetails: {
             "@type": "OfferShippingDetails",
             shippingRate: {
@@ -236,6 +238,8 @@ function BuyCta({ spec, href, darwin, large = false }: { spec: PageSpec; href: s
 
 function ProductMeta({ tile, spec, hero = false }: { tile: Tile; spec: PageSpec; hero?: boolean }) {
   const low = spec.productPage.urgency === "low-stock" && tile.left <= LOW_STOCK;
+  // The urgency line already states the count.
+  const stock = spec.agentSurface.exposeStock && !low ? `${tile.left.toLocaleString("en-GB")} in stock` : undefined;
   return (
     <>
       {spec.productGrid.showRatings && <Rating rating={tile.rating} reviews={tile.reviews} />}
@@ -249,10 +253,16 @@ function ProductMeta({ tile, spec, hero = false }: { tile: Tile; spec: PageSpec;
       {!spec.cart.showShippingUpfront && (
         <p className="v-delivery">+{formatGBP(DELIVERY_PENCE)} delivery</p>
       )}
-      {spec.productPage.showDeliveryEstimate && (
+      {spec.productPage.showDeliveryEstimate ? (
         <p className="v-stock" data-darwin="delivery-estimate">
-          {deliveryEstimate(tile.pence, spec)}
+          {deliveryEstimate(tile.pence, spec, stock)}
         </p>
+      ) : (
+        stock && (
+          <p className="v-stock" data-darwin="stock-level">
+            {stock}
+          </p>
+        )
       )}
       {low && (
         <p className="v-stock v-stock-low" data-darwin="urgency">
