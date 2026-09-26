@@ -10,6 +10,7 @@
  *
  * Every event is classified server-side (human vs agent) before it is stored.
  */
+import { withGeo } from "@/lib/traffic";
 import { allowIngest, sanitizeClientEvents } from "@/lib/analytics/trust";
 import type { NextRequest } from "next/server";
 import { track } from "@/lib/analytics/store";
@@ -68,7 +69,7 @@ async function capture(req: NextRequest, payload: () => Promise<unknown> | unkno
       sentAt,
     });
     // Over the per-IP budget: answer OK (posthog-js retries errors) but keep nothing.
-    if (mapped.length && allowIngest(req, mapped.length)) track(sanitizeClientEvents(mapped, "storefront"));
+    if (mapped.length && allowIngest(req, mapped.length)) track(withGeo(sanitizeClientEvents(mapped, "storefront"), req.headers));
     return json(req, { status: 1 });
   } catch (err) {
     if (err instanceof IngestError) {
