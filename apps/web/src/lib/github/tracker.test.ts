@@ -39,7 +39,7 @@ class FakeEl {
 }
 
 /** Boot darwin.js in a sandbox with just enough DOM. */
-function boot(opts: { cookie?: string; gpc?: boolean; webdriver?: boolean; preQueue?: unknown[] } = {}) {
+function boot(opts: { cookie?: string; gpc?: boolean; webdriver?: boolean; preQueue?: unknown[]; search?: string } = {}) {
   const posts: { url: string; body: SentEvent[]; headers: Record<string, string>; beacon: boolean }[] = [];
   const listeners: Record<string, Listener[]> = {};
   const on = (type: string, fn: Listener) => (listeners[type] ??= []).push(fn);
@@ -48,7 +48,7 @@ function boot(opts: { cookie?: string; gpc?: boolean; webdriver?: boolean; preQu
     const m = new Map<string, string>();
     return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
   };
-  const location = { href: "https://shop.test/", pathname: "/", origin: "https://shop.test", protocol: "https:", host: "shop.test" };
+  const location = { href: "https://shop.test/", pathname: "/", search: opts.search ?? "", origin: "https://shop.test", protocol: "https:", host: "shop.test" };
   const navigate = (path: string) => {
     location.pathname = path;
     location.href = `https://shop.test${path}`;
@@ -58,8 +58,11 @@ function boot(opts: { cookie?: string; gpc?: boolean; webdriver?: boolean; preQu
     src: "https://darwin.example.com/darwin.js",
     getAttribute: (k: string) => ({ "data-darwin-site": "acme-storefront" })[k] ?? null,
   };
+  const appended: { async?: boolean; src?: string }[] = [];
   const document = {
     currentScript: script,
+    head: { appendChild: (el: { async?: boolean; src?: string }) => void appended.push(el) },
+    createElement: () => ({}) as { async?: boolean; src?: string },
     querySelector: () => script,
     get cookie() {
       return cookie;
@@ -111,12 +114,21 @@ function boot(opts: { cookie?: string; gpc?: boolean; webdriver?: boolean; preQu
   const runTimers = () => timers.splice(0).forEach((t) => t());
   const events = () => posts.flatMap((p) => p.body);
   const fire = (type: string, e: Record<string, unknown> = {}) => (listeners[type] ?? []).forEach((l) => l(e));
-  return { darwin, posts, events, fire, runTimers, history, cookie: () => cookie };
+  return { darwin, posts, events, fire, runTimers, history, cookie: () => cookie, appended, window };
 }
 
 describe("darwin.js tracker", () => {
-  it("is under 4 KB and valid JavaScript", () => {
-    expect(Buffer.byteLength(TRACKER_JS)).toBeLessThan(4096);
+  it("loads the site's personalization runtime from the script's origin", () => {
+    const { appended } = boot();
+    expect(appended).toEqual([{ async: true, src: "https://darwin.example.com/api/web/runtime.js?site=acme-storefront" }]);
+    // The console previews drafts with ?darwin_preview=<rule id>; only a safe id is passed on.
+    const preview = boot({ search: "?darwin_preview=wr_abc123&darwin_variant=treatment" }).appended[0];
+    expect(preview.src).toBe("https://darwin.example.com/api/web/runtime.js?site=acme-storefront&darwin_preview=wr_abc123");
+    expect(boot({ search: "?darwin_preview=%22%3E%3Cscript" }).appended[0].src).not.toContain("script");
+  });
+
+  it("is under 4.5 KB and valid JavaScript", () => {
+    expect(Buffer.byteLength(TRACKER_JS)).toBeLessThan(4608);
     expect(() => new vm.Script(TRACKER_JS)).not.toThrow();
   });
 

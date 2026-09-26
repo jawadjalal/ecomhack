@@ -562,7 +562,7 @@ export function buildInstallPrBody({ repo, detection, plan, snippet, mode }: Ins
   }
 
   out.push(
-    "The script is under 4 KB (~2 KB gzipped), has no dependencies, loads with `defer` / `afterInteractive` (never blocks rendering) and sends events in batches.",
+    "The script is under 5 KB (~2 KB gzipped), has no dependencies, loads with `defer` / `afterInteractive` (never blocks rendering) and sends events in batches.",
     "",
     ...(detection.framework.startsWith("nextjs") && !plan.manual
       ? ["```tsx", `<Script src="${snippet.src}" data-darwin-site="${snippet.siteId}" strategy="afterInteractive" />`, "```"]

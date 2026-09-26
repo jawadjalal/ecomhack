@@ -22,9 +22,14 @@ export const PROTECTED_PREFIXES = [
   "/api/agent/sessions",
   "/api/experiments",
   "/api/analytics",
+  "/api/web",
 ] as const;
 
+/** Public paths under a protected prefix: loaded by merchants' storefronts. */
+export const PUBLIC_EXCEPTIONS = ["/api/web/runtime.js"] as const;
+
 export function isProtectedPath(pathname: string): boolean {
+  if ((PUBLIC_EXCEPTIONS as readonly string[]).includes(pathname)) return false;
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
