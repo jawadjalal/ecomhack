@@ -2,10 +2,10 @@
  * Analytics summary: KPIs + funnel per visitor kind, friction signals, agent tool stats, and
  * per-variant experiment comparison.
  *
- * Everything is computed in ONE pass over the event store (200k events in well under 500ms),
- * with small per-visitor state for the signals that need ordering (rage clicks, shipping shock,
- * dead ends). Funnel semantics: a visitor "reached" a step if they ever fired that event
- * (agents enter the funnel via `agent_request` instead of `$pageview`).
+ * Everything is computed in ONE pass over the event store (200k events in well under 500ms): one
+ * visitor map holds funnel steps as bitmasks plus the little state the ordered signals need (rage
+ * clicks, shipping shock, dead ends). Funnel semantics: a visitor "reached" a step if they ever fired
+ * that event (agents enter the funnel via `agent_request` instead of `$pageview`).
  */
 import {
   EVENTS,
@@ -22,9 +22,22 @@ import {
 } from "@/lib/contracts";
 import { eventStore } from "./store";
 
+// Event names as module-local constants: imported bindings are getter calls under some transforms
+// (vitest, tsx, dev bundles), which is measurable in a 200k-iteration loop.
+const PAGELEAVE: string = EVENTS.pageleave;
+const AUTOCAPTURE: string = EVENTS.autocapture;
+const RAGECLICK: string = EVENTS.rageclick;
+const PRODUCT_VIEWED: string = EVENTS.productViewed;
+const PRODUCT_ADDED: string = EVENTS.productAdded;
+const SHIPPING_REVEALED: string = EVENTS.shippingRevealed;
+const CHECKOUT_ABANDONED: string = EVENTS.checkoutAbandoned;
+const ORDER_COMPLETED: string = EVENTS.orderCompleted;
+const AGENT_REQUEST: string = EVENTS.agentRequest;
+const AGENT_ABANDONED: string = EVENTS.agentAbandoned;
+
 const STEP_COUNT = FUNNEL_STEPS.length;
-const STEP_INDEX: Record<string, number> = Object.fromEntries(FUNNEL_STEPS.map((s, i) => [s, i]));
-STEP_INDEX[EVENTS.agentRequest] = 0;
+const STEP_INDEX = new Map<string, number>(FUNNEL_STEPS.map((s, i) => [s, i]));
+STEP_INDEX.set(AGENT_REQUEST, 0);
 
 /** Rage click fallback: this many autocaptured clicks on one element… */
 const RAGE_CLICKS = 3;
@@ -44,6 +57,8 @@ interface CompiledFilter {
   variant?: string;
   specVersion?: number;
   excludeSynthetic: boolean;
+  /** False when the filter is empty, so the hot loop can skip it. */
+  active: boolean;
 }
 
 const isoOrRaw = (s: string | undefined) => {
@@ -53,7 +68,7 @@ const isoOrRaw = (s: string | undefined) => {
 };
 
 function compileFilter(f: AnalyticsFilter): CompiledFilter {
-  return {
+  const cf = {
     from: isoOrRaw(f.from),
     to: isoOrRaw(f.to),
     visitorKind: f.visitorKind,
@@ -62,9 +77,12 @@ function compileFilter(f: AnalyticsFilter): CompiledFilter {
     specVersion: f.specVersion,
     excludeSynthetic: f.includeSynthetic === false,
   };
+  const active = Boolean(cf.from || cf.to || cf.visitorKind || cf.experimentId || cf.variant || cf.excludeSynthetic || cf.specVersion !== undefined);
+  return { ...cf, active };
 }
 
 function matches(e: AnalyticsEvent, f: CompiledFilter): boolean {
+  if (!f.active) return true;
   const p = e.properties;
   if (f.from && e.timestamp < f.from) return false;
   if (f.to && e.timestamp > f.to) return false;
@@ -83,23 +101,92 @@ export function filterEvents(events: readonly AnalyticsEvent[], f: AnalyticsFilt
 
 /* ------------------------------------------------------------------ KPIs */
 
-class SegmentAcc {
-  visitors = new Set<string>();
-  sessions = new Set<string>();
-  steps: Set<string>[] = Array.from({ length: STEP_COUNT }, () => new Set<string>());
-  orders = 0;
-  revenue = 0;
+const HUMAN_BIT = 1;
+const AGENT_BIT = 2;
 
-  add(e: AnalyticsEvent) {
-    const p = e.properties;
-    this.visitors.add(e.distinct_id);
-    if (p.$session_id) this.sessions.add(p.$session_id);
-    const step = STEP_INDEX[e.event];
-    if (step !== undefined) this.steps[step].add(e.distinct_id);
-    if (e.event === EVENTS.orderCompleted) {
-      this.orders++;
-      this.revenue += Number(p.revenue ?? 0) || 0;
+/** Everything tracked per visitor, in one map: one hash lookup per event. */
+interface VisitorRec {
+  /** First-seen kind: the audience friction is attributed to. */
+  kind: VisitorKind;
+  kinds: number;
+  /** Funnel steps reached, as bitmasks per kind. */
+  humanSteps: number;
+  agentSteps: number;
+  lastSession?: string;
+  lastSessionKind?: VisitorKind;
+  /* friction state */
+  added?: boolean;
+  /** Raw pathnames where this visitor fired product_viewed. */
+  productPaths?: string[];
+  /** Normalized product pages this visitor left (dead-end candidates). */
+  leftProductPages?: string[];
+  shippingAt?: string;
+  shippingFee?: number;
+  abandonedAfterShipping?: boolean;
+  completedAfterShipping?: boolean;
+  clickKey?: string;
+  clickTimes?: number[];
+  lastTool?: string;
+}
+
+class KpiAcc {
+  readonly visitors = new Map<string, VisitorRec>();
+  private sessions: Record<VisitorKind, Set<string>> = { human: new Set(), agent: new Set() };
+  private orders = { human: 0, agent: 0 };
+  private revenue = { human: 0, agent: 0 };
+
+  add(e: AnalyticsEvent, kind: VisitorKind): VisitorRec {
+    let r = this.visitors.get(e.distinct_id);
+    if (!r) this.visitors.set(e.distinct_id, (r = { kind, kinds: 0, humanSteps: 0, agentSteps: 0 }));
+    const agent = kind === "agent";
+    r.kinds |= agent ? AGENT_BIT : HUMAN_BIT;
+    const sid = e.properties.$session_id;
+    if (sid && (sid !== r.lastSession || kind !== r.lastSessionKind)) {
+      this.sessions[kind].add(sid);
+      r.lastSession = sid;
+      r.lastSessionKind = kind;
     }
+    const step = STEP_INDEX.get(e.event);
+    if (step !== undefined) {
+      if (agent) r.agentSteps |= 1 << step;
+      else r.humanSteps |= 1 << step;
+    }
+    if (e.event === ORDER_COMPLETED) {
+      this.orders[kind]++;
+      this.revenue[kind] += Number(e.properties.revenue ?? 0) || 0;
+    }
+    return r;
+  }
+
+  finish(): { overall: SegmentKpis; byKind: Record<VisitorKind, SegmentKpis> } {
+    const zero = () => new Array<number>(STEP_COUNT).fill(0);
+    const steps = { human: zero(), agent: zero(), overall: zero() };
+    const visitors = { human: 0, agent: 0 };
+    for (const r of this.visitors.values()) {
+      if (r.kinds & HUMAN_BIT) visitors.human++;
+      if (r.kinds & AGENT_BIT) visitors.agent++;
+      const any = r.humanSteps | r.agentSteps;
+      for (let i = 0; any && i < STEP_COUNT; i++) {
+        const bit = 1 << i;
+        if (r.humanSteps & bit) steps.human[i]++;
+        if (r.agentSteps & bit) steps.agent[i]++;
+        if (any & bit) steps.overall[i]++;
+      }
+    }
+    const { sessions, orders, revenue } = this;
+    return {
+      overall: kpisFrom(
+        this.visitors.size,
+        unionSize(sessions.human, sessions.agent),
+        steps.overall,
+        orders.human + orders.agent,
+        revenue.human + revenue.agent,
+      ),
+      byKind: {
+        human: kpisFrom(visitors.human, sessions.human.size, steps.human, orders.human, revenue.human),
+        agent: kpisFrom(visitors.agent, sessions.agent.size, steps.agent, orders.agent, revenue.agent),
+      },
+    };
   }
 }
 
@@ -129,22 +216,11 @@ function kpisFrom(visitors: number, sessions: number, stepSizes: number[], order
   };
 }
 
-const segmentKpis = (a: SegmentAcc) =>
-  kpisFrom(a.visitors.size, a.sessions.size, a.steps.map((s) => s.size), a.orders, a.revenue);
-
-const mergedKpis = (a: SegmentAcc, b: SegmentAcc) =>
-  kpisFrom(
-    unionSize(a.visitors, b.visitors),
-    unionSize(a.sessions, b.sessions),
-    a.steps.map((s, i) => unionSize(s, b.steps[i])),
-    a.orders + b.orders,
-    a.revenue + b.revenue,
-  );
-
+/** KPIs for one segment of events (kept from the scaffold API). */
 export function computeKpis(events: readonly AnalyticsEvent[]): SegmentKpis {
-  const acc = new SegmentAcc();
-  for (const e of events) acc.add(e);
-  return segmentKpis(acc);
+  const acc = new KpiAcc();
+  for (const e of events) acc.add(e, kindOf(e.properties));
+  return acc.finish().overall;
 }
 
 /* ------------------------------------------------------------------ locations */
@@ -222,11 +298,29 @@ function buildSelector(tag: string | undefined, id: string | undefined, attrs: R
   return s;
 }
 
+const locationCache = new Map<string, Map<string, string>>();
+
 /** Where a click happened: `<normalized path> <selector>`. */
 function clickLocation(p: EventProperties): string {
+  const chain = p.$elements_chain;
+  if (typeof chain === "string" && chain) {
+    // Hot path (autocapture): memoized per (path, chain) so the steady state allocates nothing.
+    const path = rawPath(p) ?? "";
+    let byChain = locationCache.get(path);
+    if (!byChain) {
+      if (locationCache.size > 2000) locationCache.clear();
+      locationCache.set(path, (byChain = new Map()));
+    }
+    let loc = byChain.get(chain);
+    if (loc === undefined) {
+      loc = [path ? normalizePath(path) : undefined, selectorFromChain(chain)].filter(Boolean).join(" ");
+      if (byChain.size > 2000) byChain.clear();
+      byChain.set(chain, loc);
+    }
+    return loc;
+  }
   let selector: string | undefined;
-  if (typeof p.$elements_chain === "string" && p.$elements_chain) selector = selectorFromChain(p.$elements_chain);
-  else if (Array.isArray(p.$elements) && p.$elements[0] && typeof p.$elements[0] === "object") {
+  if (Array.isArray(p.$elements) && p.$elements[0] && typeof p.$elements[0] === "object") {
     const el = p.$elements[0] as Record<string, unknown>;
     const classes = Array.isArray(el.attr__class) ? (el.attr__class as string[]) : String(el.attr__class ?? "").split(" ").filter(Boolean);
     selector = buildSelector(el.tag_name as string, el.attr__id as string, el, el.$el_text, classes);
@@ -235,84 +329,76 @@ function clickLocation(p: EventProperties): string {
     if (typeof explicit === "string" && explicit) selector = p.$el_text === explicit ? `"${explicit.slice(0, 40)}"` : explicit;
   }
   const path = rawPath(p);
-  const where = path ? normalizePath(path) : undefined;
-  return [where, selector].filter(Boolean).join(" ") || "unknown element";
+  return [path ? normalizePath(path) : undefined, selector].filter(Boolean).join(" ") || "unknown element";
 }
 
 /* ------------------------------------------------------------------ friction */
 
-interface VisitorState {
-  kind: VisitorKind;
-  added?: boolean;
-  /** Raw pathnames where this visitor fired product_viewed. */
-  productPaths?: string[];
-  /** Normalized product pages this visitor left (dead-end candidates). */
-  leftProductPages?: string[];
-  /** Shipping shock tracking. */
-  shippingAt?: string;
-  shippingFee?: number;
-  abandonedAfterShipping?: boolean;
-  completedAfterShipping?: boolean;
-  /** Rage-click fallback tracking. */
-  clickKey?: string;
-  clickTimes?: number[];
-  lastTool?: string;
-}
-
 interface FrictionAcc {
   kind: FrictionSignal["kind"];
   audience: VisitorKind;
-  location: string;
-  detail?: string;
   visitors: Set<string>;
+  /** Hit counts per location / detail; the most common one is reported. */
+  locations: Map<string, number>;
+  details: Map<string, number>;
+}
+
+/**
+ * What a signal is grouped by. Agent abandons and missing fields group by reason/field (the fix is the
+ * same whichever tool surfaced it, e.g. "no delivery ETA"); everything else groups by location.
+ */
+const GROUP_BY_DETAIL = new Set<FrictionSignal["kind"]>(["agent_missing_field", "agent_abandoned"]);
+
+const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+function mostCommon(m: Map<string, number>): string | undefined {
+  let best: string | undefined;
+  let n = 0;
+  for (const [k, c] of m) if (c > n) [best, n] = [k, c];
+  return best;
 }
 
 class FrictionTracker {
-  private visitors = new Map<string, VisitorState>();
-  private signals = new Map<string, FrictionAcc>();
+  /** kind → audience → group → accumulator (nested maps: no key strings allocated per hit). */
+  private signals = new Map<FrictionSignal["kind"], Record<VisitorKind, Map<string, FrictionAcc>>>();
   readonly tools = new Map<string, AgentToolStat>();
 
-  private state(id: string, kind: VisitorKind): VisitorState {
-    let s = this.visitors.get(id);
-    if (!s) this.visitors.set(id, (s = { kind }));
-    return s;
-  }
-
   private hit(kind: FrictionSignal["kind"], audience: VisitorKind, location: string, visitor: string, detail?: string) {
-    const key = `${audience}\u0000${kind}\u0000${location}\u0000${detail ?? ""}`;
-    let acc = this.signals.get(key);
-    if (!acc) this.signals.set(key, (acc = { kind, audience, location, detail, visitors: new Set() }));
+    const group = GROUP_BY_DETAIL.has(kind) ? (detail ?? "") : location;
+    let byAudience = this.signals.get(kind);
+    if (!byAudience) this.signals.set(kind, (byAudience = { human: new Map(), agent: new Map() }));
+    const groups = byAudience[audience];
+    let acc = groups.get(group);
+    if (!acc) groups.set(group, (acc = { kind, audience, visitors: new Set(), locations: new Map(), details: new Map() }));
     acc.visitors.add(visitor);
+    bump(acc.locations, location);
+    if (detail !== undefined) bump(acc.details, detail);
   }
 
-  /** Called for every filtered event. Cheap for events it doesn't care about. */
-  add(e: AnalyticsEvent, kind: VisitorKind) {
+  /** Called for every filtered event with its visitor record. Cheap for events it doesn't care about. */
+  add(e: AnalyticsEvent, kind: VisitorKind, s: VisitorRec) {
     const p = e.properties;
     const id = e.distinct_id;
     switch (e.event) {
-      case EVENTS.productViewed: {
+      case PRODUCT_VIEWED: {
         const path = rawPath(p);
         if (!path) return;
-        const paths = (this.state(id, kind).productPaths ??= []);
+        const paths = (s.productPaths ??= []);
         if (!paths.includes(path)) paths.push(path);
         return;
       }
-      case EVENTS.productAdded:
-        this.state(id, kind).added = true;
+      case PRODUCT_ADDED:
+        s.added = true;
         return;
-      case EVENTS.pageleave: {
+      case PAGELEAVE: {
         const path = rawPath(p);
         if (!path) return;
-        const s = this.visitors.get(id);
         const norm = normalizePath(path);
-        if (s?.productPaths?.includes(path) || PRODUCT_PATH.test(norm)) {
-          const st = s ?? this.state(id, kind);
-          if (!st.leftProductPages?.includes(norm)) (st.leftProductPages ??= []).push(norm);
+        if (s.productPaths?.includes(path) || PRODUCT_PATH.test(norm)) {
+          if (!s.leftProductPages?.includes(norm)) (s.leftProductPages ??= []).push(norm);
         }
         return;
       }
-      case EVENTS.shippingRevealed: {
-        const s = this.state(id, kind);
+      case SHIPPING_REVEALED: {
         if (s.shippingAt === undefined) {
           const path = rawPath(p);
           s.shippingAt = path ? normalizePath(path) : "checkout";
@@ -323,25 +409,20 @@ class FrictionTracker {
         s.completedAfterShipping = false;
         return;
       }
-      case EVENTS.checkoutAbandoned: {
-        const s = this.visitors.get(id);
-        if (s?.shippingAt !== undefined) s.abandonedAfterShipping = true;
+      case CHECKOUT_ABANDONED:
+        if (s.shippingAt !== undefined) s.abandonedAfterShipping = true;
         return;
-      }
-      case EVENTS.orderCompleted: {
-        const s = this.visitors.get(id);
-        if (s?.shippingAt !== undefined) s.completedAfterShipping = true;
+      case ORDER_COMPLETED:
+        if (s.shippingAt !== undefined) s.completedAfterShipping = true;
         return;
-      }
-      case EVENTS.rageclick:
+      case RAGECLICK:
         this.hit("rage_click", kind, clickLocation(p), id);
         return;
-      case EVENTS.autocapture: {
+      case AUTOCAPTURE: {
         if (p.$event_type !== undefined && p.$event_type !== "click") return;
         const t = Date.parse(e.timestamp);
         if (!Number.isFinite(t)) return;
         const loc = clickLocation(p);
-        const s = this.state(id, kind);
         if (s.clickKey === loc && s.clickTimes) {
           s.clickTimes.push(t);
           while (s.clickTimes.length && t - s.clickTimes[0] > RAGE_WINDOW_MS) s.clickTimes.shift();
@@ -352,7 +433,7 @@ class FrictionTracker {
         if (s.clickTimes.length >= RAGE_CLICKS) this.hit("rage_click", kind, loc, id);
         return;
       }
-      case EVENTS.agentRequest: {
+      case AGENT_REQUEST: {
         const tool = typeof p.tool === "string" && p.tool ? p.tool : "unknown";
         let stat = this.tools.get(tool);
         if (!stat) this.tools.set(tool, (stat = { tool, calls: 0, errors: 0, missing: {} }));
@@ -369,39 +450,44 @@ class FrictionTracker {
             this.hit("agent_missing_field", kind, tool, id, field);
           }
         }
-        this.state(id, kind).lastTool = tool;
+        s.lastTool = tool;
         return;
       }
-      case EVENTS.agentAbandoned: {
-        const s = this.visitors.get(id);
-        const where = typeof p.tool === "string" && p.tool ? p.tool : (s?.lastTool ?? "agent session");
+      case AGENT_ABANDONED: {
+        const where = typeof p.tool === "string" && p.tool ? p.tool : (s.lastTool ?? "agent session");
         this.hit("agent_abandoned", kind, where, id, typeof p.reason === "string" ? p.reason : "unknown");
         return;
       }
     }
   }
 
-  finish(visitorsByKind: Record<VisitorKind, number>): FrictionSignal[] {
-    for (const [id, s] of this.visitors) {
+  finish(visitors: Map<string, VisitorRec>, visitorsByKind: Record<VisitorKind, number>): FrictionSignal[] {
+    for (const [id, s] of visitors) {
       if (s.leftProductPages && !s.added) {
         for (const page of s.leftProductPages) this.hit("dead_end", s.kind, page, id, "left product page without adding to cart");
       }
       if (s.shippingAt !== undefined && (s.abandonedAfterShipping || !s.completedAfterShipping)) {
-        const detail = s.shippingFee !== undefined ? `abandoned after £${(s.shippingFee / 100).toFixed(2)} shipping was revealed` : "abandoned after shipping cost was revealed";
+        const detail =
+          s.shippingFee !== undefined
+            ? `abandoned after £${(s.shippingFee / 100).toFixed(2)} shipping was revealed`
+            : "abandoned after shipping cost was revealed";
         this.hit("shipping_shock", s.kind, s.shippingAt, id, detail);
       }
     }
     const out: FrictionSignal[] = [];
-    for (const a of this.signals.values()) {
-      const total = visitorsByKind[a.audience];
-      out.push({
-        kind: a.kind,
-        audience: a.audience,
-        location: a.location,
-        count: a.visitors.size,
-        share: total ? Math.min(1, a.visitors.size / total) : 0,
-        ...(a.detail !== undefined ? { detail: a.detail } : {}),
-      });
+    for (const byAudience of this.signals.values()) {
+      for (const a of [...byAudience.human.values(), ...byAudience.agent.values()]) {
+        const total = visitorsByKind[a.audience];
+        const detail = mostCommon(a.details);
+        out.push({
+          kind: a.kind,
+          audience: a.audience,
+          location: mostCommon(a.locations) ?? "unknown",
+          count: a.visitors.size,
+          share: total ? Math.min(1, a.visitors.size / total) : 0,
+          ...(detail !== undefined ? { detail } : {}),
+        });
+      }
     }
     out.sort((x, y) => y.count - x.count || y.share - x.share || x.location.localeCompare(y.location));
     return out.slice(0, MAX_FRICTION_SIGNALS);
@@ -410,39 +496,41 @@ class FrictionTracker {
 
 /* ------------------------------------------------------------------ summary */
 
-/** Summarize events (defaults to the whole store). One pass; see file header. */
+/** Summarize a list of events. One pass; see file header. */
 export function summarize(events: readonly AnalyticsEvent[], filter: AnalyticsFilter = {}): AnalyticsSummary {
   const cf = compileFilter(filter);
-  const seg: Record<VisitorKind, SegmentAcc> = { human: new SegmentAcc(), agent: new SegmentAcc() };
+  const kpis = new KpiAcc();
   const friction = new FrictionTracker();
   let total = 0;
   let from: string | undefined;
   let to: string | undefined;
 
-  for (const e of events) {
-    if (!matches(e, cf)) continue;
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    if (cf.active && !matches(e, cf)) continue;
     total++;
-    if (from === undefined || e.timestamp < from) from = e.timestamp;
-    if (to === undefined || e.timestamp > to) to = e.timestamp;
+    const ts = e.timestamp;
+    if (from === undefined || ts < from) from = ts;
+    if (to === undefined || ts > to) to = ts;
     const kind = kindOf(e.properties);
-    seg[kind].add(e);
-    friction.add(e, kind);
+    friction.add(e, kind, kpis.add(e, kind));
   }
 
   const now = new Date().toISOString();
-  const byKind = { human: segmentKpis(seg.human), agent: segmentKpis(seg.agent) };
+  const { overall, byKind } = kpis.finish();
   return {
     from: from ?? now,
     to: to ?? now,
     totalEvents: total,
-    overall: mergedKpis(seg.human, seg.agent),
+    overall,
     byKind,
-    friction: friction.finish({ human: byKind.human.visitors, agent: byKind.agent.visitors }),
+    friction: friction.finish(kpis.visitors, { human: byKind.human.visitors, agent: byKind.agent.visitors }),
     agentTools: [...friction.tools.values()].sort((a, b) => b.calls - a.calls || a.tool.localeCompare(b.tool)),
     filter,
   };
 }
 
+/** The summary the console and optimizer read (whole store, filtered). */
 export function getAnalyticsSummary(filter: AnalyticsFilter = {}): AnalyticsSummary {
   return summarize(eventStore().all(), filter);
 }
@@ -491,19 +579,18 @@ export function compareVariants(
   arm("control");
   arm("treatment");
 
-  for (const e of events) {
-    if (!matches(e, cf)) continue;
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    if (cf.active && !matches(e, cf)) continue;
     const p = e.properties;
     const id = e.distinct_id;
-    const kind = kindOf(p);
     let variant = variantOf.get(id);
     if (p.experiment_id === experimentId && typeof p.variant === "string" && p.variant) {
       if (!variant) variantOf.set(id, (variant = p.variant));
-      arm(variant)[kind].visitors.add(id);
+      arm(variant)[kindOf(p)].visitors.add(id);
     }
-    if (e.event === EVENTS.orderCompleted && variant) {
-      if (p.experiment_id !== undefined && p.experiment_id !== experimentId) continue;
-      const a = arm(variant)[kind];
+    if (variant && e.event === ORDER_COMPLETED && (p.experiment_id === undefined || p.experiment_id === experimentId)) {
+      const a = arm(variant)[kindOf(p)];
       a.visitors.add(id);
       a.buyers.add(id);
       a.revenue += Number(p.revenue ?? 0) || 0;

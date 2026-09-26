@@ -6,6 +6,7 @@
  *   POST /ingest/flags | /ingest/decide                                  no flags, replay off, remote config
  *   GET  /ingest/array/<token>/config(.js)                               remote config (JSON / script)
  *   POST /ingest/i/v1/logs | /ingest/i/v1/metrics                        accepted, dropped
+ *   GET  /ingest/static/*                                                302 to PostHog's asset CDN (lazy SDK bundles)
  *
  * Every event is classified server-side (human vs agent) before it is stored.
  */
@@ -29,6 +30,8 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ path: string[] }> };
 
 const MAX_BODY_BYTES = 20 * 1024 * 1024;
+/** Where lazy-loaded posthog-js bundles (surveys.js, recorder.js…) live, as in PostHog's reverse-proxy setup. */
+const ASSET_HOST = (process.env.POSTHOG_ASSET_HOST ?? "https://us-assets.i.posthog.com").replace(/\/$/, "");
 const CAPTURE_PATHS = new Set(["e", "i/v0/e", "batch", "capture", "track", "engage"]);
 const DROP_PATHS = new Set(["s", "i/v1/logs", "i/v0/logs", "i/v1/metrics"]);
 const EMPTY_LISTS: Record<string, object> = {
@@ -122,7 +125,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     return json(req, flagsResponse(sp.get("token") ?? DEFAULT_POSTHOG_TOKEN, key === "decide"));
   }
   if (EMPTY_LISTS[key]) return json(req, EMPTY_LISTS[key]);
-  // Lazy-loaded SDK bundles (/static/*.js) are not served: the storefront disables those features.
+  if (path[0] === "static" && path.length > 1) {
+    // Our storefront disables every lazy-loaded feature; other posthog-js configs get PostHog's CDN.
+    return Response.redirect(`${ASSET_HOST}/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`, 302);
+  }
   return json(req, { type: "not_found", detail: `unknown ingest path /${key}` }, 404);
 }
 

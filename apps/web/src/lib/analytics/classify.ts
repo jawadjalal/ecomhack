@@ -260,13 +260,15 @@ export function classifyUserAgent(userAgent: string | null | undefined): Classif
   else if ((name = matchRules(ua, HTTP_CLIENT_UAS))) result = { kind: "agent", agentName: name, category: "http_client" };
   else if (GENERIC_AGENT.test(ua)) result = { kind: "agent", agentName: shortName(userAgent), category: "ai_agent" };
   else {
-    const blocked = POSTHOG_BLOCKED_UA_STRS.find((s) => ua.includes(s));
+    // Longest match names the bot best ("googlebot" over the generic "bot.htm").
+    let blocked: string | undefined;
+    for (const s of POSTHOG_BLOCKED_UA_STRS) if (ua.includes(s) && s.length > (blocked?.length ?? 0)) blocked = s;
     if (blocked) result = { kind: "agent", agentName: shortName(userAgent, blocked), category: "bot" };
     else if (GENERIC_BOT.test(ua)) result = { kind: "agent", agentName: shortName(userAgent), category: "bot" };
   }
 
   if (cache.size >= CACHE_MAX) cache.clear();
-  cache.set(userAgent, result);
+  cache.set(userAgent, Object.freeze(result));
   return result;
 }
 
