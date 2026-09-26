@@ -28,7 +28,7 @@ export function BuyersLostCard({ rows, selected, onSelect }: { rows: IssueRow[];
         <span className="text-[13px] text-[#4F4417]">per 1,000 visits</span>
       </div>
       <div className="mt-2 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-        <span className="num text-[40px] leading-none font-semibold tracking-[-0.02em]">{fmtImpact(total)}</span>
+        <span className="num text-[56px] leading-none font-semibold tracking-[-0.04em] sm:text-[72px]">{fmtImpact(total)}</span>
         <span className="text-[14px] text-[#4F4417]">
           {inTest.length
             ? `${fmtImpact(fixed)} of them tackled by test B`
@@ -38,7 +38,7 @@ export function BuyersLostCard({ rows, selected, onSelect }: { rows: IssueRow[];
         </span>
       </div>
       <div
-        className="mt-auto grid min-h-[150px] items-end gap-1.5 pt-4 sm:gap-2.5 lg:min-h-0 lg:flex-1"
+        className="mt-6 grid h-[140px] items-end gap-1.5 sm:gap-2.5"
         style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` }}
       >
         {rows.map((r, i) => {
@@ -109,7 +109,7 @@ export function WhoCard({ rows, onFocus, onSelect }: { rows: IssueRow[]; onFocus
             : `${top.who === "Everyone" ? "Issues that hit everyone" : top.who} account for ${share}% of lost buyers.`}
         </p>
       )}
-      <div className="mt-auto flex flex-col gap-3.5 pt-5" onMouseLeave={() => onFocus(null)}>
+      <div className="mt-5 flex flex-col gap-3.5" onMouseLeave={() => onFocus(null)}>
         {groups.map((g, i) => {
           const Icon = WHO_ICON[g.who];
           const w = g.lost / total;
@@ -173,7 +173,7 @@ export function WhereCard({ rows, selected, onFocus, onSelect }: { rows: IssueRo
           The {top.label.toLowerCase()} {top.key === "home" ? "page" : top.key === "product" ? "pages" : "step"} lose{top.key === "product" ? "" : "s"} the most buyers.
         </p>
       )}
-      <div className="mt-auto grid grid-cols-4 items-end gap-2 pt-5" onMouseLeave={() => onFocus(null)}>
+      <div className="mt-5 grid grid-cols-4 items-end gap-2" onMouseLeave={() => onFocus(null)}>
         {cols.map((c, ci) => {
           const shown = c.list.slice(0, MAX_DOTS);
           const more = c.list.length - shown.length;

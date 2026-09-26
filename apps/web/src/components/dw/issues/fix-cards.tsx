@@ -40,7 +40,7 @@ export function InTestCard({ fix, rows, hasDraft }: { fix?: FixRow; rows: IssueR
         {testing ? fix.title : hasDraft ? "Nothing yet. The fix Darwin just drafted goes into test B next." : "Nothing right now. Darwin starts a test as soon as it has a fix."}
       </p>
       {testing && (
-        <div className="mt-auto flex items-end gap-7 pt-4">
+        <div className="mt-5 flex items-end gap-7">
           <Big value={fix.lift !== undefined ? signedPct(fix.lift) : "–"} label={fix.lift !== undefined ? "so far" : "waiting for data"} color="#5A2744" />
           <div className="flex flex-1 flex-col gap-1.5 pb-1">
             <div className="flex justify-between gap-2 text-[12px] text-[#5A2744]">
@@ -81,7 +81,7 @@ export function UpNextCard({ drafted, next, testing }: { drafted?: FixRow; next?
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Up next</h2>
       <p className="mt-2.5 line-clamp-3 text-[18px] leading-[1.35]">{body.text}</p>
       {body.value && (
-        <div className="mt-auto pt-4">
+        <div className="mt-4">
           <Big value={body.value} label={body.label ?? ""} color="#4F4417" />
         </div>
       )}
@@ -94,7 +94,7 @@ export function ThrownAwayCard({ thrown, shipped }: { thrown?: FixRow; shipped: 
     <Panel tone="olive" shape="shipper" corner="br" silhouette={200} label="Thrown away">
       <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Thrown away</h2>
       <p className="mt-2.5 line-clamp-3 text-[18px] leading-[1.35]">{thrown ? thrown.title : "Nothing yet. Fixes that lose their test end up here."}</p>
-      <div className="mt-auto pt-4">
+      <div className="mt-4">
         {thrown ? (
           <Big value={liftText(thrown)} label={thrown.status === "rejected" ? "lost its test · never retried" : "no clear signal · shelved"} color="#2F3517" />
         ) : shipped > 0 ? (
