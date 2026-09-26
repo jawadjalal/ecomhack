@@ -5,7 +5,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { useRouter } from "next/navigation";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import {
-  ArrowDown,
   ArrowRight,
   ArrowUp,
   Bot,
@@ -24,6 +23,8 @@ import {
   Smartphone,
   Sparkles,
   TrendingUp,
+  TriangleAlert,
+  X,
 } from "lucide-react";
 import type { DashboardKind, DashboardsResponse, GithubStatusResponse, TrackingEvent, TrackingPlan, WebSimulateResponse } from "@/lib/contracts";
 import type { PullRequestResult } from "@/lib/github";
@@ -135,6 +136,11 @@ export function OnboardingApp() {
   const [repo, setRepo] = useState<string | null>(null);
   /** No GitHub: the store's address; darwin.js goes in with one script tag. */
   const [website, setWebsite] = useState<string | null>(null);
+  /** What's typed in "Paste your store URL" before it becomes the chip. */
+  const [urlDraft, setUrlDraft] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const urlInput = useRef<HTMLInputElement>(null);
+  const continueBtn = useRef<HTMLButtonElement>(null);
   const [snippet, setSnippet] = useState<string | null>(null);
   const [whopStatus, setWhopStatus] = useState<WhopStatus | null>(null);
   const [whop, setWhop] = useState<WhopConnection | null>(null);
@@ -236,8 +242,27 @@ export function OnboardingApp() {
     track("onboarding_restarted");
   };
 
-  const connected = !!repo || !!website;
+  /** A valid address typed but not yet added still counts: Continue adds it. */
+  const draftSite = website || repo ? null : storeOrigin(urlDraft);
+  const connected = !!repo || !!website || !!draftSite;
   const brain = brainOf(designer);
+
+  /** "Paste your store URL" → the chip (Enter or Add). The script-tag path: no GitHub needed. */
+  const addUrl = (focusNext = true) => {
+    const origin = storeOrigin(urlDraft);
+    if (!origin) {
+      setUrlError(urlDraft.trim() ? `“${urlDraft.trim().slice(0, 40)}” isn't a web address yet. Try shop.example.com` : "Paste your store's address, like shop.example.com");
+      return null;
+    }
+    setWebsite(origin);
+    setRepo(null);
+    setUrlDraft("");
+    setUrlError(null);
+    setOpen((o) => (o === "github" ? null : o));
+    track("script_tag_chosen");
+    if (focusNext) setTimeout(() => continueBtn.current?.focus(), 50);
+    return origin;
+  };
 
   // Every step starts at its top (on a phone the last step can leave you deep in a long page).
   const firstStage = useRef(true);
@@ -254,12 +279,13 @@ export function OnboardingApp() {
   /** Screen 1 → 2: connected, now Darwin asks. */
   const toAsk = () => {
     if (!connected) return;
+    if (draftSite) addUrl(false);
     setOpen(null);
     setStage("ask");
     track("onboarding_connected", {
       whop: !!whop,
       described: !!prompt.trim(),
-      via: website ? "script_tag" : "github",
+      via: website || draftSite ? "script_tag" : "github",
     });
   };
 
@@ -501,10 +527,19 @@ export function OnboardingApp() {
                       </div>
                     )}
 
+                    {/* no store yet: the demo store is one quiet link away */}
+                    <Link
+                      href="/console"
+                      onClick={() => track("onboarding_skipped_to_demo")}
+                      className="order-last rounded-full px-2 py-1 text-[13.5px] sm:-mt-5 font-medium text-white underline decoration-white/50 underline-offset-[3px] [text-shadow:0_1px_6px_rgba(20,40,60,0.55)] hover:decoration-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none max-sm:hidden"
+                    >
+                      Skip, explore with the demo store
+                    </Link>
+
                     {/*
                       The composer. One DOM for both layouts (the textarea stays one element):
-                      computer: a crisp beveled card, field on top, drawer, then the stickers and the gel;
-                      phone: pinned to the bottom, drawer sheet, stickers on the painting, then the ink dock.
+                      computer: a crisp beveled card, field on top, the store address, drawer, then the stickers and the gel;
+                      phone: pinned to the bottom, drawer sheet, the address and the stickers on the painting, then the ink dock.
                     */}
                     <div
                       className={cn(
@@ -513,9 +548,9 @@ export function OnboardingApp() {
                       )}
                     >
                       {/* phones: the ink dock behind the field and the send */}
-                      <div aria-hidden className="col-[1/-1] row-start-4 rounded-t-[28px] bg-dw-ink sm:hidden" />
+                      <div aria-hidden className="col-[1/-1] row-start-5 rounded-t-[28px] bg-dw-ink sm:hidden" />
 
-                      <div className="flex items-start gap-3 px-5 pt-5 max-sm:col-start-1 max-sm:row-start-4 max-sm:items-end max-sm:gap-2.5 max-sm:pt-3 max-sm:pr-2 max-sm:pb-[max(12px,env(safe-area-inset-bottom))] max-sm:pl-3 sm:col-[1/-1] sm:row-start-1">
+                      <div className="flex items-start gap-3 px-5 pt-5 max-sm:col-start-1 max-sm:row-start-5 max-sm:items-end max-sm:gap-2.5 max-sm:pt-3 max-sm:pr-2 max-sm:pb-[max(12px,env(safe-area-inset-bottom))] max-sm:pl-3 sm:col-[1/-1] sm:row-start-1">
                         <motion.span
                           key={connected ? "yes" : "no"}
                           className="mt-0.5 inline-grid max-sm:mt-0"
@@ -529,12 +564,72 @@ export function OnboardingApp() {
                           onChange={setPrompt}
                           onEnter={() => {
                             if (connected) toAsk();
-                            else setOpen("github");
+                            else urlInput.current?.focus();
                           }}
                         />
                       </div>
 
-                      <div className="col-[1/-1] max-sm:row-start-1 sm:row-start-2">
+                      {/* The primary way in: the store's address (darwin.js goes in with one script tag, no GitHub). */}
+                      <div className="col-[1/-1] px-5 pt-3 max-sm:row-start-3 max-sm:px-4 max-sm:pt-0 max-sm:pb-2.5 sm:row-start-2">
+                        {website ? (
+                          <span className="inline-flex h-11 max-w-full min-w-0 items-center gap-2 rounded-full bg-dw-win-bg pr-1.5 pl-3.5 text-[14.5px] font-medium text-dw-ink">
+                            <Globe className="size-4 shrink-0" aria-hidden />
+                            <span className="min-w-0 truncate" title={website}>
+                              {hostOf(website)}
+                            </span>
+                            <CheckPop size={18} tone="live" burst />
+                            <span className="text-[12.5px] font-normal text-dw-ink/55 max-sm:hidden">script tag, no GitHub</span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${hostOf(website)}`}
+                              onClick={() => {
+                                setUrlDraft(hostOf(website));
+                                setWebsite(null);
+                                setTimeout(() => urlInput.current?.focus(), 0);
+                              }}
+                              className="grid size-8 shrink-0 place-items-center rounded-full text-dw-ink/55 transition-colors hover:bg-white/70 hover:text-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </span>
+                        ) : (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              addUrl();
+                            }}
+                            className="flex h-12 items-center gap-2 rounded-full border border-dw-hairline bg-white py-1 pr-1 pl-4 focus-within:border-dw-ink/40 focus-within:ring-2 focus-within:ring-dw-ink/10 max-sm:border-transparent max-sm:shadow-[0_6px_18px_rgba(20,40,60,0.18)]"
+                          >
+                            <Globe className="size-[18px] shrink-0 text-dw-ink/55" aria-hidden />
+                            <input
+                              ref={urlInput}
+                              value={urlDraft}
+                              onChange={(e) => {
+                                setUrlDraft(e.target.value);
+                                setUrlError(null);
+                              }}
+                              inputMode="url"
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              placeholder="Paste your store URL, e.g. shop.example.com"
+                              aria-label="Your store's address"
+                              aria-invalid={!!urlError}
+                              aria-describedby="dwo-connect-why"
+                              className="h-10 min-w-0 flex-1 bg-transparent text-[15.5px] text-dw-ink outline-none placeholder:text-dw-ink/40 max-sm:text-[16px]"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!urlDraft.trim()}
+                              className="h-10 shrink-0 rounded-full bg-dw-ink px-4 text-[14px] font-medium text-white transition-[opacity,transform] focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.97] disabled:opacity-30"
+                            >
+                              Add <span className="font-dwmono text-[12px] text-white/60 max-sm:hidden">↵</span>
+                            </button>
+                          </form>
+                        )}
+                      </div>
+
+                      <div className="col-[1/-1] max-sm:row-start-1 sm:row-start-3">
                         <AnimatePresence initial={false}>
                           {open === "whop" && (
                             <Drawer key="whop">
@@ -542,7 +637,7 @@ export function OnboardingApp() {
                                 status={whopStatus}
                                 onConnected={(c) => {
                                   setWhop(c);
-                                  setOpen(repo ? null : "github");
+                                  setOpen(null);
                                 }}
                               />
                             </Drawer>
@@ -569,11 +664,9 @@ export function OnboardingApp() {
                                   setWebsite(null);
                                   setOpen(null);
                                 }}
-                                onWebsite={(url) => {
-                                  setWebsite(url);
-                                  setRepo(null);
+                                onWebsite={() => {
                                   setOpen(null);
-                                  track("script_tag_chosen");
+                                  setTimeout(() => urlInput.current?.focus(), 0);
                                 }}
                               />
                             </Drawer>
@@ -581,19 +674,29 @@ export function OnboardingApp() {
                         </AnimatePresence>
                       </div>
 
-                      {!connected && !open && prompt.trim() && (
-                        <p className="col-[1/-1] flex items-center gap-1.5 px-5 pt-1 text-[13px] text-dw-ink/60 max-sm:row-start-2 max-sm:mx-4 max-sm:mb-3 max-sm:justify-self-start max-sm:rounded-full max-sm:bg-dw-bg max-sm:px-3 max-sm:py-1.5 max-sm:text-dw-ink/75 sm:row-start-3 sm:px-6">
-                          <ArrowDown className="size-3.5 motion-safe:animate-bounce" /> Connect GitHub or add a script tag to continue. Whop is optional.
+                      {/* Why Continue is off, said plainly (not only a grey button). */}
+                      {!connected && (
+                        <p
+                          id="dwo-connect-why"
+                          aria-live="polite"
+                          className={cn(
+                            "col-[1/-1] flex items-center gap-1.5 px-5 pt-2 text-[13px] max-sm:row-start-2 max-sm:mx-4 max-sm:mb-2.5 max-sm:justify-self-start max-sm:rounded-full max-sm:bg-dw-bg max-sm:px-3 max-sm:py-1.5 sm:row-start-4 sm:px-6",
+                            urlError ? "text-dw-warn" : "text-dw-ink/60 max-sm:text-dw-ink/75",
+                          )}
+                        >
+                          {urlError ? <TriangleAlert className="size-3.5 shrink-0" /> : <ArrowUp className="size-3.5 shrink-0 max-sm:rotate-180" />}
+                          {urlError ?? "To continue, paste your store's address or connect GitHub. Whop is optional."}
                         </p>
                       )}
 
-                      <div className="col-[1/-1] flex min-w-0 flex-wrap items-center gap-2.5 px-4 pt-4 pb-4 max-sm:row-start-3 max-sm:pt-0 max-sm:pb-3.5 sm:col-[1/2] sm:row-start-4 sm:self-end sm:pr-0 sm:pl-5">
+                      <div className="col-[1/-1] flex min-w-0 flex-wrap items-center gap-2.5 px-4 pt-4 pb-4 max-sm:row-start-4 max-sm:pt-0 max-sm:pb-3.5 sm:col-[1/2] sm:row-start-5 sm:self-end sm:pr-0 sm:pl-5">
+                        <span className="text-[13px] text-dw-ink/55 max-sm:sr-only">or</span>
                         <ConnectSticker
                           kind="github"
-                          icon={website ? <Globe className="size-[18px]" /> : <BrandGlyph brand="github" size={18} />}
+                          icon={<BrandGlyph brand="github" size={18} />}
                           label="Connect your GitHub"
                           short="Connect GitHub"
-                          value={repo ?? (website ? hostOf(website) : undefined)}
+                          value={repo ?? undefined}
                           active={open === "github"}
                           onClick={() => setOpen(open === "github" ? null : "github")}
                         />
@@ -608,9 +711,16 @@ export function OnboardingApp() {
                           active={open === "whop"}
                           onClick={() => setOpen(open === "whop" ? null : "whop")}
                         />
+                        <Link
+                          href="/console"
+                          onClick={() => track("onboarding_skipped_to_demo")}
+                          className="ml-auto rounded-full px-2 py-1 text-[13px] font-medium text-white underline decoration-white/50 underline-offset-[3px] [text-shadow:0_1px_6px_rgba(20,40,60,0.55)] focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none sm:hidden"
+                        >
+                          Skip: demo store
+                        </Link>
                       </div>
 
-                      <span className="relative self-end max-sm:col-start-2 max-sm:row-start-4 max-sm:mr-3 max-sm:mb-[max(12px,env(safe-area-inset-bottom))] sm:row-start-4 sm:mr-4 sm:mb-4">
+                      <span className="relative self-end max-sm:col-start-2 max-sm:row-start-5 max-sm:mr-3 max-sm:mb-[max(12px,env(safe-area-inset-bottom))] sm:row-start-5 sm:mr-4 sm:mb-4">
                         {connected && (
                           <motion.span
                             aria-hidden
@@ -621,11 +731,13 @@ export function OnboardingApp() {
                           />
                         )}
                         <Gel
+                          ref={continueBtn}
                           tone={connected ? "pink" : "ghost"}
                           h={48}
                           onClick={toAsk}
                           disabled={!connected}
                           aria-label="Continue"
+                          aria-describedby={connected ? undefined : "dwo-connect-why"}
                           className="max-sm:h-11 max-sm:w-11 max-sm:p-0"
                         >
                           <span className="max-sm:hidden">Continue</span>
@@ -1643,12 +1755,12 @@ function GithubConnect({
   authError: string | null;
   onSignIn: () => void;
   onConnected: (repo: string) => void;
-  onWebsite: (url: string) => void;
+  /** "No GitHub?": back to the store-address field. */
+  onWebsite: () => void;
 }) {
   const [url, setUrl] = useState(status?.repo ? `https://github.com/${status.repo}` : "");
   const [error, setError] = useState<string | null>(authError);
   const [paste, setPaste] = useState(false);
-  const [noGithub, setNoGithub] = useState(false);
   /** The repos API said 401: the sign-in expired, so offer it again. */
   const [expired, setExpired] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -1661,8 +1773,7 @@ function GithubConnect({
   // Preview unless the server really can open PRs: a token GitHub rejected (valid: false) counts as none.
   const dryRun = !signedIn && (status ? (status.dryRun ?? (!status.configured || status.valid === false)) : false);
 
-  if (noGithub) return <WebsiteConnect onWebsite={onWebsite} onGithub={() => setNoGithub(false)} />;
-  const other = <NoGithub onChoose={() => setNoGithub(true)} />;
+  const other = <NoGithub onChoose={onWebsite} />;
 
   // 1. Not signed in, and sign-in is available: the button is the main path.
   if (oauth && !signedIn && !paste) {
@@ -1756,6 +1867,21 @@ const hostOf = (url: string) => {
   }
 };
 
+/** "shop.example.com", "https://Shop.example.com/x" → "https://shop.example.com"; anything else → null. */
+function storeOrigin(raw: string): string | null {
+  const t = raw.trim();
+  if (!t || /\s/.test(t)) return null;
+  if (!/^https?:\/\//i.test(t) && /^[a-z][a-z0-9+.-]*:(?!\d)/i.test(t)) return null;
+  try {
+    const u = new URL(/^https?:\/\//i.test(t) ? t : `https://${t}`);
+    const host = u.hostname;
+    if (!host.includes(".") || host.startsWith(".") || host.endsWith(".") || !/\.[a-z]{2,}$/i.test(host)) return null;
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
+
 /** The ways in that don't need GitHub. */
 function NoGithub({ onChoose }: { onChoose: () => void }) {
   return (
@@ -1767,9 +1893,9 @@ function NoGithub({ onChoose }: { onChoose: () => void }) {
           onClick={onChoose}
           className="rounded font-semibold text-dw-ink underline decoration-dw-ink/30 underline-offset-[3px] hover:decoration-dw-ink focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
         >
-          Add one script tag instead
+          Paste your store&apos;s address instead
         </button>{" "}
-        (Shopify, Webflow, WordPress, any site you can edit).
+        and add one script tag (Shopify, Webflow, WordPress, any site you can edit).
       </span>
       <span>
         Only sell on Whop?{" "}
@@ -1782,46 +1908,5 @@ function NoGithub({ onChoose }: { onChoose: () => void }) {
         : AI shoppers buy your Whop plans through it.
       </span>
     </div>
-  );
-}
-
-/** No GitHub: the store's address; darwin.js is installed with one script tag after the plan. */
-function WebsiteConnect({ onWebsite, onGithub }: { onWebsite: (url: string) => void; onGithub: () => void }) {
-  const [url, setUrl] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const input = useRef<HTMLInputElement>(null);
-  useEffect(() => input.current?.focus(), []);
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const raw = url.trim();
-        const full = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-        try {
-          const u = new URL(full);
-          if (!u.hostname.includes(".")) throw new Error();
-          setError(null);
-          onWebsite(u.origin);
-        } catch {
-          setError("Use your store's address, like https://shop.example.com");
-        }
-      }}
-      className="flex flex-col gap-3"
-    >
-      <p className="text-[14px] leading-snug text-dw-ink/70">
-        Your store&apos;s address. After the plan, Darwin gives you one line to paste into your site&apos;s{" "}
-        <code className="rounded-md bg-white px-1.5 py-0.5 font-dwmono text-[12.5px] text-dw-ink">&lt;head&gt;</code>: no GitHub, no pull request.
-      </p>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input ref={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://shop.example.com" aria-label="Your store's address" className={inputCls} />
-        <PillButton type="submit" disabled={!url.trim()} className="h-11">
-          <Globe /> Continue
-        </PillButton>
-      </div>
-      <button type="button" onClick={onGithub} className={linkCls}>
-        or connect GitHub instead
-      </button>
-      {error && <ErrorLine error={error} />}
-    </form>
   );
 }
