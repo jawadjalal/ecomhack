@@ -65,7 +65,7 @@ export function DemoCheckout({ offer, refId, alreadyPaid = false }: { offer?: { 
               {state === "error" && <p className="text-[13.5px] text-dw-warn">That didn&apos;t work: the link may be invalid.</p>}
 
               {done && (
-                <PillButton href="/console/agents" tone="white" size="lg" className="w-full">
+                <PillButton href="/console/agents" size="lg" className="w-full">
                   See it counted in Darwin
                   <ArrowRight aria-hidden />
                 </PillButton>

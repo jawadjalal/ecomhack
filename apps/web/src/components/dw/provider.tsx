@@ -147,7 +147,7 @@ function Inner({ api, mock, children }: { api: ConsoleApi; mock: boolean; childr
   return (
     <Ctx.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-6 left-6 z-50 flex flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-6 left-6 z-50 flex flex-col gap-2 max-sm:right-4 max-sm:bottom-[calc(10.5rem+env(safe-area-inset-bottom))] max-sm:left-4 sm:max-w-[34rem]">
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div
