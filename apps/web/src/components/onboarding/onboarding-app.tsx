@@ -56,7 +56,7 @@ import {
   SETUP_SUMMARY,
   useIsPhone,
 } from "@/components/dw/onboarding/bits";
-import { AskChat, answerChips, composePrompt, type Answers } from "@/components/dw/onboarding/ask";
+import { AskChat, TRACK_OPTIONS, answerChips, composePrompt, type Answers } from "@/components/dw/onboarding/ask";
 import { PrCard } from "@/components/dw/onboarding/pr-card";
 import { RepoPicker } from "@/components/dw/onboarding/repo-picker";
 import { clearProgress, loadProgress, saveProgress, stageIndex, type SavedAccount, type SavedProgress, type SavedStage } from "@/components/dw/onboarding/persist";
@@ -79,13 +79,27 @@ const EXAMPLES = [
   { label: "Courses on Whop", text: "Online courses sold on Whop. Can AI shopping agents buy them?" },
 ];
 
-async function http<T>(method: "GET" | "POST" | "PATCH" | "PUT", path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    headers: body !== undefined ? { "content-type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    cache: "no-store",
-  });
+/** Plan requests give up after this long, so the chat never spins forever. */
+const PLAN_TIMEOUT_MS = 25_000;
+
+async function http<T>(method: "GET" | "POST" | "PATCH" | "PUT", path: string, body?: unknown, timeoutMs?: number): Promise<T> {
+  const ctl = timeoutMs ? new AbortController() : undefined;
+  const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : undefined;
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      headers: body !== undefined ? { "content-type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+      signal: ctl?.signal,
+    });
+  } catch (err) {
+    if (ctl?.signal.aborted) throw new Error("That took too long.");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   const j = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw new Error(j.error ?? `${method} ${path} → ${res.status}`);
   return j;
@@ -125,7 +139,7 @@ interface Message {
 const WIDTH: Record<Stage, string> = {
   connect: "max-w-[48rem]",
   ask: "max-w-[44rem]",
-  plan: "max-w-[84rem]",
+  plan: "max-w-[46rem]",
   install: "max-w-[72rem]",
   live: "max-w-[100rem]",
 };
@@ -160,6 +174,8 @@ export function OnboardingApp() {
   const [chat, setChat] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [pr, setPr] = useState<PullRequestResult | null>(null);
+  /** The plan request failed twice: what to send again from "Try again". */
+  const [planFailed, setPlanFailed] = useState<{ a: Answers; ctx: { prompt: string; repo: string | null; website: string | null; whop?: string } } | null>(null);
   /** "Save your setup": the email and the link back from any device (POST /api/account). Nothing is emailed. */
   const [account, setAccount] = useState<SavedAccount | null>(null);
   /** "How do you like to work?": no code, a store admin, or a coding agent (Claude Code, Cursor, Codex…). */
@@ -396,49 +412,69 @@ export function OnboardingApp() {
     setPlan(null);
     setStage("plan");
     setBusy(true);
+    // Darwin's messages while it drafts: only real steps, and only what the merchant said.
+    const heardLine = heardMessage(a);
+    const steps = [
+      ...(ctx.website ? [`Reading ${hostOf(ctx.website)}…`] : [`Reading ${ctx.repo}…`, "Looking for analytics you already run…"]),
+      ...(heardLine ? [heardLine] : []),
+      "Drafting your plan…",
+    ];
     setChat([
       { from: "you", text: ctx.prompt.trim(), chips: answerChips(a) },
-      {
-        from: "darwin",
-        text: "",
-        pending: true,
-        steps: [
-          ...(ctx.website ? [`Setting up ${hostOf(ctx.website)} (no GitHub needed)`] : [`Reading ${ctx.repo}`, "Looking for analytics you already run"]),
-          full ? "Planning from what you said" : "Planning a standard store setup",
-          "Choosing your dashboards",
-        ],
-      },
+      { from: "darwin", text: "", pending: true, steps },
     ]);
+    // The store's platform, when the homepage says (never guessed): slotted in after "Reading…".
+    if (ctx.website) {
+      http<{ platform?: string }>("GET", `/api/onboarding/inspect?url=${encodeURIComponent(ctx.website)}`).then(
+        (r) => {
+          const name = r.platform ? PLATFORM_NAMES[r.platform] : undefined;
+          if (!name) return;
+          setChat((c) => c.map((m) => (m.pending && m.steps && !m.steps.some((x) => x.startsWith("It looks like")) ? { ...m, steps: [m.steps[0], `It looks like a ${name} store.`, ...m.steps.slice(1)] } : m)));
+        },
+        () => {},
+      );
+    }
     track("questions_answered", {
       track: a.track.length + (a.note.trim() ? 1 : 0),
       where: a.where.join(","),
     });
+    setPlanFailed(null);
+    const body = {
+      prompt: full || undefined,
+      // Part of the server's cache key: the same store, words and answers get the same plan back.
+      answers: { track: a.track, where: a.where, ...(a.note.trim() ? { note: a.note.trim() } : {}) },
+      ...(ctx.website ? { siteUrl: ctx.website } : { repoUrl: `https://github.com/${ctx.repo}` }),
+      whop: ctx.whop,
+    };
+    type PlanRes = { plan: TrackingPlan; reply: string; note?: string; snippet?: string };
+    // Never spin forever: 25 s, then one retry (the server falls back to its built-in rules when the AI is slow).
+    const ask = () =>
+      http<PlanRes>("POST", "/api/onboarding/plan", body, PLAN_TIMEOUT_MS).catch((err: Error) => {
+        setChat((c) => [...c.filter((m) => !m.pending || m.steps), { from: "darwin", text: `${err.message} Trying once more…` }]);
+        return http<PlanRes>("POST", "/api/onboarding/plan", body, PLAN_TIMEOUT_MS);
+      });
     try {
-      // Keep the steps on screen long enough to read, even when the plan comes back instantly.
       const [res] = await Promise.all([
-        http<{
-          plan: TrackingPlan;
-          reply: string;
-          note?: string;
-          snippet?: string;
-        }>("POST", "/api/onboarding/plan", {
-          prompt: full || undefined,
-          // Part of the server's cache key: the same store, words and answers get the same plan back.
-          answers: { track: a.track, where: a.where, ...(a.note.trim() ? { note: a.note.trim() } : {}) },
-          ...(ctx.website ? { siteUrl: ctx.website } : { repoUrl: `https://github.com/${ctx.repo}` }),
-          whop: ctx.whop,
-        }),
-        new Promise((r) => setTimeout(r, 1800)),
+        ask(),
+        // Long enough to read each message as it arrives, even when the plan comes back instantly.
+        new Promise((r) => setTimeout(r, (steps.length + 1) * STEP_MS + 300)),
       ]);
       setPlan(res.plan);
       setSnippet(res.snippet ?? null);
-      reply(res.note ? `${res.reply}\n\n${res.note}` : res.reply);
+      // The drafting steps stay in the conversation as Darwin's messages; the plan arrives as its reply.
+      const text = res.note ? `${res.reply}\n\n${res.note}` : res.reply;
+      setChat((c) => {
+        const pending = c.find((m) => m.pending && m.steps);
+        const said = (pending?.steps ?? []).filter((x) => x !== "Drafting your plan…").map((x) => ({ from: "darwin" as const, text: x }));
+        return [...c.filter((m) => !m.pending), ...said, { from: "darwin" as const, text }];
+      });
       track("plan_ready", {
         events: res.plan.events.filter((e) => e.enabled).length,
         goals: res.plan.goals?.length ?? 0,
       });
     } catch (err) {
-      reply(`Something went wrong: ${(err as Error).message}`);
+      setChat((c) => [...c.filter((m) => !m.pending), { from: "darwin", text: `I couldn't draft the plan: ${(err as Error).message} Try again?` }]);
+      setPlanFailed({ a, ctx });
     } finally {
       setBusy(false);
     }
@@ -479,7 +515,7 @@ export function OnboardingApp() {
     setBusy(true);
     setChat((c) => [...c, { from: "you", text: text.trim() }, { from: "darwin", text: "", pending: true }]);
     try {
-      const res = await http<{ plan: TrackingPlan; reply: string }>("PATCH", "/api/onboarding/plan", { site: plan.site, message: text.trim() });
+      const res = await http<{ plan: TrackingPlan; reply: string }>("PATCH", "/api/onboarding/plan", { site: plan.site, message: text.trim() }, PLAN_TIMEOUT_MS);
       setPlan(res.plan);
       reply(res.reply);
       track("plan_changed", { via: "chat" });
@@ -506,6 +542,11 @@ export function OnboardingApp() {
   };
 
   const connectedTo = repo ?? (website ? hostOf(website) : "");
+  // The plan card sits after Darwin's first reply; later edits (the merchant's messages) follow it.
+  const split = chat.findIndex((m, i) => i > 0 && m.from === "you");
+  const intro = split < 0 ? chat : chat.slice(0, split);
+  const later = split < 0 ? [] : chat.slice(split);
+  const approveBtn = useRef<HTMLButtonElement>(null);
   const canStartOver = hydrated && (stage !== "connect" || connected || !!whop);
 
   return (
@@ -900,60 +941,66 @@ export function OnboardingApp() {
                 )}
 
                 {stage === "plan" && (
-                  <motion.section key="plan" {...fade} className="flex flex-col gap-7">
-                    <StageHead
-                      mascot={plan ? "designer" : "observer"}
-                      title={plan ? "Here's what Darwin will record" : "Darwin is reading your store"}
-                      lede={plan ? "Turn anything off, or tell Darwin what else to track." : "Checking what's there, then planning what to measure."}
-                    />
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] lg:grid-rows-[auto_1fr] lg:gap-x-7">
-                      <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
-                        <Thread messages={chat.slice(0, 2)} />
-                      </div>
-                      <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-                        <AnimatePresence mode="wait" initial={false}>
-                          {plan ? (
-                            <motion.div key="plan" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.45, ease: EASE }}>
-                              <PlanCard plan={plan} onToggle={toggle} />
-                            </motion.div>
-                          ) : (
-                            <motion.div key="skeleton" exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.25 }}>
-                              <PlanSkeleton />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      <div className="flex min-w-0 flex-col gap-4 max-sm:contents lg:sticky lg:top-6 lg:col-start-1 lg:row-start-2 lg:self-start">
-                        <Thread messages={chat.slice(2)} />
-                        {plan && (
-                          <>
-                            <Composer busy={busy} onSend={say} />
-                            {/* phones: pinned to the bottom while the plan scrolls under it */}
-                            <div className="flex items-center justify-between gap-3 pt-1 max-sm:sticky max-sm:bottom-0 max-sm:z-20 max-sm:-mx-4 max-sm:bg-dw-bg max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(12px,env(safe-area-inset-bottom))]">
-                              <PillButton tone="ghost" onClick={() => setStage("ask")}>
-                                Back
-                              </PillButton>
-                              <Gel
-                                h={52}
-                                disabled={busy}
-                                className="max-sm:flex-1"
-                                onClick={() => {
-                                  // Approved: the console gets exactly this plan, even on a fresh server instance.
-                                  rememberPlan(plan);
-                                  rememberSite(plan.site, plan.siteUrl ?? undefined);
-                                  setStage("install");
-                                  track("plan_confirmed", {
-                                    events: plan.events.filter((e) => e.enabled).length,
-                                  });
-                                }}
-                              >
-                                Looks good: install it <ArrowRight />
-                              </Gel>
-                            </div>
-                          </>
-                        )}
+                  <motion.section key="plan" {...fade} className="mx-auto flex w-full flex-col gap-4">
+                    {/* A conversation with Darwin: the merchant's words, Darwin's steps one by one, then the plan as its reply. */}
+                    <div className="flex items-center gap-3 pb-1">
+                      <Mascot kind="analyst" frame size={52} active={busy} title="Darwin" />
+                      <div>
+                        <div className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Darwin</div>
+                        <div className="text-[13.5px] text-dw-ink/60">{plan ? "Here's what I'll record. Turn anything off, or tell me what else to track." : "Your store's analyst"}</div>
                       </div>
                     </div>
+                    <Thread messages={intro} />
+                    <AnimatePresence initial={false}>
+                      {plan && (
+                        <motion.div
+                          key="plan"
+                          initial={{ opacity: 0, y: 14 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.45, ease: EASE }}
+                          className="flex flex-col gap-4 sm:pl-[52px]"
+                        >
+                          <PlanCard plan={plan} onToggle={toggle} />
+                          {/* phones: pinned to the bottom while the plan scrolls under it */}
+                          <div className="flex items-center justify-between gap-3 max-sm:sticky max-sm:bottom-0 max-sm:z-20 max-sm:-mx-4 max-sm:bg-dw-bg max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(12px,env(safe-area-inset-bottom))]">
+                            <PillButton tone="ghost" onClick={() => setStage("ask")}>
+                              Back
+                            </PillButton>
+                            <Gel
+                              ref={approveBtn}
+                              h={52}
+                              disabled={busy}
+                              className="max-sm:flex-1"
+                              onClick={() => {
+                                // Approved: the console gets exactly this plan, even on a fresh server instance.
+                                rememberPlan(plan);
+                                rememberSite(plan.site, plan.siteUrl ?? undefined);
+                                setStage("install");
+                                track("plan_confirmed", {
+                                  events: plan.events.filter((e) => e.enabled).length,
+                                });
+                              }}
+                            >
+                              Looks good: install it <ArrowRight />
+                            </Gel>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    <Thread messages={later} />
+                    {!plan && !busy && (
+                      <div className="flex items-center justify-between gap-3 sm:pl-[52px]">
+                        <PillButton tone="ghost" onClick={() => setStage("ask")}>
+                          Back
+                        </PillButton>
+                        {planFailed && (
+                          <Gel h={50} onClick={() => void runPlan(planFailed.a, planFailed.ctx)}>
+                            Try again <ArrowRight />
+                          </Gel>
+                        )}
+                      </div>
+                    )}
+                    {plan && <Composer busy={busy} onSend={say} />}
                   </motion.section>
                 )}
 
@@ -1147,6 +1194,8 @@ function Thread({ messages }: { messages: Message[] }) {
       {messages.map((m, i) =>
         m.from === "you" ? (
           <YouBubble key={`you-${i}-${m.text}`} text={m.text} chips={m.chips} />
+        ) : m.pending && m.steps ? (
+          <Drafting key={`drafting-${i}`} steps={m.steps} />
         ) : (
           <motion.div
             key={`darwin-${i}-${m.pending ? "pending" : m.text}`}
@@ -1155,7 +1204,7 @@ function Thread({ messages }: { messages: Message[] }) {
             transition={{ duration: 0.3, ease: EASE }}
           >
             <AgentBubble working={!!m.pending}>
-              {m.pending ? m.steps ? <Working steps={m.steps} /> : <Typing /> : <span className="whitespace-pre-line">{m.text}</span>}
+              {m.pending ? <Typing /> : <span className="whitespace-pre-line">{m.text}</span>}
             </AgentBubble>
           </motion.div>
         ),
@@ -1164,13 +1213,43 @@ function Thread({ messages }: { messages: Message[] }) {
   );
 }
 
-function Working({ steps }: { steps: string[] }) {
-  const [i, setI] = useState(0);
+/** How long each drafting message takes to "type". */
+const STEP_MS = 850;
+
+/** Darwin's drafting steps as separate chat messages, one by one, each after a moment of typing. */
+function Drafting({ steps }: { steps: string[] }) {
+  const [shown, setShown] = useState(0);
+  const [typing, setTyping] = useState(true);
   useEffect(() => {
-    const t = setInterval(() => setI((n) => Math.min(steps.length - 1, n + 1)), 650);
-    return () => clearInterval(t);
-  }, [steps.length]);
-  return <StepList steps={steps} current={i} reveal className="py-0.5" />;
+    if (shown >= steps.length) return;
+    const t = setTimeout(
+      () => {
+        if (typing) {
+          setTyping(false);
+          setShown((n) => n + 1);
+        } else setTyping(true);
+      },
+      typing ? STEP_MS - 250 : 250,
+    );
+    return () => clearTimeout(t);
+  }, [shown, typing, steps.length]);
+  const last = shown >= steps.length;
+  return (
+    <>
+      {steps.slice(0, shown).map((x, k) => (
+        <motion.div key={x} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: EASE }}>
+          <AgentBubble working={k === shown - 1}>{x}</AgentBubble>
+        </motion.div>
+      ))}
+      {(typing || !last) && shown < steps.length && (
+        <motion.div key="typing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+          <AgentBubble working>
+            <Typing />
+          </AgentBubble>
+        </motion.div>
+      )}
+    </>
+  );
 }
 
 function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => void }) {
@@ -1215,45 +1294,6 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (text: string) => v
         ))}
       </div>
     </div>
-  );
-}
-
-function PlanSkeleton() {
-  return (
-    <Card tone="white" hover={false} className="p-6 max-sm:border-0 max-sm:bg-transparent! max-sm:p-0 sm:p-7" aria-busy="true" aria-label="Drafting your plan">
-      <div className="flex items-center gap-4">
-        <Mascot kind="designer" frame size={60} active />
-        <div>
-          <div className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Drafting your plan</div>
-          <div className="mt-0.5 text-[14px] text-dw-ink/60">What to record, and the dashboards to build from it.</div>
-        </div>
-      </div>
-      <div className="mt-6 flex flex-wrap gap-2">
-        {[92, 70, 110, 84, 128].map((w, i) => (
-          <motion.span
-            key={i}
-            className="h-9 rounded-full bg-dw-yellow/60"
-            style={{ width: w }}
-            animate={{ opacity: [0.45, 1, 0.45] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}
-          />
-        ))}
-      </div>
-      <div className="mt-5 flex flex-col gap-2.5">
-        {[0, 1, 2, 3].map((i) => (
-          <motion.div
-            key={i}
-            className="h-[62px] rounded-[18px] bg-dw-sand"
-            animate={{ opacity: [0.45, 1, 0.45] }}
-            transition={{
-              duration: 1.5,
-              repeat: Infinity,
-              delay: 0.3 + i * 0.12,
-            }}
-          />
-        ))}
-      </div>
-    </Card>
   );
 }
 
@@ -2301,6 +2341,36 @@ const hostOf = (url: string) => {
     return url;
   }
 };
+
+const PLATFORM_NAMES: Record<string, string> = {
+  shopify: "Shopify",
+  webflow: "Webflow",
+  wordpress: "WordPress",
+  squarespace: "Squarespace",
+  wix: "Wix",
+  bigcommerce: "BigCommerce",
+};
+
+/** What Darwin will do about what the merchant asked for (from their answers, nothing invented). */
+const WATCH: Record<string, string> = {
+  checkout: "watch checkout closely",
+  sizing: "record sizing questions",
+  mobile: "compare mobile with desktop",
+  coupons: "track coupon codes",
+  agents: "count AI shoppers apart from people",
+  search: "record what people search for",
+};
+
+function heardMessage(a: Answers): string | null {
+  const picked = TRACK_OPTIONS.filter((o) => a.track.includes(o.id));
+  const what = picked.map((o) => (o.label.startsWith("AI") ? o.label : o.label.toLowerCase()));
+  const doing = picked.map((o) => WATCH[o.id]).filter(Boolean);
+  const note = a.note.trim();
+  if (!what.length && !note) return null;
+  const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : xs[0]);
+  if (!what.length) return `You asked me to track “${note.slice(0, 80)}”, so it's in the plan.`;
+  return `You asked about ${list(what)}, so I'll ${list(doing)}${note ? `, and add “${note.slice(0, 60)}”` : ""}.`;
+}
 
 const TLDS = "com|co\\.uk|org\\.uk|uk|co|io|shop|store|net|org|de|fr|es|it|nl|eu|ca|au|us|app|ai|biz|info|me|online|site|xyz|dev|ie|se|dk|no|fi|ch|at|be|pl|jp|in|nz|br|mx";
 const DOMAIN_RE = new RegExp(`(?<![@\\w.-])(?:https?://)?((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:${TLDS}))(?![\\w-])`, "i");
