@@ -274,6 +274,7 @@ describe("notability gate", () => {
     const morning = Date.parse("2026-09-26T08:00:00.000Z");
     expect(digestDue({ now: morning, settings: settings(), sent: [], memory: [] }, true)).toBe(true);
     expect(digestDue({ now: morning, settings: settings(), sent: [{ messageId: "d", fingerprint: "digest", signalId: "d", severity: "low", score: 0, at: new Date(morning).toISOString(), digest: true }], memory: [] }, true)).toBe(false);
+    expect(digestDue({ now: morning, settings: settings(), sent: [{ messageId: "m", fingerprint: "test:1", signalId: "s", severity: "high", score: 0.9, at: new Date(morning - 5 * 60 * 1000).toISOString() }], memory: [] }, true)).toBe(false);
   });
 
   it("does not re-propose something the merchant refused for 30 days", () => {

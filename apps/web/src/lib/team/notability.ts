@@ -157,5 +157,8 @@ export function digestDue(ctx: GateContext, hasContent: boolean): boolean {
   if (!hasContent || !ctx.settings.enabled || ctx.settings.autonomy === "off") return false;
   if (localHour(ctx.now, ctx.settings.timezone) < ctx.settings.digestHour) return false;
   const today = localDay(ctx.now, ctx.settings.timezone);
-  return !ctx.sent.some((s) => s.digest && localDay(Date.parse(s.at), ctx.settings.timezone) === today);
+  if (ctx.sent.some((s) => s.digest && localDay(Date.parse(s.at), ctx.settings.timezone) === today)) return false;
+  // The digest is a message too: it waits out the same one-an-hour cap as everything else.
+  const hourAgo = ctx.now - 60 * 60 * 1000;
+  return !ctx.sent.some((s) => !s.digest && Date.parse(s.at) > hourAgo);
 }
