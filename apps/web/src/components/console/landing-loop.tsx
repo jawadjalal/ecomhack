@@ -1,8 +1,11 @@
 "use client";
 
-import { CrewLoop } from "@/components/dw/landing/crew-loop";
+import { LiveDashboard } from "@/components/dw/landing/mini-dashboard";
 
-/** The landing page loop: the five-mascot crew going round observe → diagnose → propose → experiment → ship. */
+/**
+ * The landing page's hero visual: the Darwin loop, live — a miniature Overview running on the
+ * in-browser demo engine (simulated shoppers, labelled as such).
+ */
 export function LandingLoop({ className }: { className?: string }) {
-  return <CrewLoop className={className} />;
+  return <LiveDashboard className={className} />;
 }

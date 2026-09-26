@@ -6,12 +6,15 @@
  *      decide), and write down why;
  *   2. start tests for the traffic sources with the biggest conversion gap that have no test running,
  *      at most MAX_RUNNING at once, one per source (so tests never overlap), never retrying an idea.
+ * Autopilot publishes only copy the merchant's page backs up (claims.ts): an idea that needs a fact the page
+ * doesn't state is left for the merchant, and a live autopilot rule whose claims aren't on the page is taken down.
  * Steps are driven by the console (POST /api/web/autopilot/step) while autopilot is on.
  */
 import type { PageElement, TrafficSource, WebAutopilotEntry, WebAutopilotState, WebRule, WebRuleResult } from "@/lib/contracts";
 import { TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { kvGet, kvUpdate } from "@/lib/db/json-store";
 import { eventStore } from "@/lib/analytics/store";
+import { pageTexts, readyToPublish, unverifiedClaims } from "./claims";
 import { ideaDraft, ideasFor, rankSources } from "./drafts";
 import { computeSite } from "./results";
 import { createRule, endRule, listRules } from "./store";
@@ -100,10 +103,25 @@ export function stepAutopilot(site: string, outline: PageElement[] = []): { stat
   let rules = listRules(site);
   const { overview, results } = computeSite(site, rules, eventStore().all());
 
+  // 0. Take down live autopilot copy that states something the page doesn't (e.g. an old "★ 4.8/5" badge).
+  if (outline.length) {
+    const page = pageTexts(outline);
+    for (const rule of rules.filter((r) => r.author === "autopilot" && (r.status === "running" || r.status === "shipped"))) {
+      const claims = [...new Set(rule.changes.flatMap((c) => (c.action === "style" ? [] : unverifiedClaims(c.value, page))))];
+      if (!claims.length) continue;
+      const list = claims.map((c) => `“${c}”`).join(", ");
+      endRule(rule.id, { decision: "stopped", reason: `its copy says ${list}, which isn't on your page`, at: new Date().toISOString(), by: "autopilot" });
+      actions.push(entry("stopped", `Took down “${rule.name}” for ${who(rule)}: its copy says ${list}, and Darwin can't find that on your page. It only publishes what your page already says.`, { ruleId: rule.id, source: rule.audience.sources?.[0] }));
+    }
+    rules = listRules(site);
+  }
+
   // 1. Decide running tests.
   for (const rule of rules.filter((r) => r.status === "running" && r.mode === "test")) {
     const verdict = judge(results.find((r) => r.ruleId === rule.id));
     if (!verdict) continue;
+    // Never ship copy the page can't back up (page unreadable right now): leave it running until it is.
+    if (verdict.decision === "shipped" && !readyToPublish(rule, outline)) continue;
     const res = results.find((r) => r.ruleId === rule.id)!;
     endRule(rule.id, { ...verdict, probabilityToBeat: res.probabilityToBeat, lift: res.lift, at: new Date().toISOString(), by: "autopilot" });
     actions.push(
@@ -125,10 +143,15 @@ export function stepAutopilot(site: string, outline: PageElement[] = []): { stat
   for (const source of rankSources(overview)) {
     if (slots <= 0) break;
     if (busy.has(source) || overview.bySource[source].visitors < AUTOPILOT.minSourceVisitors) continue;
-    const index = ideasFor(source).findIndex((_, i) => !tried.has(`${source}:${i}`));
-    if (index < 0) continue;
-    const draft = ideaDraft(site, source, index, overview, outline);
-    if (!draft) continue;
+    // The first untried idea autopilot can publish on its own: one that needs the merchant's facts waits for them.
+    let index = -1;
+    let draft: ReturnType<typeof ideaDraft>;
+    for (let i = 0; i < ideasFor(source).length && index < 0; i++) {
+      if (tried.has(`${source}:${i}`)) continue;
+      const d = ideaDraft(site, source, i, overview, outline);
+      if (d && readyToPublish(d, outline)) [index, draft] = [i, d];
+    }
+    if (index < 0 || !draft) continue;
     tried.add(`${source}:${index}`);
     const rule = createRule({ ...draft, author: "autopilot" }, "running");
     slots--;

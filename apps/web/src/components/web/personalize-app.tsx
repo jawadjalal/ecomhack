@@ -35,10 +35,11 @@ const SHORT: Record<TrafficSource, string> = {
   direct: "Direct",
 };
 
+/** Example prompts. No made-up facts: Darwin fills copy from the page's own words, or asks the merchant (lib/web/claims.ts). */
 const EXAMPLES = [
-  "Visitors from ChatGPT: banner saying Free UK delivery over £60 · Free 60-day returns · Ships in 24h",
+  "Visitors from ChatGPT: a banner with our delivery and returns terms",
   "Google searchers: put their search in the headline",
-  'Instagram and TikTok: add a badge "★ 4.8 from 2,000+ runners" next to Add to cart',
+  'Instagram and TikTok: add a badge "Free 60-day returns" next to Add to cart',
   "Direct visitors: hide the newsletter popup",
 ];
 

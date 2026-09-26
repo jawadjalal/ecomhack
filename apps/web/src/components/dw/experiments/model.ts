@@ -220,6 +220,7 @@ export function valueLabel(path: string, raw: string | undefined): string {
     return v ? "on" : "off";
   }
   if (typeof v === "string") {
+    if (!v.trim()) return "empty";
     const words: Record<string, string> = { "below-description": "below the text", "above-fold": "at the top", sticky: "always on screen", "low-stock": "low stock", none: "none" };
     const s = words[v] ?? v;
     return s.length > 28 ? `${s.slice(0, 27)}…` : s;

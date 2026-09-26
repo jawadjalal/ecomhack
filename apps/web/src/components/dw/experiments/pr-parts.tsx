@@ -25,7 +25,7 @@ export function DiffCard({ row, configPath, live, heading, compact }: { row: PrR
       <div className="flex flex-col gap-1.5">
         <h2 className={compact ? "text-[22px] leading-tight font-semibold tracking-[-0.02em]" : "text-[22px] leading-snug font-semibold tracking-[-0.01em] sm:text-[24px]"}>{heading ?? row.title}</h2>
         <div className="flex flex-wrap items-center gap-2">
-          {meta && <span className={cn("min-w-0 break-all text-[#6B655A]", row.state === "none" ? "text-[14px]" : "font-dwmono text-[12.5px]")}>{meta}</span>}
+          {meta && <span className={cn("min-w-0 [overflow-wrap:anywhere] text-[#6B655A]", row.state === "none" ? "text-[14px]" : "font-dwmono text-[12.5px]")}>{meta}</span>}
           {row.state === "preview" &&
             (live ? (
               <Tag tone="warn">Preview: drafted as a dry run</Tag>

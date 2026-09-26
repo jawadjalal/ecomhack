@@ -227,9 +227,9 @@ function ConversionCard({ demo, compact }: { demo: LiveDemo; compact?: boolean }
               <stop offset="1" stopColor="#141413" stopOpacity="0" />
             </linearGradient>
           </defs>
-          {area && <motion.path animate={{ d: area }} transition={{ duration: 0.7, ease: "easeInOut" }} fill="url(#dw-mini-conv)" />}
+          {area && <motion.path initial={{ d: area }} animate={{ d: area }} transition={{ duration: 0.7, ease: "easeInOut" }} fill="url(#dw-mini-conv)" />}
           {line && (
-            <motion.path animate={{ d: line }} transition={{ duration: 0.7, ease: "easeInOut" }} fill="none" stroke="#141413" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            <motion.path initial={{ d: line }} animate={{ d: line }} transition={{ duration: 0.7, ease: "easeInOut" }} fill="none" stroke="#141413" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
           )}
           {end && (
             <motion.g animate={{ x: end[0], y: end[1] }} transition={{ duration: 0.7, ease: "easeInOut" }}>

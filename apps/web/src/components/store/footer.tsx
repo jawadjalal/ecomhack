@@ -1,5 +1,4 @@
-import { PaceLogo } from "./logo";
-import { NewsletterForm } from "./newsletter-form";
+import { BrandWordmark } from "./logo";
 import { StoreLink } from "./store-provider";
 
 /** Footer entries that have a real page. */
@@ -11,11 +10,11 @@ const COLS = [
   { title: "PACE", links: ["Our story", "Run clubs", "Sustainability", "Journal"] },
 ];
 
-export function StoreFooter({ slim = false }: { slim?: boolean }) {
+export function StoreFooter({ slim = false, brand = "PACE" }: { slim?: boolean; brand?: string }) {
   if (slim) {
     return (
-      <footer className="border-t border-(--line) px-4 py-6 text-center text-xs text-(--muted)">
-        © 2026 PACE Running Ltd · Demo store powered by Darwin · No real payments are taken
+      <footer className="border-t border-black/10 bg-[#f6f4f1] px-4 py-6 text-center text-xs text-(--muted)">
+        © 2026 {brand} · Demo store powered by Darwin · No real payments are taken
       </footer>
     );
   }
@@ -23,11 +22,24 @@ export function StoreFooter({ slim = false }: { slim?: boolean }) {
     <footer className="bg-[#0c0a09] text-white">
       <div className="mx-auto grid max-w-[1400px] gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.4fr_2fr] lg:px-10">
         <div className="max-w-sm">
-          <PaceLogo />
+          <BrandWordmark brand={brand} />
           <p className="mt-4 text-sm leading-relaxed text-white/60">
             Performance running shoes designed in London and tested on the towpaths, trails and track of the UK.
           </p>
-          <NewsletterForm />
+          <form className="mt-6 flex gap-2" aria-label="Newsletter">
+            <label htmlFor="pace-newsletter" className="sr-only">
+              Email address
+            </label>
+            <input
+              id="pace-newsletter"
+              type="email"
+              placeholder="Email for early access"
+              className="min-h-11 w-full rounded-(--r-input) border border-white/15 bg-white/5 px-4 text-sm text-white placeholder:text-white/40 focus:border-white/50 focus:outline-none"
+            />
+            <button type="button" className="pace-btn pace-btn-dark-surface min-h-11 px-5 text-sm">
+              Join
+            </button>
+          </form>
         </div>
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
           {COLS.map((c) => (

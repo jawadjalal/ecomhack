@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, ChevronDown, ChevronLeft, CreditCard, Loader2, Lock, Wand2 } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, CreditCard, Loader2, Lock, Tag, Wand2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { id } from "@/lib/ids";
 import { formatGBP } from "@/lib/money";
 import { clearCart, saveOrder } from "@/lib/storefront/cart";
-import { priceCart } from "@/lib/storefront/pricing";
+import { validateCoupon, withCoupon, type Coupon, type CouponResult } from "@/lib/storefront/coupons";
+import { priceCart, type CartTotals } from "@/lib/storefront/pricing";
 import { sizeLabel } from "@/lib/storefront/products";
 import { useDisplayLines } from "./cart-view";
 import { StoreLink, useFlush, useStore, useStoreHref, useTrack } from "./store-provider";
@@ -110,7 +111,10 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
   const href = useStoreHref();
   const router = useRouter();
   const { lines, hydrated, sample } = useDisplayLines();
-  const totals = priceCart(lines, spec);
+  const [couponCode, setCouponCode] = useState<string | null>(null);
+  const base = priceCart(lines, spec);
+  // Discount codes come off the merchandise subtotal; delivery is priced on the pre-discount subtotal.
+  const totals = withCoupon(base, couponCode);
   const layout = STEP_LAYOUTS[checkout.steps];
   const needsAccount = !checkout.guestCheckout;
 
@@ -182,6 +186,17 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
     };
   }, [track, flush]);
 
+  const applyCoupon = (raw: string): CouponResult => {
+    const r = validateCoupon(raw, base.subtotal);
+    if (r.ok) {
+      setCouponCode(r.code);
+      track("coupon_applied", { code: r.code, valid: true, discount: r.discount, percent_off: r.coupon.percentOff, value: base.subtotal });
+    } else if (r.reason !== "empty") {
+      track("coupon_rejected", { code: r.code, valid: false, reason: r.reason, value: base.subtotal });
+    }
+    return r;
+  };
+
   const set = (k: Field) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
     setForm((f) => ({ ...f, [k]: v }));
@@ -197,6 +212,7 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
       lines: totals.lines.map(({ productId, color, size, quantity }) => ({ productId, color, size, quantity })),
       subtotal: totals.subtotal,
       shipping: totals.shipping,
+      ...(totals.discount > 0 && totals.coupon ? { discount: totals.discount, coupon: totals.coupon.code } : {}),
       total: totals.total,
       deliveryDate,
       express,
@@ -283,6 +299,8 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
       shippingVisible={shippingVisible}
       stepsLeft={layout.length - 1 - stepIdx}
       deliveryDate={deliveryDate}
+      onApplyCoupon={applyCoupon}
+      onRemoveCoupon={() => setCouponCode(null)}
     />
   );
 
@@ -299,7 +317,7 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
           <span className="flex items-center gap-1.5 font-medium">
             {summaryOpen ? "Hide" : "Show"} order summary <ChevronDown className={`size-4 transition ${summaryOpen ? "rotate-180" : ""}`} />
           </span>
-          <span className="font-semibold">{formatGBP(shippingVisible ? totals.total : totals.subtotal)}</span>
+          <span className="font-semibold">{formatGBP(shippingVisible ? totals.total : totals.subtotal - totals.discount)}</span>
         </button>
         {summaryOpen && <div className="px-4 pb-6 sm:px-6">{summary}</div>}
       </div>
@@ -483,6 +501,12 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
                   <span className="text-(--muted)">Subtotal</span>
                   <span>{formatGBP(totals.subtotal)}</span>
                 </div>
+                {totals.discount > 0 && (
+                  <div className="mt-1.5 flex justify-between text-emerald-700">
+                    <span>Discount{totals.coupon ? ` (${totals.coupon.code})` : ""}</span>
+                    <span>−{formatGBP(totals.discount)}</span>
+                  </div>
+                )}
                 <div className="mt-1.5 flex justify-between">
                   <span className="text-(--muted)">Delivery</span>
                   <span className="font-medium">{totals.shipping === 0 ? "Free" : formatGBP(totals.shipping)}</span>
@@ -575,16 +599,102 @@ function FormSection({
   );
 }
 
+type Totals = CartTotals & { discount: number; coupon?: Coupon };
+
+/** Discount code box: validates against the store's real codes (lib/storefront/coupons). */
+function DiscountCode({
+  applied,
+  discount,
+  onApply,
+  onRemove,
+}: {
+  applied?: Coupon;
+  discount: number;
+  onApply: (code: string) => CouponResult;
+  onRemove: () => void;
+}) {
+  const inputId = useId();
+  const [value, setValue] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+
+  if (applied) {
+    return (
+      <div
+        className="pace-card mt-6 flex items-center justify-between gap-3 border border-emerald-600/30 bg-emerald-50 px-3 py-2.5 text-sm"
+        data-darwin="coupon-applied"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Tag className="size-4 shrink-0 text-emerald-700" aria-hidden />
+          <span className="min-w-0 truncate">
+            <span className="font-semibold">{applied.code}</span> · {applied.label} · −{formatGBP(discount)}
+          </span>
+        </span>
+        <button type="button" onClick={onRemove} className="shrink-0 text-xs font-medium text-(--muted) underline underline-offset-2 hover:text-(--ink)">
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="mt-6"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        const r = onApply(value);
+        setMessage(r.ok ? null : r.message);
+        if (r.ok) setValue("");
+      }}
+    >
+      <div className="flex gap-2">
+        <label htmlFor={inputId} className="sr-only">
+          Discount code
+        </label>
+        <input
+          id={inputId}
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            if (message) setMessage(null);
+          }}
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          maxLength={40}
+          aria-invalid={message ? true : undefined}
+          aria-describedby={message ? `${inputId}-msg` : undefined}
+          className="pace-input min-w-0 bg-white text-sm"
+          placeholder="Discount code"
+          data-darwin="coupon-input"
+        />
+        <button type="submit" className="pace-btn pace-btn-secondary shrink-0 px-5 text-sm" data-darwin="coupon-apply">
+          Apply
+        </button>
+      </div>
+      {message && (
+        <p id={`${inputId}-msg`} role="alert" className="mt-1.5 text-xs font-medium text-[#b91c1c]">
+          {message}
+        </p>
+      )}
+    </form>
+  );
+}
+
 function OrderSummary({
   totals,
   shippingVisible,
   stepsLeft,
   deliveryDate,
+  onApplyCoupon,
+  onRemoveCoupon,
 }: {
-  totals: ReturnType<typeof priceCart>;
+  totals: Totals;
   shippingVisible: boolean;
   stepsLeft: number;
   deliveryDate: string;
+  onApplyCoupon: (code: string) => CouponResult;
+  onRemoveCoupon: () => void;
 }) {
   return (
     <div>
@@ -607,20 +717,18 @@ function OrderSummary({
           </li>
         ))}
       </ul>
-      <div className="mt-6 flex gap-2">
-        <label htmlFor="co-discount" className="sr-only">
-          Discount code
-        </label>
-        <input id="co-discount" className="pace-input min-h-11 bg-white text-sm" placeholder="Discount code" />
-        <button type="button" className="pace-btn pace-btn-secondary min-h-11 px-5 text-sm">
-          Apply
-        </button>
-      </div>
+      <DiscountCode applied={totals.coupon} discount={totals.discount} onApply={onApplyCoupon} onRemove={onRemoveCoupon} />
       <dl className="mt-6 space-y-2.5 text-sm">
         <div className="flex justify-between">
           <dt className="text-(--muted)">Subtotal</dt>
           <dd>{formatGBP(totals.subtotal)}</dd>
         </div>
+        {totals.discount > 0 && (
+          <div className="flex justify-between text-emerald-700" data-darwin="summary-discount">
+            <dt>Discount{totals.coupon ? ` (${totals.coupon.code})` : ""}</dt>
+            <dd>−{formatGBP(totals.discount)}</dd>
+          </div>
+        )}
         <div className="flex justify-between" data-darwin="summary-shipping">
           <dt className="text-(--muted)">Delivery</dt>
           <dd>
@@ -639,7 +747,7 @@ function OrderSummary({
           <dt className="text-base font-semibold">Total</dt>
           <dd className="text-xl font-semibold">
             <span className="mr-1.5 text-xs font-normal text-(--muted)">GBP</span>
-            {formatGBP(shippingVisible ? totals.total : totals.subtotal)}
+            {formatGBP(shippingVisible ? totals.total : totals.subtotal - totals.discount)}
           </dd>
         </div>
       </dl>
