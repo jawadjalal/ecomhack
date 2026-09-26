@@ -100,7 +100,7 @@ function toProducts(data: RawProduct[]): WhopProduct[] {
 /** Products are a nice-to-have for the onboarding summary: never fail the connection over them. */
 async function listProducts(key: string, accountId?: string): Promise<RawProduct[]> {
   try {
-    const q = accountId ? `company_id=${encodeURIComponent(accountId)}&first=6` : "first=6";
+    const q = accountId ? `account_id=${encodeURIComponent(accountId)}&first=6` : "first=6";
     return ((await whopGet<{ data?: unknown[] }>(`/products?${q}`, key)).data ?? []) as RawProduct[];
   } catch {
     return [];
