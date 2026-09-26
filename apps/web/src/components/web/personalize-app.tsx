@@ -14,6 +14,7 @@ import {
   Eye,
   FlaskConical,
   Globe,
+  Flame,
   Hourglass,
   LoaderCircle,
   Pause,
@@ -28,7 +29,9 @@ import {
   X,
 } from "lucide-react";
 import type {
+  HeatmapElement,
   TrafficSource,
+  WebHeatmap,
   WebAutopilotEntry,
   WebAutopilotState,
   WebChange,
@@ -165,6 +168,42 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
     const t = setTimeout(() => setSrc(pageUrl ? previewSrc(pageUrl, view, rulesVersion) : undefined), 0);
     return () => clearTimeout(t);
   }, [pageUrl, view, reload, rulesVersion]);
+
+  /* ---------------- click heatmap over the preview */
+
+  const [heatOn, setHeatOn] = useState(false);
+  const [heat, setHeat] = useState<WebHeatmap>();
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [painted, setPainted] = useState<boolean>();
+  const heatSource = view.source === "original" ? undefined : view.source;
+  const pagePath = useMemo(() => {
+    try {
+      return pageUrl ? new URL(pageUrl, origin).pathname : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [pageUrl, origin]);
+
+  useEffect(() => {
+    if (!heatOn) return;
+    const q = new URLSearchParams({ site, ...(pagePath ? { path: pagePath } : {}), ...(heatSource ? { source: heatSource } : {}) });
+    const get = () => api<WebHeatmap>(`/api/web/heatmap?${q}`).then(setHeat, () => {});
+    const first = setTimeout(get, 0);
+    const t = setInterval(get, 4000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(t);
+    };
+  }, [heatOn, site, pagePath, heatSource]);
+
+  const paint = useCallback(() => {
+    const ok = paintHeatmap(frame.current, heatOn ? (heat?.elements ?? []) : []);
+    setPainted(ok);
+  }, [heat, heatOn]);
+  useEffect(() => {
+    const t = setTimeout(paint, 0);
+    return () => clearTimeout(t);
+  }, [paint]);
 
   const run = async (label: string, fn: () => Promise<void>) => {
     setBusy(label);
@@ -384,13 +423,22 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                 icon={<Eye />}
                 title="View the page as"
                 right={
-                  view.previewRuleId ? (
-                    <Badge tone="warn" title="Showing a draft that isn't live yet">
-                      Previewing draft
-                    </Badge>
-                  ) : (
-                    <Badge tone="outline">Previews send no events</Badge>
-                  )
+                  <>
+                    {view.previewRuleId ? (
+                      <Badge tone="warn" title="Showing a draft that isn't live yet">
+                        Previewing draft
+                      </Badge>
+                    ) : (
+                      <Badge tone="outline">Previews send no events</Badge>
+                    )}
+                    <Toggle
+                      on={heatOn}
+                      onChange={setHeatOn}
+                      icon={<Flame />}
+                      label="Heatmap"
+                      title="Where visitors click on this page, for the audience you're viewing as (darwin.js autocapture)"
+                    />
+                  </>
                 }
               />
               <div className="flex flex-wrap items-center gap-1.5 px-5 pb-3">
@@ -419,13 +467,14 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
               </div>
               <div className="relative mx-5 mb-5 h-[min(72vh,52rem)] min-h-[28rem] overflow-hidden rounded-xl border border-white/[0.08] bg-white">
                 {src ? (
-                  <iframe key={src} src={src} title={`${site} preview`} className="absolute inset-0 h-full w-full" />
+                  <iframe ref={frame} key={src} src={src} onLoad={paint} title={`${site} preview`} className="absolute inset-0 h-full w-full" />
                 ) : (
                   <div className="absolute inset-0 grid place-items-center bg-[#0b0d12] p-8 text-center text-[0.9rem] text-white/50">
                     No page seen for “{site}” yet. Install darwin.js (right) and open the store once.
                   </div>
                 )}
               </div>
+              {heatOn && <HeatList heat={heat} painted={painted} audience={heatSource ? SHORT[heatSource] : "all visitors"} />}
             </Panel>
 
             <TrafficPanel data={data} />
@@ -814,6 +863,105 @@ function RuleRow({
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Paint click heat over the elements in the preview iframe (same-origin pages only; a cross-origin
+ * store can't be drawn on, so the list below the preview is the fallback). Returns whether it painted.
+ */
+function paintHeatmap(iframe: HTMLIFrameElement | null, elements: HeatmapElement[]): boolean {
+  let doc: Document | null = null;
+  try {
+    doc = iframe?.contentDocument ?? null;
+  } catch {
+    return false;
+  }
+  if (!doc?.body) return false;
+  doc.querySelector("[data-darwin-heatmap]")?.remove();
+  if (!elements.length) return true;
+  const win = doc.defaultView!;
+  // Clicks per DOM element (several product buttons share one selector: split between them).
+  const heat = new Map<Element, { clicks: number; rage: number }>();
+  for (const e of elements) {
+    let nodes: NodeListOf<Element>;
+    try {
+      nodes = doc.querySelectorAll(e.selector);
+    } catch {
+      continue;
+    }
+    nodes.forEach((n) => {
+      const h = heat.get(n) ?? { clicks: 0, rage: 0 };
+      h.clicks += e.clicks / nodes.length;
+      h.rage += e.rageClicks / nodes.length;
+      heat.set(n, h);
+    });
+  }
+  const total = elements.reduce((a, e) => a + e.clicks, 0) || 1;
+  const max = Math.max(1, ...[...heat.values()].map((h) => h.clicks));
+  const layer = doc.createElement("div");
+  layer.setAttribute("data-darwin-heatmap", "");
+  layer.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:2147483646";
+  heat.forEach((h, n) => {
+    const r = n.getBoundingClientRect();
+    if (!r.width && !r.height) return;
+    const t = h.clicks / max;
+    const size = Math.max(r.width, r.height) * 0.9 + 60;
+    const cx = r.left + win.scrollX + r.width / 2;
+    const cy = r.top + win.scrollY + r.height / 2;
+    const hue = Math.round((1 - t) * 210); // blue (few) → red (most)
+    const spot = doc.createElement("div");
+    spot.style.cssText = `position:absolute;left:${cx - size / 2}px;top:${cy - size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle,hsla(${hue},95%,55%,${0.35 + 0.4 * t}) 0%,hsla(${hue},95%,55%,0.18) 45%,transparent 70%);mix-blend-mode:multiply`;
+    layer.appendChild(spot);
+    const tag = doc.createElement("div");
+    tag.textContent = `${Math.round((h.clicks / total) * 100)}% · ${Math.round(h.clicks)} clicks${h.rage >= 0.5 ? ` · ${Math.round(h.rage)} rage` : ""}`;
+    // Keep the label inside the page (elements at the top or right edge would clip it).
+    const left = Math.max(win.scrollX + 4, Math.min(r.left + win.scrollX, win.scrollX + doc.documentElement.clientWidth - 170));
+    const top = Math.max(win.scrollY + 4, r.top + win.scrollY - 22);
+    tag.style.cssText = `position:absolute;left:${left}px;top:${top}px;padding:2px 7px;border-radius:999px;background:${h.rage >= 0.5 ? "#b42318" : "#111"};color:#fff;font:600 11px/16px system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25)`;
+    layer.appendChild(tag);
+  });
+  doc.body.appendChild(layer);
+  return true;
+}
+
+function HeatList({ heat, painted, audience }: { heat?: WebHeatmap; painted?: boolean; audience: string }) {
+  return (
+    <div className="mx-5 mb-5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3.5">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-[0.76rem] text-white/50">
+        <Flame className="size-3.5 text-[#ffb37a]" />
+        <span className="font-medium text-white/75">Most clicked</span>
+        <span>
+          · {audience} · {heat?.clicks ?? 0} clicks from {heat?.visitors ?? 0} visitors
+        </span>
+        {!!heat?.rageClicks && <Badge tone="bad">{heat.rageClicks} rage clicks</Badge>}
+        {!!heat?.syntheticClicks && (
+          <Badge tone="warn" title="Clicks generated by Darwin's simulator (properties.synthetic = true)">
+            <Bot /> {heat.syntheticClicks} simulated
+          </Badge>
+        )}
+        {painted === false && <span className="text-white/35">(this store can&apos;t be drawn on from here: list only)</span>}
+      </div>
+      {!heat?.elements.length ? (
+        <p className="text-[0.8rem] text-white/40">No clicks yet for this audience. Turn on Traffic, or click around the store.</p>
+      ) : (
+        <ul className="grid grid-cols-1 gap-x-6 gap-y-1.5 md:grid-cols-2">
+          {heat.elements.slice(0, 8).map((e) => (
+            <li key={e.selector} className="grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-3 text-[0.78rem]" title={e.selector}>
+              <div className="min-w-0">
+                <div className="truncate text-white/80">{e.text || e.selector.split(" > ").pop()}</div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#4c94f0] to-[#f05252]" style={{ width: `${Math.max(3, e.share * 100)}%` }} />
+                </div>
+              </div>
+              <span className={cn("text-right font-mono tabular", e.rageClicks ? "text-[#ff9b9b]" : "text-white/55")}>
+                {Math.round(e.share * 100)}%{e.rageClicks ? ` · ${e.rageClicks}⚡` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

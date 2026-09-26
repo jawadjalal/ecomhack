@@ -172,6 +172,35 @@ export interface WebDraftResponse {
   outline: PageElement[];
 }
 
+/** One clicked element on a page (from darwin.js `$autocapture` / `$rageclick`). */
+export interface HeatmapElement {
+  /** The selector darwin.js recorded: valid CSS, so the console can find the element again. */
+  selector: string;
+  tag: string;
+  /** Most common visible text. */
+  text: string;
+  clicks: number;
+  rageClicks: number;
+  visitors: number;
+  /** Share of all clicks on the page. */
+  share: number;
+}
+
+export interface WebHeatmap {
+  site: string;
+  /** Page path the clicks are from ("/demo/north-trail"); all pages when missing. */
+  path?: string;
+  /** Only visitors from this source; all when missing. */
+  source?: TrafficSource;
+  clicks: number;
+  rageClicks: number;
+  visitors: number;
+  /** How many of the clicks were simulated. */
+  syntheticClicks: number;
+  /** Most clicked first. */
+  elements: HeatmapElement[];
+}
+
 // GET  /api/web/runtime.js?site=…            → JS (public; darwin.js loads it)
 // GET  /api/web/rules?site=…                  → WebRulesResponse                                (admin)
 // POST /api/web/rules { rule: WebRuleDraft, status? } → { rule }                               (admin)
@@ -180,6 +209,7 @@ export interface WebDraftResponse {
 // POST /api/web/draft { site, prompt, url? }  → WebDraftResponse (LLM or heuristic, not saved)  (admin)
 // POST /api/web/suggest { site }              → { rules: WebRuleDraft[] } playbook per source   (admin)
 // POST /api/web/simulate { site, visitors }   → WebSimulateResponse, synthetic traffic          (admin)
+// GET  /api/web/heatmap?site=…&path=…&source=… → WebHeatmap                                   (admin)
 // POST /api/web/autopilot { site, on }        → WebAutopilotState                               (admin)
 // POST /api/web/autopilot/step { site }       → { state: WebAutopilotState, actions }          (admin)
 

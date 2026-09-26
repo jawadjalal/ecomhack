@@ -87,6 +87,8 @@ The loop above optimizes a store built on a PageSpec. Web personalization works 
 5. **Autopilot** runs this loop by itself: one A/B test per traffic source (biggest conversion gap first, up to 3 at
    once), ships a winner at ≥97% with ≥300 visitors per arm and ≥30 orders, stops losers, then tries that source's
    next idea. It never retries an idea, and every decision is logged with its numbers.
+6. **Heatmap**: darwin.js already records clicks (`$autocapture`, `$rageclick`); flip *Heatmap* to see where each
+   audience clicks, painted over the page (same-origin previews) and listed (any store), rage clicks in red.
 
 ![Personalize: preview as an audience, draft from a prompt, live A/B results](apps/web/docs/screenshots/personalize/personalize-desktop.jpg)
 

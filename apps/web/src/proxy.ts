@@ -93,5 +93,6 @@ export const config = {
     "/api/web/simulate",
     "/api/web/autopilot/:path*",
     "/api/web/autopilot",
+    "/api/web/heatmap",
   ],
 };

@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe("admin gate", () => {
   it("protects mission control and state-changing APIs, not the store or agent tools", () => {
-    for (const p of ["/console", "/api/loop/reset", "/api/github/connect", "/api/simulate", "/api/agent/shop", "/api/agent/sessions", "/api/analytics/events", "/api/web/rules", "/api/web/draft", "/api/web/simulate", "/api/web/autopilot/step"]) {
+    for (const p of ["/console", "/api/loop/reset", "/api/github/connect", "/api/simulate", "/api/agent/shop", "/api/agent/sessions", "/api/analytics/events", "/api/web/rules", "/api/web/draft", "/api/web/simulate", "/api/web/autopilot/step", "/api/web/heatmap"]) {
       expect(isProtectedPath(p)).toBe(true);
     }
     for (const p of ["/store", "/api/agent/products", "/api/mcp", "/api/a2a", "/api/capture", "/ingest/e", "/llms.txt", "/api/consolex", "/api/web/runtime.js", "/api/whop/webhook", "/darwin.js"]) {

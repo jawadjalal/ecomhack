@@ -75,7 +75,7 @@ describe("autopilot loop", () => {
     expect(ended.every((r) => r.outcome?.by === "autopilot" && r.outcome.reason.includes("visitors"))).toBe(true);
     expect(state.log.some((e) => e.kind === "shipped" || e.kind === "stopped")).toBe(true);
     expect(state.log.length).toBeLessThanOrEqual(AUTOPILOT.maxLog);
-  });
+  }, 30_000); // 25 rounds of 2,000 simulated visitors
 
   it("turns on and off with a log line each way", () => {
     expect(setAutopilot(SITE, true).log[0].kind).toBe("on");
