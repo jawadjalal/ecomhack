@@ -6,16 +6,17 @@ import { ArrowRight, Play, Sparkles } from "lucide-react";
 import { useExperiments } from "@/lib/console/hooks";
 import { useDarwin } from "../provider";
 import { Mascot } from "../mascot";
-import { PageHead, PillButton } from "../ui";
-import { InTestCard, ThrownAwayCard, UpNextCard } from "../issues/fix-cards";
+import { pct } from "@/lib/console/format";
+import { LOOP_SPLIT, PageHead, PillButton, SummaryStrip, type SummaryItem } from "../ui";
 import { FixDetail, FixList } from "../issues/fix-view";
-import { buildFixes, insightArchive, rankIssues } from "../issues/model";
+import { FixMark } from "../issues/fix-parts";
+import { buildFixes, insightArchive, rankIssues, type FixRow } from "../issues/model";
 import { Shimmer } from "../issues/panel";
 import { useUrlSelection } from "../issues/use-selection";
 import { WatchingEmpty } from "../issues/watching";
 import { StartDemo } from "../first-run";
 
-/** Fixes screen: every settings change Darwin has proposed, its diff, and what happened to it. */
+/** Fixes screen: every page change Theo has drafted, what it changes, and what happened to it. */
 export function FixesScreen() {
   return (
     <MotionConfig reducedMotion="user">
@@ -49,8 +50,8 @@ function Fixes() {
       <WatchingEmpty
         mascot="designer"
         title="No fixes yet"
-        lede="Darwin drafts a fix as soon as it knows what stops shoppers buying. Each one is a small settings change it can undo."
-        line={loop.insights.length ? `Darwin has found ${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"} to work on.` : undefined}
+        lede="Theo drafts a fix as soon as Iris finds what stops shoppers buying. Each one is a small change to your page settings, and Max can undo it."
+        line={loop.insights.length ? `Iris has found ${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"} for Theo to work on.` : undefined}
         action={
           canDraft ? draftButton : <StartDemo />
         }
@@ -61,12 +62,13 @@ function Fixes() {
   const fix = fixes.find((f) => f.id === selected) ?? fixes[0];
   const inTest = fixes.find((f) => f.status === "test");
   const drafted = fixes.find((f) => f.status === "drafted");
-  const thrown = fixes.find((f) => f.status === "rejected" || f.status === "shelved");
   const shipped = fixes.filter((f) => f.status === "shipped").length;
   const covered = new Set(loop.proposal?.insightIds ?? []);
   const next = rows.find((r) => !covered.has(r.insight.id));
   const n = fixes.length;
+  const lostOrShelved = fixes.filter((f) => f.status === "rejected" || f.status === "shelved" || f.status === "stopped").length;
   const tail = inTest ? "one in test" : drafted ? "one ready to test" : shipped ? `${shipped} shipped` : "none tested yet";
+  const upNext = drafted && !inTest ? `Up next: Ada tests “${drafted.title}”.` : next && !inTest ? `Up next: a fix for issue ${next.n}, ${next.insight.title.replace(/[.]$/, "")}.` : "";
 
   const right = inTest ? (
     <PillButton href="/console/experiments" tone="white" className="group/cta">
@@ -85,19 +87,13 @@ function Fixes() {
       <PageHead
         mascot={<Mascot kind="designer" size={52} frame active />}
         title={`${n} fix${n === 1 ? "" : "es"}, ${tail}`}
-        lede="Every fix is a small settings change Darwin can undo. Nothing reaches your store until it wins a test."
+        lede={`Theo drafted ${n === 1 ? "this fix" : `these ${n} fixes`}. Each is a small change to your page settings that Max can undo, and nothing reaches your store until it wins a test. ${upNext}`.trim()}
         right={right}
       />
 
-      <div className="grid gap-[14px] md:grid-cols-2 lg:h-[188px] lg:grid-cols-[1.5fr_1fr_1fr]">
-        <div className="min-w-0 md:col-span-2 lg:col-span-1 [&>*]:h-full">
-          <InTestCard fix={inTest} rows={rows} hasDraft={Boolean(drafted)} />
-        </div>
-        <UpNextCard drafted={inTest ? undefined : drafted} next={next} testing={Boolean(inTest)} />
-        <ThrownAwayCard thrown={thrown} shipped={shipped} />
-      </div>
+      <SummaryStrip items={summaryItems(n, inTest, drafted, shipped, lostOrShelved)} />
 
-      <div className="grid items-stretch gap-[14px] lg:grid-cols-[1fr_1.4fr]">
+      <div className={LOOP_SPLIT}>
         <FixList fixes={fixes} rows={rows} selected={fix.id} onSelect={select} panelId="dw-fix-detail" />
         <FixDetail id="dw-fix-detail" fix={fix} rows={rows} archive={archive} loop={loop} autopilot={autopilot} stepping={stepping} step={step} />
       </div>
@@ -105,17 +101,48 @@ function Fixes() {
   );
 }
 
+/** Four numbers: drafted by Theo, in test with Ada, shipped by Max, and the ones that lost. */
+function summaryItems(n: number, inTest: FixRow | undefined, drafted: FixRow | undefined, shipped: number, lost: number): SummaryItem[] {
+  const p = inTest?.probability;
+  return [
+    { key: "drafted", tone: "lilac", value: n, label: `${n === 1 ? "fix" : "fixes"} drafted by Theo`, art: <Mascot kind="designer" size={44} frame active={Boolean(drafted)} /> },
+    inTest
+      ? {
+          key: "test",
+          tone: "pink",
+          value: p !== undefined ? pct(p, 0) : "–",
+          label: "chance the new version is better",
+          art: <Mascot kind="experimenter" size={44} frame active />,
+          href: "/console/experiments",
+          ariaLabel: `In test now: ${inTest.title}. See the test`,
+          title: inTest.title,
+        }
+      : {
+          key: "test",
+          tone: "pink",
+          value: drafted ? 1 : 0,
+          label: drafted ? "fix ready for Ada to test" : "in test right now",
+          art: <Mascot kind="experimenter" size={44} frame active={false} />,
+          href: "/console/experiments",
+          ariaLabel: "See tests",
+        },
+    { key: "shipped", tone: "olive", value: shipped, label: `${shipped === 1 ? "fix" : "fixes"} shipped by Max`, art: <Mascot kind="shipper" size={44} frame active={false} />, href: "/console/changes", ariaLabel: `${shipped} shipped. See changes` },
+    { key: "lost", tone: "sand", value: lost, label: "lost their test or set aside, never retried", art: <FixMark status="rejected" size={44} /> },
+  ];
+}
+
 function FixesSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading fixes" className="flex flex-col gap-4">
       <Shimmer className="h-14 w-[min(520px,90%)] rounded-full" />
       <Shimmer className="h-5 w-[min(640px,80%)] rounded-full" />
-      <div className="mt-3 grid gap-[14px] lg:grid-cols-[1.5fr_1fr_1fr]">
-        <Shimmer className="h-[188px]" />
-        <Shimmer className="h-[188px]" />
-        <Shimmer className="h-[188px]" />
+      <div className="mt-3 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Shimmer className="h-[100px]" />
+        <Shimmer className="h-[100px]" />
+        <Shimmer className="h-[100px]" />
+        <Shimmer className="h-[100px]" />
       </div>
-      <div className="grid gap-[14px] lg:grid-cols-[1fr_1.4fr]">
+      <div className={LOOP_SPLIT}>
         <Shimmer className="h-[480px]" />
         <Shimmer className="h-[480px]" />
       </div>

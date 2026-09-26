@@ -128,7 +128,7 @@ function Waiting({ kind }: { kind: DashboardKind }) {
       <Mascot kind={look.shape} size={44} frame active />
       <p className="flex items-center gap-2 text-[14px] text-dw-ink/70">
         <LiveDot />
-        {kind === "experiments" ? "No tests yet. Darwin starts them once visitors arrive." : "Listening for the first events…"}
+        {kind === "experiments" ? "No tests yet. Ada starts them once visitors arrive." : "Listening for the first events…"}
       </p>
     </div>
   );
@@ -221,7 +221,7 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
             {ratio !== undefined ? (
               <>
                 <div className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{ratio >= 1 ? `${ratio.toFixed(1)}×` : `${(1 / ratio).toFixed(1)}×`}</div>
-                <p className="mt-1.5 text-[13px] leading-snug text-dw-ink/75">{ratio >= 1 ? "AI agents convert this many times as often as people." : "People convert this many times as often as AI agents."}</p>
+                <p className="mt-1.5 text-[13px] leading-snug text-dw-ink/75">{ratio >= 1 ? "AI agents buy this many times as often as people." : "People buy this many times as often as AI agents."}</p>
               </>
             ) : (
               <p className="text-[13px] text-dw-ink/70">Needs a purchase from both people and agents to compare.</p>
@@ -246,7 +246,7 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
             <span />
             <span>Visitors</span>
             <span />
-            <span className="text-right">Converts</span>
+            <span className="text-right">% who buy</span>
           </div>
           <ul className="flex flex-col gap-1">
             {rows.map((r) => {
@@ -259,7 +259,7 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
                   </span>
                   <HBar value={r.visitors / max} className="h-2.5" />
                   <span className="num text-right font-dwmono text-[12.5px] text-dw-ink/70">{int(r.visitors)}</span>
-                  <span className={cn("num text-right font-dwmono text-[12.5px]", low ? "font-semibold text-dw-warn" : "text-dw-ink")} title={low ? "Converts well below the site average" : undefined}>
+                  <span className={cn("num text-right font-dwmono text-[12.5px]", low ? "font-semibold text-dw-warn" : "text-dw-ink")} title={low ? "Buys well below the site average" : undefined}>
                     {pct(r.rate)}
                   </span>
                   <Tip>
@@ -363,7 +363,7 @@ function DeviceGap({ rows }: { rows: NonNullable<DashboardData["rows"]> }) {
     <div className="mt-auto flex items-end gap-3 pt-5">
       <span className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{same ? "≈" : `${rel > 0 ? "+" : "−"}${Math.abs(Math.round(rel * 100))}%`}</span>
       <span className="pb-1 text-[13px] leading-snug text-dw-ink/75">
-        {same ? "Mobile converts about as well as desktop." : `Mobile converts ${Math.abs(Math.round(rel * 100))}% ${rel > 0 ? "more" : "less"} often than desktop.`}
+        {same ? "Mobile shoppers buy about as often as desktop shoppers." : `Mobile shoppers buy ${Math.abs(Math.round(rel * 100))}% ${rel > 0 ? "more" : "less"} often than desktop shoppers.`}
       </span>
     </div>
   );

@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { count, signedPct } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { Card, Tag } from "../ui";
+import { DEPTH } from "./frame";
 import { audienceNoun, CARD_FILL, chance, diffCode, measured, type PrRow } from "./model";
 import { Tip } from "./tip";
 
@@ -19,20 +20,20 @@ export function DiffCard({ row, configPath, live, heading, compact }: { row: PrR
   const meta =
     row.state === "none"
       ? `${row.diff.length} setting${row.diff.length === 1 ? "" : "s"} changed on your store`
-      : [branch && `${branch} → ${row.pr.base ?? "main"}`, row.kind !== "install" ? "1 file" : undefined, row.state === "preview" ? "dry run" : row.pr.repo].filter(Boolean).join(" · ");
+      : [branch && `${branch} → ${row.pr.base ?? "main"}`, row.kind !== "install" ? "1 file" : undefined, row.state === "preview" ? "preview" : row.pr.repo].filter(Boolean).join(" · ");
   return (
-    <Card tone="white" hover={false} className={`h-full px-5 sm:px-7 ${CARD_FILL} [&>.relative]:gap-5`} aria-label="The change">
+    <Card tone="white" hover={false} className={`h-full rounded-[28px] px-5 sm:px-6 ${CARD_FILL} ${DEPTH} [&>.relative]:gap-4`} aria-label="The change">
       <div className="flex flex-col gap-1.5">
-        <h2 className={compact ? "text-[22px] leading-tight font-semibold tracking-[-0.02em]" : "text-[22px] leading-snug font-semibold tracking-[-0.01em] sm:text-[24px]"}>{heading ?? row.title}</h2>
+        <h2 className={compact ? "text-[20px] leading-tight font-semibold tracking-[-0.02em]" : "text-[22px] leading-snug font-semibold tracking-[-0.01em] sm:text-[24px]"}>{heading ?? row.title}</h2>
         <div className="flex flex-wrap items-center gap-2">
           {meta && <span className={cn("min-w-0 [overflow-wrap:anywhere] text-[#6B655A]", row.state === "none" ? "text-[14px]" : "font-dwmono text-[12.5px]")}>{meta}</span>}
           {row.state === "preview" &&
             (live ? (
-              <Tag tone="warn">Preview: drafted as a dry run</Tag>
+              <Tag tone="warn">Preview only: nothing opened on GitHub</Tag>
             ) : (
               <Link href="/onboarding" className="rounded-full focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:outline-none">
                 <Tag tone="warn" className="transition-colors hover:bg-[#f7dcc0]">
-                  Preview: connect GitHub to open it for real
+                  Preview: connect GitHub to open a real code change
                 </Tag>
               </Link>
             ))}
@@ -51,10 +52,10 @@ export function DiffCard({ row, configPath, live, heading, compact }: { row: PrR
             <motion.span initial={reduce ? false : { opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} className="whitespace-pre text-[#8EF0C0]">
               {'+ <script src="…/darwin.js" defer></script>'}
             </motion.span>
-            <span className="mt-3 font-dw text-[13px] leading-snug text-[#8F8B82]">One script tag that lets Darwin see people and AI agents shop. It records events only; it never changes your pages.</span>
+            <span className="mt-3 font-dw text-[13px] leading-snug text-[#8F8B82]">One script tag that lets Iris see people and AI agents shop. It records what happens only. It never changes your pages.</span>
           </>
         ) : lines.length === 0 ? (
-          <span className="font-dw text-[13px] text-[#8F8B82]">Darwin didn&apos;t log the settings for this pull request.</span>
+          <span className="font-dw text-[13px] text-[#8F8B82]">Max didn&apos;t log the page settings for this change.</span>
         ) : (
           lines.map((l, i) => (
             <motion.span
@@ -124,26 +125,26 @@ export function ProofCard({
       tone="olive"
       shape="shipper"
       corner="br"
-      className={cn("h-full px-5 sm:px-7", CARD_FILL, compact ? "py-5 [&>.relative]:gap-3" : "[&>.relative]:gap-5")}
+      className={cn("h-full rounded-[28px] px-5 sm:px-6", CARD_FILL, DEPTH, compact ? "py-5 [&>.relative]:gap-3" : "[&>.relative]:gap-5")}
       aria-label="Proof"
     >
-      <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : row.kind === "rollback" ? "Rolled back" : "Proof"}</h2>
+      <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">{row.kind === "install" ? "Why it matters" : row.kind === "rollback" ? "Undone" : "Why Max shipped it"}</h2>
       {row.kind === "rollback" ? (
         <>
           <div className="flex flex-col">
-            <span className={cn("leading-none font-semibold tracking-[-0.03em]", compact ? "text-[36px]" : "text-[44px]")}>Gen {restored?.generation ?? "?"}</span>
-            <span className="mt-1 text-[15px] text-[#2F3517]">settings are back on your store. No test needed: the store ran them before.</span>
+            <span className={cn("leading-none font-semibold tracking-[-0.03em]", compact ? "text-[36px]" : "text-[44px]")}>Version {restored?.generation ?? "?"}</span>
+            <span className="mt-1 text-[15px] text-[#2F3517]">page settings are back on your store. No test needed: your store ran them before.</span>
           </div>
           {restored && (
             <div className="grid grid-cols-2 gap-2.5">
-              <Tile compact={compact} i={0} value={`${rate(restored.human)}%`} label={`people converted on Gen ${restored.generation}`} />
-              <Tile compact={compact} i={1} value={`${rate(restored.agent)}%`} label={`agents converted on Gen ${restored.generation}`} />
+              <Tile compact={compact} i={0} value={`${rate(restored.human)}%`} label={`of people bought on version ${restored.generation}`} />
+              <Tile compact={compact} i={1} value={`${rate(restored.agent)}%`} label={`of AI agents bought on version ${restored.generation}`} />
             </div>
           )}
         </>
       ) : row.kind === "install" ? (
         <p className="max-w-[26rem] text-[16px] leading-snug text-[#2F3517]">
-          Darwin can&apos;t fix what it can&apos;t see. This pull request is how every later test gets its shoppers: people in the browser, agents through the store API.
+          Darwin can&apos;t fix what it can&apos;t see. This code change is how every later test gets its shoppers: people in the browser, AI agents through the store&apos;s agent tools.
         </p>
       ) : (
         <>
@@ -153,25 +154,25 @@ export function ProofCard({
           </div>
           {result && m ? (
             <div className="grid grid-cols-2 gap-2.5">
-              <Tile compact={compact} i={0} value={chance(result.probabilityToBeat)} label="chance it wins" tip="Darwin's Bayesian read of the test: how sure it is that B beats A." />
-              <Tile compact={compact} i={1} value={count(m.visitors)} label={`${audienceNoun(m.audience)} tested${synthetic ? " (simulated)" : ""}`} tip={`${count(m.a.visitors)} saw A, ${count(m.b.visitors)} saw B`} />
+              <Tile compact={compact} i={0} value={chance(result.probabilityToBeat)} label="chance it's better" tip="Ada's read of the test: how sure she is the new version beats your current page." />
+              <Tile compact={compact} i={1} value={count(m.visitors)} label={`${audienceNoun(m.audience)} tested${synthetic ? " (simulated)" : ""}`} tip={`${count(m.a.visitors)} saw your current page, ${count(m.b.visitors)} saw the new version`} />
               <Tile
                 compact={compact}
                 i={2}
                 value={`${rate(result.control.byKind.human.conversionRate)} → ${rate(result.treatment.byKind.human.conversionRate)}%`}
-                label="people convert"
-                tip={`${count(result.control.byKind.human.visitors)} people saw A, ${count(result.treatment.byKind.human.visitors)} saw B`}
+                label="of people buy"
+                tip={`${count(result.control.byKind.human.visitors)} people saw your current page, ${count(result.treatment.byKind.human.visitors)} saw the new version`}
               />
               <Tile
                 compact={compact}
                 i={3}
                 value={`${rate(result.control.byKind.agent.conversionRate)} → ${rate(result.treatment.byKind.agent.conversionRate)}%`}
-                label="agents convert"
-                tip={`${count(result.control.byKind.agent.visitors)} agents saw A, ${count(result.treatment.byKind.agent.visitors)} saw B`}
+                label="of AI agents buy"
+                tip={`${count(result.control.byKind.agent.visitors)} AI agents saw your current page, ${count(result.treatment.byKind.agent.visitors)} saw the new version`}
               />
             </div>
           ) : (
-            <p className="text-[14px] text-[#2F3517]">The test behind this pull request isn&apos;t in Darwin&apos;s memory any more, so only its lift is shown.</p>
+            <p className="text-[14px] text-[#2F3517]">The test behind this change isn&apos;t in Ada&apos;s memory any more, so only its gain is shown.</p>
           )}
         </>
       )}

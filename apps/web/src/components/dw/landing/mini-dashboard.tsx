@@ -147,7 +147,7 @@ function MiniNav({ demo, compact }: { demo: LiveDemo; compact: boolean }) {
       <span className="flex h-9 items-center gap-2 rounded-full bg-dw-sand px-3.5 text-[12.5px] font-medium">
         <LiveDot />
         Live demo · simulated
-        {demo.generation > 0 && <span className="text-dw-ink/55">· Gen {demo.generation} live</span>}
+        {demo.generation > 0 && <span className="text-dw-ink/55">· version {demo.generation} live</span>}
       </span>
     </div>
   );
@@ -191,9 +191,9 @@ function ConversionCard({ demo, compact, width, height, className }: { demo: Liv
   return (
     <Card tone="yellow" shape="designer" corner="tr" className={cn("flex flex-col p-5", className)}>
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[19px] font-semibold tracking-[-0.02em]">Conversion</h3>
+        <h3 className="text-[19px] font-semibold tracking-[-0.02em]">Who buys</h3>
         <span className="flex items-center gap-3">
-          <LegendKey>Converts</LegendKey>
+          <LegendKey>% who buy</LegendKey>
           <span className="inline-flex items-center gap-1.5 text-[12px] text-dw-ink/75">
             <span className="size-2.5 rounded-[3px] bg-dw-yellow-shape" />
             Shoppers
@@ -201,10 +201,10 @@ function ConversionCard({ demo, compact, width, height, className }: { demo: Liv
         </span>
       </div>
       <div className="mt-2 flex gap-7">
-        <MiniStat value={o?.conversionRate} format={(v) => pct(v)} label="converts" active />
+        <MiniStat value={o?.conversionRate} format={(v) => pct(v)} label="buy" active />
         <MiniStat value={o?.visitors} format={(v) => Math.round(v).toLocaleString("en-GB")} label="shoppers" />
         <MiniStat value={o?.orders} format={(v) => Math.round(v).toLocaleString("en-GB")} label="bought" />
-        {!compact && <MiniStat value={agents?.conversionRate} format={(v) => pct(v, 0)} label="agents convert" />}
+        {!compact && <MiniStat value={agents?.conversionRate} format={(v) => pct(v, 0)} label="agents buy" />}
       </div>
       <div className="relative mt-auto" style={{ height: CH, width: CW }}>
         {/* shopper columns */}
@@ -514,7 +514,7 @@ function Outcome({ s }: { s: AgentSessionSummary }): ReactNode {
 
 /* ------------------------------------------------------------------ phones */
 
-const STRIP = ["Conversion", "A vs B", "Live shoppers"] as const;
+const STRIP = ["Who buys", "A vs B", "Live shoppers"] as const;
 
 /**
  * Phones: the same live demo as a swipeable strip of three cards (Conversion, A vs B, the latest AI

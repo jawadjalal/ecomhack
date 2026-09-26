@@ -115,7 +115,9 @@ function plain(t: string): string {
     .replace(/\bin test B\b/g, "on the new version")
     .replace(/\bA, the current store\b/g, "your current page")
     .replace(/Darwin’s list/g, "Iris’s list")
-    .replace(/Darwin is still learning/g, "Iris is still learning");
+    .replace(/Darwin is still learning/g, "Iris is still learning")
+    .replace(/\bPrincipal\b/g, "Its owner")
+    .replace(/\bprincipal\b/g, "its owner");
 }
 
 /** The shipped version that was live when this shopper arrived (never version 0 or an undo). */
@@ -136,23 +138,27 @@ export function JourneyHead({ s, now, big }: { s: Shopper; now: number; big?: bo
   ]
     .filter(Boolean)
     .join(" · ");
+  const pill = (
+    <span
+      className={cn(
+        "flex h-8 shrink-0 items-center gap-1.5 self-start rounded-full px-3.5 text-[13px] font-semibold tabular-nums",
+        won ? "bg-dw-olive text-dw-ink" : s.status === "live" ? "bg-dw-surface text-dw-ink" : "bg-dw-ink text-white",
+        DEPTH,
+      )}
+    >
+      {s.status === "live" && <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" />}
+      {won ? `Bought${s.orderTotal ? ` ${money(s.orderTotal)}` : ""}` : s.status === "live" ? "Shopping now" : `Left at ${STAGES[Math.min(s.reach, 3)].toLowerCase()}`}
+    </span>
+  );
   return (
-    <div className="flex items-center gap-3.5">
+    <div className={cn("flex gap-3.5", big ? "items-start" : "items-center")}>
       <ShopperAvatar s={s} size={big ? 52 : 46} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-[20px] leading-tight font-semibold tracking-[-0.01em]">{s.name}</span>
-        <span className="truncate text-[12.5px] text-[#3E4E70]">{meta}</span>
+        <span className={cn("text-[12.5px] text-[#3E4E70]", big ? "leading-snug" : "truncate")}>{meta}</span>
+        {big && <span className="mt-2 flex">{pill}</span>}
       </div>
-      <span
-        className={cn(
-          "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold tabular-nums",
-          won ? "bg-dw-olive text-dw-ink" : s.status === "live" ? "bg-dw-surface text-dw-ink" : "bg-dw-ink text-white",
-          DEPTH,
-        )}
-      >
-        {s.status === "live" && <span className="dw-live-dot size-1.5 rounded-full bg-dw-live" />}
-        {won ? `Bought${s.orderTotal ? ` ${money(s.orderTotal)}` : ""}` : s.status === "live" ? "Shopping now" : `Left at ${STAGES[Math.min(s.reach, 3)].toLowerCase()}`}
-      </span>
+      {!big && pill}
     </div>
   );
 }
@@ -231,14 +237,22 @@ export function JourneyPath({ s }: { s: Shopper }) {
                   {s.kind === "agent" && (
                     <span className="truncate font-dwmono text-[11.5px] text-[#3E4E70]">
                       {e.tool}
-                      {e.tone === "warn" ? " → not shown" : e.tone === "fail" ? " → failed" : e.tone === "live" ? " → working" : " → ok"}
+                      {e.tool === "abandon"
+                        ? " → left"
+                        : e.tone === "warn"
+                          ? " → not shown"
+                          : e.tone === "fail"
+                            ? " → failed"
+                            : e.tone === "live"
+                              ? " → working"
+                              : " → ok"}
                     </span>
                   )}
                 </div>
               ))}
               {more > 0 && <span className="text-[12px] text-[#3E4E70]">and {more} more before that</span>}
               {here && !live && (
-                <p className="mt-1 rounded-[14px] border border-dw-ink/10 bg-dw-surface/80 px-3 py-2 text-[13.5px] leading-snug">{s.key.text}</p>
+                <p className="mt-1 rounded-[14px] border border-dw-ink/10 bg-dw-surface/80 px-3 py-2 text-[13.5px] leading-snug">{plain(s.key.text)}</p>
               )}
             </div>
           </li>
@@ -310,7 +324,7 @@ export function JourneyNotes({
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="text-[14px] font-semibold">Saw version {seen.generation}</span>
             <span className="text-[13px] leading-snug text-[#2F3515]">
-              {seen.label}. Max shipped it {timeAgo(seen.shippedAt, now) ? `${timeAgo(seen.shippedAt, now)} ago` : "just now"}.
+              {seen.label.replace(/^(gen|version)\s*\d+\s*[:·-]\s*/i, "")}. Max shipped it {timeAgo(seen.shippedAt, now) ? `${timeAgo(seen.shippedAt, now)} ago` : "just now"}.
             </span>
           </div>
         </div>

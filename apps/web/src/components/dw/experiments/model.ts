@@ -440,8 +440,8 @@ export function buildChanges(loop: LoopState | undefined, status: unknown, exps:
       kind === "baseline"
         ? "Your store before Darwin"
         : kind === "rollback"
-          ? `Rolled back to Gen ${m![1]}`
-          : (cleanPrTitle(pr?.title) ?? (rec.label.replace(/^Gen \d+:\s*/, "") || experiment?.name || `Generation ${rec.generation}`));
+          ? `Undone: back to version ${m![1]}`
+          : (cleanPrTitle(pr?.title) ?? (rec.label.replace(/^Gen \d+:\s*/, "") || experiment?.name || `Version ${rec.generation}`));
     const row: PrRow = {
       key: `gen-${rec.generation}`,
       kind: kind === "rollback" ? "rollback" : "spec",

@@ -38,12 +38,13 @@ export function SummaryStrip({ cells, label }: { cells: StripCell[]; label: stri
     >
       {cells.map((c, i) => (
         <div key={i} title={c.title} className={cn("flex min-h-[76px] min-w-0 items-center gap-3 bg-dw-surface px-4 py-3 sm:px-5", cells.length === 3 && i === 2 && "max-lg:col-span-2")}>
-          <span aria-hidden className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-[14px]" style={{ background: TONE[c.tone].bg }}>
-            {c.shape && <Silhouette kind={c.shape} color={TONE[c.tone].shape} size={52} style={{ right: -12, bottom: -14 }} />}
+          <span aria-hidden className="h-8 w-1.5 shrink-0 rounded-full sm:hidden" style={{ background: TONE[c.tone].bg }} />
+          <span aria-hidden className="relative hidden size-10 shrink-0 place-items-center overflow-hidden rounded-[14px] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] sm:grid" style={{ background: TONE[c.tone].bg }}>
+            {c.shape && <Silhouette kind={c.shape} color={TONE[c.tone].shape} size={44} style={{ right: -8, bottom: -10 }} />}
           </span>
           <div className="flex min-w-0 flex-col">
-            <span className="num flex items-baseline gap-1.5 text-[20px] leading-tight font-semibold tracking-[-0.02em] whitespace-nowrap tabular-nums">{c.value}</span>
-            <span className="truncate text-[12.5px] text-dw-ink/60">{c.label}</span>
+            <span className="num flex items-baseline gap-1 text-[18px] leading-tight font-semibold tracking-[-0.02em] whitespace-nowrap tabular-nums sm:gap-1.5 sm:text-[20px]">{c.value}</span>
+            <span className="line-clamp-2 text-[12.5px] leading-snug text-dw-ink/60 lg:line-clamp-1">{c.label}</span>
           </div>
         </div>
       ))}

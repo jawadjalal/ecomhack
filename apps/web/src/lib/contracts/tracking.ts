@@ -26,7 +26,36 @@ export interface TrackingEvent {
   fromPrompt?: boolean;
 }
 
-export type DashboardKind = "kpis" | "funnel" | "sources" | "humans-agents" | "heatmap" | "experiments" | "revenue" | "events" | "devices";
+export type DashboardKind =
+  | "kpis"
+  | "funnel"
+  | "sources"
+  | "humans-agents"
+  | "heatmap"
+  | "experiments"
+  | "revenue"
+  | "events"
+  | "devices"
+  /** Any event over time, optionally split (people vs agents, device, source), with the period before. */
+  | "trend"
+  /** One big number vs the period before, with a tiny sparkline. */
+  | "number"
+  /** Cohort grid: people first seen on a day, and how many came back N days later. */
+  | "retention"
+  /** The commonest journeys after a page or event. */
+  | "paths"
+  /** New / returning / coming back / gone quiet shoppers per period. */
+  | "lifecycle"
+  /** Top values of one property for an event ("which sizes are added to cart most"). */
+  | "breakdown"
+  /** How long people take from first visit to ordering. */
+  | "time_to_convert"
+  /** Day × hour grid of when an event happens. */
+  | "hourly";
+
+/** What a trend / breakdown is split by. */
+export type DashboardBreakdown = "visitor_kind" | "device" | "source" | "page";
+export type DashboardInterval = "minute" | "hour" | "day";
 
 export interface DashboardSpec {
   id: string;
@@ -38,6 +67,18 @@ export interface DashboardSpec {
   events?: string[];
   /** Asked for by the merchant ("show coupon codes per minute"): kept when the plan changes, removable. */
   custom?: boolean;
+  /** trend: split the line by this. */
+  breakdown?: DashboardBreakdown;
+  /** breakdown: the event property to count values of ("size"), or a DashboardBreakdown. */
+  property?: string;
+  /** trend / number: bucket size (auto from the data when unset). */
+  interval?: DashboardInterval;
+  /** trend: "line" (default) or "bars". */
+  display?: "line" | "bars";
+  /** number: the period counted. */
+  period?: "hour" | "today" | "week";
+  /** paths: start from this page ("/products") or event ("product_viewed"). */
+  from?: string;
 }
 
 export interface TrackingPlan {
@@ -92,6 +133,33 @@ export interface DashboardData {
   tests?: { name: string; audience: string; status: string; control: number; treatment: number; probability?: number; lift?: number }[];
   /** revenue / events: time series per minute, and totals. */
   series?: { name: string; label: string; total: number; points: SeriesPoint[] }[];
+  /** trend: buckets and one series per breakdown value, plus the same span just before. */
+  trend?: {
+    interval: DashboardInterval;
+    display: "line" | "bars";
+    breakdown?: DashboardBreakdown;
+    buckets: string[];
+    series: { key: string; label: string; total: number; values: number[] }[];
+    total: number;
+    previousTotal: number;
+    previous: number[];
+  };
+  /** number: the headline figure. */
+  number?: { label: string; value: number; previous: number; change?: number; period: string; spark: number[]; money?: boolean };
+  /** retention: cohorts by first-seen day; returned[n] = people seen again on day n (n = 0 is the first day). */
+  retention?: { cohorts: { day: string; size: number; returned: number[] }[]; days: number };
+  /** paths: top journeys after `from`, each a list of step labels, with how many people took it. */
+  paths?: { from: string; fromLabel: string; total: number; paths: { steps: string[]; count: number }[] };
+  /** lifecycle: shoppers per bucket, by state. Dormant is shown as a negative bar. */
+  lifecycle?: { interval: DashboardInterval; rows: { t: string; new: number; returning: number; resurrecting: number; dormant: number }[] };
+  /** breakdown: top values (max 8) of one property for an event. */
+  bars?: { property: string; propertyLabel: string; event: string; total: number; items: { key: string; label: string; count: number; share: number }[] };
+  /** time_to_convert: histogram of first visit → order. */
+  histogram?: { bins: { label: string; count: number }[]; total: number; medianMs?: number };
+  /** hourly: rows = days (Mon…Sun), cols = hours 0–23, counts in UTC. */
+  grid?: { days: string[]; cells: number[][]; max: number; peak?: { day: string; hour: number; count: number }; total: number };
+  /** Share of the events behind this card that were simulated (0–1); undefined when none. */
+  simulated?: number;
   /** Nothing recorded yet for this dashboard. */
   empty: boolean;
 }

@@ -36,14 +36,14 @@ export function ResolvedIssues({ items }: { items: ResolvedIssue[] }) {
                 <span className="font-medium text-dw-ink/65">Fixed · </span>
                 {r.problem}
               </span>
-              <span className="text-[12px] text-[#8A8478]">{r.who}</span>
+              <span className="text-[12px] text-[#8A8478]">{r.who === "Agents" ? "AI agents" : r.who}</span>
             </span>
             <Link
               href={`/console/changes#gen-${r.generation}`}
               className="num shrink-0 text-right text-[13px] font-semibold text-dw-ink/65 underline decoration-dw-ink/20 underline-offset-4 hover:text-dw-ink hover:decoration-dw-ink"
-              title={r.audience === "agent" ? "Lift measured on AI shoppers" : r.audience === "human" ? "Lift measured on people" : "Lift measured on everyone"}
+              title={r.audience === "agent" ? "Change measured on AI shoppers" : r.audience === "human" ? "Change measured on people" : "Change measured on everyone"}
             >
-              Gen {r.generation}
+              Version {r.generation}
               {r.lift !== undefined && Number.isFinite(r.lift) ? `, ${liftText(r.lift)}` : ""}
             </Link>
           </li>

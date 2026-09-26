@@ -11,15 +11,16 @@ import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
 import { StartDemo } from "../first-run";
 import { Card, CardTitle, Empty, LiveDot, PageHead, PillButton, Typing } from "../ui";
-import { Timeline, UpliftCards } from "../experiments/changes-parts";
+import { Timeline } from "../experiments/changes-parts";
+import { DEPTH, LIST_DETAIL, SummaryStrip, type StripCell } from "../experiments/frame";
 import { appHref, buildChanges, githubLive, indexLog, uplift, type ChangeEntry } from "../experiments/model";
 import { DiffCard, ProofCard } from "../experiments/pr-parts";
 import { setHash, useHash } from "../experiments/use-hash";
 
 /**
- * Changes: what Darwin changed on your store, the overall uplift since Gen 0, and rolling back.
- * Every change goes live on the store directly; a pull request is an optional extra when GitHub
- * is connected.
+ * Changes: every winner Max shipped (list left) and the proof and settings behind the selected one
+ * (detail right), plus undo. Every change goes live on the store directly; a code change on GitHub
+ * is an optional extra when GitHub is connected.
  */
 export function ChangesScreen() {
   const { api, loop, mock, autopilot, notify } = useDarwin();
@@ -58,9 +59,9 @@ export function ChangesScreen() {
       void mutate((key) => Array.isArray(key) && (key[1] === "experiments" || key[1] === "github"));
       setConfirming(undefined);
       select(`gen-${next.generation}`);
-      notify(`Gen ${entry.undoTo}'s store is live again.`, "info");
+      notify(`Max put version ${entry.undoTo} back live.`, "info");
     } catch (e) {
-      notify(`Rollback failed: ${(e as Error).message}`);
+      notify(`Undo failed: ${(e as Error).message}`);
     } finally {
       setRollingBack(false);
     }
@@ -71,10 +72,11 @@ export function ChangesScreen() {
   if (!loop) {
     return (
       <>
-        <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Loading <Typing /></span>} />
-        <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]" aria-hidden>
-          <div className="h-[300px] animate-pulse rounded-[26px] bg-dw-surface" />
-          <div className="h-[300px] animate-pulse rounded-[26px] bg-dw-yellow/40" />
+        <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title="Changes" lede={<span className="inline-flex items-center gap-2">Max is loading your changes <Typing /></span>} />
+        <div className="h-[76px] animate-pulse rounded-[28px] bg-dw-surface" aria-hidden />
+        <div className={LIST_DETAIL} aria-hidden>
+          <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-surface" />
+          <div className="h-[420px] animate-pulse rounded-[28px] bg-dw-olive/40" />
         </div>
       </>
     );
@@ -89,15 +91,15 @@ export function ChangesScreen() {
         <PageHead
           mascot={<Mascot kind="shipper" size={52} frame active />}
           title="No changes yet"
-          lede="When a test wins, Darwin puts the change live on your store and shows you what it did to sales. You can roll any change back."
+          lede="When one of Ada's tests wins, Max puts the change live on your store and shows you what it did to sales. He can undo any change."
         />
-        <Card tone="olive" shape="shipper" corner="br" hover={false}>
+        <Card tone="olive" shape="shipper" corner="br" hover={false} className={`rounded-[28px] ${DEPTH}`}>
           <Empty
             mascot={<Mascot kind="shipper" size={88} frame active />}
             action={
               autopilot ? (
                 <span className="inline-flex items-center gap-2 text-[14px] text-dw-ink/80">
-                  <LiveDot /> Darwin is testing fixes <Typing />
+                  <LiveDot /> Ada is testing fixes <Typing />
                 </span>
               ) : (
                 <StartDemo />
@@ -105,7 +107,7 @@ export function ChangesScreen() {
             }
           >
             <span className="text-dw-ink/80">
-              {running ? `The first test, “${running.name}”, is running now.` : "The first winning test lands here, with the numbers that prove it."}
+              {running ? `Ada's first test, “${running.name}”, is running now.` : "The first winning test lands here, with the numbers that prove it."}
             </span>
           </Empty>
         </Card>
@@ -115,30 +117,52 @@ export function ChangesScreen() {
 
   /* ---------------------------------------------------------------- copy */
 
-  const title = `Darwin has shipped ${shipped} change${shipped === 1 ? "" : "s"}`;
-  let lede: ReactNode = "Every change is live on your store the moment it wins. Roll any of them back below.";
-  if (up) {
-    const b = (s: string) => <b className="font-semibold text-dw-ink">{s}</b>;
-    lede = (
-      <>
-        Shoppers convert {b(`${pct(up.all.before)} → ${pct(up.all.now)}`)}
-        {up.all.lift !== undefined ? ` (${signedPct(up.all.lift)})` : ""}, people {pct(up.human.before)} → {pct(up.human.now)}, AI agents {b(`${pct(up.agent.before, 0)} → ${pct(up.agent.now, 0)}`)}.
-        {rolledBack ? ` ${rolledBack} rollback${rolledBack === 1 ? "" : "s"}.` : ""}
-        {synthetic ? " Simulated shoppers." : ""}
-      </>
-    );
-  }
+  const title = `${shipped} winning change${shipped === 1 ? "" : "s"} shipped`;
+  const lede: ReactNode = (
+    <>
+      Max shipped {shipped === 1 ? "one winner" : `${shipped} winners`} from Ada&apos;s tests, each live the moment it won.
+      {rolledBack ? ` He undid ${rolledBack === 1 ? "one" : rolledBack}.` : ""} He can undo any of them.
+      {synthetic ? " Simulated shoppers." : ""}
+    </>
+  );
+  const arrow = (a: string, b: string) => (
+    <>
+      <span className="text-dw-ink/55">{a}</span>
+      <ArrowRight className="size-4 self-center text-dw-ink/45" aria-label="to" />
+      <span>{b}</span>
+    </>
+  );
+  const lift = (x: number | undefined) => (x !== undefined ? `, ${signedPct(x)}` : "");
+  const perK = (x: number) => `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x))}`;
+  const cells: StripCell[] = up
+    ? [
+        {
+          value: arrow(pct(up.all.before), pct(up.all.now)),
+          label: `of shoppers buy${lift(up.all.lift)}`,
+          tone: "yellow",
+          shape: "shipper",
+          title: "Weighted to your usual mix of people and AI agents, so it only moves when the store does, not when the traffic mix does.",
+        },
+        { value: arrow(pct(up.human.before), pct(up.human.now)), label: `of people buy${lift(up.human.lift)}`, tone: "lilac", shape: "analyst" },
+        { value: arrow(pct(up.agent.before, 0), pct(up.agent.now, 0)), label: `of AI agents buy${lift(up.agent.lift)}`, tone: "blue", shape: "observer" },
+        { value: perK(up.all.per1000), label: `more buyers per 1,000 visitors${synthetic ? " (simulated)" : ""}`, tone: "olive", shape: "shipper" },
+      ]
+    : [
+        { value: String(shipped), label: "winners Max shipped", tone: "olive", shape: "shipper" },
+        { value: String(rolledBack), label: "undone", tone: "sand" },
+        { value: `Version ${loop.generation}`, label: "live on your store now", tone: "yellow", shape: "designer" },
+      ];
 
   const actions = (
     <>
       {running && (
         <PillButton tone="sand" size="lg" href={appHref(`/console/experiments#${running.id}`, mock)}>
-          See the running test
+          See the live test
         </PillButton>
       )}
       {!live && (
         <PillButton tone={running ? "ink" : "sand"} size="lg" href="/onboarding">
-          <BrandGlyph brand="github" /> Connect GitHub to open real pull requests
+          <BrandGlyph brand="github" /> Connect GitHub for code changes
           <ArrowRight aria-hidden />
         </PillButton>
       )}
@@ -155,13 +179,9 @@ export function ChangesScreen() {
     <>
       <PageHead mascot={<Mascot kind="shipper" size={52} frame active />} title={title} lede={lede} right={actions} />
 
-      {up && (
-        <motion.div {...stagger(0)}>
-          <UpliftCards up={up} synthetic={synthetic} shipped={shipped} />
-        </motion.div>
-      )}
+      <SummaryStrip label="Before Darwin vs now" cells={cells} />
 
-      <div className="grid items-start gap-4 lg:grid-cols-[1.7fr_1fr]">
+      <div className={LIST_DETAIL}>
         <motion.div {...stagger(1)} className="min-w-0">
           <Timeline
             entries={entries}
@@ -181,11 +201,11 @@ export function ChangesScreen() {
 
         <motion.div key={sel.key} {...stagger(2)} className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6">
           {sel.kind === "baseline" ? (
-            <Card tone="olive" shape="shipper" corner="br" aria-label="Where Darwin started">
-              <CardTitle>Where Darwin started</CardTitle>
+            <Card tone="olive" shape="shipper" corner="br" className={`rounded-[28px] ${DEPTH}`} aria-label="Where Darwin started">
+              <CardTitle className="[&_h2]:text-[20px]">Where Darwin started</CardTitle>
               <p className="mt-3 text-[15px] leading-snug text-[#2F3517]">
-                Gen 0 is your store as it was: {pct(sel.record.overallConversionRate)} of shoppers bought (people {pct(sel.record.humanConversionRate)}, AI agents{" "}
-                {pct(sel.record.agentConversionRate)}). Every change above is measured against it.
+                Version 0 is your store as it was: {pct(sel.record.overallConversionRate)} of shoppers bought (people {pct(sel.record.humanConversionRate)}, AI agents{" "}
+                {pct(sel.record.agentConversionRate)}). Every change is measured against it.
               </p>
             </Card>
           ) : (

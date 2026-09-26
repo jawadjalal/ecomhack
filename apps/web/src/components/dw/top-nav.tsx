@@ -22,13 +22,13 @@ export const NAV = [
 ] as const;
 
 const MORE = [
-  { label: "Store agent", hint: "AI shoppers buy over A2A", href: "/console/agents" },
+  { label: "Store agent", hint: "Mika sells to AI shoppers", href: "/console/agents" },
   { label: "Dashboards", hint: "What you asked Darwin to track", href: "/console/dashboards" },
-  { label: "Personalize", hint: "Any store, per traffic source", href: "/console/personalize" },
+  { label: "Personalize", hint: "Change pages for each traffic source", href: "/console/personalize" },
   { label: "Traffic", hint: "Where visitors come from", href: "/console/traffic" },
   { label: "Set up a store", hint: "GitHub, a script tag, or Whop", href: "/onboarding" },
   { label: "Agent readiness", hint: "Score any store for AI shoppers", href: "/readiness" },
-  { label: "Classic mission control", hint: "The original loop view", href: "/console/classic" },
+  { label: "Classic view", hint: "The first version of this app", href: "/console/classic" },
 ];
 
 export function TopNav() {
@@ -94,7 +94,7 @@ export function TopNav() {
         <button
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
-          title={autopilot ? "Darwin is improving the store on its own. Click to pause." : "Paused. Click to let Darwin run the loop on its own."}
+          title={autopilot ? "Darwin's crew is improving the store on its own. Click to pause." : "Paused. Click to let Darwin's crew improve the store on its own."}
           className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb] max-sm:h-9 max-sm:px-3"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />

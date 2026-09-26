@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import type { ExperimentResult } from "@/lib/contracts";
 import { count } from "@/lib/console/format";
 import { Card, CardTitle, pct0 } from "../ui";
+import { DEPTH } from "./frame";
 import { CARD_FILL, chance } from "./model";
 import { Tip } from "./tip";
 
@@ -59,7 +60,7 @@ export function ChanceCard({
   const verdict = decided === "ship" ? "Shipped" : decided === "reject" ? "Dropped" : decided === "inconclusive" ? "No clear winner" : undefined;
 
   return (
-    <Card tone="pink" shape="experimenter" className={`h-full min-h-[262px] ${CARD_FILL}`} aria-label="Chance B wins">
+    <Card tone="pink" shape="experimenter" className={`h-full min-h-[262px] rounded-[28px] ${CARD_FILL} ${DEPTH}`} aria-label="Chance the new version is better">
       <CardTitle
         right={
           <Tip
@@ -67,8 +68,8 @@ export function ChanceCard({
             align="end"
             tip={
               early > shipAt
-                ? `Darwin ships B once it's ${pctShip(shipAt)} sure on the final look (${pctShip(early)} on earlier looks, so noise can't sneak a win) and drops it under ${pct0(drop)}.`
-                : `Darwin ships B at ${pctShip(shipAt)} and drops it under ${pct0(drop)}.`
+                ? `Ada ships the new version once she's ${pctShip(shipAt)} sure on the final look (${pctShip(early)} on earlier looks, so noise can't sneak a win) and drops it under ${pct0(drop)}.`
+                : `Ada ships the new version once she's ${pctShip(shipAt)} sure and drops it under ${pct0(drop)}.`
             }
           >
             <span tabIndex={0} className="rounded-full text-[14px] text-[#5A2744] outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
@@ -77,11 +78,11 @@ export function ChanceCard({
           </Tip>
         }
       >
-        Chance B wins
+        Chance it&apos;s better
       </CardTitle>
 
       <div className="relative mt-4 min-h-[120px] flex-1">
-        <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="absolute inset-0 size-full overflow-visible" role="img" aria-label={`Chance B wins: ${points.map((p) => chance(p.p)).join(", ")}`}>
+        <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="absolute inset-0 size-full overflow-visible" role="img" aria-label={`Chance the new version is better: ${points.map((p) => chance(p.p)).join(", ")}`}>
           <defs>
             <linearGradient id="dw-exp-fill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#141413" stopOpacity="0.2" />
@@ -161,7 +162,7 @@ function Pill({ seg, arm, max, delay, label, align }: { seg: Seg; arm: "A" | "B"
   const H = 118;
   const h = seg.visitors ? Math.max(22, Math.round((seg.conversionRate / max) * H)) : 22;
   return (
-    <Tip align={align} tip={seg.visitors ? `${label} ${arm}: ${count(seg.conversions)} of ${count(seg.visitors)} bought` : `${label} ${arm}: no shoppers yet`}>
+    <Tip align={align} tip={seg.visitors ? `${label}, ${arm === "A" ? "current page" : "new version"}: ${count(seg.conversions)} of ${count(seg.visitors)} bought` : `${label}, ${arm === "A" ? "current page" : "new version"}: no shoppers yet`}>
       <span tabIndex={0} className="group/p flex flex-col items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-dw-ink">
         <span className={arm === "B" ? "num text-[12px] font-semibold" : "num text-[12px] text-dw-ink/80"}>{seg.visitors ? `${(seg.conversionRate * 100).toFixed(seg.conversionRate < 0.1 ? 1 : 0)}%` : "–"}</span>
         <motion.span
@@ -188,15 +189,15 @@ export function WhoBuysCard({ result, audience, synthetic }: { result?: Experime
       ]
     : [];
   return (
-    <Card tone="blue" shape="observer" className={`h-full min-h-[262px] ${CARD_FILL}`} aria-label="Who buys, A vs B">
+    <Card tone="blue" shape="observer" className={`h-full min-h-[262px] rounded-[28px] ${CARD_FILL} ${DEPTH}`} aria-label="Who buys, current page vs new version">
       <CardTitle
         right={
           <span className="flex items-center gap-3 text-[12px] text-[#2E3A55]">
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-2 rounded-full border-[1.5px] border-dashed border-dw-ink" />A
+              <span className="h-3 w-2 rounded-full border-[1.5px] border-dashed border-dw-ink" />Current
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-2 rounded-full bg-dw-ink" />B
+              <span className="h-3 w-2 rounded-full bg-dw-ink" />New
             </span>
           </span>
         }

@@ -7,8 +7,7 @@ import type { Insight, LoopState } from "@/lib/contracts";
 import { pct } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
 import { Mascot, Silhouette } from "../mascot";
-import { PillButton, Segmented, TONE } from "../ui";
-import { SHIP_AT } from "./fix-cards";
+import { DEPTH, PillButton, Segmented, TONE } from "../ui";
 import {
   FIX_STATUS_LABEL,
   FixMark,
@@ -18,6 +17,7 @@ import {
   liftText,
   RawDiff,
   SettingRows,
+  SHIP_AT,
   SourceChip,
 } from "./fix-parts";
 import { JoinHighlight, MoreButton, useCollapsed } from "./join";
@@ -45,13 +45,16 @@ export function FixList({
   return (
     <section
       aria-label="All fixes"
-      className="relative flex min-w-0 flex-col gap-2.5 rounded-[26px] border border-dw-hairline bg-dw-surface px-[22px] pt-[22px] pb-4"
+      className={cn(
+        "relative flex min-w-0 flex-col gap-2.5 rounded-[28px] border border-dw-hairline bg-dw-surface px-4 pt-[22px] pb-4 sm:px-[22px]",
+        DEPTH,
+      )}
     >
       <div className="flex items-baseline justify-between px-1 pb-1">
-        <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">
-          All fixes
+        <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">
+          Theo&apos;s fixes
         </h2>
-        <span className="text-[13px] text-[#8A8478]">newest first</span>
+        <span className="text-[12.5px] text-[#8A8478]">newest first</span>
       </div>
       <div
         role="listbox"
@@ -85,8 +88,8 @@ export function FixList({
               {on && (
                 <JoinHighlight
                   layoutId="dw-fix-sel"
-                  color={TONE.blue.bg}
-                  soft="#E6EDFB"
+                  color={TONE.lilac.bg}
+                  soft="#EEEAFB"
                 />
               )}
               <FixMark status={f.status} />
@@ -100,7 +103,7 @@ export function FixList({
                 <span
                   className={cn(
                     "truncate text-[13px]",
-                    on ? "text-[#2E3A55]" : "text-[#6B655A]",
+                    on ? "text-[#3B2F6B]" : "text-[#6B655A]",
                   )}
                 >
                   {fixSub(f, rows)}
@@ -116,7 +119,7 @@ export function FixList({
                       : "",
                 )}
                 title={
-                  l.kind === "expected" ? "expected lift" : "measured lift"
+                  l.kind === "expected" ? "Theo's guess before testing" : "measured in its test"
                 }
               >
                 {liftText(f)}
@@ -132,10 +135,10 @@ export function FixList({
         onClick={list.toggle}
       />
       <div className="mt-auto flex items-center gap-2 px-1 pt-4 text-[13px] text-[#8A8478]">
-        <Mascot kind="shipper" size={20} active={false} />
+        <Mascot kind="designer" size={20} active={false} />
         <span>
-          Darwin keeps every fix it tried, winners and losers, so it never
-          repeats a loser.
+          Every fix stays here, winners and losers, so Theo never repeats a
+          loser.
         </span>
       </div>
     </section>
@@ -168,12 +171,15 @@ export function FixDetail({
       id={id}
       aria-live="polite"
       aria-label="Fix detail"
-      className="relative isolate flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-[26px] px-6 py-5 sm:px-7"
-      style={{ background: TONE.blue.bg }}
+      className={cn(
+        "relative isolate flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-[28px] px-5 py-[22px] sm:px-6",
+        DEPTH,
+      )}
+      style={{ background: TONE.lilac.bg }}
     >
       <Silhouette
-        kind="observer"
-        color={TONE.blue.shape}
+        kind="designer"
+        color={TONE.lilac.shape}
         size={250}
         style={{ right: -90, top: -100, zIndex: -1 }}
       />
@@ -242,21 +248,24 @@ function Body({
     <>
       <header className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[13px] text-[#2E3A55]">
+          <span className="text-[12.5px] text-[#3B2F6B]">
             {FIX_STATUS_LABEL[fix.status]}
             {refs.text ? ` · fixes ${refs.text}` : ""}
           </span>
-          <h2 className="text-[26px] lg:line-clamp-2 leading-[1.2] font-semibold tracking-[-0.015em] text-balance">
+          <h2 className="text-[24px] lg:line-clamp-2 leading-[1.2] font-semibold tracking-[-0.015em] text-balance">
             {fix.title}
           </h2>
         </div>
-        <span className="num inline-flex h-[34px] shrink-0 items-center rounded-full bg-white px-4 text-[14px] font-semibold whitespace-nowrap">
+        <span className="num inline-flex h-[34px] shrink-0 items-center rounded-full bg-dw-surface px-4 text-[14px] font-semibold whitespace-nowrap shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(20,20,19,0.08),0_6px_14px_-10px_rgba(20,20,19,0.3)]">
           {liftText(fix, true)}
         </span>
       </header>
 
       {fix.hypothesis && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[18px] bg-white/60 px-4 py-3">
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] px-4 py-3"
+          style={{ background: TONE.lilac.shape }}
+        >
           <Mascot
             kind="designer"
             size={30}
@@ -274,10 +283,10 @@ function Body({
       )}
 
       <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-2.5 rounded-[18px] bg-white px-[18px] py-3.5">
+        <div className="flex min-w-0 flex-col gap-2.5 rounded-[20px] border border-dw-hairline bg-dw-surface px-[18px] py-3.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="font-dwmono text-[12.5px] text-[#8A8478]">
-              storefront.config.json
+            <span className="text-[13px] font-semibold">
+              What changes on the page
             </span>
             {fix.diff.length > 0 && (
               <Segmented
@@ -285,8 +294,8 @@ function Body({
                 value={view}
                 onChange={setView}
                 options={[
-                  { value: "settings", label: "Settings" },
-                  { value: "raw", label: "Raw diff" },
+                  { value: "settings", label: "In words" },
+                  { value: "raw", label: "As code" },
                 ]}
               />
             )}
@@ -300,32 +309,34 @@ function Body({
 
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex flex-col gap-2">
-            <span className="text-[13px] text-[#2E3A55]">What it fixes</span>
+            <span className="text-[12.5px] text-[#3B2F6B]">What it fixes</span>
             <IssueChips ids={fix.insightIds} rows={rows} archive={archive} />
           </div>
 
           {r && (
-            <div className="flex flex-col gap-2 rounded-[18px] bg-white/60 px-4 py-3">
+            <div
+              className="flex flex-col gap-2 rounded-[20px] px-4 py-3"
+              style={{ background: TONE.lilac.shape }}
+            >
+              <span className="text-[12.5px] text-[#3B2F6B]">
+                % who buy, {audience}
+              </span>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[14px]">
                 <span>
-                  A{" "}
+                  Your page{" "}
                   <span className="num font-semibold">
                     {pct(seg(r.control).conversionRate)}
                   </span>{" "}
-                  → B{" "}
+                  → new{" "}
                   <span className="num font-semibold">
                     {pct(seg(r.treatment).conversionRate)}
                   </span>
-                  <span className="text-[13px] text-[#2E3A55]">
-                    {" "}
-                    on {audience}
-                  </span>
                 </span>
-                <span className="text-[13px] text-[#2E3A55]">
+                <span className="text-[13px] text-[#3B2F6B]">
                   <span className="num font-semibold text-dw-ink">
                     {pct(r.probabilityToBeat, 0)}
                   </span>{" "}
-                  chance B wins
+                  chance it&apos;s better
                 </span>
               </div>
               <div className="relative h-2 rounded-full bg-dw-ink/12">
@@ -344,9 +355,9 @@ function Body({
                   aria-hidden
                 />
               </div>
-              <span className="text-[12px] leading-snug text-[#2E3A55]">
+              <span className="text-[12px] leading-snug text-[#3B2F6B]">
                 {seg(r.control).visitors + seg(r.treatment).visitors > 0
-                  ? `${(seg(r.control).visitors + seg(r.treatment).visitors).toLocaleString("en-GB")} ${audience === "AI shoppers" ? "agents" : "visitors"}, simulated traffic included`
+                  ? `${(seg(r.control).visitors + seg(r.treatment).visitors).toLocaleString("en-GB")} ${audience === "AI shoppers" ? "AI shoppers" : "visitors"}, simulated shoppers included`
                   : "No visitors yet"}
                 {fix.experiment && fix.status !== "test"
                   ? ` · started ${new Date(fix.experiment.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
@@ -368,8 +379,8 @@ function Body({
               </PillButton>
             )}
             {fix.status === "drafted" && !canStart && autopilot && (
-              <span className="text-[13px] text-[#2E3A55]">
-                Autopilot starts the test on its next step.
+              <span className="text-[13px] text-[#3B2F6B]">
+                Ada starts the test on autopilot&apos;s next step.
               </span>
             )}
             {fix.status === "shipped" && (
@@ -378,8 +389,8 @@ function Body({
               </PillButton>
             )}
             {(fix.status === "rejected" || fix.status === "shelved") && (
-              <span className="text-[13px] text-[#2E3A55]">
-                Darwin won&apos;t try this change again.
+              <span className="text-[13px] text-[#3B2F6B]">
+                Theo won&apos;t try this change again.
               </span>
             )}
           </div>

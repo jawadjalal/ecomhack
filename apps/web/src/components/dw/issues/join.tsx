@@ -4,8 +4,8 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { ChevronDown } from "lucide-react";
 
-/** Distance from a list row's right edge to the detail panel: list padding (22) + border (1) + grid gap (14) + 1px overlap. */
-export const JOIN = 38;
+/** Distance from a list row's right edge to the detail panel: list padding (22) + border (1) + grid gap (16) + 1px overlap. */
+export const JOIN = 40;
 
 /**
  * The selected-row background. It slides between rows (shared layoutId) and, on wide screens, reaches
