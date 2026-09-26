@@ -69,6 +69,18 @@ Cross-module calls go through the public API above, never deep imports into anot
 - No new dependencies without a reason in the PR description (they're pre-installed in the scaffold).
 - Before pushing: `cd apps/web && npm run typecheck && npm run lint && npm test && npm run build`.
 
+## After every run (every agent, every teammate)
+
+1. **Update `docs/STATUS.md`** before you finish: for each product area you touched, update *Done*, *Left to do*,
+   *Limitations* and *Next-run ideas*, adjust the brutal judge scorecard if your work moves a score, and add one line on
+   top of the **Run log** (`date UTC — who: what shipped, what's still open`). Keep it honest; no invented numbers.
+2. **Mirror it for the in-app lead agent**: the same per-area "left to do" lives in `src/lib/status/roadmap.ts`, which
+   the bottom prompt-bar chat reads to answer "what's left on this page?". Update both.
+3. **Every user-facing action is a command**: if you add something a merchant can *do* (a button, an API action), register
+   it in `src/lib/commands` so the lead agent (bottom chat, ⌘K and WebMCP browser agents) can do it too — navigate, build
+   dashboards, start/stop tests, roll back, anything. Risky actions are `risk: "confirm"`.
+4. Brainstorm at least one limitation you could fix next run and write it under *Next-run ideas*.
+
 ## Running
 
 ```bash
