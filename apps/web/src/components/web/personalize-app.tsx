@@ -21,7 +21,8 @@ import { cn } from "@/components/ui/cn";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
 import { Card, Empty, LegendKey, PageHead, PillBar, PillButton, Segmented, Tag } from "@/components/dw/ui";
-import { BrowserFrame, CardHead, DwSwitch, DwToast, FieldLabel, HEAD_CONTROLS, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
+import { Overflow } from "@/components/dw/overflow";
+import { BrowserFrame, CardHead, DwSwitch, DwToast, FieldLabel, IconBtn, SiteSelect } from "@/components/dw/personalize/kit";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -362,20 +363,22 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         title="Personalize"
         lede="Change any store page for each traffic source and search, then let an A/B test decide."
         right={
-          <div className={HEAD_CONTROLS}>
+          <div className="flex items-center gap-2">
             <SiteSelect value={site} options={siteOptions} onChange={switchSite} />
-            <PillButton tone="white" onClick={simulate} disabled={!!busy} title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
-              {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
-              Send 500 test visitors
-            </PillButton>
-            <DwSwitch on={trafficOn} onChange={setTrafficOn} label="Traffic" title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic." />
-            <DwSwitch
-              on={autopilotOn}
-              onChange={setAutopilot}
-              busy={busy === "autopilot"}
-              label="Autopilot"
-              title="Darwin tests one idea per traffic source (biggest gap first), ships winners, stops losers, and tries the next idea"
-            />
+            <Overflow label="Personalize tools">
+              <PillButton tone="white" onClick={simulate} disabled={!!busy} title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
+                {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
+                Send 500 test visitors
+              </PillButton>
+              <DwSwitch on={trafficOn} onChange={setTrafficOn} label="Traffic" title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic." />
+              <DwSwitch
+                on={autopilotOn}
+                onChange={setAutopilot}
+                busy={busy === "autopilot"}
+                label="Autopilot"
+                title="Darwin tests one idea per traffic source (biggest gap first), ships winners, stops losers, and tries the next idea"
+              />
+            </Overflow>
           </div>
         }
       />

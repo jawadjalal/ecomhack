@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUp, Globe, LoaderCircle, Users, WandSparkles } from "lucide-react";
+import { ArrowRight, ArrowUp, Globe, LoaderCircle, Users } from "lucide-react";
 import type { DashboardsResponse, TrackingPlan, WebSimulateResponse } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
 import { Mascot } from "@/components/dw/mascot";
@@ -173,11 +173,6 @@ export function DashboardsApp({ initialSite }: { initialSite: string }) {
                 <ArrowRight className="size-4" />
               </button>
             </form>
-            {site && (
-              <PillButton tone="sand" href={`/console/personalize?site=${encodeURIComponent(site)}`}>
-                <WandSparkles /> Personalize
-              </PillButton>
-            )}
           </div>
         }
       />

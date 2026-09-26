@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 15:25 UTC (UI redesign)
+Last updated: 2026-09-26 15:40 UTC (console header)
 
 ---
 
@@ -46,9 +46,10 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **Done:** one conversion headline with the generation chart under it, impact as a borderless strip, then a split (A vs B / agents / funnel stacked on the left, live shoppers on the right). Ask Darwin bottom-sheet chat (mobile sheet too). Impact numbers unchanged (before Darwin vs now, extra buyers per 1,000).
 - **Left to do:** both card rows above the fold at 1440×900 (in progress); make the bottom chat the **lead agent on every screen** that can navigate and run any action (in progress, see Agent mode).
 - **Limitations:** People rows need store traffic on (events route has no store-only filter); `?mock=1` chat answers from the server.
-- **Done (demo mode):** never empty with nothing connected: boot runs the loop to Gen 1 with a test live (fresh server) or sends one round of simulated shoppers (restart: the loop state is on disk, simulated events never were, which is why the live deploy showed "8.7% converts" next to "3 shoppers · 0 bought" and an all-0% funnel). "Demo store · Connect your site" note on every console page while no repo / darwin.js site is connected.
+- **Done (demo mode):** never empty with nothing connected: boot runs the loop to Gen 1 with a test live (fresh server) or sends one round of simulated shoppers (restart: the loop state is on disk, simulated events never were, which is why the live deploy showed "8.7% converts" next to "3 shoppers · 0 bought" and an all-0% funnel). Demo-store status (store name, simulated shoppers, connect / open the demo) sits in the account menu, not a strip across the top.
+- **Done (header):** one quiet bar on console pages: Darwin mark, primary nav (Overview → Changes), Running/Paused, and a single account menu for demo store, other tools, mock data, and settings. Personalize and Traffic keep the site picker beside that menu; simulators and mode toggles are inside it. Classic mission control keeps Autopilot and Step, with the old chip row in “More tools”.
 - **Left for the console-screens agent (files I must not touch):** lede says "Right now Darwin is <phase blurb>" while paused (`screens/overview.tsx`, check `autopilot`); Conversion card's SHOPPERS/BOUGHT come from `useSummary` while CONVERTS comes from the loop history, so they can disagree (label them or use one source); CardEmpty should offer "Explore with the demo store" (POST /api/demo) instead of only "Let Darwin run".
-- **Next-run ideas:** a daily "what changed" digest card; pin a shopper journey to an issue; persist a compact per-generation summary so a restart doesn't need a refill round.
+- **Next-run ideas:** a daily "what changed" digest card; pin a shopper journey to an issue; persist a compact per-generation summary so a restart doesn't need a refill round. The account menu is a long list — group it (store / tools / demo) once the lead-agent command palette lands.
 
 ### Issues `/console/issues`  ✅ (🟡 above the fold)
 - **Done:** buyers-lost as a full-width figure, who/where as a quiet row, then the ranked list joined to the detail. Same ranking, sessions, fix, deep links.
@@ -131,6 +132,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 15:40 UTC — console header.** Removed the top demo-store strip and the chip rows. Console pages now have one bar (mark, primary nav, Running/Paused, account menu). Classic keeps Autopilot + Step; links, mock/synthetic notes, traffic, reset and fullscreen are in More. Personalize/Traffic site pickers stay; their extra toggles moved into a page menu. `src/lib/status/roadmap.ts` is still not in the tree. Open: screenshots of the bar, and grouping the account menu.
 - **2026-09-26 15:25 UTC — UI redesign.** Landing, overview, experiments, issues, fixes, changes and settings no longer share the pastel bento (`docs/ui-redesign-plan.md`). Plain surface on `Card`/`Panel`. Still the old tile layout: agents, dashboards, personalize, traffic, research, onboarding, readiness. Storefront and classic console left as they are. `src/lib/status/roadmap.ts` is not in the tree.
 - **2026-09-26 14:30 UTC — demo-mode agent.** Demo store mode: /store is PACE end to end (no Whop strip / "STORE" brand), boot fills the console with labelled simulated shoppers (fresh → Gen 1 + test live; restart → one refill round), onboarding "Skip: explore with the demo store", "Demo store · Connect your site" note on every console page, dashboards default to the demo store's plan, North Trail seeded for Personalize/Traffic, Whop server key counts as connected, store agent never named `biz_…`, `explore_demo_store` assistant tool. Not touched (other agent's files): Overview lede while paused, conversion card sources, `roadmap.ts`. Still open: curl/headless hits on the agent API show as agent sessions.
 - **2026-09-26 13:59 UTC — readiness agent.** `/readiness` + certificate page restyled to the cream design (hero, loading crew, error state, score / agents-can-do / fixes / CTA to onboarding, Grok certify panel from #36 kept and restyled); screenshots at 1440×900 and 390×844, no horizontal overflow. Open: readiness command for the lead agent, prefill onboarding with the audited URL.
