@@ -18,7 +18,7 @@ Scored against the hackathon brief: *behaviour → insight → page change → b
 | AI leverage & autonomy | 7 | Autopilot ships winners, store agent A/B tests its own pitch, Grok teammate briefing ("want me to ship it?") | Lead agent that *acts* (⌘K / chat / WebMCP) — in progress; a real Grok key on stage |
 | Commerce innovation | 8 | A store that sells to AI agents three ways and optimises for them; agent checkout counted end to end | A real third-party agent buying live on the real Whop store |
 | Real-world usefulness | 5 | Mostly simulated traffic; the demo store is a demo | Real Whop store + script-tag install on a real site + one real purchase |
-| UX | 7 | Cream design system, mascots, real brand logos, mobile | Above-the-fold pass (in progress); readiness page still old dark style |
+| UX | 7 | Cream design system, mascots, real brand logos, mobile | Above-the-fold pass (in progress) |
 | Demo quality | 6 | Every screen has live data and empty states | Rewrite `docs/DEMO.md` on the new screens and rehearse; `?mock=1` offline fallback |
 
 **The one question judges will ask: "is any of this real?"** Answer on stage with a real Grok bot buying on the Whop store (`/a2a/whop`), then the Grok teammate messaging the merchant what it learned.
@@ -101,9 +101,11 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 - **In progress:** one typed command layer (`src/lib/commands`) used by ⌘K, the bottom prompt-bar chat on every screen, and WebMCP (`navigator.modelContext`) so a browser agent can navigate, build dashboards, simulate traffic, roll back, draft personalizations, ship/stop tests. `window.darwin.run(name, input)` for automation.
 - **Left to do:** every new user-facing action must be added as a command (rule in AGENTS.md).
 
-### Agent readiness `/readiness`  ⬜ restyle
-- **Done:** audit any store URL for AI shoppers.
-- **Left to do:** still the old dark design — restyle to cream.
+### Agent readiness `/readiness`  ✅
+- **Done:** audit any store URL for AI shoppers; cream Darwin design at desktop and mobile: one-line hero with URL composer, "what agents need" intro, crew loading state, error card with retry / demo store; results = score dial + grade, what agents can do (Reach / Read / Buy meters), which assistants robots.txt lets in (real ChatGPT / Claude / Perplexity / Gemini glyphs, Siri as monogram), "Get certified by Grok" (from PR #36, restyled), prioritised fixes with copyable snippets, "Let Darwin fix these" → `/onboarding` plus email lead capture, every check by category, drafted llms.txt. Public certificate page `/readiness/certificate/[id]` and badge embed restyled to cream too.
+- **Left to do:** register "check a store's agent readiness" as a lead-agent command once `src/lib/commands` lands on main; pass the audited URL into `/onboarding` so the merchant doesn't retype it.
+- **Limitations:** the badge SVG (`/api/readiness/badge/[id]`) keeps its dark shields style on purpose (it sits on merchants' sites); "Siri" has no official glyph in `dw/brand-logos` so it shows a monogram; results aren't persisted (share link re-runs the audit, 10-min cache).
+- **Next-run ideas:** a before/after preview ("with Darwin you'd score 95") computed from the fixable checks; re-check button that bypasses the cache (`?fresh=1`) after a merchant ships a fix; an OG image of the score for shared links.
 
 ### Classic mission control `/console/classic`  ✅ (fallback)
 - Kept as the original loop view and offline fallback (`?mock=1`).
@@ -122,4 +124,5 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 13:59 UTC — readiness agent.** `/readiness` + certificate page restyled to the cream design (hero, loading crew, error state, score / agents-can-do / fixes / CTA to onboarding, Grok certify panel from #36 kept and restyled); screenshots at 1440×900 and 390×844, no horizontal overflow. Open: readiness command for the lead agent, prefill onboarding with the audited URL.
 - **2026-09-26 13:40 UTC — lead agent.** Redesign of every screen (PR #37), Grok teammate, ACP/MCP agent checkout, rollback, owner bug list fixed (double payments, invented claims, rejected GitHub token, RPV tile, mobile overflow, dead store buttons). In progress: above-the-fold pass, lead agent (⌘K / chat / WebMCP), brutal judge review.
