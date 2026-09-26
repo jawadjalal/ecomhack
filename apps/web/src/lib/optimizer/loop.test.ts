@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LoopPhase, LoopState, PageSpec } from "@/lib/contracts";
 import type { PullRequestResult, RepoRef } from "@/lib/github";
 import { eventStore } from "@/lib/analytics/store";
@@ -9,6 +9,14 @@ import { getRunningExperiment, listExperiments } from "@/lib/experiments/store";
 import { candidateVersion, getLoopMemory, getLoopState, parseRepo, resetLoop, setAutopilot, stepLoop, type LoopOverrides } from "./loop";
 import { createFakeSimulator } from "./testing/fake-simulator";
 import { canonicalKey } from "./util";
+
+// Deterministic ids: experiment ids seed the sticky A/B assignment, so random ids made
+// the fake world (and which ideas win or lose) differ from run to run.
+const ids = vi.hoisted(() => ({ n: 0 }));
+vi.mock("@/lib/ids", () => ({
+  id: (prefix: string) => `${prefix}_t${(ids.n++).toString(36).padStart(8, "0")}`,
+  uuid: () => `00000000-0000-4000-8000-${(ids.n++).toString(16).padStart(12, "0")}`,
+}));
 
 function makeDeps(overrides: LoopOverrides = {}) {
   const prs: { repo: RepoRef; spec: PageSpec; summary: string }[] = [];
@@ -56,6 +64,7 @@ async function runUntil(deps: LoopOverrides, done: (s: LoopState) => boolean, ma
 
 describe("self-improvement loop", () => {
   beforeEach(async () => {
+    ids.n = 0;
     await resetLoop();
   });
 

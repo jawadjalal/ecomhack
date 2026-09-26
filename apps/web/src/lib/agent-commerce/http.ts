@@ -61,6 +61,11 @@ export function identityFromHeaders(headers: Headers, fallbackName?: string): Ag
   };
 }
 
+/** Scripted clients we run ourselves (e.g. `scripts/grok-shopper.ts --scripted`) send `x-darwin-synthetic: 1`. */
+export function syntheticFromHeaders(headers: Headers): boolean {
+  return headers.get("x-darwin-synthetic") === "1";
+}
+
 /** Context for a REST call. Without `x-agent-session` the session is stable per agent id. */
 export function restContext(req: Request): AgentContext {
   const who = identityFromHeaders(req.headers);
@@ -70,7 +75,7 @@ export function restContext(req: Request): AgentContext {
     agentName: who.agentName,
     sessionId: who.sessionId ?? fromQuery ?? `ses_${hashId(who.agentId)}`,
     channel: "rest",
-    synthetic: false,
+    synthetic: syntheticFromHeaders(req.headers),
   };
 }
 

@@ -7,7 +7,7 @@
  * and simple clients work without a handshake.
  */
 import { dispatchAgentTool } from "./dispatcher";
-import { hashId, identityFromHeaders } from "./http";
+import { hashId, identityFromHeaders, syntheticFromHeaders } from "./http";
 import { TOOL_META, toolInputSchema } from "./tools";
 import { AGENT_TOOL_NAMES, type AgentContext, type AgentToolName } from "./types";
 
@@ -120,7 +120,7 @@ function contextFor(state: CallState): AgentContext {
     agentName: who.agentName,
     sessionId,
     channel: "mcp",
-    synthetic: false,
+    synthetic: syntheticFromHeaders(state.headers),
   };
 }
 

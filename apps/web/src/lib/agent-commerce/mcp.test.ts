@@ -89,6 +89,14 @@ describe("MCP server (POST /api/mcp)", () => {
     expect(eventsNamed("agent_request").every((e) => e.properties.channel === "mcp")).toBe(true);
   });
 
+  it("labels our own scripted clients as synthetic (x-darwin-synthetic: 1)", async () => {
+    const h = { "x-darwin-synthetic": "1" };
+    const { sessionId } = await initialize(h);
+    await rpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "get_cart", arguments: {} } }, { ...h, "mcp-session-id": sessionId });
+    expect(listAgentSessions(1)[0]).toMatchObject({ sessionId, synthetic: true });
+    expect(eventsNamed("agent_request").every((e) => e.properties.synthetic === true)).toBe(true);
+  });
+
   it("reports tool-level failures as isError results with missing fields", async () => {
     const res = await rpc({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "check_availability", arguments: { id: "p_ridge", size: "10" } } });
     const { result } = await res.json();

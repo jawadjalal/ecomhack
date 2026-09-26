@@ -74,6 +74,12 @@ function Detail({ s }: { s: AgentSessionSummary }) {
         )}
         <span className="text-[0.7rem] text-white/30 tabular">{now ? timeAgo(s.startedAt, now) : ""}</span>
       </div>
+      {!s.synthetic && !s.goal?.brief && (
+        <div className="rounded-lg border-l-2 border-good/50 bg-good/[0.04] px-3 py-1.5 text-[0.8rem] text-white/70">
+          A real agent connected {s.sessionId.startsWith("mcp_") ? "over MCP" : "over the REST API"}, not the simulator.
+          Every tool call below is live.
+        </div>
+      )}
       {s.goal?.brief && (
         <div className="rounded-lg border-l-2 border-agent/50 bg-white/[0.025] px-3 py-1.5">
           <div className="text-[0.84rem] text-white/80 italic">“{s.goal.brief}”</div>

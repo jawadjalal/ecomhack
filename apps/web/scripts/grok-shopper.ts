@@ -204,6 +204,8 @@ async function main() {
     "x-agent-name": agentName,
     "user-agent": `${agentName}/1.0 (+darwin)`,
     ...(values["agent-id"] ? { "x-agent-id": values["agent-id"] } : {}),
+    // A scripted policy is simulated traffic: the console labels it SYNTHETIC, not REAL.
+    ...(useLlm ? {} : { "x-darwin-synthetic": "1" }),
   };
 
   log(c.bold(`\n  PACE store over MCP  ${c.gray(endpoint)}`));
@@ -244,7 +246,7 @@ async function main() {
       });
     } catch (err) {
       log(c.yellow(`\n  LLM unavailable (${String((err as Error).message ?? err).slice(0, 160)}); switching to the scripted policy on a fresh MCP session.\n`));
-      session = await connect(endpoint, headers);
+      session = await connect(endpoint, { ...headers, "x-darwin-synthetic": "1" });
     }
   }
   result ??= await runScriptedBuyer(goal, makeCaller(session.client), { seed: session.client.sessionId ?? agentName, onStep, onThought });
