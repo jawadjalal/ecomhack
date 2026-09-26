@@ -10,7 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DATA_DIR = process.env.DARWIN_DATA_DIR ?? path.join(process.cwd(), ".data");
+const DATA_DIR = process.env.DARWIN_DATA_DIR || path.join(process.cwd(), ".data");
 const PERSIST = process.env.DARWIN_PERSIST !== "0";
 
 type Registry = { values: Map<string, unknown>; timers: Map<string, NodeJS.Timeout> };

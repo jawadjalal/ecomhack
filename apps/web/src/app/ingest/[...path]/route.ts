@@ -31,7 +31,7 @@ type Ctx = { params: Promise<{ path: string[] }> };
 
 const MAX_BODY_BYTES = 20 * 1024 * 1024;
 /** Where lazy-loaded posthog-js bundles (surveys.js, recorder.js…) live, as in PostHog's reverse-proxy setup. */
-const ASSET_HOST = (process.env.POSTHOG_ASSET_HOST ?? "https://us-assets.i.posthog.com").replace(/\/$/, "");
+const ASSET_HOST = (process.env.POSTHOG_ASSET_HOST || "https://us-assets.i.posthog.com").replace(/\/$/, "");
 const CAPTURE_PATHS = new Set(["e", "i/v0/e", "batch", "capture", "track", "engage"]);
 const DROP_PATHS = new Set(["s", "i/v1/logs", "i/v0/logs", "i/v1/metrics"]);
 const EMPTY_LISTS: Record<string, object> = {

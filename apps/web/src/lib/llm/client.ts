@@ -36,11 +36,11 @@ export function llmAvailable() {
 export function llmModel(): string {
   switch (llmProvider()) {
     case "xai":
-      return process.env.XAI_MODEL ?? "grok-4";
+      return process.env.XAI_MODEL || "grok-4";
     case "anthropic":
-      return process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
+      return process.env.ANTHROPIC_MODEL || "claude-opus-5";
     case "openrouter":
-      return process.env.OPENROUTER_MODEL ?? "deepseek/deepseek-chat";
+      return process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat";
     default:
       return "heuristic";
   }

@@ -18,8 +18,8 @@ export interface EventStore {
   clear(): void;
 }
 
-const MAX_EVENTS = Number(process.env.DARWIN_MAX_EVENTS ?? 250_000);
-const DATA_DIR = process.env.DARWIN_DATA_DIR ?? path.join(process.cwd(), ".data");
+const MAX_EVENTS = Number(process.env.DARWIN_MAX_EVENTS || 250_000);
+const DATA_DIR = process.env.DARWIN_DATA_DIR || path.join(process.cwd(), ".data");
 const FILE = path.join(DATA_DIR, "events.ndjson");
 const PERSIST = process.env.DARWIN_PERSIST !== "0";
 const PERSIST_SYNTHETIC = process.env.DARWIN_PERSIST_SYNTHETIC === "1";

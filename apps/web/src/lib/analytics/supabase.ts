@@ -30,7 +30,7 @@ const g = globalThis as unknown as { __darwinSupabaseMirror?: MirrorState };
 const state = (): MirrorState =>
   (g.__darwinSupabaseMirror ??= { queue: [], lastWarnAt: 0, mirrored: 0, dropped: 0 });
 
-export const SUPABASE_EVENTS_TABLE = process.env.SUPABASE_EVENTS_TABLE ?? "events";
+export const SUPABASE_EVENTS_TABLE = process.env.SUPABASE_EVENTS_TABLE || "events";
 
 export function supabaseMirrorEnabled(): boolean {
   return Boolean(
