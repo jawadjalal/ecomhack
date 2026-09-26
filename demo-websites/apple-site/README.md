@@ -94,9 +94,10 @@ Darwin's install PR detects.
 3. Point Darwin's winner PRs at this repo's config: run Darwin with
    `DARWIN_TARGET_REPO=<owner>/orchard-store` and `DARWIN_TARGET_CONFIG_PATH=storefront.config.json`
    (plus a `GITHUB_TOKEN` that can push branches).
-4. Optional, recommended: make Orchard's config Darwin's Gen 0 so shipped PRs keep Orchard's copy (Darwin's
-   own baseline copy is about running shoes). With Darwin stopped:
-   `node seed/seed.mjs --write-baseline <DARWIN_DATA_DIR>` then start Darwin with that `DARWIN_DATA_DIR`.
+4. Recommended: make Orchard's config Darwin's Gen 0 so shipped PRs keep Orchard's copy (Darwin's own
+   baseline copy is about running shoes): `node seed/seed.mjs --darwin <darwin> --import-baseline` (uses
+   Darwin's `POST /api/loop/baseline`, resets Darwin's loop). Offline alternative, with Darwin stopped:
+   `node seed/seed.mjs --write-baseline <DARWIN_DATA_DIR>`.
 
 **Option B: script tag (fastest).** Keep the default `NEXT_PUBLIC_DARWIN_URL` (or set it to your Darwin)
 and run the site. In Darwin's onboarding choose the script-tag path; the tag is already on every page.
@@ -116,7 +117,7 @@ node seed/seed.mjs --config presets/fixed.json --dry-run   # what the fixed stor
 
 Flags: `--humans`, `--agents`, `--hours` (spread over the last N hours, default 24), `--loop N` (Darwin
 loop steps afterwards, default 4: observe → diagnose → propose → experiment), `--seed`, `--site`,
-`--site-url`, `--config`, `--token`, `--write-baseline <dir>`.
+`--site-url`, `--config`, `--token`, `--import-baseline`, `--write-baseline <dir>`.
 
 Every event is **synthetic** and labelled so (the rule in Darwin's AGENTS.md). The seed posts to Darwin's
 `POST /api/simulate/events`, which always stamps `properties.synthetic = true` server-side, drops any
