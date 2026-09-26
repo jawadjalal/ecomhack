@@ -97,6 +97,9 @@ function track(event: string, props: Record<string, unknown> = {}) {
   else ((w.darwin as unknown[] | undefined) ?? ((w as { darwin?: unknown[] }).darwin = [])).push([event, props]);
 }
 
+/** GitHub OAuth start: same tab, back to /onboarding. Only shown when the server has sign-in configured. */
+const GITHUB_SIGN_IN = "/api/auth/github/start?return=/onboarding";
+
 const REPO_RE = /^(?:https?:\/\/github\.com\/)?([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/i;
 
 const DRAFT_KEY = "darwin-onboarding-draft";
@@ -371,8 +374,9 @@ export function OnboardingApp() {
       // 2. Back from GitHub's sign-in: restore what was typed, and reopen the GitHub drawer on the repo picker.
       if (params.has("github") || params.has("github_error")) {
         try {
-          const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}") as { prompt?: string };
+          const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "{}") as { prompt?: string; url?: string };
           if (draft.prompt) setPrompt(draft.prompt);
+          if (draft.url) setUrlDraft(draft.url);
         } catch {
           /* nothing saved */
         }
@@ -650,14 +654,13 @@ export function OnboardingApp() {
                                 auth={auth}
                                 authError={authError}
                                 onSignIn={() => {
+                                  // The link itself navigates this tab to GitHub; keep what was typed for the way back.
                                   try {
-                                    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ prompt }));
+                                    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ prompt, url: website ?? urlDraft }));
                                   } catch {
                                     /* storage blocked: the prompt is retyped */
                                   }
                                   track("github_sign_in_started");
-                                  // A full-page navigation (not the router): the API route redirects to github.com.
-                                  window.location.assign(new URL("/api/auth/github/start?return=/onboarding", window.location.origin).href);
                                 }}
                                 onConnected={(r) => {
                                   setRepo(r);
@@ -1784,9 +1787,14 @@ function GithubConnect({
             ? "Your GitHub sign-in has expired. Sign in again to pick your repository."
             : "Sign in so Darwin can see your repositories and open the install pull request as you. It only ever changes code through pull requests you review."}
         </p>
-        <PillButton size="lg" onClick={onSignIn} className="w-full">
+        {/* A plain same-tab link (no popup, no router): the API route redirects to github.com and back here. */}
+        <a
+          href={GITHUB_SIGN_IN}
+          onClick={onSignIn}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-dw-ink px-6 text-[15px] font-medium text-white transition-[background-color,transform] hover:bg-black focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
+        >
           <BrandGlyph brand="github" size={18} /> Sign in with GitHub
-        </PillButton>
+        </a>
         <button type="button" onClick={() => setPaste(true)} className={linkCls}>
           or paste a repository URL
         </button>
@@ -1840,18 +1848,25 @@ function GithubConnect({
       }}
       className="flex flex-col gap-3"
     >
-      <p className="text-[14px] leading-snug text-dw-ink/70">Your storefront&apos;s repository. Darwin only ever changes it through pull requests you review.</p>
+      <p className="text-[14px] leading-snug text-dw-ink/70">
+        {oauth ? "Paste a repository URL." : "Paste a repository URL (GitHub sign-in isn't set up on this server)."} Darwin only ever changes it through pull requests you review.
+      </p>
       <div className="flex flex-col gap-2 sm:flex-row">
         <input ref={input} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/acme/storefront" aria-label="Repository URL" className={inputCls} />
         <PillButton type="submit" disabled={!url.trim()} className="h-11">
           <BrandGlyph brand="github" size={16} /> Connect
         </PillButton>
       </div>
-      {oauth && (
-        <button type="button" onClick={() => (signedIn ? setPaste(false) : onSignIn())} className={linkCls}>
-          {signedIn ? "or pick from your repositories" : "or sign in with GitHub"}
-        </button>
-      )}
+      {oauth &&
+        (signedIn ? (
+          <button type="button" onClick={() => setPaste(false)} className={linkCls}>
+            or pick from your repositories
+          </button>
+        ) : (
+          <a href={GITHUB_SIGN_IN} onClick={onSignIn} className={linkCls}>
+            or sign in with GitHub
+          </a>
+        ))}
       {dryRun && <span className="text-[12.5px] text-dw-ink/50">No GitHub access on the server: the PR runs as a preview and shows the would-be changes.</span>}
       {error && <ErrorLine error={error} />}
       {other}
