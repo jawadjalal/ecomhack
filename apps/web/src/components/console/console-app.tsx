@@ -6,6 +6,7 @@ import { useSWRConfig } from "swr";
 import { TriangleAlert, X } from "lucide-react";
 import type { LoopPhase } from "@/lib/contracts";
 import { createConsoleApi } from "@/lib/console/api";
+import { friendlyError } from "@/lib/friendly";
 import { prsByGeneration, sourceBadge, withStatusPrs, type PrInfo } from "@/lib/console/format";
 import {
   ApiContext,
@@ -91,7 +92,7 @@ function Console({ mock }: { mock: boolean }) {
       await mutateLoop(next, { revalidate: false });
       void globalMutate((key) => Array.isArray(key) && key[1] === "experiments");
     } catch (e) {
-      notify(`Step failed: ${(e as Error).message}`);
+      notify(`Couldn't run the next step. ${friendlyError(e)}`);
     } finally {
       inFlight.current = false;
       setStepping(false);
@@ -129,7 +130,7 @@ function Console({ mock }: { mock: boolean }) {
         await mutateLoop(next, { revalidate: false });
         if (on) setTrafficOn(true);
       } catch (e) {
-        notify(`Autopilot: ${(e as Error).message}`);
+        notify(`Couldn't switch autopilot ${on ? "on" : "off"}. ${friendlyError(e)}`);
       }
     },
     [api, mutateLoop, notify],
@@ -183,7 +184,7 @@ function Console({ mock }: { mock: boolean }) {
       setPeek(null);
       notify("Reset to Gen 0", "info");
     } catch (e) {
-      notify(`Reset failed: ${(e as Error).message}`);
+      notify(`Couldn't reset. ${friendlyError(e)}`);
     }
   }, [api, autopilot, feed, globalMutate, mutateLoop, notify]);
 
@@ -216,7 +217,7 @@ function Console({ mock }: { mock: boolean }) {
   const openPrForGeneration = (generation: number) => {
     const p = prs.get(generation);
     if (p) setPrModal(p);
-    else notify(`No PR details recorded for Gen ${generation}`, "info");
+    else notify(`No pull request was recorded for generation ${generation}.`, "info");
   };
 
   return (

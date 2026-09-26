@@ -6,16 +6,17 @@ import { AlertTriangle, ArrowRight, Award, Check, Copy, Download, ExternalLink, 
 import type { CheckStatus, ReadinessCategory, ReadinessCertificate, ReadinessCheck, ReadinessReport } from "@/lib/contracts";
 import { DarwinWordmark } from "@/components/console/brand";
 import { CertificateEmbed } from "@/components/readiness/certificate-embed";
-import { CertificateSeal, CriteriaGrid, LEVEL_STYLE } from "@/components/readiness/certificate-view";
+import { CertificateSeal, CriteriaGrid, LEVEL_STYLE, certVerdict } from "@/components/readiness/certificate-view";
+import { friendlyError } from "@/lib/friendly";
 import { cn } from "@/components/ui/cn";
 
 const CATEGORY: Record<ReadinessCategory, { label: string; blurb: string }> = {
   access: { label: "Access", blurb: "Can AI shopping assistants reach your store?" },
   understand: { label: "Understand", blurb: "Can they read products, prices, delivery and returns?" },
-  act: { label: "Act", blurb: "Can they search, ask and buy through an API?" },
+  act: { label: "Act", blurb: "Can they search, ask questions and buy on their own?" },
 };
 
-const STEPS = ["Loading your storefront", "Reading robots.txt and sitemap", "Inspecting a product page", "Probing llms.txt, MCP and A2A", "Scoring"];
+const STEPS = ["Loading your storefront", "Checking which AI agents are let in", "Reading a product page", "Looking for the tools AI agents use to shop", "Scoring"];
 
 const STATUS_STYLE: Record<CheckStatus, { icon: typeof Check; ring: string; text: string }> = {
   pass: { icon: Check, ring: "bg-good/15 text-[#8ff0b2]", text: "text-[#8ff0b2]" },
@@ -140,8 +141,9 @@ function PilotCta({ report }: { report: ReadinessReport }) {
         <Sparkles className="size-4" /> Darwin can fix {fixable.length} of these
       </div>
       <p className="mt-2 text-[0.95rem] leading-relaxed text-white/75">
-        Worth up to <span className="font-semibold text-white">+{Math.round(gain)} points</span>: we host your agent layer (llms.txt, an MCP endpoint and an A2A merchant agent over
-        your catalog), open a pull request with the structured data, then A/B test what agents and shoppers see. No theme rewrite.
+        Worth up to <span className="font-semibold text-white">+{Math.round(gain)} points</span>: we host what AI shopping agents look for (an llms.txt guide, a store they can shop
+        directly and an AI agent that answers for your catalog), open a pull request with the product details they need, then A/B test what agents and shoppers see. No theme
+        rewrite.
       </p>
       {state === "done" ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 text-[0.9rem] text-[#8ff0b2]">
@@ -194,7 +196,7 @@ function certifySteps(report: ReadinessReport): string[] {
   const mcp = report.checks.some((c) => c.id === "mcp" && c.status === "pass");
   return [
     "Re-running the audit",
-    mcp ? "An AI agent is shopping your store over MCP (no real checkout)" : "An AI agent is reading your storefront",
+    mcp ? "An AI agent is shopping your store (no real checkout)" : "An AI agent is reading your storefront",
     "Checking price, sizes, delivery and returns",
     "Issuing your certificate",
   ];
@@ -215,11 +217,11 @@ function CertifyPanel({ report }: { report: ReadinessReport }) {
     try {
       const res = await fetch("/api/readiness/certify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: report.url }) });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw Object.assign(new Error(body.error ?? ""), { status: res.status });
       setCert(body as ReadinessCertificate);
       setState("done");
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, "Certification didn't finish. Please try again."));
       setState("error");
     } finally {
       clearInterval(timer);
@@ -234,12 +236,12 @@ function CertifyPanel({ report }: { report: ReadinessReport }) {
           <CertificateSeal level={cert.level} score={cert.score} className="size-28" />
           <div className="flex min-w-0 flex-col gap-1.5">
             <div className="text-[0.75rem] font-semibold tracking-[0.14em] text-white/45 uppercase">
-              {cert.heuristic ? "Certificate (heuristic: no agent trial)" : `Certified by Darwin · ${cert.model.replace(/^llm:/, "").split("/").pop()}`}
+              {cert.heuristic ? "Certificate from your audit score" : "Certified by Darwin's AI shopping agent"}
             </div>
             <div className="text-[1.4rem] font-semibold" style={{ color: s.color }}>
               {cert.level === "none" ? "Not certified yet" : `${s.label} agent-ready`}
             </div>
-            <p className="text-[0.9rem] leading-relaxed text-white/70">{cert.verdict}</p>
+            <p className="text-[0.9rem] leading-relaxed text-white/70">{certVerdict(cert)}</p>
             <a
               href={`/readiness/certificate/${cert.id}`}
               target="_blank"
@@ -436,14 +438,14 @@ export function ReadinessApp({ initialUrl = "" }: { initialUrl?: string }) {
     const timer = setInterval(() => setStep((s) => Math.min(STEPS.length - 1, s + 1)), 1600);
     try {
       const res = await fetch("/api/readiness", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: target }) });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(body.error ?? ""), { status: res.status });
       setReport(body as ReadinessReport);
       const u = new URL(window.location.href);
       u.searchParams.set("url", (body as ReadinessReport).url);
       window.history.replaceState(null, "", u);
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, "We couldn't check that store. Check the address and try again."));
     } finally {
       clearInterval(timer);
       setLoading(false);

@@ -117,10 +117,12 @@ describe("api client", () => {
 
 describe("format", () => {
   it("maps proposal sources to chips", () => {
-    expect(sourceBadge("llm:grok-4")?.label).toBe("Grok");
-    expect(sourceBadge("llm:claude-opus-5")?.label).toBe("Claude");
-    expect(sourceBadge("llm:deepseek/deepseek-chat")?.label).toBe("OpenRouter");
-    expect(sourceBadge("heuristic")?.label).toBe("Heuristic");
+    // No model or provider names in the UI: AI-written vs built-in rules is all the merchant needs.
+    expect(sourceBadge("llm:grok-4")).toEqual({ label: "Darwin AI", ai: true });
+    expect(sourceBadge("llm:claude-opus-5")?.label).toBe("Darwin AI");
+    expect(sourceBadge("llm:deepseek/deepseek-chat")?.label).toBe("Darwin AI");
+    expect(sourceBadge("heuristic")).toEqual({ label: "Built-in rules", ai: false });
+    expect(sourceBadge(undefined)).toBeUndefined();
   });
 
   it("maps optimizer PR payloads (full or partial) to generations", () => {

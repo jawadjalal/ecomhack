@@ -8,6 +8,13 @@
  *   ANTHROPIC_API_KEY   → Claude via @anthropic-ai/sdk
  *   OPENROUTER_MODEL / XAI_MODEL / ANTHROPIC_MODEL override the default model.
  *   OPENROUTER_REASONING=off  → ask OpenRouter to skip the model's thinking (faster loop steps).
+ *   APINEX_API_KEY      → APINex (OpenAI-compatible, https://api.apinex.bond/v1). Default model `free/gpt-6-luna`
+ *                         (APINEX_MODEL); APINEX_EDITOR_MODEL (default `anthropic/claude-opus-4.6`) for the
+ *                         website editor / coding agent (Pixel).
+ *                         Not auto-picked while another provider has a key: `pickProvider()` routes the editor,
+ *                         "hard" tasks and OpenRouter overflow (LLM_OVERFLOW_AT concurrent calls, default 3) to it.
+ *   Cross-provider fallback: an APINex error (402/429/5xx/timeout) retries on OpenRouter and vice versa
+ *   (generateText, runToolLoop); after that callers use their heuristic.
  *
  * With no key, `llmAvailable()` is false and callers MUST fall back to heuristics,
  * so the demo always runs offline.
@@ -16,10 +23,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { z } from "zod";
 
-export type LlmProvider = "openrouter" | "xai" | "anthropic" | "none";
+export type LlmProvider = "openrouter" | "xai" | "anthropic" | "apinex" | "none";
 
 /** Default OpenRouter model slug (override with OPENROUTER_MODEL). */
 export const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash";
+/** Default APINex model (override with APINEX_MODEL; the editor uses APINEX_EDITOR_MODEL). */
+export const DEFAULT_APINEX_MODEL = "free/gpt-6-luna";
+/** Default APINex model for the website editor / coding agent (override with APINEX_EDITOR_MODEL). */
+export const DEFAULT_APINEX_EDITOR_MODEL = "anthropic/claude-opus-4.6";
+export const APINEX_BASE_URL = "https://api.apinex.bond/v1";
 
 export function llmProvider(): LlmProvider {
   const forced = process.env.LLM_PROVIDER as LlmProvider | undefined;
@@ -29,9 +41,11 @@ export function llmProvider(): LlmProvider {
   if (forced === "xai" && process.env.XAI_API_KEY) return "xai";
   if (forced === "anthropic" && process.env.ANTHROPIC_API_KEY)
     return "anthropic";
+  if (forced === "apinex" && process.env.APINEX_API_KEY) return "apinex";
   if (process.env.OPENROUTER_API_KEY) return "openrouter";
   if (process.env.XAI_API_KEY) return "xai";
   if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  if (process.env.APINEX_API_KEY) return "apinex";
   return "none";
 }
 
@@ -43,6 +57,8 @@ function hasKey(provider: LlmProvider): boolean {
       return Boolean(process.env.ANTHROPIC_API_KEY);
     case "openrouter":
       return Boolean(process.env.OPENROUTER_API_KEY);
+    case "apinex":
+      return Boolean(process.env.APINEX_API_KEY);
     default:
       return false;
   }
@@ -75,9 +91,88 @@ export function llmModel(preferred?: LlmProvider): string {
       return process.env.ANTHROPIC_MODEL || "claude-opus-5";
     case "openrouter":
       return process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL;
+    case "apinex":
+      return process.env.APINEX_MODEL || DEFAULT_APINEX_MODEL;
     default:
       return "heuristic";
   }
+}
+
+/** APINex model for the website editor agent (Pixel). */
+export function apinexEditorModel(): string {
+  return process.env.APINEX_EDITOR_MODEL || DEFAULT_APINEX_EDITOR_MODEL;
+}
+
+/* ------------------------------------------------------------------ routing policy */
+
+/** Model calls currently in flight, per provider (in-process). */
+const inflight: Record<LlmProvider, number> = {
+  openrouter: 0,
+  xai: 0,
+  anthropic: 0,
+  apinex: 0,
+  none: 0,
+};
+
+export function llmInFlight(provider: LlmProvider): number {
+  return inflight[provider];
+}
+
+/** Concurrent OpenRouter calls before new work overflows to APINex (LLM_OVERFLOW_AT, default 3). */
+export function overflowAt(): number {
+  const n = Number(process.env.LLM_OVERFLOW_AT);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
+}
+
+async function withSlot<T>(provider: LlmProvider, fn: () => Promise<T>): Promise<T> {
+  inflight[provider]++;
+  try {
+    return await fn();
+  } finally {
+    inflight[provider]--;
+  }
+}
+
+export interface ProviderChoice {
+  provider: LlmProvider;
+  /** Model override for that provider (undefined = the provider's default). */
+  model?: string;
+  /** Why this provider was picked (for logs/tests). */
+  reason: "editor" | "hard" | "overflow" | "default";
+}
+
+/**
+ * Which provider a piece of work should use. DeepSeek via OpenRouter (the default provider) for most calls;
+ * APINex for (a) the website editor (APINEX_EDITOR_MODEL), (b) tasks flagged hard, (c) overflow when
+ * ≥ LLM_OVERFLOW_AT OpenRouter calls are in flight. Falls back to the default when APINex has no key.
+ */
+export function pickProvider(opts: { editor?: boolean; hard?: boolean } = {}): ProviderChoice {
+  const base = llmProvider();
+  if (base === "none") return { provider: "none", reason: "default" };
+  const apinex = hasKey("apinex") && process.env.LLM_PROVIDER !== "none";
+  if (apinex && opts.editor)
+    return { provider: "apinex", model: apinexEditorModel(), reason: "editor" };
+  if (apinex && opts.hard) return { provider: "apinex", reason: "hard" };
+  if (apinex && base === "openrouter" && inflight.openrouter >= overflowAt())
+    return { provider: "apinex", reason: "overflow" };
+  return { provider: base, reason: "default" };
+}
+
+/** The provider to retry on when `provider` fails: APINex ⇄ OpenRouter (when keyed), else none. */
+export function fallbackProvider(provider: LlmProvider): LlmProvider | undefined {
+  if (process.env.LLM_PROVIDER === "none") return undefined;
+  if (provider === "apinex" && hasKey("openrouter")) return "openrouter";
+  if (provider === "openrouter" && hasKey("apinex")) return "apinex";
+  return undefined;
+}
+
+/** Errors worth retrying on another provider (payment/rate limit/server/network/timeout), not bad requests. */
+export function retriableProviderError(err: unknown): boolean {
+  const e = err as { status?: number; message?: string };
+  const status = typeof e?.status === "number" ? e.status : 0;
+  if ([401, 402, 403, 408, 409, 429].includes(status) || status >= 500) return true;
+  if (!status) return true; // network error / timeout / empty body
+  return false;
 }
 
 /** Model name without the vendor prefix, e.g. "deepseek-v4-flash" (for user-facing copy). */
@@ -96,14 +191,25 @@ export interface TextRequest {
   maxTokens?: number;
   /** Preferred provider for this call; used when its key is set, else the default provider. */
   provider?: LlmProvider;
+  /** Model override, used only when the call runs on `provider` (not after a fallback). */
+  model?: string;
+  /** Retry on the other provider (APINex ⇄ OpenRouter) on a retriable error. Default true. */
+  fallback?: boolean;
 }
 
-/** OpenAI-compatible client for OpenRouter / xAI. OpenRouter gets its recommended attribution headers. */
-function openaiClient(provider: "xai" | "openrouter"): OpenAI {
+type OpenAiProvider = "xai" | "openrouter" | "apinex";
+
+/** OpenAI-compatible client for OpenRouter / xAI / APINex. OpenRouter gets its recommended attribution headers. */
+function openaiClient(provider: OpenAiProvider): OpenAI {
   if (provider === "xai")
     return new OpenAI({
       apiKey: process.env.XAI_API_KEY,
       baseURL: "https://api.x.ai/v1",
+    });
+  if (provider === "apinex")
+    return new OpenAI({
+      apiKey: process.env.APINEX_API_KEY,
+      baseURL: process.env.APINEX_BASE_URL || APINEX_BASE_URL,
     });
   return new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
@@ -122,18 +228,32 @@ const reasoningExtra = (provider: LlmProvider): object =>
     ? { reasoning: { enabled: false } }
     : {};
 
-/** Plain text completion. Throws if no provider is configured. */
-export async function generateText({
-  system,
-  prompt,
-  maxTokens = 4000,
-  provider: preferred,
-}: TextRequest): Promise<string> {
-  const provider = resolveProvider(preferred);
-  if (provider === "xai" || provider === "openrouter") {
+const isOpenAi = (p: LlmProvider): p is OpenAiProvider =>
+  p === "xai" || p === "openrouter" || p === "apinex";
+
+/** Plain text completion. Throws if no provider is configured. Retries once on the other provider (see `fallback`). */
+export async function generateText(req: TextRequest): Promise<string> {
+  const provider = resolveProvider(req.provider);
+  const model = req.provider === provider ? req.model : undefined;
+  try {
+    return await withSlot(provider, () => completeText(provider, model, req));
+  } catch (err) {
+    const next = req.fallback === false ? undefined : fallbackProvider(provider);
+    if (!next || !retriableProviderError(err)) throw err;
+    console.warn(`[llm] ${provider} failed (${String(err).slice(0, 120)}), retrying on ${next}`);
+    return withSlot(next, () => completeText(next, undefined, req));
+  }
+}
+
+async function completeText(
+  provider: LlmProvider,
+  model: string | undefined,
+  { system, prompt, maxTokens = 4000 }: TextRequest,
+): Promise<string> {
+  if (isOpenAi(provider)) {
     const client = openaiClient(provider);
     const res = await client.chat.completions.create({
-      model: llmModel(provider),
+      model: model || llmModel(provider),
       max_tokens: maxTokens,
       messages: [
         { role: "system", content: system },
@@ -160,7 +280,7 @@ export async function generateText({
     return res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   }
   throw new Error(
-    "No LLM provider configured (set OPENROUTER_API_KEY, XAI_API_KEY or ANTHROPIC_API_KEY)",
+    "No LLM provider configured (set OPENROUTER_API_KEY, XAI_API_KEY, ANTHROPIC_API_KEY or APINEX_API_KEY)",
   );
 }
 
@@ -235,6 +355,10 @@ export interface ToolLoopRequest {
   maxSteps?: number;
   maxTokens?: number;
   provider?: LlmProvider;
+  /** Model override, used only while the loop runs on `provider`. */
+  model?: string;
+  /** Switch to the other provider (APINex ⇄ OpenRouter) when a model call fails. Default true. */
+  fallback?: boolean;
   /** Run the calls of one model turn concurrently (only for side-effect-free tools). Default: in order. */
   parallel?: boolean;
   /** Per model call. Default 45s. */
@@ -255,6 +379,8 @@ export interface ToolLoopResult {
   calls: LlmToolCall[];
   /** A tool asked to stop (see `LlmToolResult.stop`). */
   stopped: boolean;
+  /** Provider that answered the last turn (differs from the request's after a fallback). */
+  provider?: LlmProvider;
 }
 
 /** JSON Schema for a zod object, ready for a tool definition (no-arg schemas become `{type:"object"}`). */
@@ -303,13 +429,13 @@ function timed<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 /** The provider/model can't do native tool calling (OpenRouter: "No endpoints found that support tool use"). */
-export function toolsUnsupported(err: unknown): boolean {
+export function toolsUnsupported(err: unknown, provider?: LlmProvider): boolean {
   const e = err as { status?: number; message?: string };
   const status = typeof e?.status === "number" ? e.status : 0;
-  return (
-    [400, 404, 405, 422, 501].includes(status) &&
-    /tool|function/i.test(String(e?.message ?? ""))
-  );
+  if (![400, 404, 405, 422, 501].includes(status)) return false;
+  // APINex's tool support is unverified: any request-shape rejection falls back to prompted JSON.
+  if (provider === "apinex") return true;
+  return /tool|function/i.test(String(e?.message ?? ""));
 }
 
 function parseArgs(raw: unknown): {
@@ -330,7 +456,8 @@ function parseArgs(raw: unknown): {
 }
 
 async function nativeTurn(
-  provider: "xai" | "openrouter",
+  provider: OpenAiProvider,
+  model: string | undefined,
   req: ToolLoopRequest,
   trace: TraceEntry[],
   last: boolean,
@@ -364,7 +491,7 @@ async function nativeTurn(
       content: req.finalInstruction ?? DEFAULT_FINAL,
     });
   const res = await openaiClient(provider).chat.completions.create({
-    model: llmModel(provider),
+    model: model || llmModel(provider),
     max_tokens: req.maxTokens ?? 1500,
     messages,
     tools: req.tools.map((t) => ({
@@ -418,6 +545,7 @@ const JsonTurnSchema = z
 
 async function jsonTurn(
   provider: LlmProvider,
+  model: string | undefined,
   req: ToolLoopRequest,
   trace: TraceEntry[],
   last: boolean,
@@ -454,6 +582,8 @@ async function jsonTurn(
     schema: JsonTurnSchema,
     maxTokens: req.maxTokens ?? 1500,
     provider,
+    model,
+    fallback: false,
   });
   const raw = out.tool_calls?.length
     ? out.tool_calls
@@ -480,44 +610,58 @@ async function jsonTurn(
 export async function runToolLoop(
   req: ToolLoopRequest,
 ): Promise<ToolLoopResult> {
-  const provider = resolveProvider(req.provider);
+  let provider = resolveProvider(req.provider);
   if (provider === "none") throw new Error("No LLM provider configured");
+  let model = req.provider === provider ? req.model : undefined;
   const maxSteps = Math.max(0, req.maxSteps ?? 6);
   const timeoutMs = req.timeoutMs ?? 45_000;
   const started = Date.now();
   let mode: ToolLoopResult["mode"] =
     provider === "anthropic" ? "json" : "native";
+  let fellBack = req.fallback === false;
   const trace: TraceEntry[] = [];
   const calls: LlmToolCall[] = [];
+
+  /** One model turn on the current provider (native, or JSON when tools are rejected). */
+  const modelTurn = async (last: boolean, step: number) => {
+    if (mode === "native" && isOpenAi(provider)) {
+      try {
+        return await timed(
+          withSlot(provider, () => nativeTurn(provider as OpenAiProvider, model, req, trace, last, step)),
+          timeoutMs,
+        );
+      } catch (err) {
+        if (!toolsUnsupported(err, provider)) throw err;
+        console.warn(
+          `[llm] native tool calling unsupported on ${provider}, using JSON tool calls:`,
+          String(err).slice(0, 160),
+        );
+        mode = "json";
+      }
+    }
+    // generateText (inside jsonTurn) holds the in-flight slot.
+    return timed(jsonTurn(provider, model, req, trace, last, step), timeoutMs);
+  };
 
   for (let step = 0; step <= maxSteps; step++) {
     const last =
       step === maxSteps ||
       (req.budgetMs !== undefined && Date.now() - started > req.budgetMs);
     let turn: { text: string; calls: LlmToolCall[] };
-    if (mode === "native") {
-      try {
-        turn = await timed(
-          nativeTurn(provider as "xai" | "openrouter", req, trace, last, step),
-          timeoutMs,
-        );
-      } catch (err) {
-        if (!toolsUnsupported(err)) throw err;
-        console.warn(
-          "[llm] native tool calling unsupported, using JSON tool calls:",
-          String(err).slice(0, 160),
-        );
-        mode = "json";
-        turn = await timed(
-          jsonTurn(provider, req, trace, last, step),
-          timeoutMs,
-        );
-      }
-    } else {
-      turn = await timed(jsonTurn(provider, req, trace, last, step), timeoutMs);
+    try {
+      turn = await modelTurn(last, step);
+    } catch (err) {
+      const next: LlmProvider | undefined = fellBack ? undefined : fallbackProvider(provider);
+      if (!next || !retriableProviderError(err)) throw err;
+      console.warn(`[llm] ${provider} failed (${String(err).slice(0, 120)}), continuing on ${next}`);
+      fellBack = true;
+      provider = next;
+      model = undefined;
+      mode = provider === "anthropic" ? "json" : "native";
+      turn = await modelTurn(last, step);
     }
     if (last || !turn.calls.length)
-      return { text: turn.text, mode, steps: step + 1, calls, stopped: false };
+      return { text: turn.text, mode, steps: step + 1, calls, stopped: false, provider };
 
     const entry: TraceEntry = {
       text: turn.text,
@@ -567,8 +711,8 @@ export async function runToolLoop(
       }
     }
     if (stopped)
-      return { text: turn.text, mode, steps: step + 1, calls, stopped: true };
+      return { text: turn.text, mode, steps: step + 1, calls, stopped: true, provider };
   }
   /* unreachable: the last step always returns */
-  return { text: "", mode, steps: maxSteps + 1, calls, stopped: false };
+  return { text: "", mode, steps: maxSteps + 1, calls, stopped: false, provider };
 }

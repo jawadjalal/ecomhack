@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-22 -26 144 144" width="288" height="288" role="img" aria-label="Observer: idle">
+<title>Observer: idle</title>
+<style>
+.dmo-id-bob{animation:dmo-id-bob 2s ease-in-out infinite}
+@keyframes dmo-id-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.dmo-id-sq{animation:dmo-id-sq 2s ease-in-out infinite}
+@keyframes dmo-id-sq{0%,100%{transform:scale(1.035,.965)}50%{transform:scale(.985,1.02)}}
+.dmo-id-sh{animation:dmo-id-sh 2s ease-in-out infinite}
+@keyframes dmo-id-sh{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.86);opacity:.65}}
+.dmo-id-bl{animation:dmo-id-bl 4s linear infinite -0.6s}
+@keyframes dmo-id-bl{0%,22%,28%,70%,76%,82%,100%{transform:scaleY(1)}25%,73%,79%{transform:scaleY(.1)}}
+.dmo-id-hi{animation:dmo-id-hi 4s ease-in-out infinite}
+@keyframes dmo-id-hi{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12,1.06) translate(1px,-.5px);opacity:1}}
+.dmo-id-gl{animation:dmo-id-gl 4s ease-in-out infinite -1s}
+@keyframes dmo-id-gl{0%{transform:translateX(-10px)}28%,100%{transform:translateX(125px)}}
+
+.dmo-id-sway{animation:dmo-id-sway 4s ease-in-out infinite}
+@keyframes dmo-id-sway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+.dmo-id-ant{animation:dmo-id-ant 4s ease-in-out infinite}
+@keyframes dmo-id-ant{0%,100%{transform:rotate(0)}8%{transform:rotate(11deg)}17%{transform:rotate(-8deg)}26%{transform:rotate(5deg)}35%{transform:rotate(-2deg)}44%{transform:rotate(0)}55%{transform:rotate(-10deg)}64%{transform:rotate(7deg)}73%{transform:rotate(-4deg)}82%{transform:rotate(1.5deg)}91%{transform:rotate(0)}}
+.dmo-id-tip{animation:dmo-id-tip 1s ease-in-out infinite}
+@keyframes dmo-id-tip{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.dmo-id-ring{animation:dmo-id-ring 2s ease-out infinite}
+@keyframes dmo-id-ring{0%{transform:scale(1);opacity:.9}70%,100%{transform:scale(2.6);opacity:0}}
+.dmo-id-look{animation:dmo-id-look 4s ease-in-out infinite}
+@keyframes dmo-id-look{0%,8%{transform:translateX(0)}14%,34%{transform:translateX(-4px)}42%,62%{transform:translateX(4px)}70%,100%{transform:translateX(0)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+<defs><radialGradient id="dmo-id-b" cx=".36" cy=".28" r=".8"><stop offset="0" stop-color="#4aa2ff"/><stop offset=".6" stop-color="#2f86ff"/><stop offset="1" stop-color="#1c66e0"/></radialGradient><linearGradient id="dmo-id-s" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="#0B0F3A" stop-opacity="0"/><stop offset="1" stop-color="#0B0F3A" stop-opacity=".28"/></linearGradient><radialGradient id="dmo-id-h" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><radialGradient id="dmo-id-g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#1B2150" stop-opacity=".26"/><stop offset=".6" stop-color="#1B2150" stop-opacity=".12"/><stop offset="1" stop-color="#1B2150" stop-opacity="0"/></radialGradient><linearGradient id="dmo-id-w" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="dmo-id-f" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.4" flood-color="#141A4A" flood-opacity=".2"/></filter></defs>
+<g transform="translate(50 102.66)"><g class="dmo-id-sh"><g transform="translate(-50 -102.66)"><ellipse cx="50" cy="102.66" rx="30" ry="6" fill="url(#dmo-id-g)"/></g></g></g><g class="dmo-id-bob"><g filter="url(#dmo-id-f)"><g transform="translate(50 91.66)"><g class="dmo-id-sq"><g transform="translate(-50 -91.66)"><g transform="translate(50 70)"><g class="dmo-id-sway"><g transform="translate(-50 -70)"><path d="M50 8.34A31 31 0 0 1 91.66 50A31 31 0 0 1 50 91.66A31 31 0 0 1 8.34 50A31 31 0 0 1 50 8.34Z" fill="#fff" stroke="#fff" stroke-width="11" stroke-linejoin="round"/><g transform="translate(50 12.34)"><g class="dmo-id-ant"><g transform="translate(-50 -12.34)"><path d="M50 12.34L50 -1" fill="none" stroke="#fff" stroke-width="15" stroke-linecap="round"/><path d="M50 -6a5 5 0 1 1 0 10a5 5 0 1 1 0 -10Z" fill="#fff" stroke="#fff" stroke-width="11"/><path d="M50 12.34L50 -1" fill="none" stroke="#1d63d8" stroke-width="4.5" stroke-linecap="round"/><g transform="translate(50 -1)"><g class="dmo-id-ring"><g transform="translate(-50 1)"><circle cx="50" cy="-1" r="5" fill="none" stroke="#ffd23f" stroke-width="2"/></g></g></g><g transform="translate(50 -1)"><g class="dmo-id-tip"><g transform="translate(-50 1)"><path d="M50 -6a5 5 0 1 1 0 10a5 5 0 1 1 0 -10Z" fill="#ffd23f"/><circle cx="48.3" cy="-2.8" r="1.6" fill="#fff" opacity=".85"/></g></g></g></g></g></g><path d="M50 8.34A31 31 0 0 1 91.66 50A31 31 0 0 1 50 91.66A31 31 0 0 1 8.34 50A31 31 0 0 1 50 8.34Z" fill="url(#dmo-id-b)"/><path d="M50 8.34A31 31 0 0 1 91.66 50A31 31 0 0 1 50 91.66A31 31 0 0 1 8.34 50A31 31 0 0 1 50 8.34Z" fill="url(#dmo-id-s)"/><clipPath id="dmo-id-c"><path d="M50 8.34A31 31 0 0 1 91.66 50A31 31 0 0 1 50 91.66A31 31 0 0 1 8.34 50A31 31 0 0 1 50 8.34Z"/></clipPath><g clip-path="url(#dmo-id-c)"><g class="dmo-id-gl"><rect x="-10" y="-20" width="14" height="140" fill="url(#dmo-id-w)" transform="rotate(20 0 50)"/></g></g><g transform="translate(36 30)"><g class="dmo-id-hi"><g transform="translate(-36 -30)"><path d="M21 30a15 8 0 1 0 30 0a15 8 0 1 0 -30 0Z" fill="url(#dmo-id-h)" opacity=".9"/><path d="M28 29a5 2.6 0 1 0 10 0a5 2.6 0 1 0 -10 0Z" fill="#fff" opacity=".8"/></g></g></g><g class="dmo-id-look"><g transform="translate(50 45)"><g class="dmo-id-bl"><g transform="translate(-50 -45)"><path d="M33.5 40.5a5.5 5.5 0 0 1 11 0v9a5.5 5.5 0 0 1 -11 0ZM55.5 40.5a5.5 5.5 0 0 1 11 0v9a5.5 5.5 0 0 1 -11 0Z" fill="#fff"/></g></g></g></g><path d="M50 62.5a4.5 4.5 0 1 1 0 9a4.5 4.5 0 1 1 0 -9Z" fill="#fff"/></g></g></g></g></g></g></g></g>
+</svg>

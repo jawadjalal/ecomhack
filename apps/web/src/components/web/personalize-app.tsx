@@ -43,6 +43,7 @@ import type {
   WebSimulateResponse,
 } from "@/lib/contracts";
 import { TRAFFIC_SOURCES, TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
+import { friendlyError } from "@/lib/friendly";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +80,7 @@ async function api<T>(path: string, opts: { method?: string; body?: unknown } = 
     cache: "no-store",
   });
   const json = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(friendlyError(Object.assign(new Error(json.error ?? ""), { status: res.status })));
   return json as T;
 }
 
@@ -389,18 +390,18 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
             </a>
           )}
           <div className="flex-1" />
-          <p className="hidden text-[0.82rem] text-white/45 2xl:block">Change any page with darwin.js, per traffic source and search query. A/B tested.</p>
-          <Button onClick={simulate} disabled={!!busy} size="md" title="500 simulated visitors through this site's live rules. Every event is labelled synthetic.">
+          <p className="hidden text-[0.82rem] text-white/45 2xl:block">Show each traffic source and search the page that suits it, and A/B test every change.</p>
+          <Button onClick={simulate} disabled={!!busy} size="md" title="Sends 500 simulated visitors through this store's live changes. Every simulated visit is labelled.">
             {busy === "simulate" ? <LoaderCircle className="animate-spin" /> : <Bot />}
-            +500 test visitors
+            Add 500 simulated visitors
           </Button>
           <Toggle
             on={trafficOn}
             onChange={setTrafficOn}
             tone="human"
             icon={<Activity />}
-            label="Traffic"
-            title="Simulated shoppers: 300 every 3 s, mixed sources. Every event is labelled synthetic."
+            label="Keep simulating"
+            title="Sends 300 simulated shoppers every 3 seconds from mixed sources. Every simulated visit is labelled."
           />
           <Toggle
             on={autopilotOn}
@@ -412,7 +413,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
         </header>
 
         {loadError && (
-          <div className="rounded-xl border border-bad/30 bg-bad/[0.08] px-4 py-2 text-[0.85rem] text-[#ffb4b4]">Couldn&apos;t load rules: {loadError}</div>
+          <div className="rounded-xl border border-bad/30 bg-bad/[0.08] px-4 py-2 text-[0.85rem] text-[#ffb4b4]">Couldn&apos;t load your page changes. {loadError}</div>
         )}
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_30rem]">
@@ -436,7 +437,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                       onChange={setHeatOn}
                       icon={<Flame />}
                       label="Heatmap"
-                      title="Where visitors click on this page, for the audience you're viewing as (darwin.js autocapture)"
+                      title="Where visitors click on this page, for the audience you're viewing as"
                     />
                   </>
                 }
@@ -470,7 +471,7 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
                   <iframe ref={frame} key={src} src={src} onLoad={paint} title={`${site} preview`} className="absolute inset-0 h-full w-full" />
                 ) : (
                   <div className="absolute inset-0 grid place-items-center bg-[#0b0d12] p-8 text-center text-[0.9rem] text-white/50">
-                    No page seen for “{site}” yet. Install darwin.js (right) and open the store once.
+                    Darwin hasn&apos;t seen a page from “{site}” yet. Add the install code (on the right) to your store, then open the store once.
                   </div>
                 )}
               </div>
@@ -565,9 +566,9 @@ export function PersonalizeApp({ initialSite, origin }: { initialSite: string; o
             {!!data?.autopilot.log.length && <DecisionLog state={data.autopilot} />}
 
             <Panel>
-              <PanelHeader icon={<FlaskConical />} title="Live rules & tests" right={<span className="text-[0.75rem] text-white/40">{data?.rules.length ?? 0} rules</span>} />
+              <PanelHeader icon={<FlaskConical />} title="Your page changes & tests" right={<span className="text-[0.75rem] text-white/40">{data?.rules.length ?? 0} {data?.rules.length === 1 ? "change" : "changes"}</span>} />
               <div className="flex flex-col gap-2 px-5 pb-5">
-                {rules.length === 0 && <p className="text-[0.85rem] text-white/45">Nothing yet. Ask Darwin for a change, or get ideas from your data.</p>}
+                {rules.length === 0 && <p className="text-[0.85rem] text-white/45">No page changes yet. Describe one above and press Draft change, or tap Suggest from data for ideas.</p>}
                 {rules.map((r) => (
                   <RuleRow
                     key={r.id}
@@ -636,8 +637,8 @@ function DraftCard({
         icon={<WandSparkles />}
         title="Draft"
         right={
-          <Badge tone={draft.source === "llm" ? "brand" : "neutral"} title={r.author}>
-            {draft.source === "llm" ? "Written by AI" : r.author === "playbook" ? "Playbook" : "Heuristic"}
+          <Badge tone={draft.source === "llm" ? "brand" : "neutral"}>
+            {draft.source === "llm" ? "Written by Darwin AI" : r.author === "playbook" ? "From Darwin's playbook" : "Built-in rules"}
           </Badge>
         }
       />
@@ -1085,8 +1086,8 @@ function InstallPanel({ site, origin }: { site: string; origin: string }) {
       <div className="px-5 pb-5">
         <pre className="overflow-x-auto rounded-lg border border-white/[0.07] bg-black/40 p-3 font-mono text-[0.72rem] leading-relaxed whitespace-pre text-white/75">{snippet}</pre>
         <p className="mt-2 text-[0.75rem] text-white/45">
-          Paste both in <code className="font-mono">&lt;head&gt;</code>. darwin.js alone works too (it loads the rules itself); the first line stops the page flickering.
-          Changes are text and styles only, never scripts.
+          Paste both lines into your site&apos;s <code className="font-mono">&lt;head&gt;</code>. The second line alone works too; the first stops the page flickering while
+          changes load. Darwin only changes text and styles, never scripts.
         </p>
       </div>
     </Panel>

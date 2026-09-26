@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { DarwinWordmark } from "@/components/console/brand";
 import { CertificateEmbed } from "@/components/readiness/certificate-embed";
-import { CertificateView, LEVEL_STYLE } from "@/components/readiness/certificate-view";
+import { CertificateView, LEVEL_STYLE, certVerdict } from "@/components/readiness/certificate-view";
 import { getCertificate, isExpired } from "@/lib/readiness";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function generateMetadata(props: PageProps<"/readiness/certificate/
   const level = LEVEL_STYLE[cert.level].label;
   return {
     title: `${host} · ${level} agent-readiness · Darwin`,
-    description: `${host} scored ${cert.score}/100 for AI shopping agents (${level}). ${cert.verdict}`.slice(0, 300),
+    description: `${host} scored ${cert.score}/100 for AI shopping agents (${level}). ${certVerdict(cert)}`.slice(0, 300),
   };
 }
 
@@ -57,8 +57,8 @@ export default async function CertificatePage(props: PageProps<"/readiness/certi
         </section>
 
         <p className="text-[0.84rem] leading-relaxed text-white/45">
-          Darwin audits whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. With an LLM key, an AI agent also shops the store
-          itself (never completing a real checkout). Gold needs a score of 85+ and a passing agent trial, Silver 70+, Bronze 55+. Certificates are valid for 90 days.{" "}
+          Darwin audits whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. An AI shopping agent also tries
+          the store itself (it never completes a real checkout). Gold needs a score of 85+ and a passing agent trial, Silver 70+, Bronze 55+. Certificates are valid for 90 days.{" "}
           <Link href="/readiness" className="inline-flex items-center gap-1 text-brand hover:underline">
             Check your store <ArrowRight className="size-3.5" />
           </Link>

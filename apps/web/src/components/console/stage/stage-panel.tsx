@@ -42,7 +42,7 @@ function IdleStage({
     {
       done: trafficOn || hasEvents,
       title: "Let shoppers in",
-      body: "Simulated humans browse the storefront; AI agents shop over MCP / REST.",
+      body: "Simulated shoppers browse the store; AI shopping agents check stock, delivery and prices, then buy.",
       action: (
         <span className="flex items-center gap-1.5 text-white/50">
           Traffic <Kbd>T</Kbd>

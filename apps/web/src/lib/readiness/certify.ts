@@ -667,7 +667,7 @@ export function verdictText(
   trial: CertificateTrial | undefined,
   note?: string,
 ): string {
-  const head = `${LEVEL_LABEL[level]}${trial ? "" : " (heuristic)"}: audit score ${report.score}/100, grade ${report.grade}.`;
+  const head = `${LEVEL_LABEL[level]}${trial ? "" : " (audit score only)"}: audit score ${report.score}/100, grade ${report.grade}.`;
   const parts = [head];
   if (trial) {
     parts.push(trial.summary);
@@ -777,9 +777,11 @@ export async function certifyStore(
 
   let trial: CertificateTrial | undefined;
   let note: string | undefined;
+  /** What the certificate says to the merchant: plain English, no provider or error details. */
+  let shownNote: string | undefined;
   if (!llmAvailable()) {
-    note =
-      "No LLM key is configured, so no AI agent ran an agent trial; the level comes from the audit score alone.";
+    note = shownNote =
+      "No AI shopping trial ran this time, so the level comes from the audit score alone.";
   } else {
     try {
       if (artifacts.mcp?.ok && artifacts.mcp.tools.length) {
@@ -809,6 +811,7 @@ export async function certifyStore(
         String(e).slice(0, 200),
       );
       note = `The agent trial couldn't finish (${String((e as Error).message ?? e).slice(0, 120)}); the level comes from the audit score alone.`;
+      shownNote = "The AI shopping trial couldn't finish this time, so the level comes from the audit score alone.";
       trial = undefined;
     }
   }
@@ -823,7 +826,7 @@ export async function certifyStore(
     score: report.score,
     grade: report.grade,
     platform: report.platform,
-    verdict: verdictText(level, report, trial, note),
+    verdict: verdictText(level, report, trial, shownNote),
     ...(trial ? { trial } : {}),
     model: trial ? llmLabel() : "heuristic",
     heuristic: !trial,
@@ -872,10 +875,8 @@ export function badgeSvg(
     : isExpired(cert, now)
       ? "expired"
       : cert.level;
-  const left =
-    cert && !cert.heuristic
-      ? `agent-ready · ${modelName(cert.model)}`
-      : "agent-ready";
+  // No model or provider names on a badge merchants put on their store.
+  const left = "agent-ready";
   const right =
     state === "unknown"
       ? "unknown"
@@ -888,7 +889,7 @@ export function badgeSvg(
   const lw = w(left);
   const rw = w(right);
   const title = cert
-    ? `${cert.origin}: ${LEVEL_LABEL[cert.level]}${cert.heuristic ? " (heuristic)" : ""}, agent readiness ${cert.score}/100, certified by Darwin`
+    ? `${cert.origin}: ${LEVEL_LABEL[cert.level]}${cert.heuristic ? " (audit score only)" : ""}, agent readiness ${cert.score}/100, certified by Darwin`
     : "Darwin agent-readiness certificate not found";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${lw + rw}" height="20" role="img" aria-label="${escapeXml(`${left}: ${right}`)}">
 <title>${escapeXml(title)}</title>

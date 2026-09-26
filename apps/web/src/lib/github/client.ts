@@ -188,6 +188,29 @@ interface RawPull {
   base: { ref: string };
 }
 
+interface RawPullDetail {
+  merged?: boolean;
+  mergeable?: boolean | null;
+  mergeable_state?: string;
+  draft?: boolean;
+  head: { ref: string; sha?: string };
+  additions?: number;
+  deletions?: number;
+  changed_files?: number;
+}
+
+export interface PullRequestDetail extends PullRequestInfo {
+  merged: boolean;
+  /** null while GitHub is still computing it. */
+  mergeable: boolean | null;
+  mergeableState?: string;
+  draft: boolean;
+  headSha?: string;
+  additions?: number;
+  deletions?: number;
+  changedFiles?: number;
+}
+
 const toPull = (p: RawPull): PullRequestInfo => ({
   number: p.number,
   url: p.html_url,
@@ -391,6 +414,67 @@ export class GitHubClient {
   async updatePullRequest(owner: string, repo: string, number: number, patch: { title?: string; body?: string }): Promise<PullRequestInfo> {
     const p = await this.request<RawPull>("PATCH", `${this.repoPath(owner, repo)}/pulls/${number}`, patch);
     return toPull(p);
+  }
+
+  /** One pull request with merge state, or null if it doesn't exist. */
+  async getPullRequest(owner: string, repo: string, number: number): Promise<PullRequestDetail | null> {
+    const p = await this.request<(RawPull & RawPullDetail) | null>("GET", `${this.repoPath(owner, repo)}/pulls/${number}`, undefined, {
+      allow404: true,
+    });
+    if (!p) return null;
+    return {
+      ...toPull(p),
+      merged: Boolean(p.merged),
+      mergeable: p.mergeable ?? null,
+      mergeableState: p.mergeable_state,
+      draft: Boolean(p.draft),
+      headSha: p.head.sha,
+      additions: p.additions,
+      deletions: p.deletions,
+      changedFiles: p.changed_files,
+    };
+  }
+
+  /** Combined commit status + check runs summary for a ref ("success" | "failure" | "pending" | "none"). */
+  async getChecksState(owner: string, repo: string, ref: string): Promise<{ state: string; total: number; failing: string[] }> {
+    const base = this.repoPath(owner, repo);
+    const status = await this.request<{ state: string; statuses: { context: string; state: string }[] } | null>(
+      "GET",
+      `${base}/commits/${encodeURIComponent(ref)}/status`,
+      undefined,
+      { allow404: true },
+    );
+    const runs = await this.request<{ check_runs: { name: string; status: string; conclusion: string | null }[] } | null>(
+      "GET",
+      `${base}/commits/${encodeURIComponent(ref)}/check-runs?per_page=50`,
+      undefined,
+      { allow404: true },
+    ).catch(() => null);
+    const failing = [
+      ...(status?.statuses ?? []).filter((s) => s.state === "failure" || s.state === "error").map((s) => s.context),
+      ...(runs?.check_runs ?? [])
+        .filter((r) => r.conclusion && !["success", "neutral", "skipped"].includes(r.conclusion))
+        .map((r) => r.name),
+    ];
+    const pending = (runs?.check_runs ?? []).some((r) => r.status !== "completed") || status?.state === "pending";
+    const total = (status?.statuses.length ?? 0) + (runs?.check_runs.length ?? 0);
+    const state = !total ? "none" : failing.length ? "failure" : pending ? "pending" : "success";
+    return { state, total, failing };
+  }
+
+  /** Merge a PR. `sha` guards against merging a head that moved since it was reviewed. */
+  async mergePullRequest(
+    owner: string,
+    repo: string,
+    number: number,
+    opts: { method?: "merge" | "squash" | "rebase"; sha?: string; title?: string } = {},
+  ): Promise<{ merged: boolean; sha: string; message: string }> {
+    const r = await this.request<{ merged: boolean; sha: string; message: string }>(
+      "PUT",
+      `${this.repoPath(owner, repo)}/pulls/${number}/merge`,
+      { merge_method: opts.method ?? "squash", ...(opts.sha ? { sha: opts.sha } : {}), ...(opts.title ? { commit_title: opts.title } : {}) },
+    );
+    return { merged: r.merged, sha: r.sha, message: r.message };
   }
 
   /** Best-effort: labels are nice-to-have, never fail the PR because of them. */

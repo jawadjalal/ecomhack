@@ -233,16 +233,16 @@ export function planIntro(plan: TrackingPlan): string {
   const auto = plan.events.filter((e) => e.automatic && e.enabled).length;
   const read = !plan.repo
     ? plan.siteUrl
-      ? `No GitHub needed: darwin.js goes on ${hostOf(plan.siteUrl)} with one script tag. `
+      ? `No GitHub needed: Darwin goes on ${hostOf(plan.siteUrl)} with one line of code. `
       : ""
     : plan.repoRead === false
       ? `I couldn't read ${plan.repo} yet, so I assumed ${plan.framework ?? "a typical store"}. `
       : `I read ${plan.repo}${plan.framework ? ` (${plan.framework})` : ""}. `;
   const heard = plan.goals?.length || added.length ? `${plan.goals?.length ? `You mentioned ${list(plan.goals)}, so` : "From what you said,"} I added ${list(added)}. ` : "";
   const others = (plan.existingAnalytics ?? []).filter((a) => !a.startsWith("Darwin"));
-  const already = (plan.existingAnalytics ?? []).some((a) => a.startsWith("Darwin")) ? "darwin.js is already installed, so the pull request only adds the plan. " : "";
-  const alongside = others.length ? `You already use ${list(others)}: darwin.js runs alongside, nothing is replaced. ` : "";
-  return `${read}${alongside}${already}${heard}Here's the plan: ${auto} things darwin.js records on its own, ${custom} events your store sends with one line each, and ${plan.dashboards.length} dashboards built from them. Turn anything off, or tell me what else to track.`;
+  const already = (plan.existingAnalytics ?? []).some((a) => a.startsWith("Darwin")) ? "Darwin is already installed, so the pull request only adds the plan. " : "";
+  const alongside = others.length ? `You already use ${list(others)}: Darwin runs alongside, nothing is replaced. ` : "";
+  return `${read}${alongside}${already}${heard}Here's the plan: ${auto} things Darwin records on its own, ${custom} events your store sends with one line each, and ${plan.dashboards.length} dashboards built from them. Turn anything off, or tell me what else to track.`;
 }
 
 /* ------------------------------------------------------------------ amend (chat) */

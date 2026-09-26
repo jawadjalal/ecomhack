@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUp, Check, CircleAlert, LoaderCircle, MessageCircle, Search, Store } from "lucide-react";
 import type { ResearchKind, ResearchListItem, ResearchReport, ResearchStatus, ResearchStep, ResearchStreamEvent } from "@/lib/contracts";
+import { friendlyError, writtenBy } from "@/lib/friendly";
 import { ReportView } from "./report-view";
 import { Card, DarwinMark, Pill, Sources, T } from "./ui";
 
@@ -24,7 +25,7 @@ async function runStream(body: unknown, onStep: (s: ResearchStep) => void): Prom
   });
   if (!res.ok || !res.body) {
     const j = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error ?? `HTTP ${res.status}`);
+    throw Object.assign(new Error(j.error ?? ""), { status: res.status });
   }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
@@ -44,7 +45,7 @@ async function runStream(body: unknown, onStep: (s: ResearchStep) => void): Prom
     }
     if (done) break;
   }
-  if (!report) throw new Error("Research ended without a report");
+  if (!report) throw new Error("The research stopped before it finished. Please try again.");
   return report;
 }
 
@@ -108,7 +109,7 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
       history.replaceState(null, "", `/console/research?id=${rep.id}`);
       void loadList();
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, "The research didn't finish. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -123,7 +124,7 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
       const rep = await runStream({ kind: "question", query: q, parentId: report.id }, () => {});
       setReport(rep);
     } catch (e) {
-      setError((e as Error).message);
+      setError(friendlyError(e, "Couldn't answer that just now. Please try again."));
       setFollow(q);
     } finally {
       setAsking(false);
@@ -146,7 +147,7 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
         </nav>
         <span className="hidden items-center gap-2 rounded-full px-3 py-2 text-[14px] md:flex" style={{ background: T.sand }}>
           <span className="size-2 rounded-full" style={{ background: status?.tavily ? T.live : T.warn }} />
-          {status ? (status.tavily ? "Tavily connected" : "Sample mode") : "…"}
+          {status ? (status.tavily ? "Live research on" : "Sample mode") : "…"}
         </span>
       </header>
 
@@ -163,7 +164,8 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
           <div className="mt-4 flex items-start gap-3 rounded-[22px] px-4 py-3 text-[14px]" style={{ background: T.warnBg, color: T.warn }}>
             <CircleAlert className="mt-0.5 size-4 shrink-0" />
             <span>
-              Live research is off. Add <code className="font-mono">TAVILY_API_KEY</code> to <code className="font-mono">.env.local</code> and restart. Until then you&apos;ll get a clearly marked sample report.
+              Live research is off. Add your research key to turn it on (a one-time setup step for whoever runs Darwin). Until then you&apos;ll get a clearly marked sample
+              report.
             </span>
           </div>
         )}
@@ -250,7 +252,8 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
             ) : (
               !busy && (
                 <Card className="text-[15px] text-black/60">
-                  Pick a suggestion above, or ask your own question. Reports are saved so you can come back to them.
+                  Pick a suggestion above, or ask your own question. Darwin searches the web, cites every source, and turns what it finds into A/B test ideas. Reports
+                  are saved so you can come back to them.
                 </Card>
               )
             )}
@@ -299,13 +302,13 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
 
             <Card>
               <h2 className="text-[22px] font-semibold tracking-tight">Test on</h2>
-              <p className="mt-1 text-[13px] text-black/60">&ldquo;Draft A/B test&rdquo; writes a darwin.js rule for this site. Nothing goes live until you launch it.</p>
+              <p className="mt-1 text-[13px] text-black/60">&ldquo;Draft A/B test&rdquo; saves a draft test for this store. Nothing goes live until you launch it.</p>
               <input
                 value={site}
                 onChange={(e) => setSite(e.target.value.replace(/[^\w.-]/g, "").slice(0, 64))}
                 className="mt-2 h-10 w-full rounded-full px-3 font-mono text-[13px] outline-none"
                 style={{ background: T.sand }}
-                aria-label="darwin.js site id"
+                aria-label="Store to test on"
               />
             </Card>
 
@@ -333,7 +336,7 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
                     </button>
                   </li>
                 ))}
-                {!list.length && <li className="text-[13px] text-black/55">No reports yet.</li>}
+                {!list.length && <li className="text-[13px] text-black/55">No reports yet. Your first one will appear here.</li>}
               </ul>
             </Card>
           </aside>
@@ -341,6 +344,20 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
       </main>
     </div>
   );
+}
+
+/** Saved reports can carry older, technical step details ("Asking llm:…", "No TAVILY_API_KEY"): show plain English. */
+function stepDetail(d: string): string {
+  if (/^asking |^summarised by llm|^answered by llm/i.test(d)) return "Darwin is thinking…";
+  if (/TAVILY|_API_KEY/.test(d)) return "Live research is off";
+  if (/llm|heuristic/i.test(d)) return "Summary from the search results";
+  if (/^couldn't read pages/i.test(d)) return "Couldn't open some sites; using search snippets instead";
+  return d;
+}
+
+/** Older sample reports name the env var: keep the meaning, drop the jargon. */
+function plainNotice(n: string): string {
+  return /TAVILY|_API_KEY|\.env/.test(n) ? "Sample report: live research isn't switched on yet (it needs a research key). The brands and numbers below are made up." : n;
 }
 
 function StepsBar({ steps }: { steps: ResearchStep[] }) {
@@ -365,7 +382,7 @@ function StepsBar({ steps }: { steps: ResearchStep[] }) {
           </span>
           <span className="min-w-0">
             <span className="block font-medium">{s.label}</span>
-            {s.detail && <span className="block truncate text-[12px] text-black/60">{s.detail}</span>}
+            {s.detail && <span className="block truncate text-[12px] text-black/60">{stepDetail(s.detail)}</span>}
           </span>
         </li>
       ))}
@@ -378,10 +395,10 @@ function ReportHeader({ report }: { report: ResearchReport }) {
     <Card>
       <div className="flex flex-wrap items-center gap-2">
         {report.demo ? <Pill tone="warn">Sample data, not real research</Pill> : <Pill tone="win">Live web research</Pill>}
-        <Pill>{report.summarizer === "heuristic" ? "Heuristic summary" : report.summarizer === "sample" ? "Sample" : report.summarizer.replace(/^llm:/, "")}</Pill>
+        <Pill>{report.summarizer === "sample" ? "Sample" : writtenBy(report.summarizer).ai ? "Summarised by Darwin AI" : "Summary from search results"}</Pill>
         <span className="font-mono text-[12px] text-black/50">{new Date(report.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
       </div>
-      {report.notice && <p className="mt-3 text-[13px] font-medium" style={{ color: T.warn }}>{report.notice}</p>}
+      {report.notice && <p className="mt-3 text-[13px] font-medium" style={{ color: T.warn }}>{plainNotice(report.notice)}</p>}
       <h2 className="mt-3 text-[22px] leading-tight font-semibold tracking-tight">{report.query}</h2>
       <p className="mt-2 text-[15px] leading-snug text-black/80">{report.summary.text}</p>
       <Sources urls={report.summary.sources} />

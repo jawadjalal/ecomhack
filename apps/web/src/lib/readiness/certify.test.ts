@@ -158,7 +158,8 @@ describe("certifyStore", () => {
     });
     expect(cert.trial).toBeUndefined();
     expect(cert.id).toMatch(/^cert_[a-z0-9]+$/);
-    expect(cert.verdict).toContain("heuristic");
+    expect(cert.verdict).toContain("audit score only");
+    expect(cert.verdict).not.toMatch(/LLM|key/);
     expect(cert.expiresAt).toBe("2026-04-01T00:00:00.000Z"); // +90 days
     expect(llm.calls).toHaveLength(0);
   });
@@ -210,6 +211,7 @@ describe("certifyStore", () => {
       model: "heuristic",
     });
     expect(cert.note).toContain("upstream 500");
+    expect(cert.verdict).not.toContain("upstream 500");
     expect(getCertificate(cert.id)?.id).toBe(cert.id);
     expect(getCertificate("cert_doesnotexist")).toBeUndefined();
     expect(getCertificate("../etc/passwd")).toBeUndefined();
@@ -478,8 +480,8 @@ describe("badge", () => {
     expect(svg).not.toContain("<script>");
     expect(svg).toContain("&lt;script&gt;");
     expect(svg).toContain("Gold · 91/100");
-    expect(svg).toContain("agent-ready · deepseek-v4-flash");
-    expect(svg).not.toMatch(/Grok/);
+    expect(svg).toContain(">agent-ready<");
+    expect(svg).not.toMatch(/deepseek|Grok|llm:/i);
   });
 
   it("shows expired, unknown and heuristic states", () => {

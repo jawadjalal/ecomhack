@@ -193,7 +193,7 @@ export function AgentSurfaceDiff({ control, treatment, className }: { control: P
     <div className={cn("flex min-h-0 flex-col gap-1.5", className)}>
       <div className="flex items-center gap-1.5 text-[0.76rem] font-medium text-white/70">
         <span>🤖</span> What AI agents see
-        <span className="font-mono text-[0.68rem] text-white/35">GET /api/agent/products/{PRODUCTS[0].id}</span>
+        <span className="text-[0.68rem] text-white/35">the product data an AI shopper reads</span>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-white/[0.07] bg-[#07090d] px-3 py-2 font-mono text-[0.72rem] leading-[1.45]">
         <div className="text-white/30">{"{"}</div>

@@ -142,7 +142,8 @@ describe("researchCompetitors", () => {
     const r = await researchCompetitors({ query: "Who are my competitors?" });
     expect(r.demo).toBe(true);
     expect(r.mode).toBe("demo");
-    expect(r.notice).toMatch(/TAVILY_API_KEY/);
+    expect(r.notice).toMatch(/research key/);
+    expect(r.notice).not.toMatch(/TAVILY|\.env/);
     expect(
       r.competitors.every((c) => c.url.startsWith("https://example.com/")),
     ).toBe(true);
@@ -349,6 +350,6 @@ describe("askResearch", () => {
     vi.stubEnv("TAVILY_API_KEY", "");
     const d = await askResearch({ question: "Anything?" });
     expect(d.demo).toBe(true);
-    expect(d.summary.text).toMatch(/TAVILY_API_KEY/);
+    expect(d.summary.text).toMatch(/research key/);
   });
 });

@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const parsed = AskSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Body must be { site, message } or { site, remove }" }, { status: 400 });
   const plan = getPlan(parsed.data.site);
-  if (!plan) return Response.json({ error: "No tracking plan for this site yet: set one up in /onboarding" }, { status: 404 });
+  if (!plan) return Response.json({ error: "This store doesn't have a tracking plan yet. Set one up in Setup first." }, { status: 404 });
   if ("remove" in parsed.data) return Response.json({ plan: savePlan(removeChart(plan, parsed.data.remove)) });
   const out = askForChart(plan, parsed.data.message);
   return Response.json({ ...out, plan: savePlan(out.plan) });

@@ -23,15 +23,20 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/optimizer/           The loop: insights → proposals → experiments → decisions → ship.
   src/lib/agent-commerce/      Agent-facing store: REST tools, MCP server, A2A merchant agent, negotiation, llms.txt.
   src/lib/whop/                Whop connector (same API key as the Whop CLI) for onboarding.
-  src/lib/github/              Connect repo, open analytics-install PR, open "ship winner" PR.
+  src/lib/github/              Connect repo, open analytics-install PR, open "ship winner" PR; repo editing for the team
+                               (read/search files, staged changesets with diffs, commit, PR, status, merge).
   src/lib/web/                 Web personalization for ANY store with darwin.js: rules, runtime.js, results, drafts.
   src/lib/store-agent/         The Whop store's own AI agent (A2A): catalog from Whop plans, tagged checkout links, agent funnel, A/B tests on the pitch.
   src/lib/tracking/            Tracking plans (what to record, from the merchant's words) and the dashboards built from them.
   src/lib/research/            Market & competitor research (Tavily + LLM, sourced claims, A/B test ideas).
+  src/lib/voice/               Voice mode: ElevenLabs TTS (one voice per agent) + STT; UI in components/voice.
   src/lib/assistant/           "Ask Darwin": the merchant's managing assistant (tool registry over public APIs + LLM loop).
+  src/lib/team/                The agent team: Darwin (manager) + Iris, Pixel, Fizz, Dash. Roster (roster.ts), per-agent
+                               tools (tools.ts), orchestrator (delegation, group chats, confirm gate), chats in json-store.
   src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher,
                                AI-agent certificate (agent trial over MCP or page reading → Gold/Silver/Bronze + badge).
-  src/lib/llm/                 OpenRouter (default DeepSeek V4 Flash) / xAI Grok / Claude, native tool loop (runToolLoop), heuristic fallback.
+  src/lib/llm/                 OpenRouter (default DeepSeek V4 Flash) / APINex / xAI Grok / Claude, pickProvider routing,
+                               cross-provider fallback, native tool loop (runToolLoop, JSON fallback), heuristic fallback.
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
   src/app/store/**             The demo storefront (what shoppers see).
   src/app/onboarding/**        First-run setup: prompt bar, connect Whop + GitHub, analytics PR, dashboards.
@@ -49,7 +54,7 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | agent-commerce | `lib/agent-commerce/**`, `/api/agent/**`, `/api/mcp`, `/api/a2a`, `/llms.txt`, `/.well-known/**` | `callAgentTool`, `a2aSend`, `runA2aBuyer` |
 | simulator | `lib/simulator/**`, `/api/simulate` | `simulateTraffic` |
 | optimizer | `lib/optimizer/**`, `/api/loop/**`, `/api/experiments/**` | `getLoopState`, `stepLoop`, `setAutopilot`, `resetLoop` |
-| github | `lib/github/**`, `/api/github/**` | `openAnalyticsInstallPR`, `openSpecPR` |
+| github | `lib/github/**`, `/api/github/**` | `openAnalyticsInstallPR`, `openSpecPR`, `shipWinningSpec`; team editing: `listRepoFiles`, `readRepoFile`, `searchRepoCode`, `stageFileWrite`, `stageFileEdits`, `summarizeChangeset`, `commitChangeset`, `openChangesetPR`, `pullRequestStatus`, `mergePullRequest` (writes/merges only after the merchant confirms) |
 | web | `lib/web/**`, `/api/web/**`, `/demo/**`, `app/console/personalize`, `components/web/**` | `webState`, `buildRuntime`, `createRule`, `updateRule`, `draftRule`, `suggestRules`, `simulateWebTraffic` |
 | readiness | `lib/readiness/**`, `/api/readiness/**`, `/api/leads`, `app/readiness/**`, `components/readiness/**` | `auditStore`, `evaluate`, `certifyStore`, `getCertificate` |
 | console | `app/page.tsx`, `app/console/**`, `components/console/**` | — |
@@ -57,7 +62,9 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
 | store-agent | `lib/store-agent/**`, `/a2a/**`, `/api/store-agent/**`, `/checkout/demo`, `app/console/agents`, `components/agents/**` | `handleA2a`, `replyTo`, `getCatalog`, `agentFunnel`, `stepAgentTests`, `agentTestsView` |
 | tracking | `lib/tracking/**`, `/api/onboarding/**`, `/api/dashboards`, `app/console/dashboards`, `components/dashboards/**` | `heuristicPlan`, `amendPlan`, `getPlan`, `savePlan`, `computeDashboards`, `trackingDoc` |
 | research | `lib/research/**`, `/api/research/**`, `app/console/research`, `components/research/**`, `contracts/research.ts` | `researchCompetitors`, `askResearch`, `listReports`, `getReport` |
-| assistant | `lib/assistant/**`, `/api/assistant`, `components/console/assistant-panel.tsx`, `components/console/mascot.tsx`, `app/console/layout.tsx` | `runAssistant`, `TOOLS`, `runTool` (add a tool: one entry in `lib/assistant/tools.ts`, wrapping another area's public API) |
+| assistant | `lib/assistant/**`, `/api/assistant`, `components/console/assistant-panel.tsx`, `components/console/mascot.tsx`, `app/console/layout.tsx` | `runAssistant`, `TOOLS`, `runTool`, `getTool`, `routeIntent`, `stateSnapshot`, `suggestionsFor` (add a tool: one entry in `lib/assistant/tools.ts`, wrapping another area's public API) |
+| team | `lib/team/**`, `/api/team/**`, `contracts/team.ts` | `runTeamTurn`, `getTeamState`, `getChatView`, `createUserChat`, `ROSTER`, `TEAM_TOOLS`, `AGENT_TOOLS` (names/roles: `lib/team/roster.ts`; add a tool: one entry in `lib/team/tools.ts` + the agent's list in `AGENT_TOOLS`) |
+| voice | `lib/voice/**`, `/api/voice/**`, `components/voice/**` | `useVoice`, `VoiceToggle`, `VoiceBar` (client); `synthesize`, `transcribe`, `cleanForSpeech`, `voiceFor`, `voiceAvailable` (server). ElevenLabs key stays server-side |
 
 Cross-module calls go through the public API above, never deep imports into another area.
 
@@ -71,7 +78,10 @@ Cross-module calls go through the public API above, never deep imports into anot
 - Simulated traffic sets `properties.synthetic = true`. The console must label it. No faking results.
 - LLM calls must have a heuristic fallback (`llmAvailable()`), so the demo runs with no API keys.
 - Provider: `OPENROUTER_API_KEY` (preferred, `OPENROUTER_MODEL` default `deepseek/deepseek-v4-flash`), then `XAI_API_KEY`,
-  then `ANTHROPIC_API_KEY`. Agentic features use `runToolLoop` (native tool calling, JSON fallback).
+  then `ANTHROPIC_API_KEY`, then `APINEX_API_KEY`. Agentic features use `runToolLoop` (native tool calling, JSON fallback).
+  `pickProvider()` sends Pixel (`APINEX_EDITOR_MODEL`, default `anthropic/claude-opus-4.6`), tasks flagged hard and OpenRouter
+  overflow (`LLM_OVERFLOW_AT` concurrent calls, default 3) to APINex (`APINEX_MODEL`, default `free/gpt-6-luna`, OpenAI-compatible,
+  server-side only). APINex and OpenRouter fall back to each other on 402/429/5xx/timeouts, then to heuristics.
 - No new dependencies without a reason in the PR description (they're pre-installed in the scaffold).
 - Before pushing: `cd apps/web && npm run typecheck && npm run lint && npm test && npm run build`.
 

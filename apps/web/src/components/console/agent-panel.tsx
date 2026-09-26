@@ -327,8 +327,8 @@ export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
       {list.length === 0 && !shopping ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 text-center text-[0.85rem] text-white/35">
           <Handshake className="size-6 text-white/15" />
-          Buyer agents find the store via llms.txt and its agent card, then call its tools over MCP or chat with the
-          merchant agent over A2A. Press <span className="font-mono text-white/55">S</span> to send one.
+          No AI shoppers yet. They find the store on their own, check stock, delivery and prices, then buy or chat with the store&apos;s
+          own agent. Press <span className="font-mono text-white/55">S</span> to send one.
         </div>
       ) : list.length === 0 ? null : (
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-4">

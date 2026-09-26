@@ -7,7 +7,8 @@ import type { Framework } from "./install";
 export type GithubMode = "live" | "dry-run" | "offline";
 
 export interface PullRequestRecord {
-  kind: "install" | "spec";
+  /** install: analytics PR · spec: ship-the-winner PR · edit: file edits proposed by the team (Pixel). */
+  kind: "install" | "spec" | "edit";
   /** "owner/repo". */
   repo: string;
   title: string;

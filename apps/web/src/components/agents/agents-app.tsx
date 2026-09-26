@@ -10,6 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { DarwinWordmark } from "@/components/console/brand";
+import { friendlyError } from "@/lib/friendly";
+
+/** The catalog note in plain English (the API's note can name server settings). */
+function catalogNote(note: string | undefined): string {
+  if (!note) return "These are demo offers.";
+  if (/WHOP_COMPANY_ID|business id/i.test(note)) return "Whop is connected, but Darwin doesn't know which business to sell yet. Connect Whop in Setup to use your real plans.";
+  if (/couldn't read whop/i.test(note)) return "Couldn't reach Whop just now, so these are demo offers.";
+  if (/no whop key/i.test(note)) return "Whop isn't connected yet, so these are demo offers. Checkouts go to a demo page that records a labelled, simulated payment.";
+  return note;
+}
 
 interface Line {
   from: "you" | "store";
@@ -68,13 +78,13 @@ export function AgentsApp({ origin }: { origin: string }) {
       });
       const json = await res.json();
       const msg = json.result?.message;
-      if (!msg) throw new Error(json.error?.message ?? "No reply");
+      if (!msg) throw new Error(json.error?.message ?? "");
       contextId.current = msg.contextId;
       const data = msg.parts.find((p: { data?: unknown }) => p.data)?.data as { checkout?: { url: string; title: string } } | undefined;
       setLines((l) => [...l.filter((x) => !x.pending), { from: "store", text: msg.parts[0].text, checkout: data?.checkout }]);
       await load();
     } catch (e) {
-      setLines((l) => [...l.filter((x) => !x.pending), { from: "store", text: `Error: ${(e as Error).message}` }]);
+      setLines((l) => [...l.filter((x) => !x.pending), { from: "store", text: `The store agent couldn't reply just now. ${friendlyError(e, "Please try again.")}` }]);
     } finally {
       setBusy(false);
     }
@@ -108,8 +118,13 @@ export function AgentsApp({ origin }: { origin: string }) {
     setRunning(true);
     try {
       const res = await fetch("/api/store-agent/buyer", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ brief: "Trail running coaching under £40 a month" }) });
-      const out = (await res.json()) as { transcript: { from: "buyer" | "store"; text: string }[] };
-      setLines((l) => [...l, ...out.transcript.map((t) => ({ from: t.from === "buyer" ? ("you" as const) : ("store" as const), text: t.from === "buyer" ? `🤖 ${t.text}` : t.text }))]);
+      const out = (await res.json().catch(() => ({}))) as { transcript?: { from: "buyer" | "store"; text: string }[] };
+      if (!res.ok || !out.transcript) {
+        setLines((l) => [...l, { from: "store", text: "The simulated buyer couldn't finish just now. Please try again." }]);
+        return;
+      }
+      const transcript = out.transcript;
+      setLines((l) => [...l, ...transcript.map((t) => ({ from: t.from === "buyer" ? ("you" as const) : ("store" as const), text: t.from === "buyer" ? `🤖 ${t.text}` : t.text }))]);
       await load();
     } finally {
       setRunning(false);
@@ -144,9 +159,17 @@ export function AgentsApp({ origin }: { origin: string }) {
                 <Store /> Whop · {cat.business}
               </Badge>
             ) : (
-              <Badge tone="warn" title={cat.note}>
-                <Store /> Demo catalog: {cat.note}
-              </Badge>
+              <>
+                <Badge tone="warn" title={catalogNote(cat.note)}>
+                  <Store /> Demo offers
+                </Badge>
+                <span className="hidden max-w-[34rem] truncate text-[0.78rem] text-white/45 lg:inline" title={catalogNote(cat.note)}>
+                  {catalogNote(cat.note)}
+                </span>
+                <Link href="/onboarding" className="text-[0.8rem] font-medium text-brand underline-offset-2 hover:underline">
+                  Connect Whop
+                </Link>
+              </>
             ))}
           <div className="flex-1" />
           <Button size="md" onClick={() => load(true)} title="Re-read the Whop catalog now">
@@ -166,13 +189,13 @@ export function AgentsApp({ origin }: { origin: string }) {
                   <button
                     onClick={() => navigator.clipboard?.writeText(endpoint).then(() => (setCopied(true), setTimeout(() => setCopied(false), 1200)))}
                     className="text-white/50 hover:text-white"
-                    aria-label="Copy endpoint"
+                    aria-label="Copy your store agent's address"
                   >
                     {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
                   </button>
                 </div>
                 <a href="/a2a/whop/agent-card.json" target="_blank" className="flex items-center gap-1 text-white/55 hover:text-white">
-                  Agent card (A2A v1.0 and v0.3) <ExternalLink className="size-3.5" />
+                  Agent card, for developers <ExternalLink className="size-3.5" />
                 </a>
                 <pre className="overflow-x-auto rounded-lg border border-white/[0.07] bg-black/40 p-3 font-mono text-[0.7rem] leading-relaxed whitespace-pre text-white/70">{curl}</pre>
               </div>
@@ -198,7 +221,7 @@ export function AgentsApp({ origin }: { origin: string }) {
 
           {/* chat */}
           <Panel className="min-h-[36rem]">
-            <PanelHeader icon={<MessagesSquare />} title="Talk to it like a buyer agent" right={<Badge tone="outline">over the real A2A endpoint</Badge>} />
+            <PanelHeader icon={<MessagesSquare />} title="Talk to it like a buyer agent" right={<Badge tone="outline">live, just like an outside agent</Badge>} />
             <div className="flex flex-1 flex-col gap-3 px-5 pb-5">
               <div className="flex min-h-[22rem] flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-white/[0.06] bg-black/25 p-3">
                 {!lines.length && <p className="m-auto max-w-sm text-center text-[0.85rem] text-white/40">Ask what&apos;s for sale, then say “buy the first one”. Or run a simulated buyer agent.</p>}
@@ -339,8 +362,8 @@ function AgentTests({
       <PanelHeader icon={<FlaskConical />} title="A/B tests on your agent" />
       <div className="flex flex-col gap-3 px-5 pb-5">
         <div className="flex flex-wrap gap-2">
-          <Toggle on={!!s?.autopilot} onChange={onAutopilot} icon={<Cpu />} label="Autopilot" title="Test one pitch lever at a time; keep winners, stop losers" />
-          <Toggle on={simOn} onChange={onSim} tone="human" icon={<Activity />} label="Simulated buyers" title="80 simulated buyer agents every 3 s (labelled)" />
+          <Toggle on={!!s?.autopilot} onChange={onAutopilot} icon={<Cpu />} label="Autopilot" title="Darwin tests one change to the pitch at a time, keeps winners and stops losers" />
+          <Toggle on={simOn} onChange={onSim} tone="human" icon={<Activity />} label="Simulated buyers" title="Sends 80 simulated buyer agents every 3 seconds (labelled as simulated)" />
         </div>
         <p className="text-[0.76rem] text-white/45">Judged on paid conversations. The pitch today: {s?.levers.length ? s.levers.map((l) => LEVER_LABEL[l]).join(" + ") : "plain list of offers"}.</p>
         <ul className="flex flex-col gap-1.5">

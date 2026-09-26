@@ -178,10 +178,11 @@ export async function researchCompetitors(
       detail: `Read ${pageText.size} of ${hits.length} sites`,
     });
   } catch (e) {
+    console.warn("[research] couldn't read pages, using snippets:", String((e as Error)?.message ?? e).slice(0, 200));
     for (const h of hits) llms.set(domainOf(h.url), null);
     set("read", {
       status: "error",
-      detail: `Couldn't read pages (${(e as Error).message}); using search snippets`,
+      detail: "Couldn't open some sites; using search snippets instead",
     });
   }
 
@@ -202,9 +203,7 @@ export async function researchCompetitors(
   // 3. Summarise.
   set("summarise", {
     status: "running",
-    detail: llmAvailable()
-      ? `Asking ${llmLabel()}`
-      : "Heuristic summary (no LLM key)",
+    detail: llmAvailable() ? "Darwin is thinking…" : "Summarising the search results",
   });
   let summarizer = "heuristic";
   let summary: ResearchClaim = {
@@ -279,18 +278,19 @@ export async function researchCompetitors(
       summarizer = llmLabel();
       set("summarise", {
         status: "done",
-        detail: `Summarised by ${summarizer}`,
+        detail: "Summarised by Darwin",
       });
     } catch (e) {
+      console.warn("[research] LLM summary failed, using the heuristic summary:", String((e as Error)?.message ?? e).slice(0, 200));
       set("summarise", {
         status: "done",
-        detail: `LLM failed (${(e as Error).message.slice(0, 80)}); heuristic summary`,
+        detail: "Quick summary from the search results",
       });
     }
   } else {
     set("summarise", {
       status: "done",
-      detail: "Heuristic summary from search results",
+      detail: "Summary from the search results",
     });
   }
 
@@ -359,8 +359,8 @@ export async function askResearch(input: AskInput): Promise<ResearchReport> {
 
   if (demo) {
     answer =
-      "Sample answer: live research needs TAVILY_API_KEY. Add it to .env.local and ask again to get an answer with real sources.";
-    set("search", { status: "skipped", detail: "No TAVILY_API_KEY" });
+      "Sample answer: live research isn't switched on yet (it needs a research key). Once it's on, ask again to get an answer with real sources.";
+    set("search", { status: "skipped", detail: "Live research is off" });
     set("read", { status: "skipped" });
     set("summarise", { status: "skipped" });
   } else {
@@ -388,7 +388,7 @@ export async function askResearch(input: AskInput): Promise<ResearchReport> {
     cited = sources.slice(0, 4).map((s) => s.url);
     set("summarise", {
       status: "running",
-      detail: llmAvailable() ? `Asking ${llmLabel()}` : "Heuristic answer",
+      detail: llmAvailable() ? "Darwin is thinking…" : "Reading the sources",
     });
     if (llmAvailable() && sources.length) {
       try {
@@ -414,7 +414,7 @@ export async function askResearch(input: AskInput): Promise<ResearchReport> {
       detail:
         summarizer === "heuristic"
           ? "Answer from search results"
-          : `Answered by ${summarizer}`,
+          : "Answered by Darwin",
     });
   }
 

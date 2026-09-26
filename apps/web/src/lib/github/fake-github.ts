@@ -19,6 +19,7 @@ interface FakePull {
   body: string;
   state: "open" | "closed";
   labels: string[];
+  merged?: boolean;
 }
 
 export interface FakeGitHubOptions {
@@ -220,6 +221,26 @@ export class FakeGitHub {
       pr.labels.push(...(body!.labels as string[]));
       return this.json(200, pr.labels.map((name) => ({ name })));
     }
+    if ((m = key.match(/^GET \/pulls\/(\d+)$/))) {
+      const pr = this.pulls.find((p) => p.number === Number(m![1]));
+      if (!pr) return this.notFound();
+      const j = this.pullJson(pr);
+      return this.json(200, { ...j, head: { ...j.head, sha: this.refs.get(pr.head) }, merged: Boolean(pr.merged), mergeable: true, draft: false });
+    }
+    if ((m = key.match(/^PUT \/pulls\/(\d+)\/merge$/))) {
+      const pr = this.pulls.find((p) => p.number === Number(m![1]));
+      if (!pr || pr.state !== "open") return this.json(405, { message: "Pull Request is not mergeable" });
+      if (body!.sha && body!.sha !== this.refs.get(pr.head)) return this.json(409, { message: "Head branch was modified" });
+      const c = sha("c");
+      const head = this.commits.get(this.refs.get(pr.head)!)!;
+      this.commits.set(c, { tree: head.tree, parents: [this.refs.get(pr.base)!], message: `${pr.title} (#${pr.number})` });
+      this.refs.set(pr.base, c);
+      pr.state = "closed";
+      pr.merged = true;
+      return this.json(200, { merged: true, sha: c, message: "Pull Request successfully merged" });
+    }
+    if ((m = key.match(/^GET \/commits\/([^/]+)\/status$/))) return this.json(200, { state: "success", statuses: [] });
+    if ((m = key.match(/^GET \/commits\/([^/]+)\/check-runs$/))) return this.json(200, { check_runs: [] });
     return this.json(500, { message: `FakeGitHub: unhandled ${key}` });
   }
 }

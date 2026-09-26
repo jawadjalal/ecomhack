@@ -20,7 +20,7 @@ describe("onboarding without GitHub", () => {
     expect(out.plan).toMatchObject({ site: "trail-shop-co-uk", siteUrl: "https://www.Trail-Shop.co.uk/products" });
     expect(out.plan.repo).toBeUndefined();
     expect(out.plan.events.some((e) => e.fromPrompt)).toBe(true);
-    expect(out.reply).toMatch(/^No GitHub needed: darwin\.js goes on www\.trail-shop\.co\.uk with one script tag\./);
+    expect(out.reply).toMatch(/^No GitHub needed: Darwin goes on www\.trail-shop\.co\.uk with one line of code\./);
     expect(out.snippet).toBe('<script src="https://darwin.example/darwin.js" data-darwin-site="trail-shop-co-uk" defer></script>');
     // There's no repo to open a pull request on.
     const pr = await install(new Request("https://darwin.example/api/onboarding/install", { method: "POST", body: JSON.stringify({ site: "trail-shop-co-uk" }) }));

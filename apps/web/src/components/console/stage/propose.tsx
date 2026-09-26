@@ -15,10 +15,9 @@ export function SourceChip({ source }: { source: string }) {
   const b = sourceBadge(source);
   if (!b) return null;
   return (
-    <Badge tone={b.label === "Heuristic" ? "neutral" : "brand"} title={source}>
-      {b.label === "Heuristic" ? <Cpu /> : <Sparkles />}
+    <Badge tone={b.ai ? "brand" : "neutral"} title={b.ai ? "Written by Darwin's AI" : "From Darwin's built-in rules"}>
+      {b.ai ? <Sparkles /> : <Cpu />}
       {b.label}
-      {b.model && <span className="font-mono text-[0.65rem] opacity-60">{b.model}</span>}
     </Badge>
   );
 }

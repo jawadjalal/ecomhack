@@ -79,20 +79,15 @@ export function phaseIndex(phase: LoopPhase): number {
 /* ------------------------------------------------------------------ LLM source */
 
 export interface SourceBadge {
-  label: "Grok" | "Claude" | "OpenRouter" | "Heuristic" | "LLM";
-  model?: string;
+  /** Plain-English: who wrote it. Model and provider names stay out of the UI. */
+  label: "Darwin AI" | "Built-in rules";
+  ai: boolean;
 }
 
-/** Map ChangeProposal.source ("llm:grok-4", "llm:claude-…", "llm:deepseek/…", "heuristic") to a chip. */
+/** Map ChangeProposal.source ("llm:<model>" | "heuristic") to a chip: AI-written or from Darwin's built-in rules. */
 export function sourceBadge(source: string | undefined): SourceBadge | undefined {
   if (!source) return undefined;
-  const s = source.toLowerCase();
-  const model = s.startsWith("llm:") ? source.slice(4) : undefined;
-  if (s.includes("heuristic")) return { label: "Heuristic" };
-  if (s.includes("grok") || s.includes("xai")) return { label: "Grok", model };
-  if (s.includes("claude") || s.includes("anthropic")) return { label: "Claude", model };
-  if (s.includes("openrouter") || (model && model.includes("/"))) return { label: "OpenRouter", model };
-  return { label: "LLM", model };
+  return /heuristic|playbook|sample/i.test(source) ? { label: "Built-in rules", ai: false } : { label: "Darwin AI", ai: true };
 }
 
 /* ------------------------------------------------------------------ diffs */

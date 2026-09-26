@@ -1,5 +1,6 @@
 "use client";
 
+import { plainNote } from "@/lib/friendly";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowUpRight, Check, FileCode, GitBranch, GitPullRequest, LoaderCircle, TriangleAlert } from "lucide-react";
@@ -20,7 +21,7 @@ export function PrBody({ pr }: { pr: PrInfo }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={pr.dryRun ? "warn" : "good"}>{pr.queued ? "Queued" : pr.dryRun ? "Dry run" : "Opened"}</Badge>
+        <Badge tone={pr.dryRun ? "warn" : "good"}>{pr.queued ? "Queued" : pr.dryRun ? "Preview" : "Opened"}</Badge>
         {pr.number && <span className="text-[0.85rem] text-white/50">#{pr.number}</span>}
         {pr.branch && (
           <span className="flex items-center gap-1.5 font-mono text-[0.75rem] text-white/50">
@@ -82,10 +83,10 @@ export function PrBody({ pr }: { pr: PrInfo }) {
 function notesOf(pr: PrInfo): string[] {
   const x = pr as PrInfo & { notes?: unknown; upToDate?: unknown; existing?: unknown; detection?: { label?: unknown } };
   const out = Array.isArray(x.notes) ? x.notes.filter((n): n is string => typeof n === "string") : [];
-  if (x.upToDate === true) out.unshift("Already up to date: nothing to change, no PR opened.");
-  if (x.existing === true) out.unshift("An open PR for this branch already existed and was updated.");
+  if (x.upToDate === true) out.unshift("Already up to date: nothing to change, so no pull request was opened.");
+  if (x.existing === true) out.unshift("There was already an open pull request for this, so Darwin updated it.");
   if (x.detection && typeof x.detection.label === "string") out.unshift(`Detected: ${x.detection.label}`);
-  return out;
+  return out.map(plainNote);
 }
 
 export function PrModal({ pr, onClose }: { pr?: PrInfo; onClose: () => void }) {

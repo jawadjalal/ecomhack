@@ -8,6 +8,7 @@
  *     that group falls back to the mock engine and the console labels it. Missing groups are
  *     re-probed every 20s, so the console switches to real data as soon as a route lands.
  */
+import { friendlyError, friendlyStatus } from "@/lib/friendly";
 import type {
   AgentSessionSummary,
   AgentSessionsResponse,
@@ -62,10 +63,11 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown):
     cache: "no-store",
   });
   if (!res.ok) {
-    let message = `${method} ${path} → ${res.status}`;
+    // Shown in toasts: plain English only (the path and status stay on the error for code that needs them).
+    let message = friendlyStatus(res.status);
     try {
       const j = (await res.json()) as { error?: string; message?: string };
-      message = j.error ?? j.message ?? message;
+      message = friendlyError(j.error ?? j.message ?? "", message);
     } catch {
       /* not json */
     }

@@ -105,5 +105,9 @@ export const config = {
     "/api/research",
     "/api/research/:path*",
     "/api/store-agent/tests",
+    "/api/voice",
+    "/api/voice/:path*",
+    "/api/team",
+    "/api/team/:path*",
   ],
 };

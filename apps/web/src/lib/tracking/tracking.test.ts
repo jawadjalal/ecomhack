@@ -36,8 +36,8 @@ describe("tracking plan", () => {
 
     const plan = await buildPlan({ site: SITE, repo: "acme/storefront", analytics: ["PostHog", "Google Analytics"] }); // no LLM in tests
     expect(plan).toMatchObject({ existingAnalytics: ["PostHog", "Google Analytics"], author: "heuristic" });
-    expect(planIntro(plan)).toContain("You already use PostHog and Google Analytics: darwin.js runs alongside, nothing is replaced.");
-    expect(planIntro(heuristicPlan({ site: SITE, analytics: ["Darwin (already installed)"] }))).toContain("darwin.js is already installed, so the pull request only adds the plan.");
+    expect(planIntro(plan)).toContain("You already use PostHog and Google Analytics: Darwin runs alongside, nothing is replaced.");
+    expect(planIntro(heuristicPlan({ site: SITE, analytics: ["Darwin (already installed)"] }))).toContain("Darwin is already installed, so the pull request only adds the plan.");
     const unread = heuristicPlan({ site: SITE, repo: "acme/storefront", framework: "Next.js (App Router)", analytics: [], repoRead: false });
     expect(unread.existingAnalytics).toBeUndefined();
     expect(planIntro(unread)).toMatch(/^I couldn't read acme\/storefront yet, so I assumed Next\.js \(App Router\)\. /);

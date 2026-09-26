@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bot, Check, FlaskConical, LoaderCircle, TrendingUp, Truck, Undo2, User, Users } from "lucide-react";
-import type { ResearchCompetitor, ResearchReport, ResearchSuggestion, WebDraftResponse } from "@/lib/contracts";
+import type { ResearchCompetitor, ResearchReport, ResearchSuggestion, WebChange, WebDraftResponse } from "@/lib/contracts";
+import { friendlyError } from "@/lib/friendly";
 import { Card, hostOf, PASTELS, Pastel, Pill, Sources, T } from "./ui";
 
 export function ReportView({ report, site }: { report: ResearchReport; site: string }) {
@@ -163,6 +164,23 @@ function Suggestions({ items, site, demo }: { items: ResearchSuggestion[]; site:
   );
 }
 
+/** A drafted page change in plain English (the CSS selector stays in the tooltip). */
+function changeLabel(c: WebChange): string {
+  const v = c.value ? `“${c.value.slice(0, 80)}”` : "";
+  switch (c.action) {
+    case "banner":
+      return `Add a banner: ${v}`;
+    case "text":
+      return `Change the wording to ${v}`;
+    case "badge":
+      return `Add a badge: ${v}`;
+    case "hide":
+      return "Hide an element";
+    case "style":
+      return "Restyle an element";
+  }
+}
+
 function SuggestionRow({ n, s, site, demo }: { n: number; s: ResearchSuggestion; site: string; demo: boolean }) {
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [draft, setDraft] = useState<WebDraftResponse>();
@@ -178,12 +196,12 @@ function SuggestionRow({ n, s, site, demo }: { n: number; s: ResearchSuggestion;
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ site, prompt: s.testIdea }),
       });
-      const j = (await res.json()) as WebDraftResponse & { error?: string };
-      if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
+      const j = (await res.json().catch(() => ({}))) as WebDraftResponse & { error?: string };
+      if (!res.ok) throw Object.assign(new Error(j.error ?? ""), { status: res.status });
       setDraft(j);
       setState("done");
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(friendlyError(e, "Please try again."));
       setState("error");
     }
   };
@@ -209,29 +227,29 @@ function SuggestionRow({ n, s, site, demo }: { n: number; s: ResearchSuggestion;
           onClick={draftTest}
           disabled={state === "busy"}
           className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-black transition-opacity hover:opacity-90 disabled:opacity-60"
-          title={demo ? "Drafts a real test from this sample idea" : "Draft an A/B test with darwin.js personalization"}
+          title={demo ? "Drafts a real test from this sample idea" : "Draft an A/B test for this idea (nothing goes live until you launch it)"}
         >
           {state === "busy" ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : state === "done" ? <Check className="size-4" /> : <FlaskConical className="size-4" />}
           {state === "done" ? "Drafted" : "Draft A/B test"}
         </button>
       </div>
-      {err && <p className="mt-3 text-[13px] text-[#F3B5D5]">Couldn&apos;t draft: {err}</p>}
+      {err && <p className="mt-3 text-[13px] text-[#F3B5D5]">Couldn&apos;t draft that test. {err}</p>}
       {draft && (
         <div className="mt-3 rounded-2xl p-3 text-[13px] text-black" style={{ background: T.surface }}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold">{draft.rule.name}</span>
-            <Pill tone={draft.source === "llm" ? "win" : "sand"}>{draft.source === "llm" ? "Drafted by LLM" : "Heuristic draft"}</Pill>
+            <Pill tone={draft.source === "llm" ? "win" : "sand"}>{draft.source === "llm" ? "Drafted by Darwin AI" : "Drafted from Darwin's playbook"}</Pill>
           </div>
           {draft.rule.hypothesis && <p className="mt-1 text-black/70">{draft.rule.hypothesis}</p>}
-          <ul className="mt-2 flex flex-col gap-1 font-mono text-[12px]">
+          <ul className="mt-2 flex flex-col gap-1 text-[12px]">
             {draft.rule.changes.map((c, i) => (
-              <li key={i} className="truncate">
-                {c.action} {c.selector ?? ""} {c.value ? `→ ${JSON.stringify(c.value).slice(0, 80)}` : ""}
+              <li key={i} className="truncate" title={c.selector}>
+                {changeLabel(c)}
               </li>
             ))}
           </ul>
           <Link href={`/console/personalize?site=${encodeURIComponent(site)}`} className="mt-2 inline-block font-medium underline">
-            Review and launch in Personalize ({site})
+            Review and launch it in Personalize
           </Link>
         </div>
       )}

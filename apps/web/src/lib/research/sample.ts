@@ -6,7 +6,7 @@ import type { ResearchReport, ResearchStep } from "@/lib/contracts";
 import { id } from "@/lib/ids";
 
 export const NO_KEY_NOTICE =
-  "Sample report. Add TAVILY_API_KEY to .env.local to research your real competitors. The brands and numbers below are made up.";
+  "Sample report: live research isn't switched on yet (it needs a research key). The brands and numbers below are made up.";
 
 const S = (path: string) => `https://example.com/sample/${path}`;
 
@@ -16,7 +16,7 @@ export function sampleSteps(): ResearchStep[] {
       id: "search",
       label: "Searching the web",
       status: "skipped",
-      detail: "No TAVILY_API_KEY",
+      detail: "Live research is off",
     },
     {
       id: "read",

@@ -122,4 +122,26 @@ export interface AssistantResponse {
   suggestions?: string[];
 }
 
+/* team (lib/team, /api/team/**) — see contracts/team.ts for every shape */
+// POST /api/team/chat   TeamChatRequest { chatId?, agentId?, text, confirm?: { id, approved }, context? }
+//      → NDJSON stream (application/x-ndjson) of TeamEvent: message | chat_created | agent_status | progress
+//        | navigate | done | error. Darwin (manager) plans, delegates to specialists concurrently (group chats,
+//        short progress messages), then reports back. Side-effecting tools come back as a `confirm` message with
+//        `pendingConfirm`; nothing runs until the user sends `confirm: { id, approved: true }`. (admin)
+// GET  /api/team               → TeamStateResponse { agents, chats (with lastMessage, messageCount), model }
+// GET  /api/team/chats/[id]    → TeamChatResponse { chat, messages }   (404 { error } when unknown)
+// POST /api/team/chats         CreateTeamChatRequest { title?, members } → { chat }   (user-created chat)
+
+/* voice */
+// GET  /api/voice            → VoiceStatusResponse                          (admin)
+// POST /api/voice/tts        { text, agent? } → audio/mpeg stream (agent's ElevenLabs voice; admin, rate-limited)
+// POST /api/voice/stt        multipart { audio, language? } → VoiceTranscriptResponse  (admin, rate-limited, 10 MB max)
+export interface VoiceStatusResponse {
+  available: boolean;
+}
+export interface VoiceTranscriptResponse {
+  text: string;
+  language?: string;
+}
+
 export type { PageSpec };

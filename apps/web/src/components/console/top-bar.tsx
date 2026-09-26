@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { Activity, Bot, Cpu, FlaskRound, Gauge, LayoutDashboard, LoaderCircle, Maximize, Radar, RotateCcw, Search, Sparkles, StepForward, Store, WandSparkles } from "lucide-react";
 import type { GithubStatusResponse } from "@/lib/contracts";
 import type { ApiGroup } from "@/lib/console/api";
-import { API_GROUP_ROUTES } from "@/lib/console/api";
 import type { SourceBadge } from "@/lib/console/format";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/switch";
@@ -78,8 +77,8 @@ export function TopBar({
   specVersion?: number;
 }) {
   const mockTitle = forcedMock
-    ? "Mock mode (?mock=1): the whole loop runs in your browser with simulated data."
-    : `Not built yet, served by the in-browser simulation:\n${mockedGroups.map((g) => API_GROUP_ROUTES[g].join(", ")).join("\n")}`;
+    ? "Demo mode: the whole loop runs in your browser with sample data."
+    : `Some panels are showing sample data until live data is available (${mockedGroups.length} ${mockedGroups.length === 1 ? "area" : "areas"}).`;
 
   return (
     <header className="flex h-[3.6rem] shrink-0 items-center gap-3">
@@ -98,7 +97,7 @@ export function TopBar({
 
       <Link
         href="/console/personalize"
-        title="Personalize any store with darwin.js: per traffic source and search query, A/B tested"
+        title="Show different page versions by traffic source or search, and A/B test them"
         className="flex h-9 items-center gap-2 rounded-xl border border-brand/25 bg-brand/[0.07] px-3 text-[0.82rem] font-medium whitespace-nowrap text-brand transition-colors hover:bg-brand/[0.14] [&_svg]:size-[0.95rem]"
       >
         <WandSparkles />
@@ -125,7 +124,7 @@ export function TopBar({
 
       <Link
         href="/console/dashboards"
-        title="The dashboards Darwin built from your tracking plan (set one up in /onboarding)"
+        title="The dashboards Darwin built from your tracking plan (set one up in Setup)"
         className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-[0.82rem] font-medium whitespace-nowrap text-white/80 transition-colors hover:bg-white/[0.08] [&_svg]:size-[0.95rem]"
       >
         <LayoutDashboard />
@@ -143,7 +142,7 @@ export function TopBar({
 
       <Link
         href="/console/agents"
-        title="Your Whop store's own AI agent: buyer agents shop it over A2A and pay through tagged checkout links"
+        title="Your Whop store's own AI agent: AI shoppers chat with it and pay through tracked checkout links"
         className="flex h-9 items-center gap-2 rounded-xl border border-agent/30 bg-agent/[0.08] px-3 text-[0.82rem] font-medium whitespace-nowrap text-[#f5a6cb] transition-colors hover:bg-agent/[0.14] [&_svg]:size-[0.95rem]"
       >
         <Bot />
@@ -156,7 +155,7 @@ export function TopBar({
           <>
             <span className="max-w-[14rem] truncate text-white/85">{github.repo}</span>
             {((github as { dryRun?: boolean }).dryRun ?? !github.configured) && (
-              <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[0.65rem] tracking-wide text-white/50 uppercase">dry run</span>
+              <span className="rounded-md bg-white/[0.07] px-1.5 py-0.5 text-[0.65rem] tracking-wide text-white/50 uppercase">preview</span>
             )}
           </>
         ) : (
@@ -164,10 +163,9 @@ export function TopBar({
         )}
       </Chip>
 
-      <Chip title={source?.model ? `Proposals written by ${source.model}` : "Proposals will show which model (or heuristic) wrote them"}>
-        {source?.label === "Heuristic" ? <Cpu className="text-white/50" /> : <Sparkles className="text-brand" />}
-        <span className={cn(source ? "text-white/85" : "text-white/40")}>{source?.label ?? "LLM"}</span>
-        {source?.model && <span className="hidden max-w-[9rem] truncate font-mono text-[0.7rem] text-white/35 2xl:inline">{source.model}</span>}
+      <Chip title={!source ? "Shows who writes Darwin's page changes" : source.ai ? "Darwin's AI writes the page changes" : "Page changes come from Darwin's built-in rules"}>
+        {source && !source.ai ? <Cpu className="text-white/50" /> : <Sparkles className="text-brand" />}
+        <span className={cn(source ? "text-white/85" : "text-white/40")}>{source?.label ?? "Darwin AI"}</span>
       </Chip>
 
       <AnimatePresence>
@@ -175,7 +173,7 @@ export function TopBar({
           <motion.div key="mock" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
             <Chip className="border-warn/30 bg-warn/[0.08] text-[#ffd27a]" title={mockTitle}>
               <FlaskRound />
-              {forcedMock ? "Mock mode" : `Simulated API · ${mockedGroups.length}`}
+              {forcedMock ? "Demo mode" : `Sample data · ${mockedGroups.length}`}
             </Chip>
           </motion.div>
         )}
@@ -183,10 +181,10 @@ export function TopBar({
           <motion.div key="synthetic" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
             <Chip
               className="border-warn/25 bg-transparent text-[#f8cf7a]"
-              title="Traffic is generated by Darwin's simulator (properties.synthetic = true). Every synthetic event is labelled."
+              title="These shoppers are simulated by Darwin. Every simulated visit is labelled and kept apart from real numbers."
             >
               <Bot />
-              Synthetic traffic
+              Simulated shoppers
             </Chip>
           </motion.div>
         )}
@@ -194,7 +192,7 @@ export function TopBar({
 
       <div className="flex-1" />
 
-      <div className="flex items-baseline gap-2 pr-2" title={specVersion !== undefined ? `Live spec v${specVersion}` : undefined}>
+      <div className="flex items-baseline gap-2 pr-2" title={specVersion !== undefined ? `Live page version ${specVersion}` : undefined}>
         <span className="text-[0.7rem] font-medium tracking-[0.2em] text-white/40 uppercase">Gen</span>
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span

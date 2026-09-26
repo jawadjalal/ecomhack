@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/switch";
 import { cn } from "@/components/ui/cn";
 import { DarwinWordmark } from "@/components/console/brand";
+import { friendlyError } from "@/lib/friendly";
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -42,7 +43,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
     cache: "no-store",
   });
   const json = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(friendlyError(Object.assign(new Error(json.error ?? ""), { status: res.status })));
   return json as T;
 }
 
@@ -64,15 +65,15 @@ const PANELS: { dim: TrafficDimension; title: string; icon: ReactNode; empty: st
     title: "Search queries",
     icon: <Search />,
     empty: "No search visitors yet.",
-    note: "From paid-ad keywords (utm_term) and store search. Google and Bing hide organic search terms, so those count as “(not provided)”.",
+    note: "From paid-ad keywords and your store's search box. Google and Bing hide unpaid search terms, so those show as “(not provided)”.",
   },
-  { dim: "campaign", title: "Campaigns (UTM)", icon: <Megaphone />, empty: "No tagged links yet. Try one of the links above." },
+  { dim: "campaign", title: "Campaigns", icon: <Megaphone />, empty: "No campaign links yet. Try one of the links above." },
   {
     dim: "country",
     title: "Countries",
     icon: <MapPin />,
     empty: "No visitors yet.",
-    note: "From the host's geo headers (e.g. Vercel). Local visits show as Unknown; we never guess.",
+    note: "From the visitor's location as reported by your web host. Local test visits show as Unknown; we never guess.",
   },
   { dim: "landing", title: "Landing pages", icon: <Globe />, empty: "No page views yet." },
   { dim: "device", title: "Devices", icon: <MonitorSmartphone />, empty: "No visitors yet." },
@@ -92,7 +93,7 @@ export function TrafficApp() {
       setData(await api<TrafficReport>(`/api/traffic?site=${encodeURIComponent(site)}&synthetic=${synthetic ? 1 : 0}`));
       setError(undefined);
     } catch (e) {
-      setError((e as Error).message);
+      setError(`Couldn't load traffic. ${(e as Error).message}`);
     }
   }, [site, synthetic]);
 
@@ -112,7 +113,7 @@ export function TrafficApp() {
       await Promise.all([api("/api/simulate", { humans: 150, agents: 20 }), api("/api/web/simulate", { site: "north-trail", visitors: 300 })]);
       await load();
     } catch (e) {
-      setError((e as Error).message);
+      setError(`Couldn't add simulated shoppers. ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -133,16 +134,16 @@ export function TrafficApp() {
           <div className="h-7 w-px bg-white/10" />
           <label className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-[0.82rem] text-white/60">
             <Globe className="size-4 text-white/45" />
-            Site
+            Store
             <select
               value={site}
               onChange={(e) => setSite(e.target.value)}
               className="bg-transparent font-medium text-white/90 outline-none [&>option]:bg-[#0b0d12]"
-              aria-label="Site"
+              aria-label="Store"
             >
               {["all", ...(data?.sites ?? [])].map((s) => (
                 <option key={s} value={s}>
-                  {s === "all" ? "All sites" : s}
+                  {s === "all" ? "All stores" : s}
                 </option>
               ))}
             </select>
@@ -150,9 +151,9 @@ export function TrafficApp() {
           <div className="flex-1" />
           <p className="hidden text-[0.82rem] text-white/45 2xl:block">Where every visitor came from, human or AI agent, and whether they bought.</p>
           <Toggle on={synthetic} onChange={setSynthetic} label="Include simulated" icon={<Bot />} />
-          <Button onClick={addTestTraffic} disabled={busy} title="Simulated shoppers and agents. Every event is labelled synthetic.">
+          <Button onClick={addTestTraffic} disabled={busy} title="Adds simulated shoppers and AI agents. Every simulated visit is labelled.">
             {busy ? <LoaderCircle className="animate-spin" /> : <Users />}
-            +470 test visitors
+            Add 470 simulated visitors
           </Button>
         </header>
 
@@ -272,6 +273,13 @@ const CATEGORY: Record<InsightCategory, { label: string; tone: "info" | "good" |
 /** Sites whose pages run darwin.js, so a suggestion can become a personalization A/B test. */
 const testableSite = (site: string) => site !== "all" && site !== "pace-store";
 
+/** The insights note in plain English (the API's note names the model setup). */
+function insightsNote(note: string): string {
+  if (/no llm key/i.test(note)) return "Darwin's AI isn't switched on yet, so these suggestions come from built-in rules.";
+  if (/llm unavailable/i.test(note)) return "Darwin's AI couldn't answer just now, so these suggestions come from built-in rules. Try again in a moment.";
+  return friendlyError(note, "");
+}
+
 function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic: boolean; visitors: number }) {
   const [res, setRes] = useState<InsightsResponse>();
   const [busy, setBusy] = useState<"rules" | "llm">();
@@ -283,7 +291,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
         setRes(await api<InsightsResponse>("/api/traffic/insights", { site, synthetic, llm }));
         setError(undefined);
       } catch (e) {
-        setError((e as Error).message);
+        setError(`Couldn't get suggestions. ${(e as Error).message}`);
       } finally {
         setBusy(undefined);
       }
@@ -309,11 +317,11 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
           <>
             {res && (
               <span className="hidden text-[0.75rem] text-white/45 md:inline">
-                {res.source === "llm" ? `Written by ${res.author.replace(/^llm:/, "")}` : "Built-in rules"}
+                {res.source === "llm" ? "Written by Darwin AI" : "From Darwin's built-in rules"}
                 {total > 0 && ` · up to +${total} orders at today's traffic`}
               </span>
             )}
-            <Button size="sm" variant="primary" onClick={() => ask(true)} disabled={!!busy} title="Send this report to Darwin's AI model (DeepSeek via OpenRouter / Grok / Claude) for suggestions">
+            <Button size="sm" variant="primary" onClick={() => ask(true)} disabled={!!busy} title="Darwin reads this report and suggests what to improve">
               {busy === "llm" ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
               Ask Darwin
             </Button>
@@ -322,7 +330,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
       />
       <div className="px-5 pb-5">
         {error && <p className="mb-3 text-[0.85rem] text-[#ffb4b4]">{error}</p>}
-        {res?.note && <p className="mb-3 text-[0.75rem] text-white/40">{res.note}</p>}
+        {res?.note && <p className="mb-3 text-[0.75rem] text-white/40">{insightsNote(res.note)}</p>}
         {!res && <p className="text-[0.85rem] text-white/40">Reading the numbers…</p>}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
           {res?.insights.map((i) => <InsightCard key={i.id} insight={i} site={site} />)}
@@ -346,7 +354,7 @@ function InsightCard({ insight: i, site }: { insight: TrafficInsight; site: stri
       await api("/api/web/rules", { rule: draft.rule, status: "draft" });
       setState("done");
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg(`Couldn't draft that test. ${(e as Error).message}`);
       setState("error");
     }
   };
@@ -384,7 +392,7 @@ function InsightCard({ insight: i, site }: { insight: TrafficInsight; site: stri
             )
           ) : (
             <span className="text-[0.72rem] text-white/35" title={i.testPrompt}>
-              Pick a darwin.js site above to test this
+              Pick one of your stores above to test this
             </span>
           ))}
         {i.link && (

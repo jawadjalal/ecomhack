@@ -7,13 +7,13 @@ const PROPS = [
   {
     icon: Bot,
     title: "Two audiences, one loop",
-    body: "Humans get a better page. AI shoppers get a better agent API: stock, delivery ETA, returns, landed price and negotiation, over MCP and A2A.",
+    body: "Humans get a better page. AI shoppers get clearer answers: stock, delivery dates, returns, the full price with delivery, and room to negotiate.",
     accent: "text-agent",
   },
   {
     icon: ShieldCheck,
     title: "Safe, declarative changes",
-    body: "Every change is a validated PageSpec diff: A/B tested, reversible, and shipped as a normal pull request your team reviews.",
+    body: "Every change is checked before it runs, A/B tested, easy to undo, and shipped as a normal pull request your team reviews.",
     accent: "text-human",
   },
   {

@@ -33,6 +33,7 @@ import { cn } from "@/components/ui/cn";
 import { DarwinMark, DarwinWordmark, GithubMark } from "@/components/console/brand";
 import { PrBody } from "@/components/console/modals";
 import { DashboardGrid } from "@/components/dashboards/dashboard-grid";
+import { friendlyError, plainNote } from "@/lib/friendly";
 
 /* ------------------------------------------------------------------ data */
 
@@ -57,7 +58,7 @@ async function http<T>(method: "GET" | "POST" | "PATCH" | "PUT", path: string, b
     cache: "no-store",
   });
   const j = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(j.error ?? `${method} ${path} → ${res.status}`);
+  if (!res.ok) throw new Error(friendlyError(Object.assign(new Error(j.error ?? ""), { status: res.status })));
   return j;
 }
 
@@ -174,10 +175,12 @@ export function OnboardingApp() {
       ]);
       setPlan(res.plan);
       setSnippet(res.snippet ?? null);
-      reply(res.note ? `${res.reply}\n\n${res.note}` : res.reply);
+      // The repo note can name server settings ("no GITHUB_TOKEN"): keep the meaning, drop the jargon.
+      const note = res.note && plainNote(res.note);
+      reply(note ? `${res.reply}\n\n${note}` : res.reply);
       track("plan_ready", { events: res.plan.events.filter((e) => e.enabled).length, goals: res.plan.goals?.length ?? 0 });
     } catch (err) {
-      reply(`Something went wrong: ${(err as Error).message}`);
+      reply(`I couldn't put your plan together just now. ${(err as Error).message} You can go Back and try again.`);
     } finally {
       setBusy(false);
     }
@@ -193,7 +196,7 @@ export function OnboardingApp() {
       reply(res.reply);
       track("plan_changed", { via: "chat" });
     } catch (err) {
-      reply(`I couldn't change that: ${(err as Error).message}`);
+      reply(`I couldn't change the plan just now. ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -303,7 +306,7 @@ export function OnboardingApp() {
 
                   {!connected && !open && (
                     <span className="flex items-center gap-1 px-5 pb-1 text-[0.75rem] font-medium text-brand/80">
-                      <ArrowDown className="size-3.5 animate-bounce" /> Connect GitHub or add a script tag to start (Whop is optional: it adds your payments)
+                      <ArrowDown className="size-3.5 animate-bounce" /> Next: connect GitHub or your website to start (Whop is optional: it adds your sales)
                     </span>
                   )}
                   <div className="flex items-end justify-between gap-3 px-4 pt-2 pb-4">
@@ -383,9 +386,8 @@ export function OnboardingApp() {
             {stage === "install" && plan && !plan.siteUrl && (
               <motion.section key="install" {...fade} className="flex flex-col gap-4">
                 <AgentBubble>
-                  I&apos;ll open one pull request on <b className="font-mono text-white">{plan.repo}</b>: it loads darwin.js (under 5 KB) and commits your plan as{" "}
-                  <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.85em] text-white/80">DARWIN_TRACKING.md</code>, with the one line each event needs. Nothing
-                  changes until you merge it.
+                  I&apos;ll open one pull request on <b className="font-mono text-white">{plan.repo}</b>. It adds Darwin&apos;s small tracking script and a short guide to your
+                  plan, with the one line each event needs. Nothing on your store changes until you review and merge it.
                 </AgentBubble>
                 {!pr ? (
                   <InstallPr
@@ -540,17 +542,24 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
     <Panel glow className="overflow-visible">
       <div className="flex flex-col gap-5 p-5">
         <div className="flex flex-wrap gap-2 text-[0.78rem]" aria-label="What Darwin found">
-          {plan.framework && <Fact label="Stack" value={plan.repoRead === false ? `${plan.framework} (assumed)` : plan.framework} />}
+          {plan.framework && <Fact label="Built with" value={plan.repoRead === false ? `${plan.framework} (our best guess)` : plan.framework} />}
           <Fact
-            label="Analytics"
-            value={plan.siteUrl ? "not checked (no repo)" : plan.repoRead === false ? "not checked yet" : plan.existingAnalytics?.length ? plan.existingAnalytics.join(" · ") : "none found"}
-            hint={plan.existingAnalytics?.some((a) => !a.startsWith("Darwin")) ? "darwin.js runs alongside" : undefined}
+            label="Existing tracking"
+            value={
+              plan.siteUrl
+                ? "we'll check once it's live"
+                : plan.repoRead === false
+                  ? "not checked yet"
+                  : plan.existingAnalytics?.length
+                    ? plan.existingAnalytics.join(" · ")
+                    : "none yet: Darwin sets it up"
+            }
+            hint={plan.existingAnalytics?.some((a) => !a.startsWith("Darwin")) ? "Darwin runs alongside what you already have" : undefined}
           />
-          {!!plan.goals?.length && <Fact label="Heard" value={plan.goals.join(", ")} brand />}
-          {plan.author.startsWith("llm:") && <Fact label="Planned by" value={plan.author.slice(4)} />}
+          {!!plan.goals?.length && <Fact label="You care about" value={plan.goals.join(", ")} brand />}
         </div>
         <section>
-          <SectionTitle icon={<Sparkles />} title="Recorded automatically" hint="no code: darwin.js does it" />
+          <SectionTitle icon={<Sparkles />} title="Recorded automatically" hint="no code needed · tap to turn one off" />
           <div className="flex flex-wrap gap-2">
             {auto.map((e) => (
               <button
@@ -572,7 +581,7 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
         </section>
 
         <section>
-          <SectionTitle icon={<Code />} title="Your store sends" hint={plan.siteUrl ? "one line each, where it happens" : "one line each, listed in the PR"} />
+          <SectionTitle icon={<Code />} title="Your store sends" hint={plan.siteUrl ? "one line of code each, where it happens" : "one line of code each, written into the pull request"} />
           <ul className="flex flex-col gap-1.5">
             <AnimatePresence initial={false}>
               {custom.map((e) => (
@@ -584,7 +593,7 @@ function PlanCard({ plan, onToggle }: { plan: TrackingPlan; onToggle: (name: str
 
         {revenue.length > 0 && (
           <section>
-            <SectionTitle icon={<WhopMark />} title="From Whop" hint="by webhook, no code" />
+            <SectionTitle icon={<WhopMark />} title="From Whop" hint="sent automatically, no code" />
             <ul className="flex flex-col gap-1.5">
               {revenue.map((e) => (
                 <EventRow key={e.name} e={e} onToggle={onToggle} />
@@ -673,7 +682,7 @@ function EventRow({ e, onToggle }: { e: TrackingEvent; onToggle: (name: string, 
         </div>
         {e.snippet && (
           <button type="button" onClick={() => setCode((c) => !c)} className="flex shrink-0 items-center gap-1 text-[0.74rem] text-white/40 hover:text-white" aria-expanded={code}>
-            code <ChevronDown className={cn("size-3.5 transition-transform", code && "rotate-180")} />
+            show code <ChevronDown className={cn("size-3.5 transition-transform", code && "rotate-180")} />
           </button>
         )}
       </div>
@@ -955,17 +964,16 @@ function WhopConnect({ status, onConnected }: { status: WhopStatus | null; onCon
       className="flex flex-col gap-3"
     >
       <p className="text-[0.85rem] text-white/55">
-        Paste a Whop API key (Developer → API keys). It stays on the server. Same key the Whop CLI uses:{" "}
-        <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.78rem] text-white/75">whop login --method api-key</code>
+        Paste your Whop API key (in Whop: Developer → API keys). Darwin keeps it private and uses it to read your plans and sales.
       </p>
       <div className="flex gap-2">
         <input ref={input} type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="whop_…" autoComplete="off" className={inputCls} />
         <Button type="submit" variant="primary" disabled={busy}>
           {busy ? <LoaderCircle className="animate-spin" /> : <Check />}
-          {key.trim() ? "Connect" : status?.configured ? "Use server key" : "Try demo"}
+          {key.trim() ? "Connect" : status?.configured ? "Use saved key" : "Try demo"}
         </Button>
       </div>
-      {!key.trim() && !status?.configured && <span className="text-[0.75rem] text-white/35">No key and no WHOP_API_KEY on the server: connects a labelled demo business.</span>}
+      {!key.trim() && !status?.configured && <span className="text-[0.75rem] text-white/35">No key yet? Try demo connects a clearly labelled sample business.</span>}
       {error && <ErrorLine error={error} />}
     </form>
   );
@@ -1093,7 +1101,7 @@ function GithubConnect({
       onSubmit={(e) => {
         e.preventDefault();
         const m = url.trim().match(REPO_RE);
-        if (!m) return setError("Use a GitHub repo URL like https://github.com/acme/storefront");
+        if (!m) return setError("That doesn't look like a GitHub repository link. Try one like https://github.com/acme/storefront");
         setError(null);
         onConnected(`${m[1]}/${m[2]}`);
       }}
@@ -1111,7 +1119,7 @@ function GithubConnect({
           {signedIn ? "or pick from your repositories" : "or sign in with GitHub"}
         </button>
       )}
-      {dryRun && <span className="text-[0.75rem] text-white/35">No GitHub access on the server: the PR runs as a preview and shows the would-be changes.</span>}
+      {dryRun && <span className="text-[0.75rem] text-white/35">GitHub isn&apos;t connected yet, so Darwin shows a preview of the pull request instead of opening it.</span>}
       {error && <ErrorLine error={error} />}
       {other}
     </form>
@@ -1166,7 +1174,7 @@ function WebsiteConnect({ onWebsite, onGithub }: { onWebsite: (url: string) => v
           setError(null);
           onWebsite(u.origin);
         } catch {
-          setError("Use your store's address, like https://shop.example.com");
+          setError("That doesn't look like a web address. Try one like https://shop.example.com");
         }
       }}
       className="flex flex-col gap-3"
@@ -1196,8 +1204,8 @@ function InstallSnippet({ plan, snippet, onDone }: { plan: TrackingPlan; snippet
     <>
       <AgentBubble>
         No pull request needed. Paste this one line into your site&apos;s <code className="font-mono text-white/80">&lt;head&gt;</code> so it loads on every page
-        {custom ? `, then add the one-line call for each of your ${custom} events where it happens (they're in the plan)` : ""}. darwin.js is under 5 KB and never reads form
-        fields.
+        {custom ? `, then add the one-line call for each of your ${custom} events where it happens (they're in the plan)` : ""}. It&apos;s tiny and never reads what shoppers type
+        into forms.
       </AgentBubble>
       <Panel glow className="flex flex-col gap-3 p-5">
         <pre className="rounded-lg bg-black/40 px-3 py-3 font-mono text-[0.8rem] break-all whitespace-pre-wrap text-[#cfe9a8]">{snippet}</pre>

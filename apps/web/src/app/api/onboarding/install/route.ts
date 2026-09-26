@@ -10,9 +10,9 @@ import { getPlan, trackingDoc, trackingSummary } from "@/lib/tracking";
  */
 export async function POST(req: Request) {
   const parsed = z.object({ site: z.string().regex(/^[\w.-]{1,64}$/) }).safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: "Body must be { site }" }, { status: 400 });
+  if (!parsed.success) return Response.json({ error: "Something went wrong starting the install. Go back a step and try again." }, { status: 400 });
   const plan = getPlan(parsed.data.site);
-  if (!plan?.repo) return Response.json({ error: "Make a plan first (POST /api/onboarding/plan)" }, { status: 404 });
+  if (!plan?.repo) return Response.json({ error: "Make your tracking plan first, then install it." }, { status: 404 });
   try {
     // The signed-in merchant's token (GitHub OAuth) when there is one, else the server's GITHUB_TOKEN.
     const pr = await connectRepository(plan.repo, { host: publicOrigin(req), tracking: { doc: trackingDoc(plan), summary: trackingSummary(plan) }, token: githubTokenFor(req) });

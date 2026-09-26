@@ -15,6 +15,14 @@ const CRITERION_STYLE: Record<CertificateCriterion["status"], { icon: typeof Che
   not_applicable: { icon: Minus, ring: "bg-white/[0.06] text-white/50", word: "N/A" },
 };
 
+/** The verdict in plain English (older certificates may carry "(heuristic)" or provider/error details). */
+export function certVerdict(cert: Pick<ReadinessCertificate, "verdict">): string {
+  return cert.verdict
+    .replace(/ \(heuristic\)/g, " (audit score only)")
+    .replace(/No LLM key is configured, so no AI agent ran an agent trial;/g, "No AI shopping trial ran this time, so")
+    .replace(/The agent trial couldn't finish \([^)]*\);/g, "The AI shopping trial couldn't finish this time, so");
+}
+
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 /** The medal: a ringed seal in the level colour. */
@@ -86,7 +94,11 @@ export function CertificateView({ cert, expired }: { cert: ReadinessCertificate;
                   Certified <span style={{ color: s.color }} className="font-semibold">{s.label}</span> for AI shopping agents
                 </>
               )}
-              {cert.heuristic && <span className="ml-2 rounded-md bg-white/[0.07] px-1.5 py-0.5 align-middle text-[0.7rem] font-medium text-white/60">heuristic</span>}
+              {cert.heuristic && (
+                <span className="ml-2 rounded-md bg-white/[0.07] px-1.5 py-0.5 align-middle text-[0.7rem] font-medium text-white/60" title="No AI shopping trial ran: the level comes from the audit score">
+                  score only
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[0.8rem] text-white/45">
               <span>Score {cert.score}/100 · grade {cert.grade}</span>
@@ -101,12 +113,12 @@ export function CertificateView({ cert, expired }: { cert: ReadinessCertificate;
           </div>
         )}
 
-        <p className="text-[1rem] leading-relaxed text-white/75">{cert.verdict}</p>
+        <p className="text-[1rem] leading-relaxed text-white/75">{certVerdict(cert)}</p>
 
         {cert.trial && (
           <section className="flex flex-col gap-3">
             <h2 className="flex items-center gap-2 text-[0.78rem] font-semibold tracking-[0.14em] text-white/45 uppercase">
-              <Bot className="size-4" /> {cert.trial.mode === "mcp" ? "AI agent's shopping trial over MCP" : "What an AI agent could read on the page"}
+              <Bot className="size-4" /> {cert.trial.mode === "mcp" ? "An AI agent's shopping trial" : "What an AI agent could read on the page"}
               <span className={cn("rounded-md px-1.5 py-0.5 text-[0.66rem] tracking-normal normal-case", cert.trial.passed ? "bg-good/15 text-[#8ff0b2]" : "bg-bad/15 text-[#ff9b9b]")}>
                 {cert.trial.passed ? "passed" : "not passed"}
               </span>
@@ -115,7 +127,7 @@ export function CertificateView({ cert, expired }: { cert: ReadinessCertificate;
             {cert.trial.steps?.length ? (
               <details className="rounded-xl border border-white/[0.07] bg-black/20">
                 <summary className="cursor-pointer px-4 py-2.5 text-[0.84rem] text-white/60 hover:text-white">
-                  Transcript: {cert.trial.steps.length} tool call{cert.trial.steps.length === 1 ? "" : "s"} in {(cert.trial.durationMs / 1000).toFixed(1)}s
+                  What the agent did: {cert.trial.steps.length} step{cert.trial.steps.length === 1 ? "" : "s"} in {(cert.trial.durationMs / 1000).toFixed(1)}s
                 </summary>
                 <ol className="flex flex-col gap-2 border-t border-white/[0.06] px-4 py-3">
                   {cert.trial.steps.map((st, i) => (
@@ -145,7 +157,7 @@ export function CertificateView({ cert, expired }: { cert: ReadinessCertificate;
           </div>
           <div>
             <div className="text-[0.68rem] font-semibold tracking-[0.14em] text-white/35 uppercase">Judged by</div>
-            {cert.heuristic ? "Audit score only (heuristic)" : `Certified by Darwin · ${cert.model.replace(/^llm:/, "").split("/").pop()}`}
+            {cert.heuristic ? "Audit score only" : "Darwin's AI shopping agent"}
           </div>
           <div className="font-mono text-[0.7rem] text-white/30 sm:col-span-3">
             {cert.id} · {cert.url}

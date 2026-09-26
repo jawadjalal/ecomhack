@@ -1,5 +1,6 @@
 "use client";
 
+import { friendlyError } from "@/lib/friendly";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import useSWR, { type KeyedMutator } from "swr";
 import type { AnalyticsSummary, Experiment, LoopState } from "@/lib/contracts";
@@ -236,7 +237,7 @@ export function useTrafficDriver(on: boolean, onError: (msg: string) => void) {
         failures = 0;
       } catch (e) {
         failures += 1;
-        if (failures === 1) errRef.current(`Traffic: ${(e as Error).message}`);
+        if (failures === 1) errRef.current(`Simulated shoppers paused. ${friendlyError(e)}`);
       }
       if (alive) timer = setTimeout(tick, Math.max(250, 1500 - (Date.now() - started)) + Math.min(failures, 5) * 1000);
     };
