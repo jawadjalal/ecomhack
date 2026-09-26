@@ -283,8 +283,8 @@ function CheckoutMock({ spec, other, arm }: MockProps) {
             <Mark on={changed("checkout.expressPay")} arm={arm}>
               {c.expressPay ? (
                 <span className="grid grid-cols-2 gap-1.5 py-1">
-                  <span className="rounded-[7px] bg-black py-1.5 text-center text-[12px] font-semibold text-white ring-1 ring-white/20"> Pay</span>
-                  <span className="rounded-[7px] bg-black py-1.5 text-center text-[12px] font-semibold text-white ring-1 ring-white/20">G Pay</span>
+                  <span className="rounded-[7px] bg-black py-1.5 text-center text-[12px] font-semibold text-white ring-1 ring-white/20">Apple Pay</span>
+                  <span className="rounded-[7px] bg-black py-1.5 text-center text-[12px] font-semibold text-white ring-1 ring-white/20">Google Pay</span>
                 </span>
               ) : (
                 <span className="block py-0.5 opacity-55">No express pay</span>
