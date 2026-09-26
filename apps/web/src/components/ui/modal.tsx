@@ -32,7 +32,11 @@ export function Modal({
       }
     };
     window.addEventListener("keydown", onKey, true);
-    const t = setTimeout(() => panel.current?.querySelector<HTMLElement>("[data-autofocus], input, button")?.focus(), 60);
+    // A selector list matches in document order, so the header's Close button would win over [data-autofocus].
+    const t = setTimeout(() => {
+      const root = panel.current;
+      (root?.querySelector<HTMLElement>("[data-autofocus]") ?? root?.querySelector<HTMLElement>("input, button"))?.focus();
+    }, 60);
     return () => {
       window.removeEventListener("keydown", onKey, true);
       clearTimeout(t);
