@@ -2,20 +2,23 @@
 
 import { useEffect, useRef } from "react";
 import { motion } from "motion/react";
-import { Cpu, Eye, FlaskConical, MessagesSquare, Rocket, ScanSearch, WandSparkles, type LucideIcon } from "lucide-react";
+import { MessagesSquare } from "lucide-react";
 import type { LoopLogEntry } from "@/lib/contracts";
 import { timeAgo } from "@/lib/console/format";
 import { useNow } from "@/lib/console/hooks";
+import { activityMascotState } from "@/lib/mascot/state";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { cn } from "@/components/ui/cn";
+import { Mascot, type MascotKind } from "./mascot";
 
-export const ACTORS: Record<LoopLogEntry["actor"], { name: string; icon: LucideIcon; cls: string }> = {
-  observer: { name: "Iris", icon: Eye, cls: "bg-human/15 text-[#9cc5ff]" },
-  analyst: { name: "Darwin", icon: ScanSearch, cls: "bg-warn/15 text-[#ffd27a]" },
-  designer: { name: "Pixel", icon: WandSparkles, cls: "bg-agent/15 text-[#f5a6cb]" },
-  experimenter: { name: "Fizz", icon: FlaskConical, cls: "bg-brand/15 text-brand" },
-  shipper: { name: "Dash", icon: Rocket, cls: "bg-good/15 text-[#7ee2a0]" },
-  system: { name: "Darwin", icon: Cpu, cls: "bg-white/[0.08] text-white/60" },
+/** Who speaks each log line, and the crew mascot that stands for them (its pose follows the line). */
+export const ACTORS: Record<LoopLogEntry["actor"], { name: string; mascot: MascotKind }> = {
+  observer: { name: "Iris", mascot: "observer" },
+  analyst: { name: "Darwin", mascot: "leader" },
+  designer: { name: "Pixel", mascot: "designer" },
+  experimenter: { name: "Fizz", mascot: "experimenter" },
+  shipper: { name: "Dash", mascot: "shipper" },
+  system: { name: "Darwin", mascot: "leader" },
 };
 
 /** Highlight numbers and percentages in a log message. */
@@ -48,7 +51,7 @@ function Rich({ text }: { text: string }) {
   );
 }
 
-export function ActivityLog({ log }: { log: LoopLogEntry[] }) {
+export function ActivityLog({ log, autopilot = true, stepping = false }: { log: LoopLogEntry[]; autopilot?: boolean; stepping?: boolean }) {
   const now = useNow();
   const scroller = useRef<HTMLDivElement>(null);
   const entries = log.slice(-40);
@@ -70,9 +73,10 @@ export function ActivityLog({ log }: { log: LoopLogEntry[] }) {
         <ol className="flex flex-col gap-2.5 pt-6">
           {entries.map((e, i) => {
             const a = ACTORS[e.actor] ?? ACTORS.system;
-            const Icon = a.icon;
             const prev = entries[i - 1];
             const grouped = prev && prev.actor === e.actor;
+            const isLatest = i === entries.length - 1;
+            const pose = activityMascotState(e, { isLatest, now, autopilot, stepping });
             return (
               <motion.li
                 key={`${log.length - entries.length + i}-${e.at}`}
@@ -81,8 +85,8 @@ export function ActivityLog({ log }: { log: LoopLogEntry[] }) {
                 transition={{ type: "spring", stiffness: 300, damping: 26 }}
                 className={cn("flex gap-2.5", grouped && "-mt-1")}
               >
-                <span className={cn("flex size-[1.9rem] shrink-0 items-center justify-center rounded-lg", grouped ? "opacity-0" : a.cls)}>
-                  <Icon className="size-[0.95rem]" />
+                <span className={cn("flex size-8 shrink-0 items-center justify-center", grouped && !isLatest && "opacity-0")}>
+                  <Mascot kind={a.mascot} size={32} state={pose} label={a.name} />
                 </span>
                 <div className="min-w-0 flex-1">
                   {!grouped && (

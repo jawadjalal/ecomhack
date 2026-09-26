@@ -11,6 +11,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { AgentSessionSummary, Experiment, LoopPhase } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
 import { AnimatedNumber } from "@/components/ui/animated-number";
+import { moodForPhase } from "@/lib/mascot/state";
 import { Mascot } from "@/components/dw/mascot";
 import { AgentTile, agentBrand, type AgentBrand } from "@/components/dw/agent-tile";
 import { ArmChip, Card, HBar, LegendKey, LiveDot, PillBar, Typing } from "@/components/dw/ui";
@@ -294,7 +295,7 @@ function AvsBCard({ demo, compact, className }: { demo: LiveDemo; compact?: bool
       </div>
       {!r ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4 text-center">
-          <Mascot kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "leader" : "observer"} size={52} frame active />
+          <Mascot kind={demo.phase === "propose" ? "designer" : demo.phase === "diagnose" ? "leader" : "observer"} size={52} frame state={moodForPhase(demo.phase)} />
           <span className="flex items-center gap-2 text-[14px] font-medium">
             {PHASE_LINE[demo.phase]} <Typing />
           </span>

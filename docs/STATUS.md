@@ -3,7 +3,7 @@
 > **Every agent and every teammate updates this file at the end of every run** (see AGENTS.md → "After every run").
 > Keep it honest: what works, what's left, what's limited. Newest run log entry on top.
 
-Last updated: 2026-09-26 17:55 UTC (merge main into #68 mascot pack)
+Last updated: 2026-09-26 18:15 UTC (#68 follow-up: state-driven crew faces)
 
 ---
 
@@ -140,10 +140,10 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 ---
 
 ### Crew mascots  ✅
-- **Done:** six animated characters from the final pack (`public/mascots/{kind}-{state}.svg`). Darwin (leader, red crowned squircle) is the logo, favicon, and Ask Darwin avatar. Observer, analyst, designer, experimenter and shipper show on the loop, activity feed, page heads, autopilot, onboarding, readiness loading, personalize decisions and the store-agent chat. Pose: working / thinking / brief success / error / sleeping / idle, from `crewMascotState` and `useChatMascot`. Tap restarts the 1.4s one-shot (`stopPropagation`, so a parent card link does not fire). `prefers-reduced-motion` is inside each SVG.
-- **Left to do:** `src/lib/status/roadmap.ts` is still not in the tree, so the in-app "what's left" answer does not mention this.
-- **Limitations:** card-corner silhouettes stay flat vectors. ChatGPT / Claude / Gemini / etc. keep their official glyphs. Purple and penguin leader alternates were not copied into `public`. A failed chat *message* stays on the error pose; the header avatar returns to idle. Starter chips pass `interactive={false}` so the chip's own click still sends.
-- **Next-run ideas:** flash success on the shipper the moment a change lands, even after you open that change later; offer the penguin leader as a setting.
+- **Done:** the animated crew (`public/mascots/{kind}-{state}.svg`, rendered by `components/mascots/animated-mascot.tsx`) follows what Darwin is doing. `lib/mascot/state.ts` works out the pose (adapted to main's crew: the loop log's "analyst" diagnose step is Iris): the crew member whose loop step runs works (observe, experiment, ship) or thinks (diagnose, propose, decide); a fresh ship or reject line flashes success or error; autopilot off puts them to sleep. `CrewFace` wires it into page heads and empty states (Issues, Fixes, Experiments, Changes), the Issues crew strip, Overview cards, the impact strip and Autopilot. Ask Darwin (bottom bar, Overview chat) thinks while a reply is in flight, then flashes success or error (`components/mascots/use-chat-mascot.ts`). Classic console: activity log, loop ring and stage panel show crew mascots with live poses. Fix and issue detail, the store-agent chat, tests card, personalize decisions, onboarding and readiness loading follow their own status. Favicon is main's `app/icon.svg` / `apple-icon.png`.
+- **Left to do:** the remaining `active`-only mascots (traffic, dashboards grid, landing timeline) could take real poses too.
+- **Limitations:** poses ride the 1s clock and loop polling, so a success/error flash can be missed between polls. Card-corner silhouettes stay flat vectors; buyer brands keep their official glyphs.
+- **Next-run ideas:** push loop events to the console (SSE) so the shipper celebrates the moment a change lands.
 
 ## Platform limitations (fix before real merchants)
 
@@ -157,6 +157,7 @@ Status: ✅ done · 🟡 in progress · ⬜ not started
 
 ## Run log (newest first)
 
+- **2026-09-26 18:15 UTC — #68 follow-up: crew faces follow the loop on the cream screens.** Closes the open item from the #68 merge. `lib/mascot/state.ts` adapted to main's crew (diagnose = Iris; any kind accepted); `CrewFace` now used on Issues, Fixes, Experiments, Changes, the Issues crew strip, Overview cards, impact strip and Autopilot; Ask Darwin's face thinks then flashes success/error (`components/mascots/use-chat-mascot.ts`, bottom bar + Overview chat); activity log, fix/issue detail, store-agent chat, tests card, personalize decisions, onboarding PR/live steps, readiness loading, dashboards and traffic asks follow their own status. Removed the unused `components/mascot/logo.tsx`, the PNG logo marks and the layout `icons` override (main's `app/icon.svg` + `apple-icon.png` already serve the crowned logo). Open: poses ride polling, so a flash can be missed.
 - **2026-09-26 17:55 UTC — merge main into #68 (mascot pack).** Main already renders the same `public/mascots` pack through `components/mascots` + `components/dw/mascot` (API `kind`/`size`/`frame`/`active`/`state`/`flash`), so every conflicted screen keeps main's version (redesigned pages, live shoppers, crew names, sample-data switch, ModeSwitch, polling gates, #65 top bar, Inbox/watch strip) and main's calmer idle SVGs. Kept from #68: the pose logic `lib/mascot/state.ts` (+ tests), `CrewFace`, `DarwinLogo`, the favicon/apple-touch logo marks, and phase-driven poses in the classic console's loop ring and stage panel (now on main's Mascot). Dropped #68's second `components/mascot/mascot.tsx`. Open: wire `crewMascotState` into the cream screens' crew faces.
 - **2026-09-26 15:56 UTC — animated mascots.** Final pack in `public/mascots` (not in the JS bundle). Darwin is the red crowned leader; observer / analyst / designer / experimenter / shipper keep their shapes. Poses follow the loop, autopilot, and Ask Darwin (thinking → brief success or error → idle). Tap plays the 1.4s reaction and does not follow a parent link. Header chrome untouched (logo mark only). Still open: flat card silhouettes, official buyer-brand glyphs, purple/penguin leader alternates not shipped, `src/lib/status/roadmap.ts` still not in the tree.
 - **2026-09-26 17:40 UTC — merge #65 (console header) into main.** Kept main's bar (crew-mascot nav pill, StoreChip, Darwin's yellow Running/Paused, Live switch, ⌘K pill) and took #65's one account menu: the ⋯ More button is gone, the avatar opens a menu with the account email, demo-store status, the in-browser demo switch (?mock=1, kept across console links), Demo store, Inbox, the other tools and Settings; "(demo data)" left the autopilot button. Dropped from #65: moving Personalize/Traffic simulators and toggles into a page ⋯ menu (main's page headers kept, `dw/overflow.tsx` removed) and the Dashboards header change. Kept: classic mission control's trimmed bar, no Tavily chip on Research, `DemoBadge` reduced to `useDemoStatus()`.
