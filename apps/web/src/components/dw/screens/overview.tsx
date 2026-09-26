@@ -21,7 +21,7 @@ import { cn } from "@/components/ui/cn";
 import { agentBoard, agentShopper, chartPoints, pctSmart, peopleFromEvents, projectIfShipped, testView, type Shopper } from "../overview/model";
 import { LiveShoppers } from "../overview/shoppers";
 import { WatchButton, WatchRail, useWatchRun } from "../overview/watch";
-import { FirstRun, useFirstRun } from "../first-run";
+import { FirstRun, useDemoStoreVisitors, useFirstRun } from "../first-run";
 
 /** The demo store the loop runs on (the PageSpec storefront at /store). */
 const STORE = "PACE";
@@ -77,12 +77,13 @@ export function OverviewScreen() {
   const run = () => void setAutopilot(true);
   const watch = useWatchRun();
   // Nothing connected, nothing seen, nothing running: show what Darwin will do instead of a pile of zeros.
-  const firstRun = useFirstRun(summary?.overall.visitors);
+  const firstRun = useFirstRun();
+  const demoVisitors = useDemoStoreVisitors();
 
   /* the one-line lede, from real numbers */
   const live = loop?.history.at(-1);
   // Gen 0 before anyone visited has a 0% "rate" with no sample behind it: say nothing rather than 0.0%.
-  const seen = Boolean(summary?.overall.visitors || live?.humanVisitors || live?.agentVisitors || (loop?.history.length ?? 0) > 1);
+  const seen = Boolean(demoVisitors || live?.humanVisitors || live?.agentVisitors || (loop?.history.length ?? 0) > 1);
   const rate = seen ? (live?.overallConversionRate ?? (summary?.overall.visitors ? summary.overall.conversionRate : undefined)) : undefined;
   const hello = now ? `${greeting(new Date(now).getHours())}${firstName ? `, ${firstName}` : ""}` : undefined;
   const outcome = firstRun ? undefined : outcomeHeadline(loop);
@@ -133,7 +134,7 @@ export function OverviewScreen() {
       {/* Desktop: the outcome and "Watch Darwin fix it" share row 1; the greeting + lede (or the live rail) is row 2. */}
       <header className="grid grid-cols-1 gap-2.5 px-1 pt-1.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-5 lg:gap-y-1 lg:pt-0">
         <motion.h1
-          className="min-h-[1.05em] text-[34px] leading-[1.05] font-semibold tracking-[-0.03em] sm:text-[44px] lg:col-start-1 lg:row-start-1 lg:truncate lg:text-[38px]"
+          className="min-h-[1.05em] text-[34px] leading-[1.05] font-semibold tracking-[-0.03em] sm:text-[44px] lg:col-start-1 lg:row-start-1 lg:whitespace-nowrap lg:text-[38px]"
           initial={reduce ? false : { opacity: 0, y: 10 }}
           animate={now ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
           transition={{ duration: 0.5, ease: EASE }}

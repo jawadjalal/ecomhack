@@ -14,7 +14,7 @@ import http, { type IncomingMessage } from "node:http";
 import https from "node:https";
 import { isIP, type LookupFunction } from "node:net";
 import { pipeline, type Readable } from "node:stream";
-import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
+import { constants, createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import type { Fetched } from "./checks";
 
 export const USER_AGENT = "Mozilla/5.0 (compatible; DarwinReadiness/1.0; +https://github.com/jawadjalal/ecomhack)";
@@ -169,10 +169,20 @@ export function pinnedLookup(address: string, family: 4 | 6): LookupFunction {
   };
 }
 
+/** Lenient like fetch: an empty or truncated compressed body decodes to what's there instead of failing. */
+const ZLIB_LENIENT = { flush: constants.Z_SYNC_FLUSH, finishFlush: constants.Z_SYNC_FLUSH };
+const BROTLI_LENIENT = { flush: constants.BROTLI_OPERATION_FLUSH, finishFlush: constants.BROTLI_OPERATION_FLUSH };
+
 function decoded(res: IncomingMessage): Readable {
   const encoding = String(res.headers["content-encoding"] ?? "").trim().toLowerCase();
   const unzip =
-    encoding === "gzip" || encoding === "x-gzip" ? createGunzip() : encoding === "deflate" ? createInflate() : encoding === "br" ? createBrotliDecompress() : null;
+    encoding === "gzip" || encoding === "x-gzip"
+      ? createGunzip(ZLIB_LENIENT)
+      : encoding === "deflate"
+        ? createInflate(ZLIB_LENIENT)
+        : encoding === "br"
+          ? createBrotliDecompress(BROTLI_LENIENT)
+          : null;
   if (!unzip) return res;
   return pipeline(res, unzip, () => undefined);
 }

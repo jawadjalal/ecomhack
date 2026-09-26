@@ -116,12 +116,16 @@ export function ImpactStrip({ loop, experiments, simulated }: { loop?: LoopState
                   {extra >= 0 ? "+" : "−"}
                   <CountUp value={Math.abs(extra)} format="int" /> buyers per 1,000 visitors
                 </span>
-                <span className="text-[13.5px] leading-snug text-dw-ink/65 lg:truncate lg:text-[13px]">
-                  since Darwin started: {pctSmart(before.overallConversionRate)} → {pctSmart(now.overallConversionRate)} of shoppers buy (
-                  <span className={cn("font-semibold", extra >= 0 ? "text-dw-win" : "text-dw-warn")}>
-                    {liftText(before.overallConversionRate > 0 ? now.overallConversionRate / before.overallConversionRate - 1 : undefined)}
+                {/* The "simulated" label never truncates: only the sentence before it may. */}
+                <span className="flex min-w-0 items-baseline gap-1 text-[13.5px] leading-snug text-dw-ink/65 lg:text-[13px]">
+                  <span className="min-w-0 lg:truncate" title="Share of shoppers who buy: Gen 0 → now">
+                    {pctSmart(before.overallConversionRate)} → {pctSmart(now.overallConversionRate)} buy since Darwin (<span className="sr-only">change: </span>
+                    <span className={cn("font-semibold", extra >= 0 ? "text-dw-win" : "text-dw-warn")}>
+                      {liftText(before.overallConversionRate > 0 ? now.overallConversionRate / before.overallConversionRate - 1 : undefined)}
+                    </span>
+                    )
                   </span>
-                  ){simulated && <span className="text-dw-ink/45"> · simulated shoppers</span>}
+                  {simulated && <span className="shrink-0 whitespace-nowrap text-dw-ink/45">· simulated</span>}
                 </span>
               </>
             ) : (

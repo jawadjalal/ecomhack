@@ -95,6 +95,8 @@ describe("fetcher: pinned connections", () => {
         res.writeHead(301, { location: "/done" }).end();
       } else if (req.url === "/gz") {
         res.writeHead(200, { "content-type": "text/html", "content-encoding": "gzip" }).end(gzipSync("<h1>zipped</h1>"));
+      } else if (req.url === "/gz-empty") {
+        res.writeHead(200, { "content-type": "text/html", "content-encoding": "gzip" }).end();
       } else {
         res.writeHead(200, { "content-type": "text/plain" }).end(`pinned ${req.url}`);
       }
@@ -142,9 +144,10 @@ describe("fetcher: pinned connections", () => {
   });
 
   it("decodes compressed bodies and returns headers", async () => {
-    dns.answers.set("shop.test", ["127.0.0.1"]);
+    dns.answers.set("shop.test", ["127.0.0.1", "127.0.0.1"]);
     const res = await safeFetch(`http://shop.test:${port}/gz`);
     expect(res.body).toBe("<h1>zipped</h1>");
     expect(res.headers["content-type"]).toBe("text/html");
+    expect(await safeFetch(`http://shop.test:${port}/gz-empty`)).toMatchObject({ status: 200, body: "" });
   });
 });

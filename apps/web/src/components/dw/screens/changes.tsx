@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { ArrowRight } from "lucide-react";
 import { useSWRConfig } from "swr";
 import { pct, signedPct } from "@/lib/console/format";
 import { useExperiments, useGithubStatus, useLoop, useNow } from "@/lib/console/hooks";
@@ -137,7 +138,8 @@ export function ChangesScreen() {
       )}
       {!live && (
         <PillButton tone={running ? "ink" : "sand"} size="lg" href="/onboarding">
-          <BrandGlyph brand="github" /> Also open pull requests
+          <BrandGlyph brand="github" /> Connect GitHub to open real pull requests
+          <ArrowRight aria-hidden />
         </PillButton>
       )}
     </>

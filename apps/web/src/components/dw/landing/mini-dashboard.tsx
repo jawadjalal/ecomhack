@@ -593,7 +593,10 @@ function StripShoppers({ sessions }: { sessions: AgentSessionSummary[] }) {
               className="flex h-[62px] items-center gap-3 rounded-[18px] bg-white/60 px-3"
             >
               <ShopperMark name={s.agentName} size={38} />
-              <Row s={s} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[13.5px] font-semibold">{s.agentName}</span>
+                <span className="truncate text-[12px] text-dw-ink/70">{statusLine(s)}</span>
+              </span>
               <Outcome s={s} />
             </motion.li>
           ))}

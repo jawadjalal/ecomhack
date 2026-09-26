@@ -96,12 +96,13 @@ export function UpliftCards({ up, synthetic, shipped }: { up: Up; synthetic: boo
           <span className="pb-0.5 text-[14px] leading-snug text-[#4F4417]">buyers per 1,000 visitors, from the same traffic</span>
         </div>
         <div className="flex flex-wrap gap-2 text-[13px]">
+          {/* Each audience against its own 1,000: agents convert far more often, so their per-1,000 gain is big (e.g. 33% → 86% = +529). */}
           {[
-            ["People", up.human.per1000],
+            ["people", up.human.per1000],
             ["AI agents", up.agent.per1000],
           ].map(([label, v]) => (
-            <span key={label as string} className="inline-flex items-center gap-2 rounded-full bg-white/50 px-3 py-1.5">
-              {label} <b className="num font-semibold">{perK(v as number)}</b>
+            <span key={label as string} className="inline-flex items-center gap-1.5 rounded-full bg-white/50 px-3 py-1.5">
+              <b className="num font-semibold">{perK(v as number)}</b> buyers per 1,000 {label}
             </span>
           ))}
         </div>

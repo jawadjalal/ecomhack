@@ -133,15 +133,17 @@ export function useWatchRun() {
     setRunning(true);
     if (!trafficOn) setTrafficOn(true);
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const startLen = loopRef.current?.log.length ?? 0;
     let steps = 0;
     await wait(250);
     while (run.current === id && steps < MAX_STEPS) {
-      await step();
+      await step(); // no-op if another step (autopilot) is in flight; the loop below still bounds the run
       steps += 1;
       await wait(120); // let the returned state render (and toast) before judging it
       if (run.current !== id) return;
-      const phase = loopRef.current?.phase;
-      if (phase === "ship" || phase === "idle") break;
+      const now = loopRef.current;
+      const moved = (now?.log.length ?? 0) > startLen;
+      if (moved && (now?.phase === "ship" || now?.phase === "idle")) break;
       await wait(GAP_MS);
     }
     if (run.current === id) setRunning(false);

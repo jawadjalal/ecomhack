@@ -35,6 +35,7 @@
  */
 import type { AnalyticsEventInput, EventProperties, PageSpec, ShoppingGoal } from "@/lib/contracts";
 import { PRODUCTS, SHIPPING_FEE, type Product } from "@/lib/catalog/products";
+import { PROCEED_ANYWAY } from "@/lib/agent-commerce";
 import { SHOE_SIZES, shippingFor } from "./behavior-model";
 import { placeSession, type SimClock } from "./clock";
 import { createRng, deriveSeed, type Rng } from "./rng";
@@ -77,12 +78,15 @@ export function agentApproval(agentName: string): number {
 
 export type AgentField = "deliveryEtaDays" | "returnPolicy" | "sizes" | "landedPrice";
 
-/** P(agent proceeds on an assumption when a field it needs is hidden). Low: agents are literal. */
+/**
+ * P(agent proceeds on an assumption when a field it needs is hidden). Low: agents are literal.
+ * Mirrors the real buyer policy's `PROCEED_ANYWAY` (agent-commerce), so both drivers gamble alike.
+ */
 export const AGENT_LENIENCY: Record<AgentField, number> = {
-  deliveryEtaDays: 0.2,
-  returnPolicy: 0.2,
-  sizes: 0.35,
-  landedPrice: 0.3,
+  deliveryEtaDays: PROCEED_ANYWAY.deliveryEtaDays,
+  returnPolicy: PROCEED_ANYWAY.returnPolicy,
+  sizes: PROCEED_ANYWAY.stock,
+  landedPrice: PROCEED_ANYWAY.landedPrice,
 };
 
 /** Human-readable abandon reasons for a hidden field. */

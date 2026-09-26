@@ -83,16 +83,20 @@ function siteName(site: string) {
 
 const PER_SITE = ["/console/dashboards", "/console/personalize"];
 
-/** The header chip: which store this page shows, and a way to connect yours. */
-export function StoreChip() {
+/**
+ * The header chip: which store this page shows, and a way to connect yours. `pill` sits with the header
+ * buttons from 640px up; `bar` is its phone twin, a slim full-width row under the header (a grid child
+ * spanning both columns), because the phone header has no room left for another pill.
+ */
+export function StoreChip({ variant = "pill" }: { variant?: "pill" | "bar" }) {
   return (
     <Suspense fallback={null}>
-      <Chip />
+      <Chip variant={variant} />
     </Suspense>
   );
 }
 
-function Chip() {
+function Chip({ variant }: { variant: "pill" | "bar" }) {
   const path = usePathname() ?? "";
   const params = useSearchParams();
   const store = useStoreContext();
@@ -134,37 +138,65 @@ function Chip() {
     short = "Demo";
   }
   const isDemo = short === "Demo";
+  const aria = `Store: ${label}. ${isDemo ? "Connect your store" : "Store details"}`;
+  const panel = open && <Panel store={store} shownSite={shownSite} mine={mine} onClose={() => setOpen(false)} className={variant === "bar" ? "top-full right-0 left-0 mt-2" : "top-[52px] right-0 w-[22rem]"} />;
+
+  if (variant === "bar") {
+    return (
+      <div ref={ref} className="relative col-span-2 -mt-0.5 min-w-0 sm:hidden">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={aria}
+          onClick={() => setOpen((o) => !o)}
+          className="flex h-8 w-full min-w-0 items-center gap-2 rounded-full border border-dashed border-dw-ink/25 px-3 text-left text-[13px] text-dw-ink/75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
+        >
+          {icon}
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-medium text-dw-ink">{label}</span>
+            {isDemo && !store.connected ? " · simulated shoppers" : ""}
+          </span>
+          <span className="shrink-0 font-medium text-dw-ink">{isDemo && !store.connected ? "Connect yours" : "Details"}</span>
+          <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} aria-hidden />
+        </button>
+        {panel}
+      </div>
+    );
+  }
 
   return (
-    <div ref={ref} className="relative min-w-0">
+    <div ref={ref} className="relative min-w-0 max-sm:hidden">
       <button
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`Store: ${label}. ${isDemo ? "Connect your store" : "Store details"}`}
+        aria-label={aria}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex h-11 max-w-[16rem] min-w-0 items-center gap-2 rounded-full px-4 text-[14.5px] font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink max-sm:h-9 max-sm:max-w-[6.5rem] max-sm:gap-1.5 max-sm:px-3 max-sm:text-[13px]",
+          "flex h-11 max-w-[16rem] min-w-0 items-center gap-2 rounded-full px-4 text-[14.5px] font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink max-lg:max-w-[12rem]",
           isDemo ? "border border-dashed border-dw-ink/35 text-dw-ink/80 hover:border-dw-ink/60 hover:text-dw-ink" : "bg-dw-sand text-dw-ink hover:bg-[#e4dccb]",
         )}
       >
         {icon}
-        <span className="truncate max-sm:hidden">{label}</span>
-        <span className="truncate sm:hidden">{short}</span>
-        <ChevronDown className={cn("size-3.5 shrink-0 transition-transform max-sm:hidden", open && "rotate-180")} aria-hidden />
+        <span className="truncate">{label}</span>
+        <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
-      {open && <Panel store={store} shownSite={shownSite} mine={mine} onClose={() => setOpen(false)} />}
+      {panel}
     </div>
   );
 }
 
-function Panel({ store, shownSite, mine, onClose }: { store: StoreContext; shownSite?: string; mine: boolean; onClose: () => void }) {
+function Panel({ store, shownSite, mine, onClose, className }: { store: StoreContext; shownSite?: string; mine: boolean; onClose: () => void; className: string }) {
   const siteQ = store.site ? `?site=${encodeURIComponent(store.site)}` : "";
   return (
     <div
       role="dialog"
       aria-label="Which store Darwin is showing"
-      className="absolute top-[52px] right-0 z-50 flex w-[22rem] flex-col gap-3 rounded-[22px] border border-dw-hairline bg-dw-surface p-4 text-[14px] leading-snug shadow-[0_24px_60px_-20px_rgba(20,20,19,0.35)] max-sm:fixed max-sm:inset-x-4 max-sm:top-16 max-sm:w-auto"
+      className={cn(
+        "absolute z-50 flex flex-col gap-3 rounded-[22px] border border-dw-hairline bg-dw-surface p-4 text-[14px] leading-snug shadow-[0_24px_60px_-20px_rgba(20,20,19,0.35)]",
+        className,
+      )}
     >
       {shownSite && (mine || shownSite !== DEMO_WEB_SITE) ? (
         <div className="flex items-start gap-3">

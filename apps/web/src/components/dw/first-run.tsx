@@ -8,6 +8,7 @@
 import { ArrowUpRight, Play } from "lucide-react";
 import Link from "next/link";
 import type { LoopState } from "@/lib/contracts";
+import { useSummary } from "@/lib/console/hooks";
 import { cn } from "@/components/ui/cn";
 import { Mascot, type MascotKind } from "./mascot";
 import { useDarwin } from "./provider";
@@ -27,9 +28,20 @@ export function loopIsFresh(loop: LoopState | undefined): boolean {
   );
 }
 
+/**
+ * Visitors the demo store's live page has had (events tagged with its spec version). The unfiltered summary
+ * also counts other sites' darwin.js events (e.g. the North Trail preview), which say nothing about PACE.
+ */
+export function useDemoStoreVisitors(): number | undefined {
+  const { loop } = useDarwin();
+  const { summary } = useSummary(loop ? { specVersion: loop.liveSpec.version } : null, 5000);
+  return summary?.overall.visitors;
+}
+
 /** True while the console has nothing to show and nothing is running (the Overview shows <FirstRun />). */
-export function useFirstRun(visitors: number | undefined): boolean {
+export function useFirstRun(): boolean {
   const { loop, autopilot, trafficOn, mock } = useDarwin();
+  const visitors = useDemoStoreVisitors();
   return !mock && !autopilot && !trafficOn && loopIsFresh(loop) && visitors === 0;
 }
 
