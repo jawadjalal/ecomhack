@@ -40,9 +40,9 @@ export function Providers({ spec, children }: { spec: PageSpec; children: ReactN
   const [ready, setReady] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    window.__rackdSpec = { version: spec.version, label: spec.label };
-  }, [spec.version, spec.label]);
+  // Set during render (not in an effect): child effects such as <TrackView> run before a parent's
+  // effects, and their first event must already say which config the shopper saw.
+  if (typeof window !== "undefined") window.__rackdSpec = { version: spec.version, label: spec.label };
 
   useEffect(() => {
     try {
