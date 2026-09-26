@@ -17,7 +17,7 @@ describe("extractJson", () => {
 describe("provider selection", () => {
   afterEach(() => vi.unstubAllEnvs());
   const clear = () => {
-    for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "OPENROUTER_MODEL", "XAI_MODEL"]) vi.stubEnv(k, "");
+    for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "OPENROUTER_MODEL", "XAI_MODEL"]) vi.stubEnv(k, "");
   };
 
   it("falls back to heuristics with no keys", () => {
@@ -75,7 +75,7 @@ describe("xAI → OpenRouter fallback", () => {
     Response.json({ id: "c1", object: "chat.completion", created: 1, model, choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content } }] });
 
   function setup(withOpenRouter: boolean) {
-    for (const k of ["LLM_PROVIDER", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
+    for (const k of ["LLM_PROVIDER", "APINEX_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
     vi.stubEnv("XAI_API_KEY", "xai-test");
     vi.stubEnv("XAI_MODEL", "grok-test");
     vi.stubEnv("OPENROUTER_API_KEY", withOpenRouter ? "or-test" : "");
@@ -118,5 +118,36 @@ describe("xAI → OpenRouter fallback", () => {
     vi.stubGlobal("fetch", async () => completion("grok-test", "hi from grok"));
     expect(await generateText({ system: "sys", prompt: "hi" })).toBe("hi from grok");
     expect(String(info.mock.calls[0][0])).toMatch(/^\[llm\] xai grok-test answered in \d+ms$/);
+  });
+});
+
+describe("Apinex", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("is picked from APINEX_API_KEY, runs free/gpt-6-luna, and falls back to OpenRouter on a billing error", async () => {
+    for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
+    vi.stubEnv("APINEX_API_KEY", "apx-test");
+    vi.stubEnv("OPENROUTER_API_KEY", "or-test");
+    expect(llmProvider()).toBe("apinex");
+    expect(llmLabel()).toBe("llm:free/gpt-6-luna");
+
+    const calls: { url: string; auth: string | null; model: string }[] = [];
+    vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input);
+      calls.push({ url, auth: new Headers(init?.headers).get("authorization"), model: JSON.parse(String(init?.body ?? "{}")).model });
+      if (url.startsWith("https://api.apinex.bond/")) return Response.json({ error: { message: "Daily check-in required to use free models.", type: "billing_error" } }, { status: 402 });
+      return Response.json({ id: "c1", object: "chat.completion", created: 1, model: "deepseek/deepseek-chat", choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "from openrouter" } }] });
+    });
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await generateText({ system: "sys", prompt: "hi" })).toBe("from openrouter");
+    expect(calls[0]).toMatchObject({ url: "https://api.apinex.bond/v1/chat/completions", auth: "Bearer apx-test", model: "free/gpt-6-luna" });
+    expect(calls[1].url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(String(info.mock.calls[0][0])).toMatch(/\(fallback after apinex failed\)$/);
   });
 });
