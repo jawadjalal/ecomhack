@@ -203,7 +203,7 @@ export async function researchCompetitors(
   set("summarise", {
     status: "running",
     detail: llmAvailable()
-      ? `Asking ${llmLabel()}`
+      ? "Asking Darwin's AI"
       : "Heuristic summary (no LLM key)",
   });
   let summarizer = "heuristic";
@@ -388,7 +388,7 @@ export async function askResearch(input: AskInput): Promise<ResearchReport> {
     cited = sources.slice(0, 4).map((s) => s.url);
     set("summarise", {
       status: "running",
-      detail: llmAvailable() ? `Asking ${llmLabel()}` : "Heuristic answer",
+      detail: llmAvailable() ? "Asking Darwin's AI" : "Heuristic answer",
     });
     if (llmAvailable() && sources.length) {
       try {
