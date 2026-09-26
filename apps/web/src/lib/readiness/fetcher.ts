@@ -2,11 +2,19 @@
  * Fetching arbitrary merchant URLs safely: http(s) only, no private or link-local addresses
  * (checked on every redirect hop), timeouts and a response size cap.
  *
+ * Every address form is normalised before the check (IPv6 that embeds an IPv4 address, such as
+ * ::ffff:7f00:1, NAT64 or 6to4, is checked as that IPv4), and each connection is pinned to the
+ * address we vetted, so a second DNS answer can't swap in another host (DNS rebinding).
+ *
  * Loopback (localhost) is allowed outside Vercel so a local demo can audit its own /store;
  * set DARWIN_READINESS_ALLOW_LOCAL=0 to turn that off.
  */
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import http, { type IncomingMessage } from "node:http";
+import https from "node:https";
+import { isIP, type LookupFunction } from "node:net";
+import { pipeline, type Readable } from "node:stream";
+import { constants, createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import type { Fetched } from "./checks";
 
 export const USER_AGENT =
@@ -33,8 +41,12 @@ const PRIVATE_V4 = [
   "169.254.0.0/16",
   "172.16.0.0/12",
   "192.0.0.0/24",
+  "192.0.2.0/24",
+  "192.88.99.0/24",
   "192.168.0.0/16",
   "198.18.0.0/15",
+  "198.51.100.0/24",
+  "203.0.113.0/24",
   "224.0.0.0/4",
   "240.0.0.0/4",
 ];
@@ -45,83 +57,91 @@ function allowLoopback(): boolean {
   );
 }
 
-function v4Reason(v4: string): string | null {
-  if (inRange(v4, "127.0.0.0/8"))
-    return allowLoopback() ? null : "loopback address";
-  return PRIVATE_V4.some((c) => inRange(v4, c))
-    ? "private or reserved address"
-    : null;
-}
-
-/** Expand an IPv6 address (any notation, incl. a dotted IPv4 tail and a zone id) to 8 hextets, or null. */
-export function expandIpv6(ip: string): number[] | null {
-  let s = ip
-    .toLowerCase()
-    .replace(/^\[|\]$/g, "")
-    .replace(/%.*$/, "");
-  const dotted = s.match(/(\d+\.\d+\.\d+\.\d+)$/);
+/** The eight 16-bit groups of an IPv6 address (zone id dropped, trailing dotted IPv4 allowed), or null. */
+function ipv6Groups(ip: string): number[] | null {
+  let s = ip.toLowerCase().replace(/^\[|\]$/g, "").split("%")[0];
+  const dotted = s.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
   if (dotted) {
-    if (isIP(dotted[1]) !== 4) return null;
-    const n = ipv4ToInt(dotted[1]);
-    s = `${s.slice(0, -dotted[1].length)}${(n >>> 16).toString(16)}:${(n & 0xffff).toString(16)}`;
+    if (isIP(dotted[2]) !== 4) return null;
+    const n = ipv4ToInt(dotted[2]);
+    s = `${dotted[1]}${(n >>> 16).toString(16)}:${(n & 0xffff).toString(16)}`;
   }
   const halves = s.split("::");
   if (halves.length > 2) return null;
-  const part = (x: string) => (x ? x.split(":") : []);
-  const head = part(halves[0]);
-  const tail = halves.length === 2 ? part(halves[1]) : [];
-  const fill = 8 - head.length - tail.length;
-  if (halves.length === 2 ? fill < 1 : fill !== 0) return null;
-  const all = [...head, ...Array(Math.max(0, fill)).fill("0"), ...tail];
-  if (all.length !== 8 || !all.every((h) => /^[0-9a-f]{1,4}$/.test(h)))
-    return null;
-  return all.map((h) => parseInt(h, 16));
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const gap = 8 - head.length - tail.length;
+  if (halves.length === 2 ? gap < 1 : gap !== 0) return null;
+  const groups = [...head, ...Array<string>(halves.length === 2 ? gap : 0).fill("0"), ...tail];
+  if (groups.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return null;
+  return groups.map((g) => parseInt(g, 16));
 }
 
-const hextetsToV4 = (hi: number, lo: number) =>
-  [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join(".");
-
 /**
- * Why an address may not be fetched, or null when it's public. IPv6 forms that embed an IPv4 address
- * (mapped `::ffff:a.b.c.d` in any notation, compatible `::a.b.c.d`, translated, NAT64 `64:ff9b::/96`, 6to4
- * `2002::/16`) are judged by the IPv4 address they carry, so `[::ffff:169.254.169.254]` (which the URL parser
- * rewrites to `::ffff:a9fe:a9fe`) is blocked like the plain address.
+ * The IPv4 address an IPv6 address carries, or null: IPv4-mapped (::ffff:a.b.c.d), IPv4-translated
+ * (::ffff:0:a.b.c.d), IPv4-compatible (::a.b.c.d), NAT64 (64:ff9b::/96) and 6to4 (2002::/16).
  */
-export function blockedReason(ip: string): string | null {
-  if (isIP(ip) === 4) return v4Reason(ip);
-  const h = expandIpv6(ip);
-  if (!h) return "unrecognised address";
-  const zeros = (from: number, to: number) =>
-    h.slice(from, to).every((x) => x === 0);
-  if (zeros(0, 8)) return "private or reserved address"; // ::
-  if (zeros(0, 7) && h[7] === 1)
-    return allowLoopback() ? null : "loopback address"; // ::1
-  // IPv4-mapped ::ffff:0:0/96, IPv4-compatible ::/96, IPv4-translated ::ffff:0:0:0/96
-  if (zeros(0, 5) && (h[5] === 0xffff || h[5] === 0))
-    return v4Reason(hextetsToV4(h[6], h[7]));
-  if (zeros(0, 4) && h[4] === 0xffff && h[5] === 0)
-    return v4Reason(hextetsToV4(h[6], h[7]));
-  // NAT64 64:ff9b::/96 and 64:ff9b:1::/48
-  if (h[0] === 0x64 && h[1] === 0xff9b)
-    return (
-      v4Reason(hextetsToV4(h[6], h[7])) ??
-      (h[2] === 1 ? "private or reserved address" : null)
-    );
-  // 6to4 2002::/16 carries the IPv4 address in the next 32 bits
-  if (h[0] === 0x2002) return v4Reason(hextetsToV4(h[1], h[2]));
-  // Teredo 2001::/32 (obfuscated IPv4), unique-local fc00::/7, link-local fe80::/10, site-local fec0::/10, multicast ff00::/8
-  if (h[0] === 0x2001 && h[1] === 0) return "private or reserved address";
-  if (
-    (h[0] & 0xfe00) === 0xfc00 ||
-    (h[0] & 0xffc0) === 0xfe80 ||
-    (h[0] & 0xffc0) === 0xfec0 ||
-    (h[0] & 0xff00) === 0xff00
-  )
-    return "private or reserved address";
+export function embeddedIPv4(ip: string): string | null {
+  const g = ipv6Groups(ip);
+  if (!g) return null;
+  const v4 = (hi: number, lo: number) => [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join(".");
+  const zero = (from: number, to: number) => g.slice(from, to).every((x) => x === 0);
+  if (zero(0, 5) && g[5] === 0xffff) return v4(g[6], g[7]);
+  if (zero(0, 4) && g[4] === 0xffff && g[5] === 0) return v4(g[6], g[7]);
+  if (zero(0, 6) && (g[6] !== 0 || g[7] > 1)) return v4(g[6], g[7]); // not :: or ::1, handled as IPv6
+  if (g[0] === 0x64 && g[1] === 0xff9b && zero(2, 6)) return v4(g[6], g[7]);
+  if (g[0] === 0x2002) return v4(g[1], g[2]);
   return null;
 }
 
-export async function assertPublicUrl(raw: string): Promise<URL> {
+/** Other spellings of an IPv4 address ("2130706433", "0x7f.1", "0177.0.0.1") as a.b.c.d, or null. */
+function looseIPv4(s: string): string | null {
+  try {
+    const host = new URL(`http://${s}/`).hostname;
+    return isIP(host) === 4 ? host : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Why an address may not be fetched, or null when it's public. */
+export function blockedReason(ip: string): string | null {
+  const addr = ip.trim().replace(/^\[|\]$/g, "");
+  if (isIP(addr.split("%")[0]) === 6) {
+    const mapped = embeddedIPv4(addr);
+    if (mapped) return blockedReason(mapped);
+    const g = ipv6Groups(addr);
+    if (!g) return "malformed address";
+    if (g.every((x) => x === 0)) return "private or reserved address"; // ::
+    if (g.slice(0, 7).every((x) => x === 0) && g[7] === 1) return allowLoopback() ? null : "loopback address";
+    if (
+      (g[0] & 0xfe00) === 0xfc00 || // fc00::/7 unique local
+      (g[0] & 0xffc0) === 0xfe80 || // fe80::/10 link-local
+      (g[0] & 0xffc0) === 0xfec0 || // fec0::/10 site-local (deprecated)
+      (g[0] & 0xff00) === 0xff00 || // ff00::/8 multicast
+      (g[0] === 0x2001 && g[1] === 0) || // 2001::/32 Teredo (tunnels to an obfuscated IPv4)
+      (g[0] === 0x2001 && g[1] === 0xdb8) || // 2001:db8::/32 documentation
+      (g[0] === 0x64 && g[1] === 0xff9b && g[2] === 1) || // 64:ff9b:1::/48 local-use NAT64
+      (g[0] === 0x100 && g[1] === 0 && g[2] === 0 && g[3] === 0) // 100::/64 discard
+    ) {
+      return "private or reserved address";
+    }
+    return null;
+  }
+  const v4 = isIP(addr) === 4 ? addr : looseIPv4(addr);
+  if (!v4) return "malformed address";
+  if (inRange(v4, "127.0.0.0/8")) return allowLoopback() ? null : "loopback address";
+  return PRIVATE_V4.some((c) => inRange(v4, c)) ? "private or reserved address" : null;
+}
+
+/** A URL that passed the checks, and the one address it may be fetched from. */
+interface Vetted {
+  url: URL;
+  address: string;
+  family: 4 | 6;
+}
+
+async function vetUrl(raw: string): Promise<Vetted> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -144,66 +164,109 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
         `${host} points to a ${why}, which can't be checked.`,
       );
   }
-  return url;
+  return { url, address: addresses[0], family: isIP(addresses[0]) === 6 ? 6 : 4 };
 }
 
-async function readCapped(res: Response): Promise<string> {
-  if (!res.body) return "";
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
+export async function assertPublicUrl(raw: string): Promise<URL> {
+  return (await vetUrl(raw)).url;
+}
+
+/** A DNS lookup that always answers with the address we already vetted: the socket connects there and nowhere else. */
+export function pinnedLookup(address: string, family: 4 | 6): LookupFunction {
+  return (_hostname, options, callback) => {
+    if (options?.all) callback(null, [{ address, family }]);
+    else callback(null, address, family);
+  };
+}
+
+/** Lenient like fetch: an empty or truncated compressed body decodes to what's there instead of failing. */
+const ZLIB_LENIENT = { flush: constants.Z_SYNC_FLUSH, finishFlush: constants.Z_SYNC_FLUSH };
+const BROTLI_LENIENT = { flush: constants.BROTLI_OPERATION_FLUSH, finishFlush: constants.BROTLI_OPERATION_FLUSH };
+
+function decoded(res: IncomingMessage): Readable {
+  const encoding = String(res.headers["content-encoding"] ?? "").trim().toLowerCase();
+  const unzip =
+    encoding === "gzip" || encoding === "x-gzip"
+      ? createGunzip(ZLIB_LENIENT)
+      : encoding === "deflate"
+        ? createInflate(ZLIB_LENIENT)
+        : encoding === "br"
+          ? createBrotliDecompress(BROTLI_LENIENT)
+          : null;
+  if (!unzip) return res;
+  return pipeline(res, unzip, () => undefined);
+}
+
+async function readCapped(body: Readable): Promise<string> {
+  const chunks: Buffer[] = [];
   let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_BYTES) {
-      await reader.cancel().catch(() => undefined);
-      break;
-    }
-    chunks.push(value);
+  for await (const chunk of body) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+    size += buf.byteLength;
+    if (size > MAX_BYTES) break; // leaving the loop destroys the stream
+    chunks.push(buf);
   }
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
-/** GET (or POST) a public URL, following redirects manually so every hop is re-checked. Never throws. */
-export async function safeFetch(
-  raw: string,
-  init: {
-    method?: "GET" | "POST" | "DELETE";
-    body?: string;
-    headers?: Record<string, string>;
-    timeoutMs?: number;
-  } = {},
-): Promise<Fetched> {
-  let current = raw;
-  try {
-    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      const url = await assertPublicUrl(current);
-      const res = await fetch(url, {
+interface FetchInit {
+  method?: "GET" | "POST" | "DELETE";
+  body?: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+/** One request, connected only to the vetted address (no pooled sockets, no second DNS lookup). */
+function pinnedRequest(target: Vetted, init: FetchInit): Promise<Omit<Fetched, "url">> {
+  const { url, address, family } = target;
+  const signal = AbortSignal.timeout(init.timeoutMs ?? 8000);
+  const client = url.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    const fail = (e: unknown) => reject(signal.aborted ? Object.assign(new Error("timed out"), { name: "TimeoutError" }) : e);
+    const req = client.request(
+      url,
+      {
         method: init.method ?? "GET",
-        body: init.body,
-        redirect: "manual",
         headers: {
           "user-agent": USER_AGENT,
           accept: "text/html,application/json,text/plain;q=0.9,*/*;q=0.5",
+          "accept-encoding": "gzip, deflate, br",
           ...init.headers,
+          ...(init.body !== undefined ? { "content-length": String(Buffer.byteLength(init.body)) } : {}),
         },
-        signal: AbortSignal.timeout(init.timeoutMs ?? 8000),
-      });
-      const location = res.headers.get("location");
-      if (res.status >= 300 && res.status < 400 && location) {
-        await res.body?.cancel().catch(() => undefined);
-        current = new URL(location, url).href;
+        lookup: pinnedLookup(address, family),
+        agent: false,
+        signal,
+      },
+      (res) => {
+        const headers: Record<string, string> = {};
+        for (const [k, v] of Object.entries(res.headers)) if (v !== undefined) headers[k.toLowerCase()] = Array.isArray(v) ? v.join(", ") : v;
+        const status = res.statusCode ?? 0;
+        if (status >= 300 && status < 400 && headers.location) {
+          res.destroy();
+          resolve({ status, headers, body: "" });
+          return;
+        }
+        readCapped(decoded(res)).then((body) => resolve({ status, headers, body }), fail);
+      },
+    );
+    req.on("error", fail);
+    req.end(init.body);
+  });
+}
+
+/** GET (or POST) a public URL, following redirects manually so every hop is re-checked. Never throws. */
+export async function safeFetch(raw: string, init: FetchInit = {}): Promise<Fetched> {
+  let current = raw;
+  try {
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const target = await vetUrl(current);
+      const res = await pinnedRequest(target, init);
+      if (res.status >= 300 && res.status < 400 && res.headers.location) {
+        current = new URL(res.headers.location, target.url).href;
         continue;
       }
-      const headers: Record<string, string> = {};
-      res.headers.forEach((v, k) => (headers[k.toLowerCase()] = v));
-      return {
-        url: url.href,
-        status: res.status,
-        headers,
-        body: await readCapped(res),
-      };
+      return { url: target.url.href, ...res };
     }
     return {
       url: current,
@@ -230,3 +293,6 @@ export async function safeFetch(
     };
   }
 }
+
+/** Full 8-hextet form of an IPv6 address (dotted IPv4 tails included), or null if it isn't one. */
+export const expandIpv6 = ipv6Groups;

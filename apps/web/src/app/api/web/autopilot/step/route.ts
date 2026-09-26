@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { errorResponse, pageOutline, readJson, requestOrigin, SiteSchema, siteUrl, stepAutopilot, webState } from "@/lib/web";
+import { errorResponse, readJson, readSitePage, requestOrigin, SiteSchema, siteUrl, stepAutopilot, webState } from "@/lib/web";
 
 /**
  * POST /api/web/autopilot/step { site } → { state, actions }
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   if (body instanceof Response) return body;
   try {
     const { site } = z.object({ site: SiteSchema }).parse(body);
-    const outline = await pageOutline(siteUrl(site, requestOrigin(req), webState(site).overview.url)); // cached 5 min
+    const outline = await readSitePage(site, siteUrl(site, requestOrigin(req), webState(site).overview.url)); // cached 5 min
     return Response.json(stepAutopilot(site, outline));
   } catch (err) {
     return errorResponse(err);

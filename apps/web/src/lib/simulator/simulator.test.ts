@@ -158,15 +158,16 @@ describe("calibration", () => {
       const base = await measure(null, 20_000, 3_000);
       expect(base.human).toBeGreaterThanOrEqual(0.02);
       expect(base.human).toBeLessThanOrEqual(0.026);
-      // Negotiators carry a budget under list price, so at Gen 0 (no haggling) they walk: ~12–22%.
-      expect(base.agent).toBeGreaterThanOrEqual(0.12);
-      expect(base.agent).toBeLessThanOrEqual(0.22);
+      // Built-in policy. Hidden fields + negotiators with a budget under list price: ~11–20% at Gen 0.
+      expect(base.agent).toBeGreaterThanOrEqual(0.11);
+      expect(base.agent).toBeLessThanOrEqual(0.2);
 
       const best = await measure(bestKnownSpec(), 20_000, 3_000);
       expect(best.human).toBeGreaterThanOrEqual(0.045);
       expect(best.human).toBeLessThanOrEqual(0.055);
-      expect(best.agent).toBeGreaterThanOrEqual(0.55);
-      expect(best.agent).toBeLessThanOrEqual(0.7);
+      // Principals still decline ~40% of finished carts (per-brand approval), so ~38–52%, not ~90%.
+      expect(best.agent).toBeGreaterThanOrEqual(0.38);
+      expect(best.agent).toBeLessThanOrEqual(0.52);
     },
     SLOW,
   );
@@ -183,6 +184,44 @@ describe("calibration", () => {
         if (change.expect === "down") expect(lift, change.name).toBeLessThan(-0.01);
         if (change.expect === "neutral") expect(Math.abs(lift), change.name).toBeLessThan(0.02);
       }
+    },
+    SLOW,
+  );
+
+  it(
+    "default driver (real buyer agent): plausible agent rates at Gen 0 and on the full surface, brands differ",
+    async () => {
+      const brands = () => {
+        const by = new Map<string, { n: Set<string>; buy: Set<string> }>();
+        for (const e of eventStore().all()) {
+          if (e.properties.visitor_kind !== "agent") continue;
+          const row = by.get(String(e.properties.agent_name)) ?? { n: new Set(), buy: new Set() };
+          row.n.add(e.distinct_id);
+          if (e.event === "order_completed") row.buy.add(e.distinct_id);
+          by.set(String(e.properties.agent_name), row);
+        }
+        return new Map([...by].map(([k, r]) => [k, r.buy.size / r.n.size]));
+      };
+      const run = async (spec: PageSpec | null) => {
+        reset();
+        if (spec) promoteSpec(spec, spec.label);
+        await runSimulation({ humans: 0, agents: 1_500, seed: 7 }, { now: NOW });
+        return { agent: getAnalyticsSummary().byKind.agent.conversionRate, brands: brands() };
+      };
+      const gen0 = await run(null);
+      expect(gen0.agent).toBeGreaterThanOrEqual(0.14);
+      expect(gen0.agent).toBeLessThanOrEqual(0.25);
+      const full = await run(bestKnownSpec());
+      expect(full.agent).toBeGreaterThanOrEqual(0.42);
+      expect(full.agent).toBeLessThanOrEqual(0.58);
+      const rates = [...full.brands.values()];
+      expect(Math.max(...rates)).toBeLessThan(0.68);
+      expect(Math.min(...rates)).toBeGreaterThan(0.32);
+      expect(Math.max(...rates) - Math.min(...rates)).toBeGreaterThan(0.05);
+      // Every visit that ends without an order says why, through the real abandon tool.
+      const abandoned = new Set(eventStore().all().filter((e) => e.event === "agent_abandoned").map((e) => e.distinct_id));
+      const bought = new Set(eventStore().all().filter((e) => e.event === "order_completed").map((e) => e.distinct_id));
+      expect(abandoned.size + bought.size).toBe(1_500);
     },
     SLOW,
   );

@@ -12,6 +12,7 @@ import {
   llmProvider,
   llmRouting,
   probeProvider,
+  resetLlmCooldowns,
   resolveProvider,
   runToolLoop,
 } from "./client";
@@ -80,6 +81,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  resetLlmCooldowns();
 });
 
 describe("auto-detect order: xAI → OpenRouter → Anthropic → Apinex", () => {

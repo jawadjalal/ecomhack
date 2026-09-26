@@ -29,7 +29,7 @@ const KIND: Record<BriefingItem["kind"], string> = { loop: "Store page", web: "W
 const MAX_LINES = 5;
 const STEPS = [
   "Every hour, it reads Darwin's briefing.",
-  "If a test is ready or clearly losing, it messages you with one question.",
+  "If a test is ready or clearly losing, it asks you one question.",
   "You answer yes, and it ships or stops the test, then tells you what happened.",
 ];
 
@@ -93,8 +93,8 @@ export function GrokCard({ className }: { className?: string }) {
         <div className="min-w-0 flex-1 pl-2">
           <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Your Grok teammate</h2>
           <p className="mt-1.5 max-w-[42rem] text-[14.5px] leading-snug text-[#5A2342]">
-            A Grok bot reads Darwin every hour and messages you when there&apos;s a call to make, like “your new checkout is winning at 91%: want me to ship it?” Say yes and it
-            ships, through the same API below.
+            Grok reads Darwin every hour and messages you when there&apos;s a call to make, like “your new checkout is winning at 91%. Want me to ship it?” Say yes and it
+            ships it for you.
           </p>
         </div>
         <a
@@ -216,8 +216,8 @@ export function GrokCard({ className }: { className?: string }) {
           </div>
           <p className="text-[13px] leading-snug text-[#5A2342]">
             {tab === "read"
-              ? "The bot fetches the briefing and forwards the headline as-is. Simulated numbers are labelled."
-              : "Each item has an id. Ship or stop it with one call, and the bot gets a sentence back to reply with."}
+              ? "The bot reads the briefing and sends you the headline. Simulated numbers are labelled."
+              : "Each item has an id. One call ships or stops it, and the bot gets a sentence back to send you."}
           </p>
           <Snippet dark label={tab === "read" ? "Read the briefing" : "Act on an item"} code={tab === "read" ? read : write} />
           <p className="text-[12.5px] leading-snug text-[#5A2342]">

@@ -272,20 +272,47 @@ async function callProvider(
  * Plain text completion. Throws if no provider is configured. A failed or timed-out call (429 included) is
  * retried once on `fallbackFor(provider)`, never on the same provider.
  */
+/** After a 429, skip that provider until its Retry-After passes and go straight to the fallback. */
+const coolingUntil = new Map<LlmProvider, number>();
+
+function isRateLimit(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  return status === 429 || /rate limit|too many requests/i.test(errorLine(err));
+}
+
+function retryAfterMs(err: unknown): number {
+  const headers = (err as { headers?: Headers | Record<string, string> })?.headers;
+  const raw = headers instanceof Headers ? headers.get("retry-after") : headers?.["retry-after"];
+  const fromHeader = Number(raw);
+  const fromText = Number(/retry in (\d+)\s*s/i.exec(errorLine(err))?.[1]);
+  const seconds = Number.isFinite(fromHeader) && fromHeader > 0 ? fromHeader : Number.isFinite(fromText) && fromText > 0 ? fromText : 60;
+  return Math.min(seconds, 300) * 1000;
+}
+
+/** Test hook: forget rate-limit cooldowns. */
+export function resetLlmCooldowns() {
+  coolingUntil.clear();
+}
+
 export async function generateText(req: TextRequest): Promise<string> {
   const provider = resolveProvider(req.provider);
   const startedAt = Date.now();
   if (provider !== "none") {
+    const to = fallbackFor(provider);
+    const canFallBack = Boolean(to && to !== "none");
+    const cooling = canFallBack && (coolingUntil.get(provider) ?? 0) > Date.now();
     try {
+      if (cooling) throw new Error("rate-limited recently; skipping until the cooldown ends");
       const res = await callProvider(provider, req);
       logAnswer(provider, res.model, startedAt);
       return res.text;
     } catch (err) {
-      const to = fallbackFor(provider);
       if (!to || to === "none") throw err;
-      console.warn(
-        `[llm] ${provider} ${modelFor(provider, req.models)} failed (${errorLine(err)}); retrying once via ${to}`,
-      );
+      if (!cooling && isRateLimit(err)) coolingUntil.set(provider, Date.now() + retryAfterMs(err));
+      if (!cooling)
+        console.warn(
+          `[llm] ${provider} ${modelFor(provider, req.models)} failed (${errorLine(err)}); retrying once via ${to}`,
+        );
       const retryAt = Date.now();
       const res = await callProvider(to, req);
       logAnswer(to, res.model, retryAt, ` (fallback after ${provider} failed)`);

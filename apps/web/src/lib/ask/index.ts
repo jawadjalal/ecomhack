@@ -5,8 +5,8 @@
  *
  * Builds a small, plain-number context from the public APIs of analytics, the optimizer, experiments and
  * agent commerce, then answers with the configured LLM. With no key (or on any LLM error) a heuristic
- * answers the obvious questions: conversion, agents vs people, best agent, the current test, the top
- * issue, what to do next, and why a named shopper left. Cards (inline result chips) always come from
+ * answers the obvious questions: conversion, agents vs people, best agent, why agents do or don't buy
+ * (from agent numbers only), the current test, the top issue, what to do next, and why a named shopper left. Cards (inline result chips) always come from
  * the heuristic so the numbers shown are never invented by a model.
  */
 import type { AgentSessionSummary, AnalyticsSummary, Experiment, LoopState } from "@/lib/contracts";
@@ -218,17 +218,35 @@ const barText = (x: number) => `${Math.round(x * 1000) / 10}%`;
 const SIM_NOTE = " These are Darwin’s simulated shoppers.";
 const whom = (a: AskTest["audience"]) => (a === "human" ? "people" : a === "agent" ? "agents" : "shoppers");
 
-export type AskIntent = "leaver" | "test" | "next" | "issue" | "best-agent" | "versus" | "conversion" | "overview";
+export type AskIntent = "leaver" | "test" | "next" | "issue" | "best-agent" | "versus" | "agents" | "conversion" | "overview";
+
+/** Words that mean AI shoppers: agents, bots, the assistants by name, and the protocols they buy through. */
+const AGENT_WORDS =
+  /\b(agents?|agentic|bots?|ai|llms?|chatgpt|gpt|openai|claude|anthropic|grok|xai|gemini|perplexity|copilot|a2a|mcp|ucp|assistants?|crawlers?)\b/;
+const BEST_AGENT = /\b(which|best|top|worst)\b.*\b(agent|ai|bot|model|llm)s?\b|\b(agent|ai|model)s?\b.*\b(best|most|top)\b/;
+const VERSUS = /(agents?|ai|bots?).*(people|humans?)|(people|humans?).*(agents?|ai|bots?)|\bvs\b|versus|compare/;
+
+/** Does the question ask about AI shoppers rather than the whole store? */
+export function aboutAgents(question: string): boolean {
+  return AGENT_WORDS.test(question.toLowerCase());
+}
 
 /** Which question is this? Order matters: specific intents first. */
 export function intentOf(question: string, ctx?: Pick<AskContext, "leavers">): AskIntent {
   const q = question.toLowerCase();
   if (ctx?.leavers.some((l) => q.includes(l.name.toLowerCase())) && /why|leave|left|what happened|abandon/.test(q)) return "leaver";
+  // Questions about AI shoppers are answered from agent numbers, never from the store-wide (mostly human) ones.
+  if (aboutAgents(q)) {
+    if (/\b(test|experiment|a\/b|variant|ship)\b|\btest b\b/.test(q)) return "test";
+    if (VERSUS.test(q)) return "versus";
+    if (BEST_AGENT.test(q)) return "best-agent";
+    return "agents";
+  }
   if (/\b(next|should|recommend|advice|priorit|focus|do now|todo|to do)\b/.test(q) && !/\btest b\b/.test(q)) return "next";
   if (/\b(test|experiment|a\/b|variant|ship|safe|winning|b\b)/.test(q)) return "test";
   if (/\b(issue|problem|leak|wrong|drop|losing|lose|friction|broken|why)\b/.test(q)) return "issue";
-  if (/\b(which|best|top|worst)\b.*\b(agent|ai|bot|model|llm)s?\b|\b(agent|ai|model)s?\b.*\b(best|most|top)\b/.test(q)) return "best-agent";
-  if (/(agents?|ai|bots?).*(people|humans?)|(people|humans?).*(agents?|ai|bots?)|\bvs\b|versus|compare/.test(q)) return "versus";
+  if (BEST_AGENT.test(q)) return "best-agent";
+  if (VERSUS.test(q)) return "versus";
   if (/\b(convert|conversion|rate|buy|bought|orders?|sales|shoppers?|traffic|visitors?)\b/.test(q)) return "conversion";
   return "overview";
 }
@@ -395,6 +413,40 @@ function answerLeaver(question: string, ctx: AskContext): AskResponse {
   };
 }
 
+/** Why AI agents do (or don't) buy: agent conversion, where agents drop, the top agent issue and what the last leaver said. */
+function answerAgents(question: string, ctx: AskContext): AskResponse {
+  const { agents, people } = ctx;
+  const q = question.toLowerCase();
+  // "Why isn't ChatGPT buying?": that brand's own numbers and leavers when we have them.
+  const brand = ctx.brands.find((b) => q.includes(b.name.toLowerCase()));
+  if (!agents.shoppers && !brand) {
+    return {
+      source: "heuristic",
+      answer: "No AI agents have shopped here yet, so there’s nothing to explain. Once agents browse through MCP, A2A or the agent API, I’ll show where they drop off.",
+    };
+  }
+  const leaks = ctx.funnel.filter((f) => f.agents < 1);
+  const weakest = [...leaks].sort((x, y) => x.agents - y.agents)[0];
+  const issue = ctx.issues.find((i) => i.audience === "agent") ?? ctx.issues.find((i) => i.audience === "all");
+  const leaver = ctx.leavers.find((l) => !brand || brandOf(l.name) === brand.name);
+
+  let answer = brand
+    ? `${brand.name} bought on ${brand.bought} of its last ${brand.shoppers} visits (${pctText(brand.rate)}); AI agents overall buy at ${pctText(agents.rate)}.`
+    : `AI agents buy at ${pctText(agents.rate)}: ${countText(agents.bought)} of ${countText(agents.shoppers)} agent shoppers placed an order${people.shoppers ? `, against ${pctText(people.rate)} for people` : ""}.`;
+  if (weakest && agents.shoppers)
+    answer += ` They drop most at ${weakest.step.toLowerCase()}: only ${pctText(weakest.agents)} of agents move on${people.shoppers ? ` (people: ${pctText(weakest.people)})` : ""}.`;
+  if (leaver) answer += ` The last ${brand ? `${brand.name} agent` : "agent"} that left said: “${leaver.reason.replace(/\.$/, "")}”.`;
+  if (issue) answer += ` The biggest agent issue is issue ${issue.n}: ${issue.title}.`;
+
+  const cards: AskCard[] = [
+    brand ? { label: `${brand.name} buys`, value: pctText(brand.rate) } : { label: "Agents buy", value: pctText(agents.rate) },
+    { label: "Agent shoppers", value: countText(brand ? brand.shoppers : agents.shoppers) },
+  ];
+  if (weakest && agents.shoppers) cards.push({ label: weakest.step, value: pctText(weakest.agents) });
+  else if (issue) cards.push({ label: `Issue ${issue.n}`, value: `−${Math.round(issue.impact * 10) / 10} per 1,000` });
+  return { source: "heuristic", answer, cards };
+}
+
 /** Words that tie a leaver's reason to an issue title. */
 function keywords(title: string): string[] {
   const t = title.toLowerCase();
@@ -416,7 +468,7 @@ function answerOverview(ctx: AskContext): AskResponse {
   return { source: "heuristic", answer: parts.join(" "), cards: conv.cards };
 }
 
-const CITES_COUNTS: AskIntent[] = ["test", "conversion", "versus", "best-agent", "overview"];
+const CITES_COUNTS: AskIntent[] = ["test", "conversion", "versus", "best-agent", "agents", "overview"];
 
 /** Pure: answer from the context alone. Says once when the numbers come from simulated shoppers. */
 export function heuristicAnswer(question: string, ctx: AskContext): AskResponse {
@@ -440,6 +492,8 @@ function answerFor(intent: AskIntent, question: string, ctx: AskContext): AskRes
       return answerBestAgent(ctx);
     case "versus":
       return answerVersus(ctx);
+    case "agents":
+      return answerAgents(question, ctx);
     case "conversion":
       return answerConversion(ctx);
     default:

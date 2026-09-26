@@ -4,6 +4,7 @@
  * Tiny (< 4.5 KB, ~2 KB gzipped, hand-minified), dependency-free, ES5. Posts batches of PostHog-shaped events
  * to `{script origin}/api/collect`:
  *   - `$pageview` on load and client-side navigations (pushState / popstate)
+ *   - nothing at all on console preview pages (?darwin_preview / darwin_variant / darwin_source), like runtime.js
  *   - `$pageleave` on client-side navigation away (for the previous path) and on tab close
  *   - `$autocapture` for clicks (tag, visible text ≤ 64 chars, short CSS selector, href)
  *   - `$rageclick` when the same element is clicked 3 times within 1 s
@@ -35,10 +36,10 @@ var m=d.cookie.match(/(?:^|; )darwin_id=([^;]+)/),
 id=(m&&decodeURIComponent(m[1]))||kv("localStorage","darwin_id")||"v_"+rid(),
 sid=kv("sessionStorage","darwin_sid")||"s_"+rid(),ua=n.userAgent,
 dev=/iPad|Tablet/i.test(ua)?"Tablet":/Mobi|Android/i.test(ua)?"Mobile":"Desktop",
-q=[],T=0,P=L.pathname,H=L.href,left=0,X,C=[];
+q=[],T=0,P=L.pathname,H=L.href,left=0,X,C=[],PV=/[?&]darwin_(preview|variant|source)=/.test(L.search);
 kv("localStorage","darwin_id",id);kv("sessionStorage","darwin_sid",sid);
 d.cookie="darwin_id="+encodeURIComponent(id)+"; path=/; max-age=31536000; samesite=lax"+(L.protocol=="https:"?"; secure":"");
-function capture(ev,props){if(!ev)return;
+function capture(ev,props){if(!ev||PV)return;
 var p={$current_url:L.href,$pathname:L.pathname,$referrer:d.referrer||void 0,$session_id:sid,$device_type:dev,$lib:"darwin-js",darwin_site:site};
 if(n.webdriver)p.$webdriver=!0;
 for(var k in props)p[k]=props[k];

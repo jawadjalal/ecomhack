@@ -60,34 +60,41 @@ export function ChatCard({
   }, [count, lastPending]);
 
   return (
-    <Card tone="white" hover={false} className="flex min-w-0 flex-col p-0 [&>div.relative]:flex [&>div.relative]:flex-1 [&>div.relative]:flex-col" style={{ minHeight: 640 }}>
-      <div className="flex flex-1 flex-col">
-        <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-6">
+    <Card
+      tone="white"
+      hover={false}
+      className={cn(
+        "flex min-w-0 flex-col p-0 [&>div.relative]:flex [&>div.relative]:min-h-0 [&>div.relative]:flex-1 [&>div.relative]:flex-col",
+        "lg:min-h-[clamp(440px,calc(100vh_-_300px),600px)]",
+      )}
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-5 pt-5 sm:px-6">
           <div className="min-w-0">
-            <CardTitle>Talk to it like a buyer agent</CardTitle>
-            <p className="mt-1 text-[14px] text-dw-ink/65">
-              Every message goes over the real <span className="font-dwmono text-[12.5px]">/a2a/whop</span> endpoint, exactly as an outside agent would send it.
+            <CardTitle>Chat with Mika like an AI shopper</CardTitle>
+            <p className="mt-0.5 text-[13.5px] text-dw-ink/65">
+              Through real agent chat, exactly as an outside agent would. <span className="text-[12px] text-dw-ink/45">(A2A at <span className="font-dwmono">/a2a/whop</span>)</span>
             </p>
           </div>
           <button
             type="button"
             onClick={onRunBuyer}
             disabled={running}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-dw-sand px-4 text-[14px] font-medium transition-[background-color,transform] hover:bg-[#e4dccb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink active:scale-[0.98] disabled:opacity-50"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full bg-dw-sand px-3.5 text-[13.5px] font-medium transition-[background-color,transform] hover:bg-[#e4dccb] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink active:scale-[0.98] disabled:opacity-50"
           >
             {running ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
             Run a simulated buyer agent
           </button>
         </div>
 
+        <div className="relative mx-4 mt-3 sm:mx-6 lg:min-h-0 lg:flex-1">
         <div
           ref={scroller}
-          className="mx-4 mt-4 flex min-h-[22rem] flex-1 flex-col gap-4 overflow-y-auto rounded-[22px] bg-dw-bg/70 p-4 sm:mx-6 sm:p-5"
-          style={{ maxHeight: 560 }}
+          className="flex max-h-[28rem] min-h-[20rem] flex-col gap-4 overflow-y-auto overscroll-contain rounded-[22px] bg-dw-bg/70 p-4 lg:absolute lg:inset-0 lg:max-h-none lg:min-h-0"
           aria-live="polite"
         >
           {!lines.length && (
-            <div className="m-auto flex max-w-sm flex-col items-center gap-3 py-8 text-center">
+            <div className="m-auto flex max-w-sm flex-col items-center gap-3 py-6 text-center">
               <div className="flex items-end gap-2">
                 <StoreAvatar size={56} />
                 <BuyerAvatar name="console (you)" size={40} />
@@ -110,39 +117,40 @@ export function ChatCard({
             </motion.div>
           ))}
         </div>
+        </div>
 
-        <div className="flex flex-col gap-2.5 px-4 pt-4 pb-5 sm:px-6">
+        <div className="flex flex-col gap-2 px-4 pt-3 pb-4 sm:px-6">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               onSend(text);
             }}
-            className="flex h-14 items-center gap-2 rounded-full bg-dw-sand pr-2 pl-5 transition-shadow focus-within:shadow-[0_0_0_2px_#141413]"
+            className="flex h-12 items-center gap-2 rounded-full bg-dw-sand pr-1.5 pl-5 transition-shadow focus-within:shadow-[0_0_0_2px_#141413]"
           >
             <input
               value={text}
               onChange={(e) => onText(e.target.value)}
-              placeholder="Message the store agent…"
-              aria-label="Message the store agent"
+              placeholder="Message Mika…"
+              aria-label="Message Mika, the store agent"
               className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-dw-ink/45"
             />
             <button
               type="submit"
               disabled={busy || !text.trim()}
               aria-label="Send"
-              className="grid size-10 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-[transform,opacity] hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink active:scale-95 disabled:opacity-30"
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-dw-ink text-white transition-[transform,opacity] hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink active:scale-95 disabled:opacity-30"
             >
               {busy ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowUp className="size-5" />}
             </button>
           </form>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {SUGGEST.map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => onSend(s)}
                 disabled={busy}
-                className="h-8 rounded-full border border-dw-ink/10 bg-white px-3.5 text-[13px] text-dw-ink/75 transition-colors hover:border-dw-ink/30 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink disabled:opacity-40"
+                className="h-8 shrink-0 rounded-full border border-dw-ink/10 bg-white px-3.5 text-[13px] whitespace-nowrap text-dw-ink/75 transition-colors hover:border-dw-ink/30 hover:text-dw-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink disabled:opacity-40"
               >
                 {s}
               </button>
@@ -221,7 +229,7 @@ function StoreBubble({ line, demo }: { line: ChatLine; demo: boolean }) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[14px] font-semibold">Checkout ready: {line.checkout.title}</div>
             <div className="text-[12.5px] text-dw-ink/60">
-              {line.checkout.tagged === false ? "Plain checkout link" : "Tagged link: the sale is credited to this conversation"}
+              {line.checkout.tagged === false ? "Plain checkout link" : "Tagged link: the sale is credited to this chat"}
               {demo ? " · demo checkout, no real charge" : " · payment on Whop"}
             </div>
           </div>

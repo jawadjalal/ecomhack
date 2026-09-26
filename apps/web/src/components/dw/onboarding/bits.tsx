@@ -4,12 +4,13 @@
  * Onboarding pieces in the cream Darwin design: stepper, chat bubbles, the crew working through steps,
  * check animations, the "which brain" chip and the stage backdrop. Used by components/onboarding.
  */
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, ChevronRight, ListChecks, TriangleAlert } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 import { BrandGlyph, type BrandKey } from "@/components/dw/brand-logos";
+import { Art, type ArtId } from "@/components/dw/art";
 
 export const EASE = [0.2, 0.8, 0.2, 1] as const;
 
@@ -23,9 +24,65 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "live", label: "Live" },
 ];
 
-/** The top-nav's black pill, as numbered setup steps. The cream pill slides to the current step. */
-export function Stepper({ step, className }: { step: Step; className?: string }) {
+/** What screen 1 promises: short, and true for the timed path. */
+export const SETUP_SUMMARY = "4 steps · about 2 minutes";
+
+/**
+ * The top-nav's black pill, as numbered setup steps. The cream pill slides to the current step.
+ * `variant="bar"` (phones): four thin segments that fill up, with the step names under them.
+ * With `onStep`, every step reached so far (up to `reached`) is a button: back without losing answers.
+ */
+export function Stepper({
+  step,
+  className,
+  variant = "pill",
+  reached,
+  onStep,
+}: {
+  step: Step;
+  className?: string;
+  variant?: "pill" | "bar";
+  reached?: Step;
+  onStep?: (s: Step) => void;
+}) {
   const idx = STEPS.findIndex((s) => s.id === step);
+  const reachIdx = Math.max(idx, reached ? STEPS.findIndex((s) => s.id === reached) : idx);
+  const canGo = (i: number) => !!onStep && i !== idx && i <= reachIdx;
+  if (variant === "bar") {
+    return (
+      <ol aria-label="Setup steps" className={cn("grid w-full grid-cols-4 gap-1.5", className)}>
+        {STEPS.map((s, i) => {
+          const on = i === idx;
+          const done = i < idx;
+          return (
+            <li key={s.id} className="relative flex min-w-0 flex-col gap-1.5" aria-current={on ? "step" : undefined}>
+              {canGo(i) && (
+                <button
+                  type="button"
+                  onClick={() => onStep?.(s.id)}
+                  aria-label={`${i < idx ? "Back" : "Go"} to ${s.label}`}
+                  className="absolute -inset-y-2 inset-x-0 z-10 rounded-md focus-visible:ring-2 focus-visible:ring-dw-ink/30 focus-visible:outline-none"
+                />
+              )}
+              <span className="relative block h-1 overflow-hidden rounded-full bg-dw-ink/10">
+                <motion.span
+                  className="absolute inset-y-0 left-0 rounded-full bg-dw-ink"
+                  initial={false}
+                  animate={{ width: done || on ? "100%" : "0%" }}
+                  transition={{ duration: 0.6, ease: EASE, delay: on ? 0.15 : 0 }}
+                />
+              </span>
+              <span className={cn("flex items-center gap-1 truncate text-[12px] leading-none", on ? "font-semibold text-dw-ink" : done ? "font-medium text-dw-ink/60" : "text-dw-ink/40")}>
+                {done && <Check className="size-3 shrink-0 text-dw-live" strokeWidth={3} aria-hidden />}
+                {s.label}
+                {done && <span className="sr-only"> (done)</span>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
   return (
     <ol
       aria-label="Setup steps"
@@ -35,11 +92,21 @@ export function Stepper({ step, className }: { step: Step; className?: string })
         const on = i === idx;
         const done = i < idx;
         return (
-          <li key={s.id} className="flex items-center" aria-current={on ? "step" : undefined}>
+          <li key={s.id} className="relative flex items-center" aria-current={on ? "step" : undefined}>
+            {canGo(i) && (
+              <button
+                type="button"
+                onClick={() => onStep?.(s.id)}
+                aria-label={`${i < idx ? "Back" : "Go"} to ${s.label}`}
+                title={`${i < idx ? "Back" : "Go"} to ${s.label}`}
+                className="peer absolute inset-y-0 left-0 right-4 z-10 rounded-full focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+              />
+            )}
             <span
               className={cn(
-                "relative flex h-10 items-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap sm:px-3.5",
+                "relative flex h-10 items-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-colors sm:px-3.5",
                 on ? "font-semibold text-dw-ink" : done ? "font-medium text-white" : "font-medium text-[#CFCAC0]",
+                canGo(i) && "peer-hover:bg-white/[0.1]",
               )}
             >
               {on && <motion.span layoutId="dwo-step" className="absolute inset-0 rounded-full bg-dw-bg" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
@@ -157,9 +224,9 @@ export function StepList({ steps, current, finished, className, reveal }: { step
 /** Darwin talking: the framed 3D analyst as the avatar, a white bubble. */
 export function AgentBubble({ children, working, className }: { children: ReactNode; working?: boolean; className?: string }) {
   return (
-    <div className={cn("flex items-start gap-3", className)}>
+    <div className={cn("flex items-start gap-3 max-sm:gap-2.5", className)}>
       <Mascot kind="analyst" frame size={40} active={working ?? true} title="Darwin" />
-      <div className="min-w-0 flex-1 rounded-[22px] rounded-tl-[8px] border border-dw-hairline bg-dw-surface px-4 py-3 text-[15px] leading-relaxed text-dw-ink/85 shadow-[0_1px_0_rgba(20,20,19,0.03),0_12px_30px_-22px_rgba(20,20,19,0.35)]">
+      <div className="min-w-0 flex-1 rounded-[22px] rounded-tl-[8px] border border-dw-hairline bg-dw-surface px-4 py-3 text-[15px] leading-relaxed text-dw-ink/85 shadow-[0_1px_0_rgba(20,20,19,0.03),0_12px_30px_-22px_rgba(20,20,19,0.35)] max-sm:border-0 max-sm:bg-dw-sand max-sm:shadow-none">
         {children}
       </div>
     </div>
@@ -291,7 +358,10 @@ export function ErrorLine({ error }: { error: string }) {
   );
 }
 
-/** A drawer that opens inside the composer (GitHub, Whop). */
+/**
+ * A drawer that opens inside the composer (GitHub, Whop): on a computer a section under the field,
+ * split off by a hairline (no box inside the box); on a phone a cream sheet above the dock.
+ */
 export function Drawer({ children }: { children: ReactNode }) {
   // Clipped while it slides open or shut; visible once open, so dropdowns inside can float over the page.
   const [open, setOpen] = useState(false);
@@ -305,37 +375,54 @@ export function Drawer({ children }: { children: ReactNode }) {
       onAnimationComplete={() => setOpen(true)}
       className={open ? "relative z-30 overflow-visible" : "overflow-hidden"}
     >
-      <div className="mx-3 mb-1 rounded-[22px] bg-dw-sand/70 p-4 sm:mx-4">{children}</div>
+      <div className="mx-3 mb-3 rounded-[24px] bg-dw-bg p-4 sm:mx-5 sm:mb-1 sm:rounded-none sm:border-t sm:border-dw-ink/[0.08] sm:bg-transparent sm:px-0 sm:pt-4 sm:pb-2">{children}</div>
     </motion.div>
   );
 }
 
-/* ------------------------------------------------------------------ backdrop */
+/* ------------------------------------------------------------------ paintings */
 
-const GLOW: Record<string, string> = {
-  connect:
-    "radial-gradient(46rem 30rem at 50% 42%, rgba(246,215,107,0.30), transparent 70%), radial-gradient(34rem 26rem at 14% 92%, rgba(184,202,238,0.28), transparent 70%), radial-gradient(34rem 26rem at 88% 88%, rgba(243,181,213,0.26), transparent 70%)",
-  ask: "radial-gradient(44rem 30rem at 50% 18%, rgba(213,204,245,0.40), transparent 70%), radial-gradient(34rem 26rem at 90% 90%, rgba(246,215,107,0.20), transparent 70%)",
-  plan: "radial-gradient(50rem 30rem at 78% 8%, rgba(246,215,107,0.26), transparent 70%), radial-gradient(40rem 30rem at 6% 70%, rgba(184,202,238,0.26), transparent 70%)",
-  install: "radial-gradient(46rem 30rem at 70% 12%, rgba(169,180,110,0.26), transparent 70%), radial-gradient(36rem 26rem at 10% 90%, rgba(95,240,180,0.12), transparent 70%)",
-  live: "radial-gradient(50rem 30rem at 20% 0%, rgba(243,181,213,0.30), transparent 70%), radial-gradient(40rem 30rem at 95% 60%, rgba(246,215,107,0.18), transparent 70%)",
+/** One painting per stage: which one, and which part of it stays in view. */
+const STAGE_ART: Record<string, { id: ArtId; pos: string }> = {
+  connect: { id: "hero-field", pos: "50% 45%" },
+  ask: { id: "lake-marsh", pos: "50% 30%" },
+  plan: { id: "forest-path", pos: "50% 35%" },
+  install: { id: "castle-dusk", pos: "50% 30%" },
+  live: { id: "big-sky", pos: "50% 28%" },
 };
 
-/** A soft pastel glow behind the page that shifts colour with the stage. */
-export function Backdrop({ stage }: { stage: string }) {
+/**
+ * The stage's painting. Screen 1 sits on it full-bleed (the composer is the crisp object on top); the
+ * later stages wear it as a band behind the nav, with the cream sheet of the stage rising over it.
+ * Flat: no glow, no fade. Crossfades when the stage changes.
+ */
+export function StageArt({ stage }: { stage: string }) {
+  const art = STAGE_ART[stage] ?? STAGE_ART.connect;
+  const full = stage === "connect";
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+    <div aria-hidden className={cn("pointer-events-none overflow-hidden bg-[#9fc3dc]", full ? "fixed inset-0" : "absolute inset-x-0 top-0 h-[210px] sm:h-[320px]")}>
       <AnimatePresence initial={false}>
-        <motion.div
-          key={stage}
-          className="absolute inset-0"
-          style={{ background: GLOW[stage] ?? GLOW.connect }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.9 }}
-        />
+        <motion.div key={art.id} className="absolute inset-0" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.7 }}>
+          <Art id={art.id} position={art.pos} priority={full} sizes="100vw" />
+        </motion.div>
       </AnimatePresence>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ phones */
+
+const PHONE = "(max-width: 639.98px)";
+
+/** True under 640px. False on the server and during hydration, then the real value. */
+export function useIsPhone(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const m = window.matchMedia(PHONE);
+      m.addEventListener("change", onChange);
+      return () => m.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(PHONE).matches,
+    () => false,
   );
 }

@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import type { AnalyticsEvent, AnalyticsEventsResponse } from "@/lib/contracts";
 import { useApi } from "@/lib/console/hooks";
+import { useLiveInterval } from "@/lib/console/live";
 
 const OPTS = { keepPreviousData: true, revalidateOnFocus: false, dedupingInterval: 500, errorRetryInterval: 5000 } as const;
 
@@ -13,6 +14,7 @@ const OPTS = { keepPreviousData: true, revalidateOnFocus: false, dedupingInterva
  */
 export function usePeopleEvents(): AnalyticsEvent[] | undefined {
   const api = useApi();
+  const refreshInterval = useLiveInterval(5000);
   const { data } = useSWR(
     [api.mode, "overview-people"],
     async () => {
@@ -26,7 +28,7 @@ export function usePeopleEvents(): AnalyticsEvent[] | undefined {
       }
       return (await api.getEvents(undefined, 1000)).events;
     },
-    { ...OPTS, refreshInterval: 3000 },
+    { ...OPTS, refreshInterval },
   );
   return data;
 }

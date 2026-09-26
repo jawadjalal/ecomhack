@@ -7,6 +7,7 @@
  * aged out of the capped log.
  */
 import type { AgentSessionSummary, ChangeProposal, Experiment, Insight, LoopState } from "@/lib/contracts";
+import { humanizeInsightText } from "@/lib/optimizer/humanize";
 
 /* ------------------------------------------------------------------ numbers */
 
@@ -42,7 +43,7 @@ export const STAGES: { key: StageKey; label: string }[] = [
   { key: "checkout", label: "Checkout" },
 ];
 
-export const STATUS_LABEL: Record<IssueStatus, string> = { test: "In test B", drafted: "Drafted", queued: "Queued" };
+export const STATUS_LABEL: Record<IssueStatus, string> = { test: "Testing", drafted: "Fix drafted", queued: "Waiting" };
 
 export interface IssueRow {
   insight: Insight;
@@ -78,8 +79,8 @@ export function whereText(stage: string): string {
   if (s.startsWith("agent:")) {
     const rest = s.slice(6).trim();
     if (AGENT_TOOL_WHERE[rest]) return AGENT_TOOL_WHERE[rest];
-    if (/_/.test(rest)) return `when calling ${rest}`;
-    return `in the agent ${rest || "API"}`;
+    if (/_/.test(rest)) return `while ${rest.replace(/_/g, " ")}`;
+    return `in the agent ${rest || "store"}`;
   }
   if (/home|landing/.test(s)) return "on the home page";
   if (/product/.test(s)) return "on product pages";
@@ -108,7 +109,7 @@ export function rankIssues(loop: LoopState | undefined, experiments: Experiment[
   return [...loop.insights]
     .sort((a, b) => b.impactScore - a.impactScore)
     .map((insight, i) => ({
-      insight,
+      insight: readable(insight),
       n: i + 1,
       status: covered.has(insight.id) ? (testing ? "test" : "drafted") : "queued",
       who: whoOf(insight.audience),
@@ -122,9 +123,9 @@ export function coverageSentence(rows: IssueRow[]): string {
   const inTest = rows.filter((r) => r.status === "test").map((r) => r.n);
   const drafted = rows.filter((r) => r.status === "drafted").map((r) => r.n);
   const nums = inTest.length ? inTest : drafted;
-  if (!nums.length) return "Darwin picks the biggest one to fix first.";
+  if (!nums.length) return "Theo drafts a fix for the biggest one first.";
   const firstK = nums.every((n, i) => n === i + 1);
-  const verb = inTest.length ? "already being fixed in test B" : "covered by a fix Darwin just drafted";
+  const verb = inTest.length ? "already being tested with a fix" : "covered by a fix Theo just drafted";
   if (firstK) {
     if (nums.length === rows.length && rows.length > 1) return `All of them are ${verb}.`;
     if (nums.length === 1) return `The biggest one is ${verb}.`;
@@ -267,11 +268,11 @@ export function sessionsFor(insight: Insight, sessions: AgentSessionSummary[] | 
 export type FixStatus = "test" | "drafted" | "shipped" | "rejected" | "shelved" | "stopped" | "untested";
 
 export const FIX_STATUS_LABEL: Record<FixStatus, string> = {
-  test: "In test",
+  test: "Being tested",
   drafted: "Drafted",
   shipped: "Shipped",
-  rejected: "Rejected",
-  shelved: "Shelved",
+  rejected: "Lost its test",
+  shelved: "Set aside",
   stopped: "Stopped",
   untested: "Never tested",
 };
@@ -310,10 +311,60 @@ export function insightArchive(loop: LoopState | undefined): Map<string, Insight
   if (!loop) return out;
   for (const e of loop.log) {
     const d = e.data as { insights?: unknown } | undefined;
-    if (d && isInsightList(d.insights)) for (const i of d.insights) out.set(i.id, i);
+    if (d && isInsightList(d.insights)) for (const i of d.insights) out.set(i.id, readable(i));
   }
-  for (const i of loop.insights) out.set(i.id, i);
+  for (const i of loop.insights) out.set(i.id, readable(i));
   return out;
+}
+
+/** Insights written before titles were humanised name raw CSS selectors; show plain words instead. */
+export function readable(i: Insight): Insight {
+  if (!`${i.title} ${i.detail}`.includes("data-darwin") && !i.evidence.some((e) => e.value.includes("data-darwin"))) return i;
+  return {
+    ...i,
+    title: humanizeInsightText(i.title),
+    detail: humanizeInsightText(i.detail),
+    evidence: i.evidence.map((e) => ({ ...e, value: humanizeInsightText(e.value) })),
+  };
+}
+
+export interface ResolvedIssue {
+  /** Stable key: the shipped experiment id. */
+  id: string;
+  /** What was wrong, from the insight the fix addressed (falls back to the fix itself). */
+  problem: string;
+  fix: string;
+  who: IssueRow["who"];
+  generation: number;
+  lift?: number;
+  /** The measured audience of the lift ("agent" when the change was judged on AI shoppers only). */
+  audience: "all" | "human" | "agent";
+}
+
+/** Issues Darwin already fixed: one per shipped generation, from real loop history + experiments only. */
+export function resolvedIssues(loop: LoopState | undefined, experiments: Experiment[] | undefined): ResolvedIssue[] {
+  if (!loop) return [];
+  const archive = insightArchive(loop);
+  const fixes = buildFixes(loop, experiments);
+  const out: ResolvedIssue[] = [];
+  for (const g of loop.history) {
+    if (g.generation <= 0 || !g.experimentId) continue;
+    const fix = fixes.find((f) => f.experiment?.id === g.experimentId);
+    const exp = fix?.experiment ?? experiments?.find((e) => e.id === g.experimentId);
+    const insight = fix?.insightIds.map((id) => archive.get(id)).find(Boolean);
+    const audience = exp?.result?.audience ?? "all";
+    const fixTitle = fix?.title ?? exp?.name ?? g.label.replace(/^Gen \d+:\s*/, "");
+    out.push({
+      id: g.experimentId,
+      problem: insight?.title ?? fixTitle,
+      fix: fixTitle,
+      who: insight ? whoOf(insight.audience) : whoOf(audience),
+      generation: g.generation,
+      lift: g.lift ?? exp?.result?.lift,
+      audience,
+    });
+  }
+  return out.reverse();
 }
 
 export function buildFixes(loop: LoopState | undefined, experiments: Experiment[] | undefined): FixRow[] {
