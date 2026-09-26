@@ -52,7 +52,37 @@ export interface AgentShopResponse {
 // POST /api/loop/autopilot {on:boolean}→ LoopState
 // POST /api/loop/reset                 → LoopState
 export type LoopResponse = LoopState;
-// GET  /api/experiments                → { experiments: Experiment[] }
+
+/* demo store mode (lib/demo) */
+// GET  /api/demo → DemoResponse   (is Darwin on the demo store, or on a connected site?)
+// POST /api/demo → DemoResponse   ("explore with the demo store": fills the console with labelled simulated shoppers)
+export interface DemoConnections {
+  /** Connected GitHub repo ("owner/repo"). */
+  github?: string;
+  /** darwin.js sites with a tracking plan (from onboarding). */
+  sites: string[];
+  /** Live Whop business title (not the offline "Demo business"). */
+  whop?: string;
+}
+export interface DemoStatus {
+  /** "demo": no repo or darwin.js site connected; the console is about the demo store at /store. (Whop alone feeds the store agent.) */
+  mode: "demo" | "connected";
+  store: { name: string; url: "/store"; catalog: "pace" | "whop" };
+  connections: DemoConnections;
+  /** The demo store has simulated shoppers in memory (what the Overview's cards read next to the loop history). */
+  hasSimulatedTraffic: boolean;
+  generation: number;
+  /** The demo store is being filled right now. */
+  seeding: boolean;
+}
+export interface DemoResponse {
+  status: DemoStatus;
+  /** POST only: what it did. "seeded" = ran the loop on a fresh store, "refilled" = one round of shoppers after a restart. */
+  action?: "seeded" | "refilled" | "none";
+  steps?: number;
+}
+
+// GET  /api/experiments               → { experiments: Experiment[] }
 export interface ExperimentsResponse {
   experiments: Experiment[];
 }

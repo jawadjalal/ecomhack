@@ -111,5 +111,6 @@ export const config = {
     "/api/briefing",
     "/api/briefing/:path*",
     "/api/ask",
+    "/api/demo",
   ],
 };
