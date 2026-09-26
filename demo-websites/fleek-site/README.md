@@ -23,6 +23,7 @@ Env (see `.env.example`): `DARWIN_URL` (default `http://localhost:3000`, live: `
 |---|---|
 | Weak hero button ("Learn more"), no social proof (no press strip, buyer count or testimonials) | `hero.ctaText` → "Shop bestsellers", `hero.showSocialProof` → true |
 | Add to cart buried under the long description on product pages | `productPage.ctaPosition` → `above-fold` or `sticky` |
+| Stock hidden: product pages never say how many bundles are left or whether it's in stock | `productPage.urgency` → `low-stock` (shows the real stock count) |
 | No delivery estimate, no buyer protection, no trust badges, no reviews or quality score | `productPage.showDeliveryEstimate`, `showReturnsPolicy`, `trustBadges`, `showReviews` → true |
 | Shipping is hidden everywhere, then freight, customs and a small-order fee appear at the last checkout step | `cart.showShippingUpfront` → true, `cart.freeShippingThreshold` → e.g. 30000 |
 | 3-step checkout, forced reseller-account creation (VAT number, password), no guest checkout | `checkout.steps` → 1, `checkout.guestCheckout` → true |
@@ -39,6 +40,10 @@ The store reads `storefront.config.json` on every request, so a merged PR (or a 
 - **Personalization targets:** key elements have ids and `data-darwin` attributes (`hero-title`, `hero-cta`, `add-to-cart`, `buy-box`, `delivery-estimate`, `trust-badges`, `announcement`, `checkout`).
 - **Connect the repo:** copy this folder into its own repo, then in Darwin's onboarding either paste the repo URL (install PR) or use the script tag. Set `DARWIN_TARGET_CONFIG_PATH=storefront.config.json` on Darwin so the ship PR edits this file.
 - **Baseline:** `POST /api/loop/baseline { spec, reset? }` on Darwin (new, admin-only) makes this store's `storefront.config.json` Darwin's Gen 0. The seed script calls it. Without it, Darwin's ship PR would write the PACE demo store's copy into this repo.
+
+## What the loop ships from this Gen 0
+
+A local run of Darwin's real loop (heuristic proposals, built-in simulator, no LLM keys) from this `storefront.config.json` via the same path as `/api/loop/baseline` shipped 5 generations: agent stock (`agentSurface.exposeStock`), one-page guest checkout with express pay (`checkout.*`), agent delivery ETA + JSON-LD, sticky add to cart + reviews + delivery estimate (`productPage.*`), and shipping shown in the cart with a free-shipping threshold (`cart.*`). All traffic in that run is simulated. The optimizer's playbook copy was written for the PACE demo store, so some labels and values read like PACE ("add-to-bag", "free UK delivery over £60"): check the ship PR's diff before merging it here.
 
 ## Seed data
 

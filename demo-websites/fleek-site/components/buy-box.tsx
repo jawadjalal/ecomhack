@@ -24,9 +24,12 @@ export function BuyBox({ bundle }: { bundle: Bundle }) {
   const pp = spec.productPage;
   return (
     <div className="buy" id="buy-box" data-darwin="buy-box">
-      {pp.urgency === "low-stock" && bundle.stock <= 9 && (
+      {/* Gen 0 hides availability entirely; `productPage.urgency: "low-stock"` shows the real stock count. */}
+      {pp.urgency === "low-stock" && (
         <div className="urgency" data-darwin="urgency">
-          Only {bundle.stock} bundle{bundle.stock === 1 ? "" : "s"} left from this supplier
+          {bundle.stock <= 9
+            ? `Only ${bundle.stock} bundle${bundle.stock === 1 ? "" : "s"} left from this supplier`
+            : `In stock: ${bundle.stock} bundles ready to ship`}
         </div>
       )}
       <div className="qty-line">
