@@ -8,6 +8,9 @@ import { TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { computeHeatmap, computeSite, isPreview, listRules } from "@/lib/web";
 import { computeInsight } from "./insights";
 
+/** Same id as lib/tracking DEMO_STORE_SITE (not imported: index.ts re-exports this module). */
+const DEMO_STORE_SITE = "pace-store";
+
 const MINUTES = 30;
 
 interface Visitor {
@@ -35,7 +38,13 @@ function minuteSeries(times: { t: number; v: number }[], now: number): SeriesPoi
 
 export function computeDashboards(site: string, plan: TrackingPlan | undefined, all: readonly AnalyticsEvent[], now = Date.now()): DashboardsResponse {
   const isWhop = (e: AnalyticsEvent) => typeof e.properties?.whop_event === "string";
-  const events = all.filter((e) => (e.properties?.darwin_site === site && !isPreview(e.properties?.$current_url)) || (plan?.whop && isWhop(e)));
+  // The demo store (/store) tags nothing with darwin_site: its events are the ones without one (Whop's aside),
+  // plus visitors the dashboards' own "+ simulated" button sends as darwin_site=pace-store.
+  const onSite =
+    site === DEMO_STORE_SITE
+      ? (e: AnalyticsEvent) => (!e.properties?.darwin_site || e.properties.darwin_site === site) && !isWhop(e)
+      : (e: AnalyticsEvent) => e.properties?.darwin_site === site;
+  const events = all.filter((e) => (onSite(e) && !isPreview(e.properties?.$current_url)) || (plan?.whop && isWhop(e)));
   const label = (name: string) => plan?.events.find((e) => e.name === name)?.label ?? name.replace(/^\$/, "").replace(/_/g, " ");
 
   const visitors = new Map<string, Visitor>();

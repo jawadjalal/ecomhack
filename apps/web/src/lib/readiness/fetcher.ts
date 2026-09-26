@@ -200,7 +200,7 @@ async function readCapped(body: Readable): Promise<string> {
 }
 
 interface FetchInit {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE";
   body?: string;
   headers?: Record<string, string>;
   timeoutMs?: number;

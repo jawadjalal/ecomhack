@@ -7,6 +7,7 @@ import type { AnalyticsSummary } from "./analytics";
 import type { Experiment, LoopState } from "./loop";
 import type { AgentSessionSummary } from "./agent";
 import type { PageSpec } from "./page-spec";
+import type { ReadinessCertificate } from "./readiness";
 
 /* scaffold */
 // POST /api/capture            body { events: AnalyticsEventInput[] } → { ok, count }
@@ -51,7 +52,37 @@ export interface AgentShopResponse {
 // POST /api/loop/autopilot {on:boolean}→ LoopState
 // POST /api/loop/reset                 → LoopState
 export type LoopResponse = LoopState;
-// GET  /api/experiments                → { experiments: Experiment[] }
+
+/* demo store mode (lib/demo) */
+// GET  /api/demo → DemoResponse   (is Darwin on the demo store, or on a connected site?)
+// POST /api/demo → DemoResponse   ("explore with the demo store": fills the console with labelled simulated shoppers)
+export interface DemoConnections {
+  /** Connected GitHub repo ("owner/repo"). */
+  github?: string;
+  /** darwin.js sites with a tracking plan (from onboarding). */
+  sites: string[];
+  /** Live Whop business title (not the offline "Demo business"). */
+  whop?: string;
+}
+export interface DemoStatus {
+  /** "demo": no repo or darwin.js site connected; the console is about the demo store at /store. (Whop alone feeds the store agent.) */
+  mode: "demo" | "connected";
+  store: { name: string; url: "/store"; catalog: "pace" | "whop" };
+  connections: DemoConnections;
+  /** The demo store has simulated shoppers in memory (what the Overview's cards read next to the loop history). */
+  hasSimulatedTraffic: boolean;
+  generation: number;
+  /** The demo store is being filled right now. */
+  seeding: boolean;
+}
+export interface DemoResponse {
+  status: DemoStatus;
+  /** POST only: what it did. "seeded" = ran the loop on a fresh store, "refilled" = one round of shoppers after a restart. */
+  action?: "seeded" | "refilled" | "none";
+  steps?: number;
+}
+
+// GET  /api/experiments               → { experiments: Experiment[] }
 export interface ExperimentsResponse {
   experiments: Experiment[];
 }
@@ -70,6 +101,62 @@ export interface GithubStatusResponse {
   /** Why the token can't be used: "GitHub rejected the token (401)", "Couldn't reach GitHub …". PRs are previews. */
   error?: string;
   repo?: string;
+}
+
+/* readiness PR */
+// POST /api/readiness                    { url } → ReadinessReport   (429 rate limited, 400 bad/private URL)
+// POST /api/readiness/certify            { url } → ReadinessCertificate
+//      (audit + Grok agent trial; heuristic level from the score when no LLM key. Rate limited per IP
+//       and globally; a certificate for the same URL issued in the last 10 minutes is returned as is.)
+export type CertifyResponse = ReadinessCertificate;
+// GET  /api/readiness/certificate/:id    → ReadinessCertificate (404 { error } when unknown)
+// GET  /api/readiness/badge/:id          → image/svg+xml badge ("expired" / "unknown" variants)
+// POST /api/leads                        { email, storeUrl?, score?, source? } → { ok, pilotUrl }
+
+/* assistant */
+// POST /api/research  { kind: "competitors"|"question", query, store?, parentId? } → ResearchReport  (admin, rate-limited)
+//      Tavily web search + extract, summarised by the LLM (heuristic fallback). With parentId, answers a follow-up
+//      and returns the parent report with the new entry in `followUps`. Accept: application/x-ndjson streams
+//      ResearchStreamEvent lines (steps, then the report). No TAVILY_API_KEY → a labelled demo report.
+// GET  /api/research       → { reports: ResearchListItem[], status: ResearchStatus }  (admin)
+// GET  /api/research/[id]  → ResearchReport                                          (admin)
+// POST /api/assistant  { messages, confirm?, context? } → AssistantResponse   (admin)
+//      Darwin, the merchant's managing assistant: runs tools over the public module APIs.
+//      Side-effecting tools (ship_winner, set_autopilot, reset_loop) come back as `pendingConfirm`;
+//      send `confirm: { tool, args, approved }` to run (or cancel) them.
+export interface AssistantMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+export interface AssistantAction {
+  tool: string;
+  args: Record<string, unknown>;
+  ok: boolean;
+  summary: string;
+  /** The result involves simulated (synthetic) traffic or buyers. */
+  synthetic?: boolean;
+  link?: { label: string; href: string };
+}
+export interface AssistantPendingConfirm {
+  tool: string;
+  args: Record<string, unknown>;
+  /** The question to show with Confirm / Cancel. */
+  prompt: string;
+}
+export interface AssistantRequest {
+  messages: AssistantMessage[];
+  confirm?: { tool: string; args?: Record<string, unknown>; approved: boolean };
+  /** Where the merchant is asking from (console path, darwin.js site). */
+  context?: { path?: string; site?: string };
+}
+export interface AssistantResponse {
+  reply: string;
+  actions: AssistantAction[];
+  pendingConfirm?: AssistantPendingConfirm;
+  /** llmLabel() of the model that drove the turn, or "heuristic". */
+  model: string;
+  /** Follow-up prompts to offer as chips. */
+  suggestions?: string[];
 }
 
 export type { PageSpec };

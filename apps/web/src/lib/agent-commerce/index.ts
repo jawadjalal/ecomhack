@@ -56,6 +56,8 @@ export {
 export type { BuyerPersona, BuyerRunResult, BuyerStep } from "./buyer";
 export { merchantFloor } from "./negotiation";
 export { TOOL_META, toolInputSchema } from "./tools";
+export { connectMcp, normaliseToolResult, type McpConnection, type McpConnectOptions, type McpTool } from "./mcp-client";
+export { buyerSystemPrompt, DEFAULT_BUYER_SYSTEM } from "./buyer-llm";
 
 /**
  * Call one agent tool. Resolves the (experiment-aware) spec for `ctx.agentId`, shapes the response

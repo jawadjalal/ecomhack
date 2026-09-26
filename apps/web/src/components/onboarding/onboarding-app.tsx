@@ -676,7 +676,10 @@ export function OnboardingApp() {
                     {/* no store yet: the demo store is one quiet link away */}
                     <Link
                       href="/console"
-                      onClick={() => track("onboarding_skipped_to_demo")}
+                      onClick={() => {
+                        track("onboarding_skipped_to_demo");
+                        startDemo();
+                      }}
                       className="order-last rounded-full px-2 py-1 text-[13.5px] sm:-mt-5 font-medium text-white underline decoration-white/50 underline-offset-[3px] [text-shadow:0_1px_6px_rgba(20,40,60,0.55)] hover:decoration-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none max-sm:hidden"
                     >
                       Skip, explore with the demo store
@@ -889,7 +892,10 @@ export function OnboardingApp() {
                         />
                         <Link
                           href="/console"
-                          onClick={() => track("onboarding_skipped_to_demo")}
+                          onClick={() => {
+                        track("onboarding_skipped_to_demo");
+                        startDemo();
+                      }}
                           className="ml-auto rounded-full px-2 py-1 text-[13px] font-medium text-white underline decoration-white/50 underline-offset-[3px] [text-shadow:0_1px_6px_rgba(20,40,60,0.55)] focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none sm:hidden"
                         >
                           Skip: demo store
@@ -2397,6 +2403,22 @@ function storeOrigin(raw: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Same key the console's provider reads: simulated shoppers keep arriving while the tab is open. */
+const CONSOLE_TRAFFIC_KEY = "darwin.console.traffic";
+
+/**
+ * "Skip, explore with the demo store": fill the demo store with labelled simulated shoppers (POST /api/demo)
+ * and turn the console's simulated traffic on. The link itself opens the console.
+ */
+function startDemo(): void {
+  try {
+    sessionStorage.setItem(CONSOLE_TRAFFIC_KEY, "1");
+  } catch {
+    /* storage blocked: the console offers "Send shoppers" instead */
+  }
+  void fetch("/api/demo", { method: "POST", cache: "no-store" }).catch(() => undefined);
 }
 
 /** The ways in that don't need GitHub. */

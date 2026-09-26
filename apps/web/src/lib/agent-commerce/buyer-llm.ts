@@ -37,7 +37,12 @@ export function localToolDescriptors(): ToolDescriptor[] {
   }));
 }
 
-const SYSTEM = `You are a buyer agent shopping on behalf of a human principal at PACE, an online running store.
+/** Default system prompt (the PACE demo store). Pass `system` to runLlmBuyer for other stores. */
+export const DEFAULT_BUYER_SYSTEM = buyerSystemPrompt("PACE, an online running store");
+
+/** The buyer system prompt for any store ("Acme, an online homeware store"). */
+export function buyerSystemPrompt(store: string): string {
+  return `You are a buyer agent shopping on behalf of a human principal at ${store}.
 You act only through the store's tools. Each turn, choose exactly one tool call.
 
 Rules:
@@ -52,6 +57,7 @@ Rules:
   (e.g. "no delivery ETA exposed — can't guarantee delivery by Friday").
 
 Respond with JSON: {"thought": "<one sentence>", "tool": "<tool name>", "args": { ... }}`;
+}
 
 export function goalText(goal: ShoppingGoal): string {
   const lines = [`Brief: ${goal.brief}`];
@@ -80,11 +86,17 @@ export function buyerPrompt(goal: ShoppingGoal, tools: ToolDescriptor[], history
 }
 
 /** Ask the LLM for the next action. Throws when no provider is configured or output never validates. */
-export async function decideNextAction(goal: ShoppingGoal, tools: ToolDescriptor[], history: BuyerStep[], stepsLeft: number): Promise<BuyerAction> {
+export async function decideNextAction(
+  goal: ShoppingGoal,
+  tools: ToolDescriptor[],
+  history: BuyerStep[],
+  stepsLeft: number,
+  system: string = DEFAULT_BUYER_SYSTEM,
+): Promise<BuyerAction> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      generateJson({ system: SYSTEM, prompt: buyerPrompt(goal, tools, history, stepsLeft), schema: BuyerActionSchema, maxTokens: 800 }),
+      generateJson({ system, prompt: buyerPrompt(goal, tools, history, stepsLeft), schema: BuyerActionSchema, maxTokens: 800 }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error(`LLM decision timed out after ${DECISION_TIMEOUT_MS / 1000}s`)), DECISION_TIMEOUT_MS);
       }),
@@ -101,7 +113,13 @@ export async function decideNextAction(goal: ShoppingGoal, tools: ToolDescriptor
 export async function runLlmBuyer(
   goal: ShoppingGoal,
   call: ToolCaller,
-  opts: { tools?: ToolDescriptor[]; maxSteps?: number; decide?: typeof decideNextAction } & BuyerHooks = {},
+  opts: {
+    tools?: ToolDescriptor[];
+    maxSteps?: number;
+    decide?: typeof decideNextAction;
+    /** System prompt override (default: DEFAULT_BUYER_SYSTEM, the PACE store). See buyerSystemPrompt(). */
+    system?: string;
+  } & BuyerHooks = {},
 ): Promise<BuyerRunResult> {
   const tools = opts.tools ?? localToolDescriptors();
   const maxSteps = opts.maxSteps ?? MAX_LLM_STEPS;
@@ -116,7 +134,7 @@ export async function runLlmBuyer(
   };
 
   for (let i = 0; i < maxSteps; i++) {
-    const action = await decide(goal, tools, steps, maxSteps - i);
+    const action = await decide(goal, tools, steps, maxSteps - i, opts.system ?? DEFAULT_BUYER_SYSTEM);
     if (action.thought) opts.onThought?.(action.thought);
     const args: Record<string, unknown> = { ...(action.args ?? {}) };
     if (action.tool === "checkout" && goal.maxBudget !== undefined && args.maxTotal === undefined) args.maxTotal = goal.maxBudget;
