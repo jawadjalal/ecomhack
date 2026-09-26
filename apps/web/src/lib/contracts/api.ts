@@ -129,4 +129,14 @@ export interface AssistantResponse {
   suggestions?: string[];
 }
 
+/* team — see contracts/team.ts */
+// GET  /api/team             → TeamStateResponse { agents, chats (last message + unread), model }        (admin)
+// GET  /api/team/chats/[id]  → TeamChatResponse { chat, messages }                                       (admin)
+// POST /api/team/chats       { title?, members } → Chat   (the user starts a direct/group chat)          (admin)
+// POST /api/team/chat        { chatId?, agentId?, text, confirm?: { id, approved }, context? }           (admin)
+//      → application/x-ndjson stream of TeamEvent (message | chat_created | agent_status | progress | navigate | done).
+//      Darwin (manager) plans and delegates to Iris/Pixel/Fizz/Dash concurrently in a group chat; side-effecting
+//      tools come back as a `confirm` message with pendingConfirm and run only after `confirm.approved`.
+//      No LLM key → keyword routing to the right specialist, results from real tools.
+
 export type { PageSpec };

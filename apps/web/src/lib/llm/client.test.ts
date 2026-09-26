@@ -30,7 +30,7 @@ describe("provider selection", () => {
     clear();
     vi.stubEnv("OPENROUTER_API_KEY", "k");
     expect(llmProvider()).toBe("openrouter");
-    expect(llmLabel()).toBe("llm:deepseek/deepseek-chat");
+    expect(llmLabel()).toBe("llm:deepseek/deepseek-v4.1-flash");
     vi.stubEnv("ANTHROPIC_API_KEY", "k");
     expect(llmProvider()).toBe("anthropic");
     vi.stubEnv("XAI_API_KEY", "k");
@@ -99,7 +99,7 @@ describe("xAI → OpenRouter fallback", () => {
     expect(text).toBe("hello from openrouter");
     expect(calls.map((c) => c.url)).toEqual(["https://api.x.ai/v1/chat/completions", "https://openrouter.ai/api/v1/chat/completions"]);
     expect(calls[0]).toMatchObject({ auth: "Bearer xai-test", model: "grok-test" });
-    expect(calls[1]).toMatchObject({ auth: "Bearer or-test", model: "deepseek/deepseek-chat" });
+    expect(calls[1]).toMatchObject({ auth: "Bearer or-test", model: "deepseek/deepseek-v4.1-flash" });
     expect(info).toHaveBeenCalledTimes(1);
     const line = String(info.mock.calls[0][0]);
     expect(line).toMatch(/^\[llm\] openrouter deepseek\/deepseek-chat answered in \d+ms \(fallback after xai failed\)$/);
@@ -132,6 +132,9 @@ describe("Apinex", () => {
     for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
     vi.stubEnv("APINEX_API_KEY", "apx-test");
     vi.stubEnv("OPENROUTER_API_KEY", "or-test");
+    // DeepSeek via OpenRouter is the default when both are set; LLM_PROVIDER pins APINex.
+    expect(llmProvider()).toBe("openrouter");
+    vi.stubEnv("LLM_PROVIDER", "apinex");
     expect(llmProvider()).toBe("apinex");
     expect(llmLabel()).toBe("llm:free/gpt-6-luna");
 
