@@ -173,6 +173,69 @@ claude mcp add --transport http pace-store http://localhost:3000/api/mcp
 npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
 ```
 
+### Agent mode: ⌘K, WebMCP and `window.darwin`
+
+Everything Darwin can do is one typed command (`apps/web/src/lib/commands`): a zod input (also served as JSON
+Schema), a description written for an LLM, and a risk. Three things share it:
+
+- **⌘K (Ctrl+K)** anywhere in `/console`: type in plain words ("build a dashboard of coupon usage per hour for
+  trail-shop", "send 200 shoppers then step the loop", "roll back to gen 3", "why are agents leaving?") or pick a
+  suggestion. `POST /api/command { text, page }` turns the words into a plan (the LLM when a key is set, else a
+  deterministic parser), every step is validated, and the steps run as a live checklist. Rollback and ship/stop
+  ask you first, inline.
+- **WebMCP**: when the browser exposes the proposed W3C `navigator.modelContext`, the same commands are registered
+  as tools (`darwin_navigate`, `darwin_build_dashboard`, `darwin_rollback`, …), so an AI agent running in your
+  browser can drive Darwin with no CLI or MCP server. Tools that change what shoppers see still stop for a human
+  in the page.
+- **`window.darwin`** for automation and devtools:
+
+```js
+window.darwin.commands                       // ["navigate", "build_dashboard", "simulate_traffic", …]
+window.darwin.manifest()                     // names, descriptions, risk, JSON Schemas
+await window.darwin.run("simulate_traffic", { humans: 200, agents: 20 })  // → { ok, text, href?, data? }
+await window.darwin.plan("roll back to gen 2")                             // plan only, nothing runs
+await window.darwin.do("send 200 shoppers then open the top issue")        // plan + run (confirms still ask)
+```
+
+`GET /api/command` returns the registry (admin-gated like the rest of mission control). Numbers in results come
+from Darwin's APIs, and simulated traffic is always labelled.
+
+### Drive Darwin with an agent: MCP server and CLI
+
+The same commands also run headless (`lib/commands/server-run.ts`), through Darwin's own API routes, so any
+agent can drive the whole console: create dashboards and personalizations, send shoppers, step the loop, browse
+every page, ask questions, ship or roll back.
+
+- **MCP server** at `/api/darwin/mcp` (Streamable HTTP, JSON-RPC). Tools: `darwin_state` (loop, KPIs, running
+  tests), `darwin_pages` (every page with its URL), `darwin_whats_left` (the roadmap) and every command as
+  `darwin_<name>`. Risky tools (`darwin_rollback`, `darwin_act_on_briefing`) first return the question to ask the
+  merchant; they run only when called again with `confirm: true`.
+
+```bash
+# Claude Code (add --header "Authorization: Bearer $DARWIN_ADMIN_TOKEN" when a token is set)
+claude mcp add --transport http darwin http://localhost:3000/api/darwin/mcp
+```
+
+```json
+// Cursor: ~/.cursor/mcp.json
+{ "mcpServers": { "darwin": { "url": "http://localhost:3000/api/darwin/mcp",
+  "headers": { "Authorization": "Bearer <DARWIN_ADMIN_TOKEN, if set>" } } } }
+```
+
+- **CLI** (`apps/web/scripts/darwin.ts`, no extra dependencies). `DARWIN_URL` defaults to
+  `http://localhost:3000`; `DARWIN_TOKEN` is the admin key. Add `--json` for machine output.
+
+```bash
+cd apps/web
+npm run darwin -- commands                                      # every command and its risk
+npx tsx scripts/darwin.ts state                                 # loop, KPIs, running tests
+npx tsx scripts/darwin.ts run simulate_traffic --humans 200 --agents 20
+npx tsx scripts/darwin.ts run build_dashboard --json '{"request":"coupon usage per hour","site":"trail-shop-co-uk"}'
+npx tsx scripts/darwin.ts do "send 200 shoppers then open the top issue"   # plans, then runs each step
+npx tsx scripts/darwin.ts run rollback --generation 2 --yes     # risky: asks y/N unless --yes
+npx tsx scripts/darwin.ts open experiments                      # prints the page's URL
+```
+
 ### Honest notes
 
 - **Security:** mission control and every state-changing API (loop, GitHub PRs, simulator, LLM shoppers, raw

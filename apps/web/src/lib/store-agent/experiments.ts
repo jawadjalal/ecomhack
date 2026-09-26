@@ -51,6 +51,14 @@ export interface AgentTest {
   startedAt: string;
   endedAt?: string;
   reason?: string;
+  /**
+   * Stamped when the test is decided: where its conversations came from, how many (both arms), and the result.
+   * Simulated conversations aren't kept on disk, so after a restart the live numbers can't say any more.
+   */
+  traffic?: "simulated" | "mixed" | "real";
+  sample?: number;
+  probabilityToBeat?: number;
+  lift?: number;
 }
 
 export interface AgentTestState {
@@ -72,6 +80,8 @@ export interface AgentTestResult {
   testId: string;
   control: AgentArm;
   treatment: AgentArm;
+  /** Conversations (both arms) from simulated buyer agents. */
+  simulated: number;
   probabilityToBeat?: number;
   lift?: number;
   liftInterval?: [number, number];
@@ -123,6 +133,7 @@ export function setAgentAutopilot(on: boolean): AgentTestState {
 /** Per test: conversations and payments per arm (conversations tagged by the agent_variant event). */
 export function agentTestResults(events: readonly AnalyticsEvent[], s = getAgentTests()): AgentTestResult[] {
   const arms = new Map<string, Map<string, "control" | "treatment">>(); // test → ref → variant
+  const simulated = new Set<string>(); // refs of simulated conversations
   const paid = new Map<string, number>(); // ref → revenue
   for (const e of events) {
     const p = e.properties ?? {};
@@ -133,13 +144,16 @@ export function agentTestResults(events: readonly AnalyticsEvent[], s = getAgent
       let m = arms.get(p.test_id);
       if (!m) arms.set(p.test_id, (m = new Map()));
       if (!m.has(ref)) m.set(ref, p.variant);
+      if (p.synthetic === true) simulated.add(ref);
     }
     if (e.event === "order_completed") paid.set(ref, (paid.get(ref) ?? 0) + (Number(p.revenue) || 0));
   }
   return s.tests.map((t) => {
     const acc = { control: { conversations: 0, paid: 0, rate: 0, revenue: 0 }, treatment: { conversations: 0, paid: 0, rate: 0, revenue: 0 } };
+    let sim = 0;
     for (const [ref, variant] of arms.get(t.id) ?? []) {
       acc[variant].conversations++;
+      if (simulated.has(ref)) sim++;
       if (paid.has(ref)) {
         acc[variant].paid++;
         acc[variant].revenue += paid.get(ref)!;
@@ -148,8 +162,16 @@ export function agentTestResults(events: readonly AnalyticsEvent[], s = getAgent
     for (const a of [acc.control, acc.treatment]) a.rate = a.conversations ? a.paid / a.conversations : 0;
     const both = acc.control.conversations > 0 && acc.treatment.conversations > 0;
     const cmp = both ? comparePosteriors({ visitors: acc.control.conversations, conversions: acc.control.paid }, { visitors: acc.treatment.conversations, conversions: acc.treatment.paid }, { draws: 8000, seed: 11 }) : undefined;
-    return { testId: t.id, ...acc, probabilityToBeat: cmp?.probabilityToBeat, lift: cmp?.medianLift, liftInterval: cmp?.liftInterval };
+    return { testId: t.id, ...acc, simulated: sim, probabilityToBeat: cmp?.probabilityToBeat, lift: cmp?.medianLift, liftInterval: cmp?.liftInterval };
   });
+}
+
+/** What a test was decided on, to stamp on it: traffic label, sample and result (see AgentTest). */
+function decidedOn(r: AgentTestResult | undefined): Pick<AgentTest, "traffic" | "sample" | "probabilityToBeat" | "lift"> {
+  const sample = r ? r.control.conversations + r.treatment.conversations : 0;
+  const sim = r?.simulated ?? 0;
+  const traffic = sample > 0 && sim >= sample ? "simulated" : sim > 0 ? "mixed" : "real";
+  return { traffic, sample, probabilityToBeat: r?.probabilityToBeat, lift: r?.lift };
 }
 
 const pct = (x?: number) => (x === undefined ? "?" : `${Math.round(x * 100)}%`);
@@ -176,7 +198,7 @@ export function stepAgentTests(events: readonly AnalyticsEvent[]): string[] {
       s = {
         ...s,
         levers: decision === "shipped" ? [...t.base, t.lever] : s.levers,
-        tests: s.tests.map((x) => (x.id === t.id ? { ...x, status: decision!, endedAt: new Date().toISOString(), reason } : x)),
+        tests: s.tests.map((x) => (x.id === t.id ? { ...x, status: decision!, endedAt: new Date().toISOString(), reason, ...decidedOn(r) } : x)),
       };
       const text = decision === "shipped" ? `Shipped “${LEVERS[t.lever].label}” into the agent's pitch. ${reason}.` : `Stopped “${LEVERS[t.lever].label}”. ${reason}.`;
       s = log(s, text);
@@ -216,7 +238,7 @@ function decideAgentTest(testId: string, decision: "shipped" | "stopped", events
   const r = agentTestResults(events, s).find((x) => x.testId === t.id);
   const numbers = r && r.control.conversations + r.treatment.conversations > 0 ? numbersOf(r) : undefined;
   const reason = `${decision === "shipped" ? "Approved" : "Stopped"} by the merchant${numbers ? `: ${numbers}` : ""}`;
-  const ended: AgentTest = { ...t, status: decision, endedAt: new Date().toISOString(), reason };
+  const ended: AgentTest = { ...t, status: decision, endedAt: new Date().toISOString(), reason, ...decidedOn(r) };
   s = {
     ...s,
     levers: decision === "shipped" ? [...t.base, t.lever] : s.levers,

@@ -109,6 +109,10 @@ export const config = {
     "/api/briefing",
     "/api/briefing/:path*",
     "/api/ask",
+    // The ⌘K / WebMCP command planner (lib/commands).
+    "/api/command",
+    // The Darwin control MCP server (headless commands for agents and the CLI).
+    "/api/darwin/:path*",
     "/api/demo",
   ],
 };
