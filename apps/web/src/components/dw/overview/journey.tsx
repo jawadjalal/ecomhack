@@ -322,7 +322,9 @@ export function JourneyNotes({
         <div className="flex items-start gap-3 rounded-[20px] bg-dw-olive px-4 py-3">
           <Mascot kind="shipper" size={30} frame active />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-[14px] font-semibold">Saw version {seen.generation}</span>
+            <span className="text-[14px] font-semibold">
+              {s.kind === "human" && /\b(ai|agents?)\b/i.test(seen.label) ? "Shopped on" : "Saw"} version {seen.generation}
+            </span>
             <span className="text-[13px] leading-snug text-[#2F3515]">
               {seen.label.replace(/^(gen|version)\s*\d+\s*[:·-]\s*/i, "")}. Max shipped it {timeAgo(seen.shippedAt, now) ? `${timeAgo(seen.shippedAt, now)} ago` : "just now"}.
             </span>

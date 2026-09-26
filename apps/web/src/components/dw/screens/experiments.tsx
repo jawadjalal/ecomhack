@@ -54,7 +54,8 @@ export function ExperimentsScreen() {
 
   const idx = useMemo(() => indexLog(loop), [loop]);
   const auto = pickExperiment(experiments, loop);
-  const want = picked ?? (hash.startsWith("exp_") ? hash : undefined);
+  // The URL fragment wins (deep links while the page is open); `picked` is the fallback.
+  const want = (hash.startsWith("exp_") && experiments?.some((e) => e.id === hash) ? hash : undefined) ?? picked;
   const exp = (want ? experiments?.find((e) => e.id === want) : undefined) ?? auto;
   const result = exp?.result;
   const running = exp?.status === "running";

@@ -22,11 +22,35 @@ export const TrackingEventSchema = z.strictObject({
 
 export const DashboardSpecSchema = z.strictObject({
   id: z.string().regex(/^[\w.-]{1,80}$/),
-  kind: z.enum(["kpis", "funnel", "sources", "humans-agents", "heatmap", "experiments", "revenue", "events", "devices"]),
+  kind: z.enum([
+    "kpis",
+    "funnel",
+    "sources",
+    "humans-agents",
+    "heatmap",
+    "experiments",
+    "revenue",
+    "events",
+    "devices",
+    "trend",
+    "number",
+    "retention",
+    "paths",
+    "lifecycle",
+    "breakdown",
+    "time_to_convert",
+    "hourly",
+  ]),
   title: text(120),
   why: text(300),
   events: z.array(z.string().max(60)).max(24).optional(),
   custom: z.boolean().optional(),
+  breakdown: z.enum(["visitor_kind", "device", "source", "page"]).optional(),
+  property: z.string().regex(/^\$?[\w.-]{1,60}$/).optional(),
+  interval: z.enum(["minute", "hour", "day"]).optional(),
+  display: z.enum(["line", "bars"]).optional(),
+  period: z.enum(["hour", "today", "week"]).optional(),
+  from: z.string().max(120).optional(),
 });
 
 export const TrackingPlanSchema = z.strictObject({

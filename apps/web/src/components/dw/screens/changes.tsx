@@ -40,7 +40,8 @@ export function ChangesScreen() {
   const up = useMemo(() => uplift(loop), [loop]);
   const live = !mock && githubLive(status);
   const synthetic = mock || [...idx.rounds.values()].some((rs) => rs.some((r) => r.synthetic));
-  const sel = entries.find((e) => e.key === picked) ?? entries.find((e) => e.key === hash) ?? entries.find((e) => e.kind !== "baseline") ?? entries[0];
+  // The URL fragment wins (deep links and the lead agent can pick a row while the page is open); `picked` is the fallback.
+  const sel = entries.find((e) => e.key === hash) ?? entries.find((e) => e.key === picked) ?? entries.find((e) => e.kind !== "baseline") ?? entries[0];
   const running = loop?.experimentId ? experiments?.find((e) => e.id === loop.experimentId && e.status === "running") : undefined;
   const configPath = (status as { targetConfigPath?: unknown } | undefined)?.targetConfigPath;
 

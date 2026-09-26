@@ -158,6 +158,8 @@ export interface DashboardData {
   histogram?: { bins: { label: string; count: number }[]; total: number; medianMs?: number };
   /** hourly: rows = days (Mon…Sun), cols = hours 0–23, counts in UTC. */
   grid?: { days: string[]; cells: number[][]; max: number; peak?: { day: string; hour: number; count: number }; total: number };
+  /** A plain-words hint when the card is empty for a reason the merchant can fix. */
+  note?: string;
   /** Share of the events behind this card that were simulated (0–1); undefined when none. */
   simulated?: number;
   /** Nothing recorded yet for this dashboard. */

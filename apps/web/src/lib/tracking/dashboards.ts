@@ -6,6 +6,7 @@
 import type { AnalyticsEvent, DashboardData, DashboardSpec, DashboardsResponse, SeriesPoint, TrackingPlan } from "@/lib/contracts";
 import { TRAFFIC_SOURCE_LABEL } from "@/lib/contracts";
 import { computeHeatmap, computeSite, isPreview, listRules } from "@/lib/web";
+import { computeInsight } from "./insights";
 
 const MINUTES = 30;
 
@@ -161,6 +162,9 @@ export function computeDashboards(site: string, plan: TrackingPlan | undefined, 
         });
         return { ...base, empty: series.every((s) => s.total === 0), series };
       }
+      default:
+        // trend, number, retention, paths, lifecycle, breakdown, time_to_convert, hourly
+        return { ...base, ...(computeInsight(d, { events, now, label }) ?? { empty: true }) };
     }
   };
 

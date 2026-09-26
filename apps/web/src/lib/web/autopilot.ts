@@ -191,7 +191,7 @@ export function stepAutopilot(site: string, read: PageElement[] = []): { state: 
     tried.add(`${source}:${index}`);
     const rule = createRule({ ...draft, author: "autopilot" }, "running", { outline });
     slots--;
-    actions.push(entry("started", `Started A/B test “${rule.name}” for ${who(rule)}. ${draft.hypothesis ?? ""}`.trim(), { ruleId: rule.id, source }));
+    actions.push(entry("started", `Started a test “${rule.name}” for ${who(rule)}. ${draft.hypothesis ?? ""}`.trim(), { ruleId: rule.id, source }));
   }
 
   if (!actions.length && !running.length) {

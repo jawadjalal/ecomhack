@@ -9,6 +9,11 @@ import { Art } from "@/components/dw/art";
 import { GelLink } from "@/components/dw/gel";
 import { LandingLoop } from "@/components/console/landing-loop";
 import { AgentStickers } from "./agent-stickers";
+import { Timeline } from "./timeline";
+import { Crew } from "./crew";
+import { Questions } from "./questions";
+import { Closing } from "./closing";
+import { Footer } from "./footer";
 
 const EASE = [0.2, 0.8, 0.2, 1] as const;
 
@@ -119,6 +124,15 @@ export function Landing() {
             <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-dw-bg to-transparent max-lg:hidden" />
           </div>
         </main>
+      </div>
+
+      {/* below the hero: how it works, the crew, questions, the last door, the footer (cloned from Wayari) */}
+      <div data-dw className="relative w-full overflow-x-clip bg-dw-bg font-dw text-dw-ink">
+        <Timeline />
+        <Crew />
+        <Questions />
+        <Closing />
+        <Footer />
       </div>
     </MotionConfig>
   );

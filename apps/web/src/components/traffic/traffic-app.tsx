@@ -261,6 +261,9 @@ function Split({ humans, agents }: { humans: number; agents: number }) {
   );
 }
 
+/** Plain names for rows whose data label is technical (the original label stays in the tooltip for judges). */
+const PLAIN_LABEL: Record<string, string> = { "agent-api": "Agent tools and chat" };
+
 function DimensionPanel({
   dim,
   title,
@@ -299,7 +302,7 @@ function DimensionPanel({
             <div key={r.key} className="grid min-h-9 grid-cols-[minmax(0,10rem)_minmax(0,1fr)_7.5rem] items-center gap-3 text-[13.5px] max-sm:grid-cols-[minmax(0,7rem)_minmax(0,1fr)_6.5rem]">
               <span className="flex min-w-0 items-center gap-2" title={r.label}>
                 {marks && <SourceMark label={r.label} agents={r.agents > 0 && r.agents === r.visitors} size={24} />}
-                <span className="min-w-0 truncate">{r.label}</span>
+                <span className="min-w-0 truncate">{PLAIN_LABEL[r.key] ?? r.label}</span>
               </span>
               <span className="flex h-3 gap-0.5" title={`${r.humans} humans · ${r.agents} agents${r.synthetic ? ` · ${r.synthetic} simulated` : ""}`}>
                 {r.humans > 0 && <span className="rounded-full bg-dw-ink" style={{ width: `${Math.max(1.5, (r.humans / max) * 100)}%` }} />}

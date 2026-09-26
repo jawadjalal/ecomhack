@@ -1208,7 +1208,7 @@ function DecisionLog({ state }: { state: WebAutopilotState }) {
                   </span>
                   {e.source && <span className="text-dw-ink/55">· {SHORT[e.source]}</span>}
                 </div>
-                <p className={cn("mt-0.5 text-[13.5px] leading-snug", e.kind === "shipped" ? "font-medium text-dw-win" : "text-dw-ink/80")}>{e.message}</p>
+                <p className={cn("mt-0.5 text-[13.5px] leading-snug", e.kind === "shipped" ? "font-medium text-dw-win" : "text-dw-ink/80")}>{e.message.replace(/^Started A\/B test/, "Started a test")}</p>
               </div>
             </li>
           );
