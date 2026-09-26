@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Check, Copy, Download, ExternalLink, LoaderCircle, Search, Share2, Sparkles, X } from "lucide-react";
-import type { CheckStatus, ReadinessCategory, ReadinessCheck, ReadinessReport } from "@/lib/contracts";
+import { AlertTriangle, ArrowRight, Award, Check, Copy, Download, ExternalLink, LoaderCircle, Search, Share2, Sparkles, X } from "lucide-react";
+import type { CheckStatus, ReadinessCategory, ReadinessCertificate, ReadinessCheck, ReadinessReport } from "@/lib/contracts";
 import { DarwinWordmark } from "@/components/console/brand";
+import { CertificateEmbed } from "@/components/readiness/certificate-embed";
+import { CertificateSeal, CriteriaGrid, LEVEL_STYLE } from "@/components/readiness/certificate-view";
 import { cn } from "@/components/ui/cn";
 
 const CATEGORY: Record<ReadinessCategory, { label: string; blurb: string }> = {
@@ -188,6 +190,108 @@ function PilotCta({ report }: { report: ReadinessReport }) {
   );
 }
 
+function certifySteps(report: ReadinessReport): string[] {
+  const mcp = report.checks.some((c) => c.id === "mcp" && c.status === "pass");
+  return [
+    "Re-running the audit",
+    mcp ? "Grok is shopping your store over MCP (no real checkout)" : "Grok is reading your storefront like an agent",
+    "Checking price, sizes, delivery and returns",
+    "Issuing your certificate",
+  ];
+}
+
+function CertifyPanel({ report }: { report: ReadinessReport }) {
+  const [state, setState] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [step, setStep] = useState(0);
+  const [cert, setCert] = useState<ReadinessCertificate | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const steps = certifySteps(report);
+
+  const certify = async () => {
+    setState("running");
+    setError(null);
+    setStep(0);
+    const timer = setInterval(() => setStep((s) => Math.min(steps.length - 1, s + 1)), 4000);
+    try {
+      const res = await fetch("/api/readiness/certify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: report.url }) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      setCert(body as ReadinessCertificate);
+      setState("done");
+    } catch (e) {
+      setError((e as Error).message);
+      setState("error");
+    } finally {
+      clearInterval(timer);
+    }
+  };
+
+  if (state === "done" && cert) {
+    const s = LEVEL_STYLE[cert.level];
+    return (
+      <div className="flex flex-col gap-4 rounded-2xl border p-5" style={{ borderColor: s.border, background: s.glow }} data-testid="readiness-certificate-result">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <CertificateSeal level={cert.level} score={cert.score} className="size-28" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="text-[0.75rem] font-semibold tracking-[0.14em] text-white/45 uppercase">
+              {cert.heuristic ? "Certificate (heuristic: no agent trial)" : `Certified by ${cert.model.replace(/^llm:/, "")}`}
+            </div>
+            <div className="text-[1.4rem] font-semibold" style={{ color: s.color }}>
+              {cert.level === "none" ? "Not certified yet" : `${s.label} agent-ready`}
+            </div>
+            <p className="text-[0.9rem] leading-relaxed text-white/70">{cert.verdict}</p>
+            <a
+              href={`/readiness/certificate/${cert.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 flex w-fit items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.06] px-3 py-1.5 text-[0.85rem] font-medium text-white/90 hover:bg-white/10"
+            >
+              View certificate <ExternalLink className="size-3.5" />
+            </a>
+          </div>
+        </div>
+        {cert.trial && <CriteriaGrid criteria={cert.trial.criteria} />}
+        <CertificateEmbed certId={cert.id} levelLabel={s.label} compact />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 font-semibold text-white/90">
+            <Award className="size-4 text-brand" /> Get certified by Grok
+          </div>
+          <div className="text-[0.84rem] text-white/50">
+            Grok tries to shop your store as an AI agent, then issues a Gold, Silver or Bronze certificate with a badge for your site. Takes up to a minute.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void certify()}
+          disabled={state === "running"}
+          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-brand px-4 font-semibold text-[#0b1200] hover:bg-[#c8f77c] disabled:opacity-60"
+          data-testid="readiness-certify"
+        >
+          {state === "running" ? <LoaderCircle className="size-4 animate-spin" /> : <Award className="size-4" />} Get certified
+        </button>
+      </div>
+      {state === "running" && (
+        <ol className="flex flex-col gap-1.5 text-[0.86rem]">
+          {steps.map((label, i) => (
+            <li key={label} className={cn("flex items-center gap-2", i < step ? "text-white/60" : i === step ? "text-white" : "text-white/25")}>
+              {i < step ? <Check className="size-4 text-[#8ff0b2]" /> : i === step ? <LoaderCircle className="size-4 animate-spin" /> : <span className="size-4" />}
+              {label}
+            </li>
+          ))}
+        </ol>
+      )}
+      {error && <div className="text-[0.84rem] text-[#ff9b9b]">{error}</div>}
+    </div>
+  );
+}
+
 function Report({ report }: { report: ReadinessReport }) {
   const scored = report.checks.filter((c) => !c.informational);
   const extra = report.checks.filter((c) => c.informational);
@@ -261,6 +365,8 @@ function Report({ report }: { report: ReadinessReport }) {
           })}
         </div>
       </div>
+
+      <CertifyPanel key={report.url + report.checkedAt} report={report} />
 
       <PilotCta report={report} />
 

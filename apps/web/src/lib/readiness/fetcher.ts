@@ -86,7 +86,7 @@ async function readCapped(res: Response): Promise<string> {
 /** GET (or POST) a public URL, following redirects manually so every hop is re-checked. Never throws. */
 export async function safeFetch(
   raw: string,
-  init: { method?: "GET" | "POST"; body?: string; headers?: Record<string, string>; timeoutMs?: number } = {},
+  init: { method?: "GET" | "POST" | "DELETE"; body?: string; headers?: Record<string, string>; timeoutMs?: number } = {},
 ): Promise<Fetched> {
   let current = raw;
   try {

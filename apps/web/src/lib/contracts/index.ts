@@ -7,3 +7,4 @@ export * from "./api";
 export * from "./readiness";
 export * from "./web";
 export * from "./tracking";
+export * from "./research";

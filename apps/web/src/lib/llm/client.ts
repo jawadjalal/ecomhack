@@ -30,12 +30,35 @@ export function llmProvider(): LlmProvider {
   return "none";
 }
 
-export function llmAvailable() {
-  return llmProvider() !== "none";
+function hasKey(provider: LlmProvider): boolean {
+  switch (provider) {
+    case "xai":
+      return Boolean(process.env.XAI_API_KEY);
+    case "anthropic":
+      return Boolean(process.env.ANTHROPIC_API_KEY);
+    case "openrouter":
+      return Boolean(process.env.OPENROUTER_API_KEY);
+    default:
+      return false;
+  }
 }
 
-export function llmModel(): string {
-  switch (llmProvider()) {
+/**
+ * The provider a request will actually use: `preferred` when it has a key (and LLM_PROVIDER isn't
+ * "none"), otherwise the default from `llmProvider()`. Lets one feature (e.g. Grok certificates)
+ * pin a provider without changing the rest of the app.
+ */
+export function resolveProvider(preferred?: LlmProvider): LlmProvider {
+  if (preferred && preferred !== "none" && process.env.LLM_PROVIDER !== "none" && hasKey(preferred)) return preferred;
+  return llmProvider();
+}
+
+export function llmAvailable(preferred?: LlmProvider) {
+  return resolveProvider(preferred) !== "none";
+}
+
+export function llmModel(preferred?: LlmProvider): string {
+  switch (resolveProvider(preferred)) {
     case "xai":
       return process.env.XAI_MODEL || "grok-4";
     case "anthropic":
@@ -47,20 +70,22 @@ export function llmModel(): string {
   }
 }
 
-/** Label for UI/PRs, e.g. "llm:grok-4". */
-export function llmLabel() {
-  return llmAvailable() ? `llm:${llmModel()}` : "heuristic";
+/** Label for UI/PRs, e.g. "llm:grok-4". Pass the request's `provider` override to label it. */
+export function llmLabel(preferred?: LlmProvider) {
+  return llmAvailable(preferred) ? `llm:${llmModel(preferred)}` : "heuristic";
 }
 
 export interface TextRequest {
   system: string;
   prompt: string;
   maxTokens?: number;
+  /** Preferred provider for this call; used when its key is set, else the default provider. */
+  provider?: LlmProvider;
 }
 
 /** Plain text completion. Throws if no provider is configured. */
-export async function generateText({ system, prompt, maxTokens = 4000 }: TextRequest): Promise<string> {
-  const provider = llmProvider();
+export async function generateText({ system, prompt, maxTokens = 4000, provider: preferred }: TextRequest): Promise<string> {
+  const provider = resolveProvider(preferred);
   if (provider === "xai" || provider === "openrouter") {
     const client =
       provider === "xai"
@@ -72,7 +97,7 @@ export async function generateText({ system, prompt, maxTokens = 4000 }: TextReq
           });
     const reasoningOff = provider === "openrouter" && process.env.OPENROUTER_REASONING === "off";
     const res = await client.chat.completions.create({
-      model: llmModel(),
+      model: llmModel(provider),
       max_tokens: maxTokens,
       messages: [
         { role: "system", content: system },
@@ -86,7 +111,7 @@ export async function generateText({ system, prompt, maxTokens = 4000 }: TextReq
   if (provider === "anthropic") {
     const client = new Anthropic();
     const res = await client.beta.messages.create({
-      model: llmModel(),
+      model: llmModel(provider),
       max_tokens: maxTokens,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
