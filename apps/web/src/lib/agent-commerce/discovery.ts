@@ -60,7 +60,6 @@ ${catalog}
 - Endpoint: \`POST ${origin}/api/mcp\` (MCP Streamable HTTP, JSON-RPC 2.0, protocol ${MCP_PROTOCOL_VERSION}; JSON responses, no SSE).
 - Call \`initialize\`, keep the \`Mcp-Session-Id\` response header and send it on every later request (it is your cart), then \`tools/list\` and \`tools/call\`.
 - Optional headers: \`X-Agent-Name\` (who you are), \`X-Agent-Id\` (stable id across sessions).
-- Not for shoppers: the store owner's agents drive Darwin itself at \`POST ${origin}/api/darwin/mcp\` (admin only, \`Authorization: Bearer <DARWIN_ADMIN_TOKEN>\`).
 
 Tools:
 ${tools}
