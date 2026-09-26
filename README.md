@@ -1,291 +1,377 @@
-# Darwin: the storefront that improves itself
+# Darwin: the store that improves itself
 
-Cursor Commerce London Hackathon, 26 Sep 2026.
+Darwin watches how people and AI shopping agents (ChatGPT, Claude, Gemini, Grok, Perplexity) move through an online
+store, finds what stops them buying, and tests a fix. When the fix wins, Darwin ships it, and it can undo it in one click.
+More and more shopping is done by AI agents, and most stores are not built for them, so Darwin works on both at once.
 
-Darwin connects to a store's git repo and installs analytics through a PR. It watches how **humans and AI
-shopping agents** move through the store, finds where they drop off, proposes a page change, A/B tests it, and
-ships the winner as a new PR. Then it starts again.
+**[Live demo](https://darwin-production-7899.up.railway.app)** ·
+[Demo websites](demo-websites/) ·
+[3-minute demo script](docs/DEMO.md) ·
+[What works and what's left](docs/STATUS.md)
 
-```
- behaviour ──► insight ──► page change ──► A/B test ──► ship PR ──┐
-     ▲                                                              │
-     └──────────────────────── next generation ◄───────────────────┘
-```
+![Darwin's Overview: conversion per version, the live A vs B test, which AI agents buy, and the funnel for people and agents](docs/screenshots/03-overview.png)
 
-![Mission control after a few generations of autopilot](apps/web/docs/screenshots/demo/demo-7-autopilot-late-gen.jpg)
-
-![Before / after: the store you connected vs the store Darwin built](apps/web/docs/screenshots/demo/demo-8-before-after.jpg)
-
-## Run it (2 minutes)
-
-```bash
-cd apps/web
-npm install
-npm run build && npm start     # or: npm run dev
-```
-
-| URL | What |
-|---|---|
-| http://localhost:3000 | Landing page |
-| http://localhost:3000/onboarding | **Set up a store**: tell Darwin about it, connect GitHub, or paste one script tag (+ Whop) → it plans what to record, installs it, builds your dashboards |
-| http://localhost:3000/console | **Mission control**: the loop, live traffic, experiments, PRs |
-| http://localhost:3000/console/dashboards | The dashboards Darwin built from a store's tracking plan, live |
-| http://localhost:3000/console/agents | **Store agent**: your Whop store's AI agent (A2A at `/a2a/whop`), a live buyer-agent chat, agent sales |
-| http://localhost:3000/console?mock=1 | Same UI, fully simulated in the browser (offline fallback) |
-| http://localhost:3000/store | The demo store (PACE running shoes) |
-| http://localhost:3000/console/personalize | **Personalize any store**: change a page per traffic source (ChatGPT, Google, Instagram, ads) and search query, A/B tested |
-| http://localhost:3000/demo/north-trail | A plain-HTML store Darwin didn't build (only the darwin.js tag), used to show personalization on "any store" |
-| http://localhost:3000/llms.txt | What AI agents read about the store |
-| `POST /api/mcp` | MCP server for AI shoppers (search, availability, cart, negotiate, checkout) |
-| `POST /api/a2a` | A2A merchant agent (v1.0 and v0.3): buyer agents shop and haggle in plain English |
-
-All API keys are optional (`apps/web/.env.example`). With no keys the loop uses its heuristic playbook and GitHub PRs
-are dry-run previews. See [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md) for testing with an LLM and a real GitHub token,
-and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
+<sub>Every number in these screenshots comes from simulated shoppers in a local run, and the app labels them
+"simulated". In that run Darwin shipped 5 changes to the demo store and the share of shoppers who bought went from 3.2%
+to 7.3%. Results change from run to run.</sub>
 
 ## How it works
 
-| Piece | Where | What it does |
-|---|---|---|
-| **PageSpec** | `src/lib/contracts/page-spec.ts`, `apps/web/storefront.config.json` | Declarative description of the store: human UI *and* agent surface. Every change Darwin makes is a validated patch to it. |
-| **Storefront** | `src/app/store/**` | PACE store rendered from the PageSpec. Every setting visibly changes the page. |
-| **Agent commerce** | `src/lib/agent-commerce/**` | MCP + REST tools for AI shoppers, an A2A merchant agent that chats and negotiates within margin limits, `llms.txt`, agent card. |
-| **Analytics** | `src/lib/analytics/**` | PostHog-compatible ingest (`/ingest`, used by posthog-js), human vs AI-agent classification, funnels, friction signals. |
-| **Simulator** | `src/lib/simulator/**` | Synthetic shoppers (5 personas) and AI agents whose behaviour depends only on the page they're served. Labelled `synthetic`. |
-| **Optimizer** | `src/lib/optimizer/**` | The loop: diagnose → propose → Bayesian A/B test → decide → ship. LLM (OpenRouter DeepSeek V4 Flash / Grok / Claude) or heuristic playbook. |
-| **GitHub** | `src/lib/github/**` | Connect a repo → PR installing `darwin.js`; each winner → PR editing `storefront.config.json`. |
-| **Web personalization** | `src/lib/web/**` | Rules that change any page running darwin.js (text, banner, badge, hide, style) per traffic source and search query. Drafted from plain English (LLM or heuristic), A/B tested with arms recomputed server-side. |
-| **Console** | `src/app/console/**` | Mission control for the demo. |
+1. **Watch.** A small script (`darwin.js`) records what shoppers do. Darwin tells people and AI agents apart.
+2. **Find the problem.** It ranks what stops people buying by buyers lost per 1,000 visits, for people and for agents.
+3. **Draft a fix.** Each fix is a small change to the page's settings, written by an LLM or by Darwin's own playbook
+   when no key is set. It only uses facts already on the page.
+4. **Test it.** Half the shoppers see the current page, half see the new one. Darwin ships only when it is at least
+   97.5% sure the new version is better (99.5% to stop a test early).
+5. **Ship the winner.** The change goes live, and when the store's code is on GitHub, Darwin opens a pull request.
+6. **Undo.** Every change can be rolled back, and a losing idea is never tried again.
 
-### Example run (heuristic mode, synthetic traffic; exact results vary run to run)
+Then it starts again. A crew of agents does the work, one job each:
 
-| Gen | Change Darwin shipped | Audience | Result |
-|---|---|---|---|
-| 0 | Baseline | | humans 2.1%, agents 35% |
-| 1 | Expose per-size stock to AI shoppers | agents | +65% |
-| 2 | One-page guest checkout with express pay | humans | +53% |
-| – | Low-stock urgency (wildcard) | humans | inconclusive, shelved |
-| 3 | Delivery ETA + JSON-LD for agents | agents | +20% |
-| 4 | Sticky add-to-bag + reviews + delivery estimate | humans | +27% |
-| 5 | **Let AI shoppers negotiate** (merchant agent, ≤10% off, never below floor) | agents | +6.5% |
-| 6 | Show delivery cost upfront + free delivery over £60 | humans | +29% |
-| 7 | Stock levels + returns policy for agents | agents | +5.4% |
-| 8 | Quote landed price to agents | agents | +6.7% |
-
-Overall conversion (at the Gen 0 traffic mix) goes 4.5% → 10.4%: humans about 2.1% → 4.4%, agents 35% → 87%. Shipping needs ≥97.5% posterior probability (99.5% to stop early), and bad ideas are
-rejected and never retried.
-
-### Onboarding: Darwin asks, installs, builds your dashboards
-
-1. **Connect**: describe the store in one line ("trail running shoes; checkout feels slow on mobile") and connect its
-   GitHub repo (Whop is optional and adds payments).
-2. **Plan**: Darwin reads the repo (framework, site id) and your words, and proposes a tracking plan with a reason for
-   every event: automatic ones darwin.js records with no code, the shopping funnel, and events for *your* worry
-   (checkout steps and errors, sizing, search…). Change it by chatting ("also track wishlist adds", "don't track
-   rage clicks") or with toggles; the dashboards update as you go.
-3. **Install**: one pull request adds darwin.js and commits the plan as `DARWIN_TRACKING.md`, with the one line each
-   event needs.
-4. **Live**: the dashboards are built from the plan and fill as events arrive, with a checklist of what's been
-   recorded. Simulated shoppers are available for a demo, and always labelled.
-
-**No GitHub?** Two other ways in:
-
-- **One script tag.** In the GitHub drawer, pick *Add one script tag instead* and give the store's address. The plan is
-  the same; the install step is one line to paste into the site's `<head>` (Shopify, Webflow, WordPress, any site you
-  can edit) instead of a pull request.
-- **Whop only, no code.** The store agent (`/console/agents`) sells your Whop plans to AI shoppers with nothing to
-  install. Payments come back through the Whop webhook.
-
-![No GitHub: one script tag](apps/web/docs/screenshots/onboarding/no-github-install.jpg)
-
-Darwin runs on its own onboarding (site `darwin-onboarding`): each step is an event, so its funnel shows up in
-`/console/dashboards?site=darwin-onboarding` and can be A/B tested like any store.
-
-![Onboarding A (before) vs B (now)](apps/web/docs/screenshots/onboarding/onboarding-A-vs-B.jpg)
-
-### Your Whop store's own AI agent (agent-to-agent commerce)
-
-How an AI agent buys from the store, and how Darwin knows it converted:
-
-1. A shopper's agent (ChatGPT, Claude, Perplexity, a custom buyer) finds the store agent at `/a2a/whop`
-   (agent card at `/a2a/whop/agent-card.json`; A2A v1.0 `SendMessage` and v0.3 `message/send`).
-2. It asks in plain English ("trail running coaching under £40 a month") and gets real offers from the Whop
-   business's plans (price, billing) as text plus structured data.
-3. "Buy the first one" returns a **Whop checkout link tagged with the conversation** (checkout configuration
-   metadata: `visitor_kind: agent`, `agent_name`, `darwin_ref`).
-4. The Whop payment webhook (`/api/whop/webhook`) brings the payment back with that metadata, so it counts as
-   that agent's sale. `/console/agents` shows the funnel: conversations → offers → checkout links → paid, by agent.
-
-Set `WHOP_API_KEY` and `WHOP_COMPANY_ID` (biz_…). Until then it runs on a labelled demo catalog whose checkout
-records a simulated payment.
-
-![Store agent](apps/web/docs/screenshots/agents/store-agent.jpg)
-
-**A/B tests on the agent's pitch.** Darwin tests how the store agent sells, one lever at a time, judged on paid
-conversations (sticky per conversation, Bayesian, ships at ≥97% chance better):
-
-| Lever | What changes in the reply |
+| Agent | Job |
 |---|---|
-| Facts up front | Instant access, cancel any time, paid on Whop (text + a `facts` array) |
-| One best pick | One recommendation with the reason instead of a list |
-| Structured buy instructions | Exact offer ids and `reply "buy <id>"` in the data part |
-| Upsell the yearly plan | Leads with the biggest plan |
+| **Darwin** (lead) | Talks to you and runs the team. |
+| **Iris** (watcher) | Finds where people and AI shoppers get stuck. |
+| **Theo** (designer) | Drafts page changes from facts already on your page. |
+| **Ada** (tester) | Tests the new version against the current page and picks the winner. |
+| **Max** (shipper) | Ships the winner as a code change, and can undo it. |
+| **Mika** (store agent) | Sells to AI shoppers on your Whop store, with a checkout link for each sale. |
+| **Grok** (teammate) | Reads Darwin's briefing and messages you when there's a call to make. |
 
-Winners ship into the pitch and stack; the next lever is tested on top. Turn on **Autopilot** in `/console/agents`
-(it starts labelled simulated buyer agents if there's no traffic yet). API: `GET/POST /api/store-agent/tests`.
+## A tour of the product
 
-![Agent A/B tests](apps/web/docs/screenshots/agents/agent-ab-tests.jpg)
+### Landing page
 
-### Personalize any store
+The front door: what Darwin does, a small live dashboard (running on simulated shoppers, and labelled so), the crew,
+and links to set up a store, open the console, check a store's agent readiness or visit the demo store.
 
-The loop above optimizes a store built on a PageSpec. Web personalization works on **any** store with the darwin.js tag:
+![Landing page](docs/screenshots/01-landing.png)
 
-1. Tell Darwin what to change: *"Visitors from ChatGPT: banner with delivery and returns"*, *"Google searchers: put their
-   search in the headline"*. It drafts a rule against the page's real elements (or suggests one per traffic source,
-   biggest conversion gap first).
-2. Preview it as each audience, then start an A/B test (or show it to everyone in that audience).
-3. darwin.js loads `/api/web/runtime.js?site=…`, which sorts each visitor by source (AI assistant, search, social,
-   paid, email, referral, direct) and search query, assigns a sticky arm, and applies the change with `textContent` and
-   styles only (never HTML or scripts), without flicker.
-4. Results count orders after exposure, with each visitor's arm recomputed on the server.
-5. **Autopilot** runs this loop by itself: one A/B test per traffic source (biggest conversion gap first, up to 3 at
-   once), ships a winner at ≥97% with ≥300 visitors per arm and ≥30 orders, stops losers, then tries that source's
-   next idea. It never retries an idea, and every decision is logged with its numbers.
-6. **Heatmap**: darwin.js already records clicks (`$autocapture`, `$rageclick`); flip *Heatmap* to see where each
-   audience clicks, painted over the page (same-origin previews) and listed (any store), rage clicks in red.
+### Set up a store
 
-![Personalize: preview as an audience, draft from a prompt, live A/B results](apps/web/docs/screenshots/personalize/personalize-desktop.jpg)
+Say what you sell and what worries you in one line. Then connect a GitHub repo (Darwin opens a pull request that adds
+its script), or paste one script tag into any site. Whop is optional. Darwin proposes what to record and why, and builds
+your dashboards from that plan. **Skip, explore with the demo store** opens the console on the demo store instead.
 
-### Talk to the store's agents
+![Onboarding](docs/screenshots/02-onboarding.png)
 
-The store is agent-ready: `GET /llms.txt` and `GET /.well-known/agent-card.json` describe it. What agents are told
-always follows the live PageSpec, so Darwin's changes reach them as well.
+### Overview
 
-```bash
-# A2A (v1.0): chat with the merchant agent; reuse the contextId from the reply to continue
-curl -s localhost:3000/api/a2a -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"SendMessage",
-  "params":{"message":{"role":"ROLE_USER","messageId":"m1","parts":[{"text":"Trail shoes, UK 10, under £150, by Friday"}]}}}'
+How the store is doing now against before Darwin started: conversion per version, the A vs B test that is running,
+which AI agents buy, and where people and agents drop out. **Watch Darwin fix it** plays one full round of the loop.
+(The screenshot at the top of this page.)
 
-# MCP (Streamable HTTP): Cursor / Claude Code can connect directly
-claude mcp add --transport http pace-store http://localhost:3000/api/mcp
+### Issues
 
-# A scripted buyer agent chatting over A2A, in the terminal
-npx tsx scripts/a2a-buyer.ts --url http://localhost:3000
-```
+What stops shoppers buying, ranked by buyers lost per 1,000 visits, with who is affected (people or AI agents), where
+it happens, what Iris saw, and which fix is being tested for it.
 
-### Telegram
+![Issues](docs/screenshots/04-issues.png)
 
-Text Darwin from Telegram.
+### Fixes
 
-- **Allowlisted chats** (`TELEGRAM_ALLOWED_CHAT_IDS`) go through `runAssistant`, the same function as the console assistant (`POST /api/assistant`). Every message can ask a question or act: step the loop, check experiments, ship a winner, turn autopilot on, reset. Shipping, autopilot and reset wait until you reply `yes` or `no`. Any other reply cancels that prompt.
-- **No allowlist:** messages stay on the Overview Ask Darwin chat (`ask()`, `POST /api/ask`) and only answer questions. `/help` says tool use is off. Set the allowlist before you expect the bot to change anything.
+Every fix Theo drafted, with the exact settings it changes ("in words" or "as code"), which issues it answers, who wrote
+it (an LLM or the playbook), and how its test is going.
 
-1. In Telegram, open [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the bot token.
-2. Pick a webhook secret: 1–256 characters, only `A–Z`, `a–z`, `0–9`, `_` and `-` (for example `openssl rand -hex 32`).
-3. On the Vercel project for [usedarwin.app](https://usedarwin.app), set:
-   - `TELEGRAM_BOT_TOKEN`: the token from BotFather
-   - `TELEGRAM_WEBHOOK_SECRET`: the secret from step 2
-   - `TELEGRAM_ALLOWED_CHAT_IDS`: your chat id (comma-separated if several). Required for stepping the loop, shipping, and other tools. Leave it empty and the bot only answers questions. Set `0` first if you don't know the id yet: the bot replies once with it.
-4. Redeploy so the new env vars are live.
-5. Register the webhook (this calls Telegram `setWebhook` for `https://usedarwin.app/api/telegram` and sends the secret):
+![Fixes](docs/screenshots/05-fixes.png)
 
-   ```bash
-   cd apps/web
-   TELEGRAM_BOT_TOKEN='…' TELEGRAM_WEBHOOK_SECRET='…' npm run telegram:setup
-   ```
+### Experiments
 
-   Or, after the redeploy, if `DARWIN_ADMIN_TOKEN` is set on Vercel:
+Every A vs B test: the current page next to the new version, the chance the new version wins, how many shoppers each
+side saw, and the result of every earlier test.
 
-   ```bash
-   curl -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN" https://usedarwin.app/api/telegram
-   ```
+![Experiments](docs/screenshots/06-experiments.png)
 
-6. Open the bot and send `/start`. Then try `How is conversion?` or, once your chat id is on the allowlist, `Step the loop`.
+### Changes
 
-If `TELEGRAM_ALLOWED_CHAT_IDS` is set and your chat is not on it, the bot replies **once** with your chat id. Add that id, redeploy, and message again. Leave the variable empty only for a question-only bot: anyone who finds it can spend the LLM key on answers, and it will not run tools. With the allowlist set, those chats can act, so keep the list to yourself.
+Every change that shipped, why it shipped, what it changed and the code diff. Each one is "Live on your store" and has
+an **Undo this change** button. Without a GitHub token the pull request is a labelled preview.
 
-### Agent mode: ⌘K, WebMCP and `window.darwin`
+![Changes](docs/screenshots/07-changes.png)
 
-Everything Darwin can do is one typed command (`apps/web/src/lib/commands`): a zod input (also served as JSON
-Schema), a description written for an LLM, and a risk. Three things share it:
+### Ask Darwin and the crew
 
-- **⌘K (Ctrl+K)** anywhere in `/console`: type in plain words ("build a dashboard of coupon usage per hour for
-  trail-shop", "send 200 shoppers then step the loop", "roll back to gen 3", "why are agents leaving?") or pick a
-  suggestion. `POST /api/command { text, page }` turns the words into a plan (the LLM when a key is set, else a
-  deterministic parser), every step is validated, and the steps run as a live checklist. Rollback and ship/stop
-  ask you first, inline.
-- **WebMCP**: when the browser exposes the proposed W3C `navigator.modelContext`, the same commands are registered
-  as tools (`darwin_navigate`, `darwin_build_dashboard`, `darwin_rollback`, …), so an AI agent running in your
-  browser can drive Darwin with no CLI or MCP server. Tools that change what shoppers see still stop for a human
-  in the page.
-- **`window.darwin`** for automation and devtools:
+A chat bar at the bottom of every console page. Ask a question or tell Darwin what to do ("send 200 shoppers",
+"ship the winner", "roll back to version 2"). Darwin asks the crew when it needs them, and you can see that exchange.
+Anything risky (shipping, rolling back) asks you first. You can also talk to it by voice and have it read replies aloud.
 
-```js
-window.darwin.commands                       // ["navigate", "build_dashboard", "simulate_traffic", …]
-window.darwin.manifest()                     // names, descriptions, risk, JSON Schemas
-await window.darwin.run("simulate_traffic", { humans: 200, agents: 20 })  // → { ok, text, href?, data? }
-await window.darwin.plan("roll back to gen 2")                             // plan only, nothing runs
-await window.darwin.do("send 200 shoppers then open the top issue")        // plan + run (confirms still ask)
-```
+![Ask Darwin: Darwin asks Iris, then answers with the store's numbers](docs/screenshots/08-ask-darwin-crew.png)
 
-`GET /api/command` returns the registry (admin-gated like the rest of mission control). Numbers in results come
-from Darwin's APIs, and simulated traffic is always labelled.
+### Store agent
 
-Setup and demo commands (same registry, so also `darwin_<name>` over MCP and the CLI):
-`start_demo` ("watch Darwin improve the demo store": simulated shoppers + autopilot), `watch_fix` ("watch Darwin
-fix it": the Overview's watch run, `/console?watch=1`; headless it steps the loop phase by phase),
-`check_install` ("test my install on shop.example.com": waiting / installed / verified), `save_setup` ("save my
-setup as jo@example.com": returns a 30-day resume link, nothing is emailed), `which_store` (demo store or your
-repo / sites), `detect_platform` ("what platform is shop.example.com on?") and `research_competitors`
-("research competitors for trail running shoes in the UK").
+Mika is your Whop store's own AI agent. Buyer agents can chat with it (A2A), call its tools (MCP) or open checkout
+sessions (ACP), and each sale is counted in one funnel. Darwin also A/B tests how Mika pitches, judged on paid
+conversations. Without a Whop key it runs on a labelled demo catalog with simulated payments.
 
-### Drive Darwin with an agent: MCP server and CLI
+![Store agent](docs/screenshots/09-store-agent.png)
 
-The same commands also run headless (`lib/commands/server-run.ts`), through Darwin's own API routes, so any
-agent can drive the whole console: create dashboards and personalizations, send shoppers, step the loop, browse
-every page, ask questions, ship or roll back.
+### Dashboards
 
-- **MCP server** at `/api/darwin/mcp` (Streamable HTTP, JSON-RPC). Tools: `darwin_state` (loop, KPIs, running
-  tests), `darwin_pages` (every page with its URL), `darwin_whats_left` (the roadmap) and every command as
-  `darwin_<name>`. Risky tools (`darwin_rollback`, `darwin_act_on_briefing`) first return the question to ask the
-  merchant; they run only when called again with `confirm: true`.
+Dashboards built from what you asked Darwin to track. Ask for a new chart in plain English ("coupon codes per minute",
+"mobile vs desktop").
 
-```bash
-# Claude Code (add --header "Authorization: Bearer $DARWIN_ADMIN_TOKEN" when a token is set)
-claude mcp add --transport http darwin http://localhost:3000/api/darwin/mcp
-```
+![Dashboards](docs/screenshots/10-dashboards.png)
 
-```json
-// Cursor: ~/.cursor/mcp.json
-{ "mcpServers": { "darwin": { "url": "http://localhost:3000/api/darwin/mcp",
-  "headers": { "Authorization": "Bearer <DARWIN_ADMIN_TOKEN, if set>" } } } }
-```
+### Traffic
 
-- **CLI** (`apps/web/scripts/darwin.ts`, no extra dependencies). `DARWIN_URL` defaults to
-  `http://localhost:3000`; `DARWIN_TOKEN` is the admin key. Add `--json` for machine output.
+Where visitors come from (search, social, AI assistants, ads, email), people and AI agents side by side, and which
+sources convert worst, with ideas for what to change.
+
+![Traffic](docs/screenshots/11-traffic.png)
+
+### Personalize
+
+Change a page for each traffic source on any site that runs `darwin.js`: for example, a delivery and returns banner for
+visitors sent by ChatGPT, or the search term in the headline for Google visitors. Preview the page as each audience,
+test each change, or turn on Autopilot. Darwin never publishes a claim you haven't given it; those turn into
+`[Your …]` blanks for you to fill in.
+
+![Personalize](docs/screenshots/12-personalize.png)
+
+### Settings
+
+Autopilot, simulated shoppers, what's connected (GitHub, Whop, the store agent, which AI is writing), who Darwin tests
+for, and the Grok teammate's briefing.
+
+![Settings](docs/screenshots/13-settings.png)
+
+### Agent readiness
+
+Paste any store's address to see whether AI agents can get in, read the products and buy. You get a score, which
+assistants the store's `robots.txt` lets in, fixes with copyable snippets, and a draft `llms.txt`. Grok can also try to
+shop the store and issue a certificate and badge. The result below is Rackd, the demo site, before Darwin fixes it.
+
+![Agent readiness result for the Rackd demo site](docs/screenshots/14-readiness.png)
+
+### The demo store: PACE
+
+`/store` is PACE, a running-shoe shop that Darwin optimizes in the demo. Every page is drawn from a settings file
+(`storefront.config.json`), so each change Darwin ships shows up on the page. AI agents shop the same store through its
+own MCP server and A2A merchant agent, which can haggle within a set limit.
+
+![PACE demo store](docs/screenshots/15-demo-store-pace.png)
+
+### A store Darwin didn't build: Rackd
+
+[`demo-websites/fleek-site`](demo-websites/fleek-site/) is Rackd, a standalone wholesale vintage store (laid out like
+Fleek) with conversion mistakes built in: a weak hero button, add to cart buried under the description, hidden
+shipping fees at the last step, a three-step checkout that forces an account. Each mistake comes from one setting, so
+Darwin's winning pull request fixes it. There is also a plain-HTML store at `/demo/north-trail` for Personalize.
+
+![Rackd demo site](docs/screenshots/16-demo-site-rackd.png)
+
+### On a phone
+
+| Landing | Overview | Demo store |
+|---|---|---|
+| ![Landing on a phone](docs/screenshots/phone-landing.png) | ![Overview on a phone](docs/screenshots/phone-overview.png) | ![Demo store on a phone](docs/screenshots/phone-store.png) |
+
+## What makes it different
+
+**It sells to AI agents, not only to people.** The demo store and the Whop store agent speak the protocols buyer
+agents use: A2A (agent chat), MCP (tools) and ACP (checkout sessions), plus `llms.txt` and an agent card. Darwin tests
+changes for agents too, such as showing stock per size, delivery dates, the returns policy and the full delivered price
+in the data agents read.
+
+**A crew, and you can drive it from anywhere.** Everything a merchant can do in the console is a command, so the same
+actions run from the chat bar, the ⌘K palette, the Agent view (the page as a machine-readable document), a browser
+agent over WebMCP, Darwin's own MCP server, a command line tool and Telegram.
+
+**Honesty rules.**
+
+- Simulated traffic is always labelled "simulated" and never mixed into real numbers.
+- Darwin never invents claims about your store. If a change needs a fact you haven't given it, it leaves a blank.
+- Every fix says who wrote it: an LLM or Darwin's playbook.
+- Pull requests without a GitHub token are labelled previews, and the Whop demo catalog is labelled as a demo.
+- Nothing ships without winning a test, and every change can be undone.
+
+## Run it locally
 
 ```bash
 cd apps/web
-npm run darwin -- commands                                      # every command and its risk
-npx tsx scripts/darwin.ts state                                 # loop, KPIs, running tests
-npx tsx scripts/darwin.ts run simulate_traffic --humans 200 --agents 20
-npx tsx scripts/darwin.ts run build_dashboard --json '{"request":"coupon usage per hour","site":"trail-shop-co-uk"}'
-npx tsx scripts/darwin.ts do "send 200 shoppers then open the top issue"   # plans, then runs each step
-npx tsx scripts/darwin.ts run rollback --generation 2 --yes     # risky: asks y/N unless --yes
-npx tsx scripts/darwin.ts open experiments                      # prints the page's URL
+cp .env.example .env.local   # every key is optional
+npm install
+npm run build && npm start   # http://localhost:3000 (or: npm run dev)
 ```
 
-### Honest notes
+With nothing connected, Darwin starts in demo store mode: on boot it fills the console with labelled simulated shoppers
+and runs the loop to its first change. State lives in memory and `apps/web/.data/` (delete it to start over).
 
-- **Security:** mission control and every state-changing API (loop, GitHub PRs, simulator, LLM shoppers, raw
-  analytics) can sit behind `DARWIN_ADMIN_TOKEN` (sign in at `/console?key=…`). It's optional: without it the
-  console is open, public deploys included, and anyone with the URL can drive the loop and spend the LLM key. Browser
-  events can't claim to be synthetic or pick an experiment arm (attribution is re-derived server-side), and ingest is
-  size- and rate-limited.
-- **Simulated traffic in the demo:** the demo runs on simulated traffic, labelled everywhere. The simulator's behaviour model is
-  documented in `src/lib/simulator/behavior-model.ts`, and `GET /api/simulate` returns it.
-- **Stricter bar for early stops:** experiments stop early only at 99.5% certainty; the final round uses 97.5%.
-- **Single process:** state lives in memory plus `apps/web/.data/`. Run one process for the demo.
+| Where | What |
+|---|---|
+| `/` | Landing page |
+| `/onboarding` | Set up a store |
+| `/console` | The console (Overview, Issues, Fixes, Experiments, Changes, and more under ⋯) |
+| `/store` | The PACE demo store |
+| `/readiness` | Agent readiness check for any store |
+| `/llms.txt`, `/.well-known/agent-card.json` | What AI agents read about the store |
+| `POST /api/mcp`, `POST /api/a2a` | The demo store for AI shoppers (MCP tools, A2A chat) |
+| `/a2a/whop`, `/api/store-agent/mcp`, `/acp/checkout_sessions` | Mika, the Whop store agent (A2A, MCP, ACP) |
+| `POST /api/darwin/mcp` | Drive Darwin itself from Claude Code, Cursor or any MCP client |
 
-See [AGENTS.md](AGENTS.md) for module ownership and conventions, and
-[docs/posthog-extraction.md](docs/posthog-extraction.md) for what we took from PostHog.
+Drive Darwin from a terminal or another agent:
+
+```bash
+claude mcp add --transport http darwin http://localhost:3000/api/darwin/mcp
+cd apps/web
+npm run darwin -- commands                               # every command and how risky it is
+npx tsx scripts/darwin.ts state                          # the loop, key numbers, running tests
+npx tsx scripts/darwin.ts do "send 200 shoppers then open the top issue"
+```
+
+Run the Rackd demo site next to it:
+
+```bash
+cd demo-websites/fleek-site
+npm install && npm run dev                                 # http://localhost:3002
+node seed/seed.mjs --darwin http://localhost:3000 --reset  # optional: makes Rackd Darwin's starting point
+```
+
+## Environment keys
+
+All optional. Without any, the loop uses its built-in playbook, pull requests are previews and Whop runs on a demo
+catalog. See [`apps/web/.env.example`](apps/web/.env.example) for every setting.
+
+| Key | What it turns on |
+|---|---|
+| `OPENROUTER_API_KEY` (`OPENROUTER_MODEL`) | An LLM writes the issues, fixes and chat answers. Default model: DeepSeek V4 Flash. |
+| `XAI_API_KEY` | Grok as the LLM, Grok certificates in Agent readiness, the Grok teammate briefing. |
+| `ANTHROPIC_API_KEY`, `APINEX_API_KEY` | Claude, or Apinex, as the LLM or the fallback. |
+| `GITHUB_TOKEN` + `DARWIN_TARGET_REPO` | Real pull requests: install, ship the winner, revert. |
+| `GITHUB_OAUTH_CLIENT_ID` + `GITHUB_OAUTH_CLIENT_SECRET` | "Sign in with GitHub" in onboarding, a repo picker, pull requests opened as the merchant. |
+| `WHOP_API_KEY` + `WHOP_COMPANY_ID` (`WHOP_WEBHOOK_SECRET`) | Mika sells your real Whop plans, and payments come back through the Whop webhook. |
+| `TAVILY_API_KEY` | Live web research on competitors (`/console/research`). Without it you get a labelled sample. |
+| `ELEVENLABS_API_KEY` | Voice in the chat. Without it the browser's own speech is used. |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ALLOWED_CHAT_IDS` | Text Darwin from Telegram. Allowlisted chats can act (with a yes/no first); others can only ask. Register with `npm run telegram:setup`. |
+| `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | Copy events and Telegram history to Supabase. |
+| `DARWIN_ADMIN_TOKEN` | Lock the console and every API that changes something. Set it on any public deploy. |
+
+## Tech stack
+
+Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Motion, Recharts, SWR and zod. Events arrive through
+posthog-js pointed at Darwin's own `/ingest` endpoint (no PostHog account needed). LLMs through OpenRouter, xAI or
+Anthropic, always with a rule-based fallback. Tavily for research, the Whop and GitHub APIs, optional Supabase. Tests
+with Vitest, browser checks with Playwright. The live demo runs on Railway.
+
+## Limits worth knowing
+
+- State lives in one server process (memory plus `.data/`). Run a single process for a demo.
+- The console is open unless `DARWIN_ADMIN_TOKEN` is set.
+- The demo runs on simulated shoppers. Real traffic needs `darwin.js` on a real store.
+
+## Repo map
+
+- `apps/web`: the whole app (console, demo store, APIs, agents). Module owners and conventions: [AGENTS.md](AGENTS.md).
+- `demo-websites/`: standalone stores for showing Darwin on sites it didn't build.
+- `docs/`: [DEMO.md](docs/DEMO.md) (stage script), [DEMO-LAPTOP.md](docs/DEMO-LAPTOP.md) (demo machine setup),
+  [STATUS.md](docs/STATUS.md) (what works, what's left), [LOCAL_TESTING.md](docs/LOCAL_TESTING.md),
+  [GROK_BOT.md](docs/GROK_BOT.md), [posthog-extraction.md](docs/posthog-extraction.md).
+
+Built at the Cursor Commerce London Hackathon, 26 September 2026.
+# Darwin
+
+**A storefront that learns from every visit.**
+
+Darwin watches how people and AI agents shop your store, then fixes what stops them buying.
+
+![Darwin's overview: how much better the store sells since Darwin started](docs/screenshots/03-overview.png)
+
+## The problem in one minute
+
+- Online stores lose buyers to small things: a shipping cost that shows up too late, a confusing button, a slow checkout.
+- AI shopping agents now shop and buy for people. They get stuck on different things than people do, like missing stock or delivery details.
+- Fixing this means testing one change at a time and waiting for the numbers. Nobody running a store has time to test every idea.
+
+## What Darwin does
+
+Darwin runs a small crew of AI helpers that go round and round the same loop:
+
+1. **Iris watches.** She follows how shoppers and AI agents move through the store and finds where they get stuck.
+2. **Darwin finds what stops them.** The lead picks the problem that loses the most buyers and runs the team.
+3. **Pixel drafts a fix.** A small page change, like showing the delivery cost up front.
+4. **Fizz tests it.** Half the shoppers see the old page (A), half see the new one (B). Fizz picks the winner.
+5. **Dash ships the winner.** The better page goes live for everyone, and Dash can undo it at any time.
+
+Then the loop starts again on the next problem.
+
+Two more teammates:
+
+- **Mika** is the store's own AI sales agent. She sells to AI shoppers by chatting with them.
+- **Grok** sends you a short morning briefing on how the store is doing.
+
+## Screenshots
+
+**Landing page.** What Darwin is, with a live preview of the console.
+
+![Landing page](docs/screenshots/01-landing.png)
+
+**Setup.** Describe your store in one line, connect it, and Darwin plans what to watch.
+
+![Setup](docs/screenshots/02-onboarding.png)
+
+**Overview.** How much better the store sells since Darwin started, for people and for AI agents.
+
+![Overview](docs/screenshots/03-overview.png)
+
+**Issues.** Iris lists what stops shoppers buying, biggest problem first.
+
+![Issues](docs/screenshots/04-issues.png)
+
+**Fixes.** Pixel's page changes, each one tied to the problem it solves.
+
+![Fixes](docs/screenshots/05-fixes.png)
+
+**Tests.** Fizz compares the old page with the new one and shows the chance the new one is better.
+
+![Tests](docs/screenshots/06-experiments.png)
+
+**Changes.** Every change Dash shipped, with a way to undo it.
+
+![Changes](docs/screenshots/07-changes.png)
+
+**Dashboards.** Charts Darwin builds for you from what you said you care about.
+
+![Dashboards](docs/screenshots/08-dashboards.png)
+
+**Store agent.** Chat with Mika the way an AI shopper would, and see how many agent chats end in a sale.
+
+![Store agent](docs/screenshots/09-agents.png)
+
+**Demo shop.** PACE, a running shoe store Darwin improves in the demo.
+
+![Demo shop](docs/screenshots/10-store.png)
+
+## Try it in 2 minutes
+
+1. Open the landing page and click **Set up your store**.
+2. Click **Skip, explore with the demo store**. It fills with simulated shoppers.
+3. Go to **Overview** in the console.
+4. Press **Watch Darwin fix it** at the top and watch the crew find a problem, draft a fix, test it and ship the winner.
+
+## How it works
+
+For technical judges:
+
+- **One Next.js app.** The store, the console and the API all live in `apps/web`.
+- **The loop.** Watch, find the problem, draft a change, run an A vs B test, ship the winner, repeat. Every change is small and can be undone.
+- **Simulated shoppers, clearly labelled.** Simulated people and AI agents react to the real page they are shown. Every number from them says "simulated".
+- **Built for AI agents.** AI shoppers can search, check stock, add to cart, haggle and buy through agent tools (MCP) and agent chat (A2A).
+- **Works with no API keys.** Every AI step has built in rules to fall back on, so the demo runs without any keys.
+
+## Run it
+
+```bash
+cd apps/web
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Then open http://localhost:3000.
+
+Keys, GitHub, Whop, Telegram, the command line tool, the MCP server and everything else: see [docs/SETUP.md](docs/SETUP.md).
+
+## Honest notes
+
+- Shopper numbers in the demo come from simulated shoppers, and the app labels them as simulated everywhere.
+- Real stores send real visits through the same loop. The demo simply makes it fast enough to watch in 2 minutes.
