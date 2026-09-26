@@ -93,11 +93,14 @@ function statusFor(p: number | undefined, ready: boolean): BriefingStatus {
 
 const isRecent = (at: string | undefined, now: number) => !!at && now - Date.parse(at) <= RECENT_MS;
 
-/** An item before its `say` line gets the traffic label. `detail` is one sentence without the final full stop. */
-type Draft = Omit<BriefingItem, "say"> & { detail: string };
+/**
+ * An item before its `say` line is put together: `detail` (the numbers, labelled with where they came from)
+ * then `tail` (what happens next). One sentence, no final full stop.
+ */
+type Draft = Omit<BriefingItem, "say"> & { detail: string; tail?: string };
 
-function toItem({ detail, ...item }: Draft): BriefingItem {
-  return { ...item, say: `${detail}${LABEL[item.traffic]}.` };
+function toItem({ detail, tail, ...item }: Draft): BriefingItem {
+  return { ...item, say: `${detail}${LABEL[item.traffic]}${tail ?? ""}.` };
 }
 
 /* ------------------------------------------------------------------ store agent pitch tests */
@@ -144,17 +147,25 @@ function agentItems(events: readonly AnalyticsEvent[], origin: string, now: numb
         Math.min(r.control.conversations, r.treatment.conversations) >= AGENT_TEST_RULES.minPerArm &&
         r.control.paid + r.treatment.paid >= AGENT_TEST_RULES.minPaid;
       const ready = enough && p !== undefined && p >= AGENT_TEST_RULES.ship;
-      const detail =
-        !r || p === undefined
-          ? `Your store agent is testing “${label}”: ${plural(n, "buyer-agent conversation")} so far, too early to tell`
-          : `On your store agent, ${rate(r.treatment.rate)} of buyer-agent conversations paid with “${label}” vs ${rate(r.control.rate)} without: ` +
-            `${chance(p)} chance it's better after ${plural(n, "conversation")}` +
-            (ready ? `, past the ${bar(AGENT_TEST_RULES.ship)} bar to ship` : p >= AGENT_TEST_RULES.ship ? `; Darwin would wait for more conversations before calling it` : "");
-      out.push({ ...base, status: statusFor(p, ready), actions: ["ship", "stop"], detail });
+      if (!r || p === undefined) {
+        out.push({ ...base, status: "running", actions: ["ship", "stop"], detail: `Your store agent is testing “${label}”: ${plural(n, "buyer-agent conversation")} so far, too early to tell` });
+        continue;
+      }
+      out.push({
+        ...base,
+        status: statusFor(p, ready),
+        actions: ["ship", "stop"],
+        detail:
+          `On your store agent, ${rate(r.treatment.rate)} of buyer-agent conversations paid with “${label}” vs ${rate(r.control.rate)} without: ` +
+          `${chance(p)} chance it's better after ${plural(n, "conversation")}`,
+        tail: ready ? `, past the ${bar(AGENT_TEST_RULES.ship)} bar to ship` : p >= AGENT_TEST_RULES.ship ? `; Darwin would wait for more conversations before calling it` : undefined,
+      });
     } else if (ended < MAX_ENDED_PER_KIND && isRecent(t.endedAt, now)) {
       ended++;
-      const what = t.status === "shipped" ? `is now part of your store agent's pitch` : `was stopped on your store agent`;
-      out.push({ ...base, status: t.status, actions: [], endedAt: t.endedAt, detail: `“${label}” ${what}${t.reason ? ` (${t.reason})` : ""}` });
+      const who = t.reason?.startsWith("Approved by the merchant") || t.reason?.startsWith("Stopped by the merchant") ? "on your say-so" : "by Darwin";
+      const what = t.status === "shipped" ? `was shipped into your store agent's pitch ${who}` : `was stopped on your store agent ${who}`;
+      const numbers = r && r.probabilityToBeat !== undefined ? `: ${rate(r.control.rate)} → ${rate(r.treatment.rate)} of conversations paid, ${chance(r.probabilityToBeat)} chance it was better` : "";
+      out.push({ ...base, status: t.status, actions: [], endedAt: t.endedAt, detail: `“${label}” ${what}${numbers}` });
     }
   }
   return out;
@@ -217,22 +228,21 @@ function webItems(origin: string, now: number): { items: Draft[]; facts: Map<str
           !res || p === undefined
             ? `On ${site}, “${rule.name}” is being tested on ${who}: ${plural(n, "visitor")} so far, too early to tell`
             : `On ${site}, ${rate(res.treatment.conversionRate)} of ${who} ${didOf(rule)} with “${rule.name}” vs ${rate(res.control.conversionRate)} without: ` +
-              `${chance(p)} chance it's better after ${plural(n, "visitor")}${ready ? `, past the ${bar(WEB_RULES.ship)} bar to ship` : ""}`;
-        items.push({ ...base, status: statusFor(p, ready), actions: ["ship", "stop"], detail });
+              `${chance(p)} chance it's better after ${plural(n, "visitor")}`;
+        items.push({ ...base, status: statusFor(p, ready), actions: ["ship", "stop"], detail, tail: ready ? `, past the ${bar(WEB_RULES.ship)} bar to ship` : undefined });
       } else if (ended < MAX_ENDED_PER_KIND) {
         ended++;
         const o = rule.outcome;
         const shipped = rule.status === "shipped";
-        const why =
-          o?.probabilityToBeat !== undefined
-            ? ` (${chance(o.probabilityToBeat)} chance it was better${o.lift !== undefined ? `, ${signed(o.lift)}` : ""}${o.by === "manual" ? ", your call" : ""})`
-            : "";
+        const by = o ? (o.by === "manual" ? " on your say-so" : " by Darwin") : "";
+        const numbers =
+          o?.probabilityToBeat !== undefined ? `: ${chance(o.probabilityToBeat)} chance it was better${o.lift !== undefined ? `, ${signed(o.lift)} ${didOf(rule) === "bought" ? "orders" : "conversions"}` : ""}` : "";
         items.push({
           ...base,
           status: shipped ? "shipped" : "stopped",
           actions: [],
           endedAt: endedAt(rule),
-          detail: `On ${site}, “${rule.name}” was ${shipped ? `shipped to ${who}` : `stopped for ${who}`}${why}`,
+          detail: `On ${site}, “${rule.name}” was ${shipped ? `shipped to ${who}` : `stopped for ${who}`}${by}${numbers}`,
         });
       }
     }
@@ -252,33 +262,35 @@ function loopItems(origin: string, now: number): Draft[] {
   const out: Draft[] = [];
   const url = `${origin}/console`;
 
+  /** Visitors behind the result (only the audience it's measured on), and how many of them were real. */
   const labelled = (experimentId: string, result: ExperimentResult | undefined) => {
     if (!result) return { sample: 0, traffic: "real" as BriefingTraffic };
-    const sample = result.control.visitors + result.treatment.visitors;
-    const real = getAnalyticsSummary({ experimentId, includeSynthetic: false }).overall.visitors;
-    return { sample, traffic: trafficOf(sample, real) };
+    const audience = result.audience ?? "all";
+    const sample = arm(result.control, audience).visitors + arm(result.treatment, audience).visitors;
+    const real = getAnalyticsSummary({ experimentId, includeSynthetic: false });
+    return { sample, traffic: trafficOf(sample, audience === "all" ? real.overall.visitors : real.byKind[audience].visitors) };
   };
 
-  const current = state.experimentId ? getExperiment(state.experimentId) : undefined;
-  if (current && current.status === "running") {
+  const exp = state.experimentId ? getExperiment(state.experimentId) : undefined;
+  const current = exp?.status === "running" ? exp : undefined;
+  if (current) {
     const result = current.result;
     const p = result?.probabilityToBeat;
     const deciding = state.phase === "decide" && !!result && result.decision !== "running";
     const ready = deciding && result!.decision === "ship";
     const audience = result?.audience ?? "all";
     const who = audience === "agent" ? "AI shoppers" : audience === "human" ? "shoppers" : "visitors";
-    let detail: string;
-    if (!result || p === undefined) {
-      detail = `Your store is testing “${current.name}”: too early to tell`;
-    } else {
+    let detail = `Your store is testing “${current.name}”: too early to tell`;
+    let tail: string | undefined;
+    if (result && p !== undefined) {
       const c = arm(result.control, audience);
       const t = arm(result.treatment, audience);
       detail =
         `On your store, ${rate(t.rate)} of ${who} bought with “${current.name}” vs ${rate(c.rate)} on the current page: ` +
         `${chance(p)} chance it's better after ${plural(c.visitors + t.visitors, who.slice(0, -1))}`;
-      if (ready) detail += `, past Darwin's ${bar(shipBar)} bar to ship`;
-      else if (deciding && result.decision === "inconclusive") detail += `; no clear winner, so Darwin will shelve it on its next step`;
-      else if (deciding && result.decision === "reject") detail += `; it lost, so Darwin will shelve it on its next step`;
+      if (ready) tail = `, past Darwin's ${bar(shipBar)} bar to ship`;
+      else if (deciding && result.decision === "inconclusive") tail = `; no clear winner, so Darwin will shelve it on its next step`;
+      else if (deciding && result.decision === "reject") tail = `; it lost, so Darwin will shelve it on its next step`;
     }
     const actions: BriefingAction[] = ready ? ["ship"] : deciding ? ["stop"] : [];
     out.push({
@@ -292,18 +304,19 @@ function loopItems(origin: string, now: number): Draft[] {
       actions,
       url,
       detail,
+      tail,
     });
   }
 
   const ended = listExperiments()
-    .filter((e) => e.status === "completed" && e.id !== current?.id && isRecent(e.completedAt, now))
+    .filter((e) => e.status === "completed" && isRecent(e.completedAt, now))
     .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""))
     .slice(0, MAX_ENDED_PER_KIND);
   for (const e of ended) {
     const result = e.result;
     const shipped = result?.decision === "ship";
     const gen = state.history.find((h) => h.experimentId === e.id);
-    const numbers = result ? ` (${chance(result.probabilityToBeat)} chance it was better, ${signed(result.lift)} conversion)` : "";
+    const numbers = result ? `: ${signed(result.lift)} conversion, ${chance(result.probabilityToBeat)} chance it was better` : "";
     out.push({
       id: `loop:${e.id}`,
       kind: "loop",
@@ -313,11 +326,12 @@ function loopItems(origin: string, now: number): Draft[] {
       lift: result?.lift,
       ...labelled(e.id, result),
       actions: [],
-      url,
+      // A shipped generation links to its pull request when there is one.
+      url: gen?.prUrl ?? url,
       endedAt: e.completedAt,
       detail: shipped
-        ? `“${e.name}” went live on your store${gen ? ` as Gen ${gen.generation}` : ""}${numbers}${gen?.prUrl ? `; pull request: ${gen.prUrl}` : ""}`
-        : `“${e.name}” was shelved on your store: ${result?.decision === "reject" ? "it lost" : "no clear winner"}${numbers}`,
+        ? `“${e.name}” went live on your store${gen ? ` as Gen ${gen.generation}` : ""}${numbers}`
+        : `“${e.name}” was shelved on your store${result?.decision === "reject" ? " because it lost" : " with no clear winner"}${numbers}`,
     });
   }
   return out;
@@ -383,7 +397,7 @@ export async function getBriefing(opts: { origin: string }): Promise<Briefing> {
   const web = webItems(origin, now);
   const drafts = [...loopItems(origin, now), ...web.items, ...agentItems(events, origin, now)].sort(byUrgency);
   const items = drafts.map(toItem);
-  const detailOf = new Map(items.map((item, i) => [item, drafts[i].detail]));
+  const unlabelled = new Map(items.map((item, i) => [item, `${drafts[i].detail}${drafts[i].tail ?? ""}.`]));
 
   // What to ask: the most urgent item the merchant can act on.
   const shipAsk = items.find((i) => (i.status === "ready" || i.status === "winning") && i.actions.includes("ship"));
@@ -426,16 +440,22 @@ export async function getBriefing(opts: { origin: string }): Promise<Briefing> {
   } else if (items.length) {
     main = "Nothing needs you right now.";
   } else {
-    main = fact ? "Nothing is being tested right now." : "Nothing is being tested yet, and there's no traffic to learn from.";
+    main = events.length ? "Nothing is being tested right now." : "Nothing is being tested yet, and there's no traffic to learn from.";
   }
 
   // 2-5 short sentences: number, question, the details, what else is going on, how to answer.
   const sentences = fact ? [fact, main] : [main];
   const lead = top ?? items[0];
-  if (lead) sentences.push(labelsTop && lead === top ? `${detailOf.get(lead)}.` : lead.say);
+  if (lead) sentences.push(labelsTop && lead === top ? unlabelled.get(lead)! : lead.say);
   const others = active.filter((i) => i !== top).length;
   if (others > 0) sentences.push(`${others === 1 ? "One other test is" : `${num(others)} other tests are`} running.`);
-  const hint = shipAsk ? "Reply “ship it” to ship it, or “stop” to end the test." : stopAsk ? "Reply “stop it” to end it, or “keep it” to let it run." : undefined;
+  const hint = shipAsk
+    ? shipAsk.actions.includes("stop")
+      ? "Reply “ship it” to ship it, or “stop” to end the test."
+      : "Reply “ship it” to ship it."
+    : stopAsk
+      ? "Reply “stop it” to end it, or “keep it” to let it run."
+      : undefined;
   const shipped = items.filter((i) => i.status === "shipped" && i !== lead);
   if (shipped.length && sentences.length + (hint ? 1 : 0) < 5) sentences.push(`Shipped in the last day: ${shipped.map((i) => `“${i.title}”`).join(", ")}.`);
   if (hint) sentences.push(hint);
@@ -476,7 +496,7 @@ async function actOnLoop(experimentId: string, action: BriefingAction): Promise<
     if (!deciding || result!.decision !== "ship") {
       return {
         ok: false,
-        text: `“${exp.name}” hasn't cleared Darwin's ${shipBar} bar yet (chance it's better: ${p}). Store page tests ship themselves once they do; to overrule that, ship it from the console.`,
+        text: `“${exp.name}” hasn't cleared Darwin's ${shipBar} bar yet (chance it's better: ${p}), and Darwin won't ship a store page change before it does. It ships by itself once it clears the bar; follow it in the console.`,
       };
     }
     const after = await stepLoop(); // decide → ship: promotes the winner and opens the pull request
@@ -491,7 +511,7 @@ async function actOnLoop(experimentId: string, action: BriefingAction): Promise<
       text:
         deciding && result!.decision === "ship"
           ? `“${exp.name}” won its test (${p} chance it's better), so Darwin can't shelve it from chat. To hold it back, turn autopilot off in the console.`
-          : `Darwin can't stop a store page test from chat while it's still collecting data. Stop it from the console.`,
+          : `Darwin can't stop a store page test from chat while it's still collecting data; it stops losers by itself. To pause everything, turn autopilot off in the console.`,
     };
   }
   await stepLoop(); // decide → shelve the loser / no-winner
@@ -522,7 +542,7 @@ function actOnWeb(site: string, ruleId: string, action: BriefingAction): Briefin
   }
   const who = whoOf(rule);
   return action === "ship"
-    ? { ok: true, text: `Shipped “${rule.name}” on ${site}: all ${who} see it now.` }
+    ? { ok: true, text: `Shipped “${rule.name}” on ${site}: it's live for ${who}.` }
     : { ok: true, text: `Stopped “${rule.name}” on ${site}: ${who} see the original page again.` };
 }
 

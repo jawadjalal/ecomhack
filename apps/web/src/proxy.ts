@@ -105,5 +105,6 @@ export const config = {
     // The merchant briefing (read by the team's chat bot with a bearer token) and its ship / stop action.
     "/api/briefing",
     "/api/briefing/:path*",
+    "/api/ask",
   ],
 };

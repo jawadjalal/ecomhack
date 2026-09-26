@@ -1,9 +1,11 @@
 /**
- * Agent tiles: a glass squircle with a two-letter monogram (Pe, Ch, Cl, Ge, Gr). The design uses
- * monograms as placeholders for each company's official logo.
+ * Agent tiles: a glass squircle holding the AI assistant's official glyph (OpenAI, Claude, Gemini,
+ * Perplexity, Grok, Copilot) — black on glass, or white on ink with `invert`. Unknown agents fall back
+ * to a two-letter monogram.
  */
 import { User } from "lucide-react";
 import { cn } from "@/components/ui/cn";
+import { BrandGlyph, type BrandKey } from "./brand-logos";
 import type { MascotKind } from "./mascot";
 
 export interface AgentBrand {
@@ -14,15 +16,17 @@ export interface AgentBrand {
   tint: string;
   /** The crew member that stands in for this shopper. */
   mascot: MascotKind;
+  /** Official glyph, when we have it. */
+  glyph?: BrandKey;
 }
 
 const BRANDS: AgentBrand[] = [
-  { key: "perplexity", name: "Perplexity", mono: "Pe", tint: "#DDF3EE", mascot: "shipper" },
-  { key: "chatgpt", name: "ChatGPT", mono: "Ch", tint: "#E6F4EC", mascot: "shipper" },
-  { key: "claude", name: "Claude", mono: "Cl", tint: "#FBE6DA", mascot: "designer" },
-  { key: "gemini", name: "Gemini", mono: "Ge", tint: "#E3EBFB", mascot: "observer" },
-  { key: "grok", name: "Grok", mono: "Gr", tint: "#ECEAE4", mascot: "designer" },
-  { key: "copilot", name: "Copilot", mono: "Co", tint: "#E3EEFB", mascot: "observer" },
+  { key: "perplexity", name: "Perplexity", mono: "Pe", tint: "#DDF3EE", mascot: "shipper", glyph: "perplexity" },
+  { key: "chatgpt", name: "ChatGPT", mono: "Ch", tint: "#E6F4EC", mascot: "shipper", glyph: "openai" },
+  { key: "claude", name: "Claude", mono: "Cl", tint: "#FBE6DA", mascot: "designer", glyph: "claude" },
+  { key: "gemini", name: "Gemini", mono: "Ge", tint: "#E3EBFB", mascot: "observer", glyph: "gemini" },
+  { key: "grok", name: "Grok", mono: "Gr", tint: "#ECEAE4", mascot: "designer", glyph: "grok" },
+  { key: "copilot", name: "Copilot", mono: "Co", tint: "#E3EEFB", mascot: "observer", glyph: "copilot" },
 ];
 
 /** "gemini-shopper", "Google-Extended", "GPTBot", "claude-web" … → brand. */
@@ -39,23 +43,33 @@ export function agentBrand(name: string | undefined, kind: "agent" | "human" = "
   return { key: "other", name: name ?? "Agent", mono: (label.slice(0, 1).toUpperCase() + label.slice(1, 2).toLowerCase()) || "Ag", tint: "#EFE9DD", mascot: "observer" };
 }
 
-/** Glass squircle monogram tile. */
-export function AgentTile({ brand, size = 24, className }: { brand: AgentBrand; size?: number; className?: string }) {
+/** Glass squircle with the assistant's glyph (black), or ink squircle with a white glyph (`invert`). */
+export function AgentTile({ brand, size = 24, invert, className }: { brand: AgentBrand; size?: number; invert?: boolean; className?: string }) {
+  const icon = Math.round(size * 0.56);
   return (
     <span
-      className={cn("inline-grid shrink-0 place-items-center font-semibold text-dw-ink", className)}
+      className={cn("inline-grid shrink-0 place-items-center font-semibold", invert ? "text-white" : "text-dw-ink", className)}
       style={{
         width: size,
         height: size,
         borderRadius: Math.round(size * 0.32),
         fontSize: Math.max(9, Math.round(size * 0.42)),
-        background: `linear-gradient(150deg, rgba(255,255,255,0.95), ${brand.tint})`,
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95), 0 0 0 1px rgba(20,20,19,0.08), 0 2px 6px rgba(20,20,19,0.08)",
+        background: invert ? "linear-gradient(150deg, #2a2a28, #141413)" : `linear-gradient(150deg, rgba(255,255,255,0.95), ${brand.tint})`,
+        boxShadow: invert
+          ? "inset 0 1px 0 rgba(255,255,255,0.14), 0 2px 6px rgba(20,20,19,0.18)"
+          : "inset 0 1px 0 rgba(255,255,255,0.95), 0 0 0 1px rgba(20,20,19,0.08), 0 2px 6px rgba(20,20,19,0.08)",
       }}
+      role="img"
       aria-label={brand.name}
       title={brand.name}
     >
-      {brand.key === "people" ? <User style={{ width: size * 0.5, height: size * 0.5 }} /> : brand.mono}
+      {brand.key === "people" ? (
+        <User style={{ width: size * 0.5, height: size * 0.5 }} />
+      ) : brand.glyph ? (
+        <BrandGlyph brand={brand.glyph} size={icon} />
+      ) : (
+        brand.mono
+      )}
     </span>
   );
 }
