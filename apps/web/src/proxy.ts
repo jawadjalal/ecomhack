@@ -73,6 +73,8 @@ export const config = {
   matcher: [
     "/store/:path*",
     "/store",
+    "/vanta/:path*",
+    "/vanta",
     "/console",
     "/console/:path*",
     "/api/loop/:path*",

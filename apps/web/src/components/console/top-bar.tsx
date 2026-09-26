@@ -92,9 +92,9 @@ export function TopBar({
       <div className="order-last flex w-full min-w-0 items-center gap-3 overflow-x-auto [scrollbar-width:none] xl:order-none xl:w-auto xl:flex-1 [&::-webkit-scrollbar]:hidden">
         <Chip title="The demo store Darwin is optimizing">
           <Store className="text-white/50" />
-          <span className="text-white/85">PACE</span>
-          <Link href="/store" target="_blank" className="text-white/40 underline-offset-2 hover:text-white hover:underline">
-            /store
+          <span className="text-white/85">VANTA</span>
+          <Link href="/vanta" target="_blank" className="text-white/40 underline-offset-2 hover:text-white hover:underline">
+            /vanta
           </Link>
         </Chip>
 

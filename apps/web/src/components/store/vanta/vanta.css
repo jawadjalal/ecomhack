@@ -1,0 +1,298 @@
+/* VANTA storefront.
+   Layout, type scale and spacing follow Apple's marketing-page system:
+   44px global nav, 980px copy column, 1680px unit grid, 12px gutters between
+   units, #f5f5f7 page ground showing through as hairline gaps. Type uses the
+   system stack, which resolves to SF Pro on Apple hardware. */
+
+.v {
+  --blue: #0066cc;
+  --ink: #1d1d1f;
+  --grey: #6e6e73;
+  --ground: #f5f5f7;
+  --nav-h: 44px;
+
+  color: var(--ink);
+  background: var(--ground);
+  font-family: var(--font-vanta), -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+.v *,
+.v *::before,
+.v *::after { box-sizing: border-box; }
+
+/* Zero-specificity reset so any class rule below wins without !important. */
+:where(.v) :where(a) { text-decoration: none; color: inherit; }
+:where(.v) :where(ul) { list-style: none; margin: 0; padding: 0; }
+:where(.v) :where(h1, h2, h3, p) { margin: 0; }
+
+.v a:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 3px; }
+.v section { scroll-margin-top: var(--nav-h); }
+
+.v-skip {
+  position: absolute; left: 12px; top: -120px; z-index: 200;
+  background: #fff; color: var(--ink);
+  padding: 10px 18px; border-radius: 10px; font-size: 14px;
+}
+.v-skip:focus { top: 8px; }
+
+/* ---- Global nav -------------------------------------------------------- */
+
+.v-nav-bar {
+  position: sticky; top: 0; z-index: 100;
+  height: var(--nav-h);
+  background: rgba(22, 22, 23, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.v-nav {
+  height: var(--nav-h); max-width: 1024px; margin: 0 auto; padding: 0 22px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.v-nav a {
+  font-size: 12px; line-height: 1; font-weight: 400;
+  letter-spacing: -0.01em; color: rgba(245, 245, 247, 0.8);
+  display: inline-flex; align-items: center; transition: color 0.2s;
+}
+.v-nav a:hover { color: #f5f5f7; }
+.v-wordmark { font-size: 15px !important; font-weight: 600; letter-spacing: 0.16em !important; }
+
+.v-promo {
+  background: var(--ground); color: var(--grey);
+  font-size: 14px; line-height: 1.43; text-align: center;
+  padding: 13px 20px;
+}
+.v-promo a { color: var(--blue); display: inline-flex; align-items: center; gap: 1px; }
+.v-promo a:hover { text-decoration: underline; }
+
+/* ---- Units (marquee + tiles) -------------------------------------------- */
+
+.v-unit {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; background: #fff;
+}
+.v-copy {
+  position: relative; z-index: 2;
+  width: 100%; max-width: 980px; padding: 52px 24px 0;
+  display: flex; flex-direction: column; align-items: center;
+}
+.v-art { position: relative; flex: 1; width: 100%; min-height: 340px; }
+.v-art img { object-fit: cover; object-position: center; }
+
+.v-eyebrow {
+  font-size: 19px; line-height: 1.21; font-weight: 400;
+  letter-spacing: 0.011em; color: #f56300; margin-bottom: 6px;
+}
+
+.v-marquee { min-height: 692px; background: #000; color: #f5f5f7; }
+.v-marquee h1 {
+  font-size: 56px; line-height: 1.07; font-weight: 600; letter-spacing: -0.005em;
+}
+.v-marquee .v-subhead { font-size: 28px; line-height: 1.11; font-weight: 400; letter-spacing: 0.007em; }
+
+.v-tile { min-height: 580px; }
+.v-tile h2 {
+  font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: 0em;
+}
+.v-tile .v-subhead { font-size: 19px; line-height: 1.21; font-weight: 400; letter-spacing: 0.012em; }
+
+.v-subhead { margin-top: 6px; }
+
+.v-dark { background: #000; color: #f5f5f7; }
+.v-light { background: #fafafa; color: var(--ink); }
+
+/* A product photographed on a pale background would read as a floating white
+   box on a black unit, so dark units get a contained shot on their own plate. */
+.v-dark .v-art { background: linear-gradient(180deg, #f7f8fa, #e8eaee); }
+.v-dark .v-art img { object-fit: contain; padding: 4% 6% 6%; }
+
+.v-links {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 8px 26px; margin-top: 17px;
+}
+.v-link {
+  display: inline-flex; align-items: center; gap: 1px;
+  font-size: 21px; line-height: 1.19; letter-spacing: 0.011em; color: var(--blue);
+}
+.v-link:hover { text-decoration: underline; }
+
+/* FLAW 1 (seeded): the primary buy CTA sits at roughly 1.3:1 against white and
+   1.4:1 against black. Fails WCAG AA badly and reads as a disabled control. */
+.v-link.v-buy { color: #d2d2d7; }
+.v-dark .v-link.v-buy, .v-marquee .v-link.v-buy { color: #2f2f31; }
+
+/* FLAW 3 (seeded): delivery surcharge that contradicts the promo bar above it. */
+.v-delivery { margin-top: 10px; font-size: 14px; color: var(--grey); }
+.v-dark .v-delivery, .v-marquee .v-delivery { color: #86868b; }
+.v-tile .v-link { font-size: 17px; line-height: 1.24; }
+.v-from { font-size: 17px; line-height: 1.24; color: var(--grey); }
+.v-dark .v-from, .v-marquee .v-from { color: #86868b; }
+
+/* Apple's links sit on a brighter blue against black. */
+.v-dark .v-link, .v-marquee .v-link { color: #2997ff; }
+
+.v-grid {
+  max-width: 1680px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  padding: 12px 0 0;
+}
+
+/* ---- Footer -------------------------------------------------------------- */
+
+.v-footer { background: var(--ground); color: var(--grey); font-size: 12px; line-height: 1.33; }
+.v-footer-inner { max-width: 1024px; margin: 0 auto; padding: 0 22px 20px; }
+.v-fine { padding: 17px 0; border-bottom: 1px solid #d2d2d7; }
+.v-footer-cols {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 26px;
+  padding: 18px 0 22px; border-bottom: 1px solid #d2d2d7;
+}
+.v-footer-cols h3 { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 9px; }
+.v-footer-cols li { margin-bottom: 8px; }
+.v-footer-cols a:hover { text-decoration: underline; color: var(--ink); }
+.v-footer-legal {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 20px; padding-top: 17px;
+}
+.v-footer-legal nav { display: flex; flex-wrap: wrap; gap: 0 10px; }
+.v-footer-legal nav a { position: relative; padding-right: 10px; }
+.v-footer-legal nav a:not(:last-child)::after {
+  content: ""; position: absolute; right: 0; top: 50%;
+  transform: translateY(-50%); height: 12px; width: 1px; background: #d2d2d7;
+}
+.v-footer-legal nav a:hover { text-decoration: underline; color: var(--ink); }
+
+/* ---- Responsive ----------------------------------------------------------- */
+
+@media (max-width: 1068px) {
+  .v-marquee h1 { font-size: 48px; }
+  .v-marquee .v-subhead { font-size: 24px; }
+  .v-tile h2 { font-size: 32px; }
+}
+
+@media (max-width: 734px) {
+  .v-nav { padding: 0 16px; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+  .v-nav::-webkit-scrollbar { display: none; }
+  .v-promo { font-size: 12px; padding: 11px 16px; }
+
+  .v-grid { grid-template-columns: 1fr; }
+  .v-marquee { min-height: 520px; }
+  .v-marquee h1 { font-size: 40px; }
+  .v-marquee .v-subhead { font-size: 19px; }
+  .v-tile { min-height: 490px; }
+  .v-tile h2 { font-size: 30px; }
+  .v-tile .v-subhead { font-size: 17px; }
+  .v-copy { padding-top: 42px; }
+  .v-link { font-size: 17px; }
+
+  .v-footer-cols { grid-template-columns: repeat(2, 1fr); }
+  .v-footer-legal { flex-direction: column; align-items: flex-start; }
+}
+
+/* ---- Spec-driven conversion chrome (same type, colour, grid) --------------- */
+
+.v-rating {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 15px; color: var(--grey); margin-top: 14px;
+}
+.v-star { fill: #f5a623; color: #f5a623; }
+.v-dark .v-rating, .v-marquee .v-rating { color: #a1a1a6; }
+
+/* Prominent CTA: white on #0071e3 (4.7:1). Used when the button is not buried below the description. */
+.v-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding-inline: 22px;
+  border-radius: 980px; background: #0071e3; color: #fff;
+  font-size: 17px; line-height: 1.18; font-weight: 500; white-space: nowrap;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.v-btn:hover { background: #0077ed; color: #fff; transform: translateY(-1px); }
+.v-btn-lg { min-height: 50px; padding-inline: 28px; font-size: 19px; }
+
+.v-stock {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px; font-size: 14px; color: #1d8a3e;
+}
+.v-dark .v-stock, .v-marquee .v-stock { color: #41c463; }
+.v-stock-low { color: #b8500f; }
+.v-dark .v-stock-low, .v-marquee .v-stock-low { color: #ff9f45; }
+
+.v-trust {
+  background: #fff; margin-top: 12px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px;
+  padding: 68px max(22px, calc((100vw - 1024px) / 2));
+}
+.v-trust div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; color: var(--grey); }
+.v-trust svg { color: var(--ink); margin-bottom: 9px; }
+.v-trust strong { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); }
+.v-trust span { font-size: 14px; line-height: 1.42; }
+
+.v-quotes { background: var(--ground); margin-top: 12px; padding: 96px 22px 100px; text-align: center; }
+.v-quotes h2 { font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+.v-quote-grid {
+  max-width: 1024px; margin: 52px auto 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+}
+.v-quote-grid figure {
+  margin: 0; background: #fff; border-radius: 18px; padding: 28px 26px 26px;
+  text-align: left; display: flex; flex-direction: column; gap: 14px;
+}
+.v-quote-stars { display: inline-flex; gap: 2px; }
+.v-quote-grid blockquote { margin: 0; font-size: 17px; line-height: 1.47; color: var(--ink); flex: 1; }
+.v-quote-grid figcaption { display: flex; flex-direction: column; gap: 2px; }
+.v-quote-grid figcaption strong { font-size: 15px; font-weight: 600; color: var(--ink); }
+.v-quote-grid figcaption span { font-size: 13px; color: var(--grey); }
+
+.v-guarantee {
+  background: #fff; margin-top: 12px; text-align: center;
+  padding: 88px 22px 92px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.v-guarantee svg { color: var(--ink); }
+.v-guarantee h2 {
+  font-size: 40px; line-height: 1.1; font-weight: 600; letter-spacing: -0.02em; margin-top: 18px; color: var(--ink);
+}
+.v-guarantee p { font-size: 19px; line-height: 1.47; color: var(--grey); max-width: 54ch; margin-top: 14px; }
+
+.v-sticky {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid #d2d2d7;
+  transform: translateY(100%); opacity: 0;
+  transition: transform 0.32s ease, opacity 0.32s ease;
+  pointer-events: none;
+}
+.v-sticky-on { transform: none; opacity: 1; pointer-events: auto; }
+.v-sticky-inner {
+  max-width: 1024px; margin: 0 auto; padding: 13px 22px;
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+}
+.v-sticky-copy { display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; }
+.v-sticky-copy strong { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); }
+.v-sticky-copy span { font-size: 13px; color: var(--grey); }
+.v-has-sticky .v-footer-inner { padding-bottom: 86px; }
+
+@media (max-width: 1068px) {
+  .v-trust { grid-template-columns: repeat(2, 1fr); gap: 30px 26px; }
+  .v-quote-grid { grid-template-columns: 1fr; max-width: 640px; }
+  .v-quotes h2, .v-guarantee h2 { font-size: 32px; }
+}
+
+@media (max-width: 734px) {
+  .v-trust { grid-template-columns: 1fr; padding: 48px 22px; gap: 30px; }
+  .v-quotes { padding: 68px 22px 72px; }
+  .v-guarantee { padding: 64px 22px 68px; }
+  .v-sticky-inner { padding: 11px 16px; gap: 12px; }
+  .v-sticky-copy span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v *, .v *::before, .v *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}

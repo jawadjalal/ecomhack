@@ -15,19 +15,21 @@ const FRAME_H = 820;
 
 export type PreviewPage = "home" | "product" | "cart" | "checkout";
 
-/** Candidate storefront routes per page; the first that answers 200 is used. */
+/**
+ * Storefront the console previews. VANTA is the filmed loop; /store stays the PACE shop.
+ * Change this one constant to point the frames somewhere else.
+ */
+export const STOREFRONT_BASE = "/vanta";
+
+/**
+ * Candidate routes per page; the first that answers 200 is used.
+ * VANTA is a single home — product, bag and checkout patches still preview there.
+ */
 const PAGE_PATHS: Record<PreviewPage, string[]> = {
-  home: ["/store"],
-  product: [
-    "/store/products/aurora-daily-trainer",
-    "/store/product/aurora-daily-trainer",
-    "/store/p/aurora-daily-trainer",
-    "/store/aurora-daily-trainer",
-    "/store/products/p_aurora",
-    "/store",
-  ],
-  cart: ["/store/cart", "/store/bag", "/store/checkout", "/store"],
-  checkout: ["/store/checkout", "/store/cart", "/store"],
+  home: [STOREFRONT_BASE],
+  product: [STOREFRONT_BASE],
+  cart: [STOREFRONT_BASE],
+  checkout: [STOREFRONT_BASE],
 };
 
 /** Which storefront page shows each PageSpec section (agentSurface has no page). */
