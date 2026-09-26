@@ -1,7 +1,6 @@
 "use client";
 
 import { AgentTile, agentBrand } from "@/components/dw/agent-tile";
-import type { MascotState } from "@/lib/mascot/state";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
 
 /** Simulated buyer personas get their own crew member, so the list reads at a glance. */
@@ -23,7 +22,7 @@ export function BuyerAvatar({ name, size = 28, className }: { name: string; size
   return <Mascot kind={personaMascot(name)} size={size} frame active={false} title={name} className={className} />;
 }
 
-/** The store agent itself: the green shipper, framed in glass. */
-export function StoreAvatar({ size = 34, active = true, state }: { size?: number; active?: boolean; state?: MascotState }) {
-  return <Mascot kind="shipper" size={size} frame state={state ?? (active ? "working" : "idle")} title="Your store agent" />;
+/** Mika, the store agent itself: the green mascot, framed in glass. */
+export function StoreAvatar({ size = 34, active = true }: { size?: number; active?: boolean }) {
+  return <Mascot kind="shipper" size={size} frame active={active} title="Mika, your store agent" />;
 }

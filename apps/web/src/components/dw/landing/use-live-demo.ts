@@ -41,7 +41,8 @@ export function useLiveDemo({ slow = false }: { slow?: boolean } = {}): LiveDemo
     let alive = true;
     let busy = false;
     let tick = 0;
-    let seq = 0;
+    // Seeded from the clock so sample keys stay unique if the effect re-runs (fast refresh) with samples already on screen.
+    let seq = Date.now();
     let last: { visitors: number; orders: number } | undefined;
     const raw: { visitors: number; orders: number }[] = [];
 

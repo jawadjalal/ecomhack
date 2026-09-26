@@ -454,7 +454,8 @@ export async function completeCheckoutSession(sessionId: string, input: Record<s
   if (s.source === "demo") {
     for (const it of s.items) {
       for (let q = 0; q < it.quantity; q++) {
-        if (!recordDemoPayment(it.id, s.ref).ok) return { status: 500, body: acpError("processing_error", "payment_failed", "Couldn't record the demo payment.") };
+        // This session is the checkout record: the payment is credited to its conversation (agent, channel).
+        if (!recordDemoPayment(it.id, s.ref, false, { checkout: { agentName: s.agentName, channel: s.channel } }).ok) return { status: 500, body: acpError("processing_error", "payment_failed", "Couldn't record the demo payment.") };
       }
     }
     s.status = "completed";

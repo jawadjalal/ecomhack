@@ -12,11 +12,11 @@
  * by the real `runBuyerAgent`, which owns its own randomness and timestamps).
  */
 import type { AnalyticsEventInput, EventProperties } from "@/lib/contracts";
-import { runBuyerAgent } from "@/lib/agent-commerce";
+import { callAgentTool, runBuyerAgent, type BuyerStep } from "@/lib/agent-commerce";
 import { eventStore, track } from "@/lib/analytics/store";
 import { llmAvailable } from "@/lib/llm/client";
 import { attributionProps, resolveSpecForVisitor } from "@/lib/spec/resolve";
-import { AGENT_NAMES, generateGoal, simulateAgentVisit, toShoppingGoal } from "./agents";
+import { AGENT_NAMES, agentGate, generateGoal, simulateAgentVisit, toShoppingGoal, type AgentGate } from "./agents";
 import { simulateHumanVisit } from "./humans";
 import { type SimClock } from "./clock";
 import { createRng, deriveSeed, randomSeed } from "./rng";
@@ -60,6 +60,29 @@ const AGENT_STEP_MS = 800;
 
 /** Max agents that get a real LLM brain when `useLlmAgents` is set. */
 const MAX_LLM_AGENTS = 3;
+
+/** Thrown from a `runBuyerAgent` step hook to end the visit early for an outside-the-page reason. */
+class GateStop extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+  }
+}
+
+/**
+ * Applies the simulator's `AgentGate` to a real buyer run: a web agent that cannot read the product
+ * data stops after opening a product; a principal who will not confirm stops the visit once the agent
+ * has put an item in the cart (the hand-off). Everything else is the buyer's own policy.
+ */
+function gateHook(gate: AgentGate) {
+  let viewed = false;
+  return (step: BuyerStep) => {
+    if (step.tool === "get_product" && !viewed) {
+      viewed = true;
+      if (gate.parseFail) throw new GateStop(gate.parseFail);
+    }
+    if (step.tool === "add_to_cart" && step.result.ok && gate.decline) throw new GateStop(gate.decline);
+  };
+}
 
 export async function simulateTraffic(opts: SimulationOptions): Promise<SimulationResult> {
   return runSimulation(opts);
@@ -119,11 +142,21 @@ export async function runSimulation(opts: SimulationOptions, internals: Simulati
         const start = end - AGENT_STEP_MS * 8;
         let step = 0;
         const now = () => new Date(Math.round(Math.min(end, start + AGENT_STEP_MS * step++))).toISOString();
-        const summary = await runBuyerAgent(
-          toShoppingGoal(goal),
-          { agentId, agentName: who.name, sessionId, synthetic: true, persona: `agent:${goal.kind}`, now },
-          { useLlm: useLlm && i < MAX_LLM_AGENTS },
-        );
+        const ctx = { agentId, agentName: who.name, sessionId, synthetic: true, persona: `agent:${goal.kind}`, now };
+        const gate = agentGate(deriveSeed(agentSeed, 3), { agentName: who.name, channel: who.channel }, resolved.spec);
+        const llmBrain = useLlm && i < MAX_LLM_AGENTS;
+        let summary;
+        try {
+          // A real LLM brain decides for itself (and its errors fall back inside runBuyerAgent): no gate.
+          summary = await runBuyerAgent(toShoppingGoal(goal), ctx, { useLlm: llmBrain, onStep: llmBrain ? undefined : gateHook(gate) });
+        } catch (stop) {
+          if (!(stop instanceof GateStop)) throw stop;
+          // Close the session through the real tool so events and the session summary agree.
+          await callAgentTool("abandon", { reason: stop.reason }, ctx);
+          tally(resolved.variant ?? "live", false, 0, "agent");
+          result.events += eventStore().since(lastBefore, Number.MAX_SAFE_INTEGER).length;
+          continue;
+        }
         if (summary.reason !== "not implemented") {
           tally(summary.variant ?? resolved.variant ?? "live", summary.outcome === "purchased", summary.orderTotal ?? 0, "agent");
           result.events += eventStore().since(lastBefore, Number.MAX_SAFE_INTEGER).length;

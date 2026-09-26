@@ -1,26 +1,37 @@
 "use client";
 
 /**
- * Live shoppers list joined to the Journey panel. The selected row turns pink, extends into the gap and
- * fuses with the panel through two radial-gradient fillets; the panel's top-left corner squares off when
- * the first row is selected.
+ * Live shoppers joined to the Journey, as one framed piece. Desktop: the list sits on the left of a cream
+ * frame and the selected shopper's journey fills a blue panel on the right; the selected row carries a blue
+ * tab that flows into the panel (concave fillets where they meet) and springs to the next row when you pick
+ * or hover another shopper. Below desktop the list is compact and a tap opens the journey as a full sheet.
+ * Empty: a Wayari painting and one action, "Send 50 simulated shoppers".
  */
-import Link from "next/link";
-import { Fragment, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ChevronRight, X } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AnalyticsSummary, LoopState } from "@/lib/contracts";
 import { timeAgo } from "@/lib/console/format";
 import { useNow } from "@/lib/console/hooks";
 import { cn } from "@/components/ui/cn";
-import { AgentTile } from "../agent-tile";
-import { Mascot, Silhouette } from "../mascot";
-import { ArmChip, PillButton, Segmented, humanDuration } from "../ui";
+import { Art } from "../art";
+import { useDarwin } from "../provider";
+import { Silhouette } from "../mascot";
+import { ArmChip, PillButton } from "../ui";
 import { EASE } from "./fx";
-import { FUNNEL, darwinNote, linkFor, type BoardRow, type KeyTone, type Shopper, type TestView } from "./model";
+import { DEPTH, JourneyView, STAGES, ShopperAvatar, rowLine } from "./journey";
+import type { BoardRow, Shopper, TestView } from "./model";
+import { MoneyFeed } from "./money-feed";
+import { StorePage } from "./store-view";
 
 type Filter = "all" | "people" | "agents";
 const ROWS = 6;
-const PINK = "#F3B5D5";
+/** Gap between the list and the journey panel; the selected row's tab spans it. */
+const GAP = 14;
+/** Radius of the concave fillets where the tab meets the panel. */
+const R = 18;
+const BLUE = "#B8CAEE";
+const SPRING = { type: "spring", stiffness: 520, damping: 42, mass: 0.8 } as const;
 
 const WIDE = "(min-width: 1024px)";
 const subscribeWide = (cb: () => void) => {
@@ -28,7 +39,7 @@ const subscribeWide = (cb: () => void) => {
   mq.addEventListener("change", cb);
   return () => mq.removeEventListener("change", cb);
 };
-/** Side-by-side list + panel (lg and up); below that the journey opens under the selected row. */
+/** Side-by-side list + panel (lg and up); below that a tap opens the journey sheet. */
 function useWide(): boolean {
   return useSyncExternalStore(
     subscribeWide,
@@ -53,14 +64,32 @@ function visibleRows(filter: Filter, agents: Shopper[], people: Shopper[]): Shop
   return [...a.slice(0, takeA), ...p.slice(0, takeP)].sort(byRecent);
 }
 
+/**
+ * A calm, sticky list: new shoppers arrive at most every few seconds instead of on every poll, and an empty
+ * poll (on Vercel it can land on a server instance that hasn't seen these shoppers) keeps the last list.
+ */
+function useCalmList<T>(list: T[], everyMs = 6000): T[] {
+  const [shown, setShown] = useState(list);
+  const lastAt = useRef(0);
+  useEffect(() => {
+    if (!list.length) return;
+    const wait = Math.max(0, lastAt.current + everyMs - Date.now());
+    const t = setTimeout(() => {
+      lastAt.current = Date.now();
+      setShown(list);
+    }, wait);
+    return () => clearTimeout(t);
+  }, [list, everyMs]);
+  return shown.length ? shown : list;
+}
+
 export function LiveShoppers({
-  agents,
-  people,
+  agents: agentsNow,
+  people: peopleNow,
   loop,
   test,
   board,
   summary,
-  onSendShoppers,
 }: {
   agents: Shopper[];
   people: Shopper[];
@@ -68,13 +97,18 @@ export function LiveShoppers({
   test?: TestView;
   board: BoardRow[];
   summary?: AnalyticsSummary;
+  /** Kept for callers; the empty state sends a one-off batch of simulated shoppers itself. */
   onSendShoppers?: () => void;
 }) {
+  const agents = useCalmList(agentsNow);
+  const people = useCalmList(peopleNow);
   const now = useNow();
+  const { api, notify } = useDarwin();
   const [filter, setFilter] = useState<Filter>("all");
   const [picked, setPicked] = useState<string>();
   /** While the pointer is over the list, keep its order still (rows update in place). */
   const [frozen, setFrozen] = useState<string[] | null>(null);
+  const [sending, setSending] = useState(false);
 
   const all = useMemo(() => new Map([...agents, ...people].map((s) => [s.id, s])), [agents, people]);
   const rows = useMemo(() => {
@@ -97,458 +131,369 @@ export function LiveShoppers({
   const lastMinute = now ? everyone.filter((s) => now - Date.parse(s.lastAt) < 60_000).length : 0;
   const simulated = everyone.some((s) => s.synthetic);
   const wide = useWide();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  const panel = (
-    <div
-      id="dw-journey"
-      aria-label={wide ? undefined : "Journey"}
-      role={wide ? undefined : "region"}
-      className={cn(
-        "relative flex flex-1 flex-col overflow-hidden rounded-[26px] px-5 py-6 sm:px-7",
-        wide ? selIdx === 0 && rows.length > 0 && "rounded-tl-none" : "-mt-2 rounded-t-none px-4 pt-3 pb-5",
-      )}
-      style={{ background: PINK }}
-    >
-      <Silhouette kind="experimenter" color="#EDA5C9" size={260} style={{ right: -90, top: -110 }} />
-      <AnimatePresence mode="wait" initial={false}>
-        {sel ? (
-          <motion.div
-            key={sel.id}
-            className="relative flex flex-1 flex-col gap-[22px]"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.22, ease: EASE }}
-          >
-            <Journey s={sel} loop={loop} test={test} board={board} summary={summary} compact={!wide} />
-          </motion.div>
-        ) : (
-          <div className="relative flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center text-[15px] text-[#5A2744]">
-            <Mascot kind="experimenter" size={58} frame active />
-            <p className="max-w-[24rem]">
-              {rows.length
-                ? "Pick a shopper to follow their path through the store, step by step."
-                : "When shoppers arrive, pick one to follow their path through the store, step by step."}
-            </p>
-          </div>
-        )}
-      </AnimatePresence>
+  // Hover intent: resting on a row for a moment follows that shopper (moving across rows doesn't).
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(hoverTimer.current), []);
+  const hoverRow = useCallback(
+    (id: string | undefined) => {
+      clearTimeout(hoverTimer.current);
+      if (!id || !wide) return;
+      hoverTimer.current = setTimeout(() => setPicked(id), 260);
+    },
+    [wide],
+  );
+
+  const send = async () => {
+    if (sending) return;
+    setSending(true);
+    try {
+      await api.simulate({ humans: 40, agents: 10, spreadMinutes: 2 });
+      notify("Sent 50 simulated shoppers to the demo store.", "info");
+    } catch (e) {
+      notify(`Couldn’t send shoppers: ${(e as Error).message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const status = liveCount ? `${liveCount} on the store` : lastMinute ? `${lastMinute} in the last minute` : "Quiet right now";
+  const total = filter === "agents" ? agents.length : filter === "people" ? people.length : everyone.length;
+
+  const head = (
+    <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex min-w-0 flex-col">
+        <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.01em]">Live shoppers</h2>
+        <span className="flex min-w-0 items-center gap-[7px] text-[12.5px] whitespace-nowrap text-dw-muted">
+          <span className={cn("size-[7px] shrink-0 rounded-full", liveCount || lastMinute ? "dw-live-dot bg-dw-live" : "bg-dw-ink/25")} />
+          <span className="truncate">
+            {status}
+            {simulated && <span className="font-medium text-dw-ink/70"> · simulated</span>}
+          </span>
+        </span>
+      </div>
+      <FilterTabs
+        value={filter}
+        onChange={(v) => {
+          setFilter(v);
+          setFrozen(null);
+          setPicked(undefined);
+        }}
+      />
     </div>
   );
 
-  return (
-    <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
-      <section aria-label="Live shoppers" className="flex min-w-0 flex-col gap-3">
-        <div className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-1 sm:flex-nowrap">
-          <div className="flex min-w-0 items-baseline gap-3">
-            <h2 className="shrink-0 text-[22px] font-semibold tracking-[-0.02em]">Live shoppers</h2>
-            <span className="flex min-w-0 items-center gap-[7px] text-[13px] whitespace-nowrap text-[#6B655A]">
-              <span className={cn("size-[7px] shrink-0 rounded-full", liveCount || lastMinute ? "dw-live-dot bg-dw-live" : "bg-dw-ink/25")} />
-              <span className="truncate">
-                {liveCount ? `${liveCount} on the store` : lastMinute ? `${lastMinute} in the last minute` : "Quiet right now"}
-                {simulated && <span className="text-[#8A8478]"> · simulated</span>}
-              </span>
-            </span>
+  if (everyone.length === 0) {
+    return (
+      <section aria-label="Live shoppers" className={cn("relative overflow-hidden rounded-[28px] bg-dw-surface", DEPTH)}>
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+          <div className="flex flex-col justify-center gap-4 p-6 sm:p-7">
+            <div className="flex flex-col gap-1.5">
+              <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.01em]">Quiet right now</h2>
+              <p className="max-w-[26rem] text-[15px] leading-normal text-dw-muted">
+                No one is on the demo store. Send some simulated people and AI shoppers, then pick one to follow their path, step by step.
+              </p>
+            </div>
+            <PillButton onClick={send} disabled={sending} className="self-start">
+              {sending ? "Sending…" : "Send 50 simulated shoppers"}
+            </PillButton>
           </div>
-          <Segmented<Filter>
-            value={filter}
-            onChange={(v) => {
-              setFilter(v);
-              setFrozen(null);
-              setPicked(undefined);
-            }}
-            options={[
-              { value: "all", label: "All" },
-              { value: "people", label: "People" },
-              { value: "agents", label: "Agents" },
-            ]}
-          />
+          <div className="relative min-h-[200px] md:min-h-[260px]">
+            <Art id="forest-path" position="50% 60%" sizes="(min-width: 768px) 60vw, 100vw" className="m-2 rounded-[20px]" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Live shoppers" className={cn("relative rounded-[28px] bg-dw-surface p-2", DEPTH)}>
+      <div className={cn("grid grid-cols-1", wide && "grid-cols-[minmax(0,0.92fr)_minmax(0,1.5fr)]")} style={wide ? { columnGap: GAP } : undefined}>
+        {/* the list */}
+        <div className="flex min-w-0 flex-col gap-3 px-3 pt-3 pb-2 sm:px-4 lg:pr-0">
+          <div className="lg:pr-3">{head}</div>
+          {rows.length === 0 ? (
+            <p className="rounded-[20px] border border-dw-hairline px-4 py-8 text-center text-[15px] text-dw-muted">
+              {filter === "people" ? "No people on the store yet." : "No AI shoppers yet."}
+            </p>
+          ) : (
+            <LayoutGroup id="dw-shoppers">
+              <div
+                aria-label="Shoppers"
+                role="group"
+                className={cn("flex flex-col", wide ? "gap-1.5" : "divide-y divide-dw-hairline")}
+                onPointerEnter={() => setFrozen(rows.map((s) => s.id))}
+                onPointerLeave={() => {
+                  setFrozen(null);
+                  hoverRow(undefined);
+                }}
+              >
+                {rows.map((s) => (
+                  <ShopperRow
+                    key={s.id}
+                    s={s}
+                    on={wide && s.id === sel?.id}
+                    now={now}
+                    compact={!wide}
+                    onHover={hoverRow}
+                    onPick={() => {
+                      clearTimeout(hoverTimer.current);
+                      setPicked(s.id);
+                      if (!wide) setSheetOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+            </LayoutGroup>
+          )}
+          <span className="px-1 pt-1 text-[12.5px] text-dw-muted tabular-nums lg:pr-3">
+            {rows.length ? `Newest ${rows.length} of ${total}` : " "}
+            {simulated && rows.length ? " · simulated traffic" : ""}
+          </span>
+          <MoneyFeed agents={agents} className="mt-2 px-1 lg:pr-3" />
         </div>
 
-        {rows.length === 0 ? (
-          <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 rounded-[22px] bg-dw-sand px-6 py-10 text-center text-[15px] text-dw-ink/70">
-            <Mascot kind="observer" size={56} frame active />
-            <p className="max-w-[22rem]">
-              {filter === "people" ? "No people on the store yet." : filter === "agents" ? "No AI shoppers yet." : "No one’s shopping right now."} Send some
-              shoppers and watch them arrive.
-            </p>
-            {onSendShoppers && <PillButton onClick={onSendShoppers}>Send shoppers</PillButton>}
+        {/* the journey, joined to the selected row */}
+        {wide && (
+          <div
+            id="dw-journey"
+            role="region"
+            aria-label={sel ? `Journey of ${sel.name}` : "Journey"}
+            className="relative flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[22px] bg-dw-blue p-6"
+          >
+            <AnimatePresence mode="popLayout" initial={false}>
+              {sel && (
+                <motion.div
+                  key={sel.id}
+                  className="relative flex flex-1 flex-col gap-5"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8, transition: { duration: 0.12 } }}
+                  transition={{ duration: 0.24, ease: EASE }}
+                >
+                  <JourneyView s={sel} now={now} loop={loop} test={test} board={board} summary={summary} aside={<StorePage s={sel} test={test} />} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        ) : (
-          <LayoutGroup>
-            <div
-              aria-label="Shoppers"
-              role="group"
-              className="flex flex-col gap-2 lg:pb-6"
-              onPointerEnter={() => setFrozen(rows.map((s) => s.id))}
-              onPointerLeave={() => setFrozen(null)}
-            >
-              {rows.map((s, i) => (
-                <Fragment key={s.id}>
-                  <ShopperRow s={s} on={i === selIdx} first={i === 0} now={now} onPick={() => setPicked(s.id)} />
-                  {!wide && i === selIdx && panel}
-                </Fragment>
-              ))}
-            </div>
-          </LayoutGroup>
         )}
-      </section>
+      </div>
 
-      {wide && (
-        <section aria-label="Journey" className="flex min-w-0 flex-col gap-3">
-          <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 px-1">
-            <h2 className="text-[22px] font-semibold tracking-[-0.02em]">Journey</h2>
-            {sel && (
-              <span className="truncate text-[14px] text-[#6B655A]">
-                {[
-                  sel.kind === "agent" ? "Agent" : "Person",
-                  sel.model,
-                  sel.arm ? `test ${sel.arm}` : undefined,
-                  humanDuration(Date.parse(sel.lastAt) - Date.parse(sel.startedAt)),
-                  sel.synthetic ? "simulated" : undefined,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
+      <JourneySheet open={!wide && sheetOpen && !!sel} onClose={() => setSheetOpen(false)} s={sel}>
+        {sel && (
+          <>
+            <JourneyView s={sel} now={now} loop={loop} test={test} board={board} summary={summary} aside={<StorePage s={sel} test={test} />} stacked />
+          </>
+        )}
+      </JourneySheet>
+    </section>
+  );
+}
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "people", label: "People" },
+  { value: "agents", label: "Agents" },
+];
+
+/** A plain underlined text toggle (no pills). */
+function FilterTabs({ value, onChange }: { value: Filter; onChange: (v: Filter) => void }) {
+  const reduce = useReducedMotion();
+  return (
+    <div role="group" aria-label="Show shoppers" className="flex items-center gap-4">
+      {FILTERS.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "relative h-8 text-[13.5px] font-medium outline-none transition-colors focus-visible:text-dw-ink focus-visible:underline",
+              on ? "text-dw-ink" : "text-dw-muted hover:text-dw-ink",
             )}
-          </div>
-          {panel}
-        </section>
-      )}
+          >
+            {o.label}
+            {on && (
+              <motion.span
+                layoutId="dw-shopper-filter"
+                aria-hidden
+                className="absolute inset-x-0 bottom-0.5 h-[2px] rounded-full bg-dw-ink"
+                transition={reduce ? { duration: 0 } : SPRING}
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function ShopperRow({ s, on, first, now, onPick }: { s: Shopper; on: boolean; first: boolean; now: number; onPick: () => void }) {
+/** Phones and tablets: the journey as a full-screen sheet that slides up (Esc or ✕ closes it; the page stops scrolling). */
+function JourneySheet({ open, onClose, s, children }: { open: boolean; onClose: () => void; s?: Shopper; children: React.ReactNode }) {
   const reduce = useReducedMotion();
-  const when = s.status === "live" ? timeAgo(s.lastAt, now) || "now" : timeAgo(s.lastAt, now);
+  const close = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const root = document.documentElement;
+    const prev = root.style.overflow;
+    root.style.overflow = "hidden";
+    close.current?.focus({ preventScroll: true });
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => {
+      root.style.overflow = prev;
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open, onClose]);
+  return (
+    <AnimatePresence>
+      {open && s && (
+        <motion.div
+          key="journey-sheet"
+          id="dw-journey"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Journey of ${s.name}`}
+          className="fixed inset-0 z-[70] flex flex-col overflow-hidden bg-dw-blue"
+          initial={reduce ? false : { y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%", transition: { duration: 0.22, ease: EASE } }}
+          transition={{ duration: 0.38, ease: EASE }}
+        >
+          <Silhouette kind="observer" color="#A8BCE7" size={260} style={{ right: -90, bottom: -80 }} />
+          <div className="relative flex h-14 shrink-0 items-center gap-3 px-3 pt-[env(safe-area-inset-top)]">
+            <button
+              ref={close}
+              type="button"
+              onClick={onClose}
+              aria-label="Close journey"
+              className={cn("grid size-10 place-items-center rounded-full bg-dw-surface text-dw-ink transition-transform active:scale-90", DEPTH)}
+            >
+              <X className="size-[18px]" />
+            </button>
+            <span className="text-[17px] font-semibold">Journey</span>
+            {s.synthetic && <span className="ml-auto text-[12.5px] text-[#3E4E70]">simulated</span>}
+          </div>
+          <div className="relative flex min-h-0 flex-1 flex-col gap-5 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(24px,env(safe-area-inset-bottom))]">
+            {children}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Concave corner where the tab meets the panel: blue outside a quarter circle. */
+function Fillet({ at }: { at: "top" | "bottom" }) {
+  return (
+    <svg
+      aria-hidden
+      width={R}
+      height={R}
+      viewBox={`0 0 ${R} ${R}`}
+      className="pointer-events-none absolute right-0"
+      style={at === "top" ? { top: -R + 0.5 } : { bottom: -R + 0.5 }}
+    >
+      <path d={at === "top" ? `M${R} 0V${R}H0A${R} ${R} 0 0 0 ${R} 0Z` : `M0 0H${R}V${R}A${R} ${R} 0 0 0 0 0Z`} fill={BLUE} />
+    </svg>
+  );
+}
+
+/** Five tiny dots: the row's path in miniature, the same steps the journey draws. */
+function MiniPath({ s }: { s: Shopper }) {
+  const won = s.status === "bought";
+  return (
+    <span aria-hidden className="flex shrink-0 items-center gap-[3px]">
+      {STAGES.map((label, i) => {
+        const done = i < s.reach || (i === s.reach && won);
+        const here = i === s.reach && !won;
+        return (
+          <span
+            key={label}
+            className={cn(
+              "size-[7px] rounded-full",
+              done ? (i === 4 ? "bg-dw-olive-shape" : "bg-dw-ink") : here ? (s.status === "live" ? "dw-live-dot bg-dw-live" : "bg-dw-hot") : "bg-dw-ink/15",
+            )}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
+function ShopperRow({
+  s,
+  on,
+  now,
+  compact,
+  onHover,
+  onPick,
+}: {
+  s: Shopper;
+  on: boolean;
+  now: number;
+  compact?: boolean;
+  onHover: (id: string | undefined) => void;
+  onPick: () => void;
+}) {
+  const reduce = useReducedMotion();
+  const when = s.status === "live" ? "now" : timeAgo(s.lastAt, now);
   return (
     <motion.button
       layout={reduce ? false : "position"}
-      initial={reduce ? false : { opacity: 0, y: -10 }}
+      initial={reduce ? false : { opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: EASE }}
+      transition={{ duration: 0.3, ease: EASE }}
       type="button"
-      aria-pressed={on}
+      aria-pressed={compact ? undefined : on}
       aria-controls="dw-journey"
+      aria-label={`${s.name}: ${rowLine(s)}${s.synthetic ? ", simulated" : ""}`}
       onClick={onPick}
+      onPointerEnter={() => onHover(s.id)}
+      onPointerLeave={() => onHover(undefined)}
       className={cn(
-        "relative flex h-[90px] shrink-0 items-center gap-3.5 px-4 text-left text-dw-ink outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:ring-offset-dw-bg",
-        on
-          ? "rounded-[22px] bg-dw-pink max-lg:rounded-b-none lg:-mr-[18px] lg:rounded-r-none lg:pr-[34px]"
-          : "dw-row rounded-[22px] bg-dw-sand hover:bg-[#e8e0cd]",
+        "group relative flex shrink-0 items-center gap-3 text-left text-dw-ink outline-none focus-visible:ring-2 focus-visible:ring-dw-ink focus-visible:ring-offset-2 focus-visible:ring-offset-dw-surface",
+        compact ? "h-[64px] px-1 active:bg-dw-sand/60" : "h-[66px] rounded-l-[20px] pr-5 pl-3",
       )}
     >
-      {on && !first && (
-        <span
-          aria-hidden
-          className="absolute -top-5 right-0 hidden size-5 lg:block"
-          style={{
-            background: `radial-gradient(circle at 0 0, transparent 19.5px, ${PINK} 20px)`,
-          }}
-        />
+      {!compact && !on && (
+        <span aria-hidden className="absolute inset-0 rounded-[20px] bg-dw-sand/0 transition-colors duration-200 group-hover:bg-dw-sand/70" />
       )}
       {on && (
-        <span
+        <motion.span
+          layoutId="dw-shopper-tab"
           aria-hidden
-          className="absolute right-0 -bottom-5 hidden size-5 lg:block"
-          style={{
-            background: `radial-gradient(circle at 0 100%, transparent 19.5px, ${PINK} 20px)`,
-          }}
-        />
+          className="absolute inset-y-0 left-0 rounded-l-[20px] bg-dw-blue"
+          style={{ right: -GAP }}
+          transition={reduce ? { duration: 0 } : SPRING}
+        >
+          <Fillet at="top" />
+          <Fillet at="bottom" />
+        </motion.span>
       )}
-      <span className="dw-tilt relative flex shrink-0">
-        <Mascot kind={s.mascot} size={48} frame state={s.status === "live" ? "working" : "idle"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
-        {s.kind === "agent" && <AgentTile brand={s.brand} size={20} invert={on} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
+      <span className="relative flex shrink-0">
+        <ShopperAvatar s={s} size={compact ? 38 : 40} />
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="flex items-baseline justify-between gap-2.5">
+      <span className="relative flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-baseline justify-between gap-2">
           <span className="truncate text-[15px] font-semibold">{s.name}</span>
-          <span className={cn("flex shrink-0 items-center font-dwmono text-[12px] whitespace-nowrap", on ? "text-[#5A2744]" : "text-[#8A8478]")}>
+          <span className={cn("flex shrink-0 items-center font-dwmono text-[12px] whitespace-nowrap tabular-nums", on ? "text-[#3E4E70]" : "text-dw-muted")}>
             {s.status === "live" && <span className="dw-live-dot mr-1.5 inline-block size-1.5 rounded-full bg-dw-live" />}
             {when}
           </span>
         </span>
         <span className="flex min-w-0 items-center gap-2">
           {s.arm && <ArmChip arm={s.arm} />}
-          <span className="truncate text-[13px] text-[#6B655A]">{s.sub}</span>
+          <span className={cn("truncate text-[13px]", on ? "text-dw-ink/80" : "text-dw-muted")}>{rowLine(s)}</span>
+          <span className="ml-auto pl-1">
+            <MiniPath s={s} />
+          </span>
         </span>
       </span>
+      {compact && <ChevronRight aria-hidden className="relative size-4 shrink-0 text-dw-ink/35" />}
     </motion.button>
-  );
-}
-
-/* ------------------------------------------------------------------ journey */
-
-const PILL: Record<KeyTone, string> = {
-  warn: "bg-dw-warn-bg text-dw-warn",
-  live: "bg-[#FCE1EE] text-[#C2306F]",
-  won: "bg-dw-win-bg text-dw-win",
-  fail: "bg-dw-sand text-dw-ink",
-};
-const STAGE: Record<KeyTone, string> = {
-  warn: "linear-gradient(160deg, #8FA7D8 0%, #E9B8C9 55%, #E79A62 100%)",
-  live: "linear-gradient(160deg, #B8CAEE 0%, #F3B5D5 55%, #F6D76B 100%)",
-  won: "linear-gradient(160deg, #A8BCE7 0%, #C9D39A 55%, #7FA05A 100%)",
-  fail: "linear-gradient(160deg, #B9B2A4 0%, #E3C9C0 55%, #C98D6E 100%)",
-};
-const GRAIN =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
-
-function Journey({
-  s,
-  loop,
-  test,
-  board,
-  summary,
-  compact,
-}: {
-  s: Shopper;
-  loop?: LoopState;
-  test?: TestView;
-  board: BoardRow[];
-  summary?: AnalyticsSummary;
-  /** Under its row on phones: the row already shows who it is, so the header is one line. */
-  compact?: boolean;
-}) {
-  const reduce = useReducedMotion();
-  const won = s.status === "bought";
-  const duration = humanDuration(Date.parse(s.lastAt) - Date.parse(s.startedAt));
-  const link = linkFor(s, loop, test);
-  const note = darwinNote(s, { loop, test, board, summary });
-  const progress = won ? "5 of 5 steps · bought" : `${s.reach} of 5 steps · ${s.status === "live" ? "live" : `left at ${FUNNEL[s.reach].toLowerCase()}`}`;
-  const shownSteps = s.steps.length > 1 ? s.steps.slice(0, -1).slice(-3) : [];
-  const facts = [
-    { k: "Shopper", v: s.kind === "agent" ? "Agent" : "Person" },
-    { k: s.kind === "agent" ? "Model" : "Device", v: s.model },
-    { k: "Test arm", v: s.arm ?? "Not in a test" },
-    { k: "Session", v: duration },
-  ];
-
-  return (
-    <>
-      {compact ? (
-        <div className="relative flex items-center justify-between gap-3">
-          <span className="text-[13px] text-[#5A2744]">
-            {duration} on the store{s.synthetic ? " · simulated" : ""}
-          </span>
-          <span
-            className={cn(
-              "flex h-8 shrink-0 items-center rounded-full px-3.5 text-[13px] font-semibold",
-              won ? "bg-dw-ink text-white" : "bg-white text-dw-ink",
-            )}
-          >
-            {s.outcome}
-          </span>
-        </div>
-      ) : (
-        <div className="relative flex flex-wrap items-center gap-3.5 sm:flex-nowrap">
-          <span className="relative flex shrink-0">
-            <Mascot kind={s.mascot} size={58} frame state={s.status === "live" ? "working" : s.outcome === "purchased" ? "success" : s.outcome === "abandoned" ? "error" : "idle"} title={s.kind === "agent" ? `${s.brand.name} agent` : "Person"} />
-            {s.kind === "agent" && <AgentTile brand={s.brand} size={24} className="absolute -right-1.5 -bottom-1.5 z-[2]" />}
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate text-[22px] font-semibold tracking-[-0.01em]">{s.name}</span>
-            <span className="text-[14px] text-[#5A2744]">
-              {duration} on the store{s.synthetic ? " · simulated" : ""}
-            </span>
-          </div>
-          <span
-            className={cn(
-              "flex h-[34px] shrink-0 items-center rounded-full px-4 text-[14px] font-semibold",
-              won ? "bg-dw-ink text-white" : "bg-white text-dw-ink",
-            )}
-          >
-            {s.outcome}
-          </span>
-        </div>
-      )}
-
-      <div className="relative flex flex-col gap-2.5">
-        <div className="flex justify-between gap-3 text-[13px] text-[#5A2744]">
-          <span className="max-sm:hidden">Path through the store</span>
-          <span className="font-dwmono text-[12px] text-dw-ink sm:text-[13px]">{progress}</span>
-        </div>
-        <div className="grid grid-cols-5 gap-1.5">
-          {FUNNEL.map((label, i) => {
-            const reached = i < s.reach || (i === s.reach && won);
-            const here = i === s.reach && !won;
-            const live = here && s.status === "live";
-            return (
-              <div key={label} className="group flex min-w-0 flex-col gap-2">
-                <motion.span
-                  className={cn(
-                    "block h-2 origin-left rounded-full transition-transform duration-200 group-hover:scale-y-150",
-                    reached ? "bg-dw-ink" : here && !live ? "border-[1.5px] border-dashed border-dw-ink" : !here ? "bg-white/50" : "",
-                    live && "animate-pulse motion-reduce:animate-none",
-                  )}
-                  style={
-                    live
-                      ? {
-                          background: "linear-gradient(90deg, #141413 0 50%, rgba(20,20,19,0.14) 50%)",
-                        }
-                      : undefined
-                  }
-                  initial={reduce ? false : { scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{
-                    duration: 0.45,
-                    ease: EASE,
-                    delay: 0.05 + i * 0.07,
-                  }}
-                />
-                <span
-                  className={cn(
-                    "flex items-center truncate text-[11.5px] whitespace-nowrap sm:text-[13px]",
-                    reached || here ? "font-semibold text-dw-ink" : "text-[#8A6275]",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "mr-1.5 hidden size-2 shrink-0 rounded-[2px] sm:inline-block",
-                      reached ? "bg-dw-ink" : live ? "dw-live-dot bg-dw-hot" : here ? "border-[1.5px] border-dw-ink" : "bg-dw-ink/[0.14]",
-                    )}
-                  />
-                  {label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="relative grid min-h-0 flex-1 grid-cols-1 gap-3.5 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-2.5 rounded-[22px] bg-white/[0.62] px-[18px] py-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[13px] text-[#5A2744]">Session</span>
-            <span className="font-dwmono text-[12px] text-[#8A6275]">
-              {s.steps.length} {s.kind === "agent" ? (s.steps.length === 1 ? "tool call" : "tool calls") : s.steps.length === 1 ? "event" : "events"}
-            </span>
-          </div>
-          {s.brief && (
-            <div className="max-w-[78%] self-end rounded-[16px_16px_4px_16px] bg-dw-ink px-3.5 py-2 text-[14px] leading-snug text-white">{s.brief}</div>
-          )}
-          {shownSteps.length > 0 && (
-            <ol className="flex flex-col gap-0.5">
-              {shownSteps.map((e, i) => (
-                <li
-                  key={`${e.tool}-${i}`}
-                  className="-mx-2 grid h-7 grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2 rounded-[10px] px-2 transition-colors hover:bg-white/70"
-                >
-                  <StepIcon tone={e.tone} />
-                  <span className="truncate text-[14px]">
-                    {e.text} <span className="font-dwmono text-[12px] text-[#8A6275]">{e.tool}</span>
-                  </span>
-                  <span className="font-dwmono text-[12px] text-[#8A6275]">{e.t}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-
-          <div className="group/tool flex flex-col gap-2.5 rounded-[18px] bg-white p-3 shadow-[0_0_0_1px_rgba(20,20,19,0.06)]">
-            <div className="flex items-center justify-between gap-2.5 px-0.5">
-              <span className="truncate font-dwmono text-[13px] font-medium">{s.key.tool}</span>
-              <span className={cn("inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-semibold", PILL[s.key.tone])}>
-                {s.key.tone === "live" && (
-                  <span className="inline-block size-[9px] animate-spin rounded-full border-[1.5px] border-current border-r-transparent motion-reduce:animate-none" />
-                )}
-                {s.key.pill}
-              </span>
-            </div>
-            <span className="px-0.5 text-[14px] leading-snug">{s.key.text}</span>
-            <div
-              className="relative flex min-h-[112px] items-center justify-center overflow-hidden rounded-[12px] py-3"
-              style={{ background: STAGE[s.key.tone] }}
-            >
-              <span aria-hidden className="pointer-events-none absolute inset-0 opacity-35 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
-              <div className="relative z-[1] w-[68%] overflow-hidden rounded-[10px] bg-white shadow-[0_10px_30px_rgba(20,20,19,0.18)] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)] group-hover/tool:-translate-y-1 group-hover/tool:scale-[1.03]">
-                <div className="flex h-[18px] items-center gap-1 border-b border-[#EFEAE0] px-2">
-                  <span className="size-[5px] rounded-full bg-[#E4DDCF]" />
-                  <span className="size-[5px] rounded-full bg-[#E4DDCF]" />
-                  <span className="size-[5px] rounded-full bg-[#E4DDCF]" />
-                </div>
-                <div className="flex flex-col gap-1 px-3 pt-[7px] pb-2">
-                  <span className="truncate text-[12px] font-semibold">{s.key.mockTitle}</span>
-                  {s.key.rows.map((r) => (
-                    <div key={r.k} className="flex items-center justify-between gap-2 text-[11px]">
-                      <span className="truncate text-[#6B655A]">{r.k}</span>
-                      <span
-                        className={cn(
-                          "shrink-0 whitespace-nowrap",
-                          r.tone === "bad"
-                            ? "rounded-full border border-dashed border-[#C2306F] px-[7px] py-px font-semibold text-[#C2306F]"
-                            : r.tone === "good"
-                              ? "font-semibold text-dw-win"
-                              : r.tone === "live"
-                                ? "font-semibold text-[#C2306F]"
-                                : "font-medium text-dw-ink",
-                        )}
-                      >
-                        {r.v}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          {link && (
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-0.5 text-[13px] text-[#8A6275]">
-              Darwin linked this to
-              <Link
-                href={link.href}
-                className="inline-flex h-7 max-w-full items-center gap-1.5 truncate rounded-full bg-white px-2.5 text-[12.5px] font-medium text-dw-ink shadow-[0_0_0_1px_rgba(20,20,19,0.06)] transition-transform hover:-translate-y-px"
-              >
-                <span className="size-[7px] shrink-0 rounded-full bg-dw-ink" />
-                <span className="truncate">{link.label}</span>
-              </Link>
-            </div>
-          )}
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-col gap-2.5 rounded-[22px] bg-white px-[18px] py-4">
-            <div className="flex items-center gap-2.5">
-              <Mascot kind="leader" size={34} frame state="idle" title="Darwin" />
-              <span className="text-[14px] font-semibold">Darwin</span>
-            </div>
-            <p className="text-[14px] leading-normal">{note}</p>
-          </div>
-          <dl className="grid flex-1 grid-cols-2 content-start gap-x-3 gap-y-3.5 rounded-[22px] bg-white/[0.62] px-[18px] py-4">
-            {facts.map((x) => (
-              <div key={x.k} className="flex min-w-0 flex-col gap-[3px]">
-                <dt className="text-[12px] text-[#8A6275]">{x.k}</dt>
-                <dd className="truncate text-[15px] font-semibold">{x.v}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function StepIcon({ tone }: { tone: "ok" | "warn" | "fail" | "live" }) {
-  if (tone === "live") return <span className="dw-live-dot mx-auto block size-2.5 rounded-full bg-dw-hot" aria-label="happening now" />;
-  if (tone === "fail")
-    return (
-      <svg width="14" height="14" viewBox="0 0 16 16" aria-label="failed">
-        <circle cx="8" cy="8" r="6.2" fill="none" stroke="#141413" strokeWidth="1.6" />
-        <path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4" stroke="#141413" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    );
-  if (tone === "warn")
-    return (
-      <svg width="14" height="14" viewBox="0 0 16 16" aria-label="missing data">
-        <circle cx="8" cy="8" r="7" fill="#E08A2E" />
-        <path d="M8 4.4v4.4" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
-        <circle cx="8" cy="11.4" r="1" fill="#fff" />
-      </svg>
-    );
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" aria-label="done">
-      <circle cx="8" cy="8" r="7" fill="#141413" />
-      <path d="M5 8.2l2 2 4-4.2" fill="none" stroke="#FFFFFF" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

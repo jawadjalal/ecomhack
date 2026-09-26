@@ -5,11 +5,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/components/ui/cn";
 import { PHASE_META } from "@/lib/console/format";
 import { TRAFFIC_BATCH, useExperiments } from "@/lib/console/hooks";
-import { useNow } from "@/lib/console/hooks";
-import { crewMascotState } from "@/lib/mascot/state";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, LiveDot, pct0 } from "../ui";
+import { Card, DEPTH, LiveDot, pct0 } from "../ui";
 import { Switch } from "./switch";
 
 /**
@@ -33,34 +31,26 @@ export function AutopilotCard({ className }: { className?: string }) {
     }
   };
 
-  const now = useNow();
-  const last = loop?.log.at(-1);
-  const shipper = crewMascotState("shipper", {
-    phase: loop?.phase,
-    autopilot,
-    lastEntry: last ? { actor: last.actor, message: last.message, at: last.at } : null,
-    now,
-  });
   const running = experiments?.find((e) => e.status === "running");
   const chance = running?.result?.probabilityToBeat;
   const phase = loop ? PHASE_META[loop.phase] : undefined;
 
   return (
-    <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Autopilot">
+    <Card tone="yellow" shape="shipper" corner="tr" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Autopilot">
       <div className="flex items-start gap-4">
-        <Mascot kind="shipper" size={60} frame state={shipper} title="Darwin's shipper" />
+        <Mascot kind="shipper" size={60} frame active={autopilot} title="Dash, the shipper" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-[26px] leading-tight font-semibold tracking-[-0.02em]">Autopilot</h2>
+          <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Autopilot</h2>
           <p className="mt-1 flex items-center gap-2 text-[14px] text-[#4F4417]" aria-live="polite">
             {autopilot ? <LiveDot /> : <span className="size-2 rounded-full bg-dw-ink/30" />}
             {!loop ? (
               "Checking…"
             ) : autopilot ? (
               <span>
-                Running · {phase?.verb.toLowerCase()} on Gen {loop.generation}
+                Running · {phase?.verb.toLowerCase()} on version {loop.generation}
               </span>
             ) : (
-              <span>Paused on Gen {loop.generation}</span>
+              <span>Paused on version {loop.generation}</span>
             )}
           </p>
         </div>
@@ -77,8 +67,8 @@ export function AutopilotCard({ className }: { className?: string }) {
           className="mt-5 max-w-[50rem] text-[16px] leading-snug text-balance"
         >
           {autopilot
-            ? "Darwin runs the loop by itself: it watches shoppers, finds what's costing you sales, tests a fix and opens a pull request for every winner."
-            : "Off. Darwin keeps everything it has learned and changes nothing until you switch it back on."}
+            ? "Darwin's crew works by itself. Iris watches shoppers, Pixel drafts a fix, Fizz tests it and Dash opens a code change for every winner."
+            : "Off. Darwin keeps everything it has learned. Nothing changes until you switch it back on."}
         </motion.p>
       </AnimatePresence>
 
@@ -90,7 +80,7 @@ export function AutopilotCard({ className }: { className?: string }) {
       </div>
 
       <div className="mt-2.5 flex items-center gap-4 rounded-[20px] bg-white/60 p-4 ring-1 ring-white/50">
-        <Mascot kind="observer" size={40} state={trafficOn ? "working" : "sleeping"} />
+        <Mascot kind="observer" size={40} active={trafficOn} title="Iris, the watcher" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 text-[15px] font-semibold">
             Simulated shoppers
@@ -101,7 +91,7 @@ export function AutopilotCard({ className }: { className?: string }) {
             )}
           </p>
           <p className="mt-0.5 text-[13.5px] leading-snug text-[#4F4417]">
-            About {TRAFFIC_BATCH.humans} people and {TRAFFIC_BATCH.agents} AI shoppers every couple of seconds, so Darwin has something to learn from
+            About {TRAFFIC_BATCH.humans} people and {TRAFFIC_BATCH.agents} AI shoppers every couple of seconds, so Iris has something to watch
             {mock ? " in this demo" : ""}. Tagged simulated, never mixed into real numbers.
           </p>
         </div>
@@ -127,7 +117,7 @@ function ShipBar({ chance, name }: { chance?: number; name?: string }) {
   return (
     <div className="mt-5">
       <div className="flex items-baseline justify-between gap-3 text-[14px]">
-        <span>Ships a fix once its chance of winning passes</span>
+        <span>Dash ships a fix once its chance of winning passes</span>
         <span className="num font-semibold">{(SHIP_BAR * 100).toFixed(1)}%</span>
       </div>
       <div
@@ -138,7 +128,12 @@ function ShipBar({ chance, name }: { chance?: number; name?: string }) {
         aria-valuemax={100}
         aria-valuenow={Math.round(at * 100)}
       >
-        <motion.div className="absolute inset-y-0 left-0 rounded-full bg-dw-ink" initial={{ width: 0 }} animate={{ width: `${at * 100}%` }} transition={{ type: "spring", stiffness: 90, damping: 20 }} />
+        <motion.div
+          className="absolute inset-y-0 left-0 rounded-full bg-dw-ink"
+          initial={{ width: 0 }}
+          animate={{ width: `${at * 100}%` }}
+          transition={{ type: "spring", stiffness: 90, damping: 20 }}
+        />
         <span className="absolute top-1/2 h-5 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-dw-ink" style={{ left: `${SHIP_BAR * 100}%` }} aria-hidden />
         {chance !== undefined && (
           <motion.span

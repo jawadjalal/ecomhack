@@ -271,7 +271,7 @@ function Console({ mock }: { mock: boolean }) {
               />
             </Panel>
             <div className="h-[28rem] min-h-0 xl:h-auto xl:flex-1">
-              <ActivityLog log={loop?.log ?? []} autopilot={autopilot} stepping={stepping} />
+              <ActivityLog log={loop?.log ?? []} />
             </div>
           </div>
 

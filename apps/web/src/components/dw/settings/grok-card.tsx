@@ -9,7 +9,7 @@ import { useNow } from "@/lib/console/hooks";
 import { BrandGlyph } from "../brand-logos";
 import { Mascot } from "../mascot";
 import { useDarwin } from "../provider";
-import { Card, pct0, PillButton, Segmented, signed0, Typing } from "../ui";
+import { Card, DEPTH, pct0, PillButton, Segmented, signed0, Typing } from "../ui";
 import { getJson, HttpError, useOrigin, type Briefing, type BriefingAction, type BriefingItem } from "./data";
 import { Snippet } from "./snippet";
 
@@ -25,11 +25,15 @@ const STATUS: Record<BriefingItem["status"], string> = {
   shipped: "Shipped",
   stopped: "Stopped",
 };
-const KIND: Record<BriefingItem["kind"], string> = { loop: "Store page", web: "Website", agent: "Store agent" };
+const KIND: Record<BriefingItem["kind"], string> = {
+  loop: "Store page",
+  web: "Website",
+  agent: "Store agent",
+};
 const MAX_LINES = 5;
 const STEPS = [
   "Every hour, it reads Darwin's briefing.",
-  "If a test is ready or clearly losing, it messages you with one question.",
+  "If a test is ready or clearly losing, it asks you one question.",
   "You answer yes, and it ships or stops the test, then tells you what happened.",
 ];
 
@@ -62,7 +66,11 @@ export function GrokCard({ className }: { className?: string }) {
   const act = async (id: string, action: BriefingAction) => {
     setActing(`${id}:${action}`);
     try {
-      const res = await getJson<{ ok: boolean; text: string; briefing?: Briefing }>("/api/briefing/act", {
+      const res = await getJson<{
+        ok: boolean;
+        text: string;
+        briefing?: Briefing;
+      }>("/api/briefing/act", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, action }),
@@ -80,21 +88,20 @@ export function GrokCard({ className }: { className?: string }) {
   const write = `curl -s -X POST ${origin}/api/briefing/act \\\n  -H "Authorization: Bearer $DARWIN_ADMIN_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{"id":"<item id>","action":"ship"}'`;
 
   return (
-    <Card tone="pink" shape="experimenter" corner="tr" className={cn("flex flex-col overflow-clip p-6 sm:p-7", className)} aria-label="Your Grok teammate">
+    <Card tone="pink" shape="experimenter" corner="tr" className={cn("flex flex-col overflow-clip p-6 tabular-nums", DEPTH, className)} aria-label="Your Grok teammate">
       <div className="flex items-start gap-4">
         <span className="relative flex shrink-0 items-center">
           <span className="grid size-[52px] place-items-center rounded-[18px] bg-dw-ink text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_-6px_rgba(20,20,19,0.45)]">
             <BrandGlyph brand="grok" size={26} title="Grok" />
           </span>
           <span className="absolute -right-3 -bottom-2">
-            <Mascot kind="leader" size={28} state={acting ? "thinking" : "idle"} title="Darwin" />
+            <Mascot kind="leader" size={28} active title="Darwin" />
           </span>
         </span>
         <div className="min-w-0 flex-1 pl-2">
-          <h2 className="text-[22px] leading-tight font-semibold tracking-[-0.02em]">Your Grok teammate</h2>
+          <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">Your Grok teammate</h2>
           <p className="mt-1.5 max-w-[42rem] text-[14.5px] leading-snug text-[#5A2342]">
-            A Grok bot reads Darwin every hour and messages you when there&apos;s a call to make, like “your new checkout is winning at 91%: want me to ship it?” Say yes and it
-            ships, through the same API below.
+            Grok reads Darwin every hour and messages you when there&apos;s a call to make, like “your new checkout is winning at 91%. Want me to ship it?” Say yes and it ships it for you.
           </p>
         </div>
         <a
@@ -167,17 +174,13 @@ export function GrokCard({ className }: { className?: string }) {
             ) : (
               <motion.div key="ready" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-2.5">
                 <Message briefing={state.briefing} />
-                {state.briefing.ask && (
-                  <Replies ask={state.briefing.ask} item={state.briefing.items.find((x) => x.id === state.briefing.ask?.id)} acting={acting} onAct={(id, a) => void act(id, a)} />
-                )}
+                {state.briefing.ask && <Replies ask={state.briefing.ask} item={state.briefing.items.find((x) => x.id === state.briefing.ask?.id)} acting={acting} onAct={(id, a) => void act(id, a)} />}
                 {state.briefing.items.length > 0 && (
                   <ul className="mt-1 flex flex-col" aria-label="Everything in the briefing">
                     {state.briefing.items.slice(0, MAX_LINES).map((item, i) => (
                       <Line key={item.id} i={i} item={item} asked={state.briefing.ask?.id === item.id} />
                     ))}
-                    {state.briefing.items.length > MAX_LINES && (
-                      <li className="px-2 pt-1 text-[12.5px] text-dw-ink/60">+{state.briefing.items.length - MAX_LINES} more in the full briefing</li>
-                    )}
+                    {state.briefing.items.length > MAX_LINES && <li className="px-2 pt-1 text-[12.5px] text-dw-ink/60">+{state.briefing.items.length - MAX_LINES} more in the full briefing</li>}
                   </ul>
                 )}
               </motion.div>
@@ -216,8 +219,8 @@ export function GrokCard({ className }: { className?: string }) {
           </div>
           <p className="text-[13px] leading-snug text-[#5A2342]">
             {tab === "read"
-              ? "The bot fetches the briefing and forwards the headline as-is. Simulated numbers are labelled."
-              : "Each item has an id. Ship or stop it with one call, and the bot gets a sentence back to reply with."}
+              ? "The bot reads the briefing and sends you the headline. Simulated numbers are labelled."
+              : "Each item has an id. One call ships or stops it, and the bot gets a sentence back to send you."}
           </p>
           <Snippet dark label={tab === "read" ? "Read the briefing" : "Act on an item"} code={tab === "read" ? read : write} />
           <p className="text-[12.5px] leading-snug text-[#5A2342]">
@@ -248,24 +251,18 @@ function Message({ briefing }: { briefing: Briefing }) {
         className="min-w-0 rounded-[20px] rounded-bl-md bg-dw-ink px-4 py-3 text-white"
       >
         <p className="text-[14.5px] leading-snug font-medium">{briefing.headline}</p>
-        {rest && <p className="mt-1.5 line-clamp-3 text-[13px] leading-snug text-white/70" title={rest}>{rest}</p>}
+        {rest && (
+          <p className="mt-1.5 line-clamp-3 text-[13px] leading-snug text-white/70" title={rest}>
+            {rest}
+          </p>
+        )}
       </motion.div>
     </div>
   );
 }
 
 /** The merchant's quick replies to the question, exactly what the bot's "yes" / "no" would do. */
-function Replies({
-  ask,
-  item,
-  acting,
-  onAct,
-}: {
-  ask: NonNullable<Briefing["ask"]>;
-  item?: BriefingItem;
-  acting: string | null;
-  onAct: (id: string, a: BriefingAction) => void;
-}) {
+function Replies({ ask, item, acting, onAct }: { ask: NonNullable<Briefing["ask"]>; item?: BriefingItem; acting: string | null; onAct: (id: string, a: BriefingAction) => void }) {
   const other: BriefingAction = ask.action === "ship" ? "stop" : "ship";
   const actions = item ? [ask.action, ...item.actions.filter((a) => a !== ask.action)] : [ask.action];
   return (
@@ -281,7 +278,7 @@ function Replies({
           className="h-8 px-3.5 text-[13px]"
           aria-label={`${a === "ship" ? "Ship" : "Stop"} “${item?.title ?? ask.id}”`}
         >
-          {acting === `${ask.id}:${a}` ? <Typing /> : a === ask.action ? (a === "ship" ? "Yes, ship it" : "Yes, stop it") : a === other ? (a === "ship" ? "Ship it instead" : "No, stop it") : a}
+          {acting === `${ask.id}:${a}` ? <Typing /> : a === ask.action ? a === "ship" ? "Yes, ship it" : "Yes, stop it" : a === other ? a === "ship" ? "Ship it instead" : "No, stop it" : a}
         </PillButton>
       ))}
     </motion.div>

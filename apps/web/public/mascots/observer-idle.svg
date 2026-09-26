@@ -1,29 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-22 -26 144 144" width="288" height="288" role="img" aria-label="Observer: idle">
-<title>Observer: idle</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-22 -26 144 144" width="288" height="288" role="img" aria-label="Observer: resting">
+<title>Observer: resting</title>
 <style>
-.dmo-id-bob{animation:dmo-id-bob 2s ease-in-out infinite}
-@keyframes dmo-id-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-.dmo-id-sq{animation:dmo-id-sq 2s ease-in-out infinite}
-@keyframes dmo-id-sq{0%,100%{transform:scale(1.035,.965)}50%{transform:scale(.985,1.02)}}
-.dmo-id-sh{animation:dmo-id-sh 2s ease-in-out infinite}
-@keyframes dmo-id-sh{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.86);opacity:.65}}
-.dmo-id-bl{animation:dmo-id-bl 4s linear infinite -0.6s}
+.dmo-id-bob{animation:dmo-id-bob 4.4s ease-in-out infinite}
+@keyframes dmo-id-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.2px)}}
+.dmo-id-sq{animation:dmo-id-sq 4.4s ease-in-out infinite}
+@keyframes dmo-id-sq{0%,100%{transform:scale(1.011,.99)}50%{transform:scale(.996,1.006)}}
+.dmo-id-sh{animation:dmo-id-sh 4.4s ease-in-out infinite}
+@keyframes dmo-id-sh{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.958);opacity:.65}}
+.dmo-id-bl{animation:dmo-id-bl 8.8s linear infinite -1.32s}
 @keyframes dmo-id-bl{0%,22%,28%,70%,76%,82%,100%{transform:scaleY(1)}25%,73%,79%{transform:scaleY(.1)}}
-.dmo-id-hi{animation:dmo-id-hi 4s ease-in-out infinite}
-@keyframes dmo-id-hi{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.12,1.06) translate(1px,-.5px);opacity:1}}
-.dmo-id-gl{animation:dmo-id-gl 4s ease-in-out infinite -1s}
+.dmo-id-hi{animation:dmo-id-hi 8.8s ease-in-out infinite}
+@keyframes dmo-id-hi{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.036,1.018) translate(.3px,-.15px);opacity:1}}
+.dmo-id-gl{animation:dmo-id-gl 8.8s ease-in-out infinite -2.2s}
 @keyframes dmo-id-gl{0%{transform:translateX(-10px)}28%,100%{transform:translateX(125px)}}
 
-.dmo-id-sway{animation:dmo-id-sway 4s ease-in-out infinite}
-@keyframes dmo-id-sway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
-.dmo-id-ant{animation:dmo-id-ant 4s ease-in-out infinite}
-@keyframes dmo-id-ant{0%,100%{transform:rotate(0)}8%{transform:rotate(11deg)}17%{transform:rotate(-8deg)}26%{transform:rotate(5deg)}35%{transform:rotate(-2deg)}44%{transform:rotate(0)}55%{transform:rotate(-10deg)}64%{transform:rotate(7deg)}73%{transform:rotate(-4deg)}82%{transform:rotate(1.5deg)}91%{transform:rotate(0)}}
-.dmo-id-tip{animation:dmo-id-tip 1s ease-in-out infinite}
-@keyframes dmo-id-tip{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
-.dmo-id-ring{animation:dmo-id-ring 2s ease-out infinite}
+.dmo-id-sway{animation:dmo-id-sway 8.8s ease-in-out infinite}
+@keyframes dmo-id-sway{0%,100%{transform:rotate(-.75deg)}50%{transform:rotate(.75deg)}}
+.dmo-id-ant{animation:dmo-id-ant 8.8s ease-in-out infinite}
+@keyframes dmo-id-ant{0%,100%{transform:rotate(0)}8%{transform:rotate(3.3deg)}17%{transform:rotate(-2.4deg)}26%{transform:rotate(1.5deg)}35%{transform:rotate(-.6deg)}44%{transform:rotate(0)}55%{transform:rotate(-3deg)}64%{transform:rotate(2.1deg)}73%{transform:rotate(-1.2deg)}82%{transform:rotate(.45deg)}91%{transform:rotate(0)}}
+.dmo-id-tip{animation:dmo-id-tip 2.2s ease-in-out infinite}
+@keyframes dmo-id-tip{0%,100%{transform:scale(1)}50%{transform:scale(1.054)}}
+.dmo-id-ring{animation:dmo-id-ring 4.4s ease-out infinite}
 @keyframes dmo-id-ring{0%{transform:scale(1);opacity:.9}70%,100%{transform:scale(2.6);opacity:0}}
-.dmo-id-look{animation:dmo-id-look 4s ease-in-out infinite}
+.dmo-id-look{animation:dmo-id-look 8.8s ease-in-out infinite}
 @keyframes dmo-id-look{0%,8%{transform:translateX(0)}14%,34%{transform:translateX(-4px)}42%,62%{transform:translateX(4px)}70%,100%{transform:translateX(0)}}
+.dmo-id-gl,.dmo-id-ring{animation:none!important;opacity:0!important}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 <defs><radialGradient id="dmo-id-b" cx=".36" cy=".28" r=".8"><stop offset="0" stop-color="#4aa2ff"/><stop offset=".6" stop-color="#2f86ff"/><stop offset="1" stop-color="#1c66e0"/></radialGradient><linearGradient id="dmo-id-s" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="#0B0F3A" stop-opacity="0"/><stop offset="1" stop-color="#0B0F3A" stop-opacity=".28"/></linearGradient><radialGradient id="dmo-id-h" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><radialGradient id="dmo-id-g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#1B2150" stop-opacity=".26"/><stop offset=".6" stop-color="#1B2150" stop-opacity=".12"/><stop offset="1" stop-color="#1B2150" stop-opacity="0"/></radialGradient><linearGradient id="dmo-id-w" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="dmo-id-f" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.4" flood-color="#141A4A" flood-opacity=".2"/></filter></defs>

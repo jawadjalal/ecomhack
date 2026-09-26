@@ -30,15 +30,20 @@ export const PROTECTED_PREFIXES = [
   "/api/store-agent/stats",
   "/api/store-agent/buyer",
   "/api/assistant",
+  "/api/team",
   "/api/research",
   "/api/store-agent/tests",
   "/api/briefing",
   "/api/ask",
+  "/api/command",
+  "/api/darwin",
+  "/api/voice",
   "/api/demo",
+  "/api/llm",
 ] as const;
 
 /** Public paths under a protected prefix: merchant runtimes + inbound Whop webhooks. */
-export const PUBLIC_EXCEPTIONS = ["/api/web/runtime.js", "/api/whop/webhook"] as const;
+export const PUBLIC_EXCEPTIONS = ["/api/web/runtime.js", "/api/whop/webhook", "/api/team/watch"] as const;
 
 export function isProtectedPath(pathname: string): boolean {
   if ((PUBLIC_EXCEPTIONS as readonly string[]).includes(pathname)) return false;

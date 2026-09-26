@@ -1,0 +1,101 @@
+/* The landing's footer (Wayari's night sheet, as Darwin's). Plain colour, no gradients or glows.
+ * The sheet laps the closing painting by its corner radius, so its corners show the painting. */
+
+.dwf {
+  --lip: clamp(20px, 2.4vw, 32px);
+  margin-top: calc(var(--lip) * -1);
+  padding-top: clamp(56px, 7vw, 96px);
+  overflow: clip;
+  border-radius: var(--lip) var(--lip) 0 0;
+  background: #1c1620;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* ── the name, as wide as the page, with the crew on its letters ───────── */
+
+.dwf-name {
+  margin-top: clamp(48px, 7vw, 96px);
+  padding-top: 0.2em;
+  font-size: clamp(96px, 25.5vw, 372px);
+  line-height: 1;
+  overflow: hidden;
+}
+
+.dwf-word {
+  display: block;
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  color: var(--color-dw-bg);
+  text-shadow: 0 0.025em 0 var(--color-dw-pink);
+  white-space: nowrap;
+  text-align: center;
+  margin-bottom: -0.1em;
+}
+
+.dwf-l {
+  position: relative;
+  display: inline-block;
+}
+
+.dwf-p {
+  --s: 0.3em;
+  position: absolute;
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  translate: -50% 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0.02em 0.03em rgba(0, 0, 0, 0.35));
+  transform-origin: 50% 100%;
+  animation: dwf-perch 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--k) * 0.08s + 0.2s);
+  animation-timeline: view();
+  animation-range: entry 10% cover 40%;
+}
+
+/* The mascot draws at a pixel size; here it takes the perch's size, in the name's ems. */
+.dwf-p div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* On an x-height letter: its top is about 0.37em down the line box. */
+.dwf-p.is-sit {
+  top: calc(0.4em - var(--s));
+}
+
+/* On the d's ascender. */
+.dwf-p.is-tall {
+  --s: 0.28em;
+  top: calc(0.2em - var(--s));
+  left: calc(var(--x) + 0.2em);
+}
+
+/* Behind the letter, only the top half showing. */
+.dwf-p.is-peek {
+  z-index: -1;
+  top: calc(0.4em - var(--s) * 0.62);
+}
+
+/* In place of the i's dot. */
+.dwf-p.is-dot {
+  --s: 0.21em;
+  top: calc(0.34em - var(--s) - 0.02em);
+}
+
+@keyframes dwf-perch {
+  from {
+    opacity: 0;
+    transform: translateY(0.12em) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dwf-p {
+    animation: none;
+  }
+}

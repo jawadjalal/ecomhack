@@ -144,10 +144,6 @@ export function ResearchApp({ initialId }: { initialId?: string }) {
             <Search className="size-4" /> Research
           </span>
         </nav>
-        <span className="hidden items-center gap-2 rounded-full px-3 py-2 text-[14px] md:flex" style={{ background: T.sand }}>
-          <span className="size-2 rounded-full" style={{ background: status?.tavily ? T.live : T.warn }} />
-          {status ? (status.tavily ? "Tavily connected" : "Sample mode") : "…"}
-        </span>
       </header>
 
       <main ref={top} className="mx-auto max-w-[1500px] px-4 sm:px-7">
@@ -378,7 +374,7 @@ function ReportHeader({ report }: { report: ResearchReport }) {
     <Card>
       <div className="flex flex-wrap items-center gap-2">
         {report.demo ? <Pill tone="warn">Sample data, not real research</Pill> : <Pill tone="win">Live web research</Pill>}
-        <Pill>{report.summarizer === "heuristic" ? "Heuristic summary" : report.summarizer === "sample" ? "Sample" : report.summarizer.replace(/^llm:/, "")}</Pill>
+        <Pill>{report.summarizer === "heuristic" ? "Heuristic summary" : report.summarizer === "sample" ? "Sample" : "AI summary"}</Pill>
         <span className="font-mono text-[12px] text-black/50">{new Date(report.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
       </div>
       {report.notice && <p className="mt-3 text-[13px] font-medium" style={{ color: T.warn }}>{report.notice}</p>}

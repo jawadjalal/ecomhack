@@ -8,7 +8,7 @@ import type { PullRequestResult } from "@/lib/github";
 import { cn } from "@/components/ui/cn";
 import { Markdown } from "@/components/console/markdown";
 import { Card, PillButton, Tag } from "@/components/dw/ui";
-import { Mascot } from "@/components/dw/mascot";
+import { AnimatedMascot } from "@/components/mascots/animated-mascot";
 import { EASE } from "./bits";
 
 function notesOf(pr: PullRequestResult): string[] {
@@ -29,7 +29,7 @@ export function PrCard({ pr }: { pr: PullRequestResult }) {
     <motion.div initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, ease: EASE }}>
       <Card tone="white" hover={false} className="p-5 sm:p-7">
         <div className="flex flex-wrap items-center gap-2.5">
-          <Mascot kind="shipper" size={30} active />
+          <AnimatedMascot kind="shipper" size={40} title="Dash, shipper" flash={pr.upToDate ? undefined : { state: "success", key: "opened" }} className="-my-1.5" />
           <Tag tone={pr.upToDate ? "sand" : pr.dryRun ? "warn" : "win"}>{pr.upToDate ? "Up to date" : pr.dryRun ? "Preview (dry run)" : "Opened"}</Tag>
           {pr.number && <span className="num text-[14px] font-semibold">#{pr.number}</span>}
           {pr.url && (

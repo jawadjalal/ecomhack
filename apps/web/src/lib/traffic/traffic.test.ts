@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AnalyticsEvent } from "@/lib/contracts";
-import { computeTrafficReport, countryFromHeaders, NOT_PROVIDED, referrerName, withGeo } from "@/lib/traffic";
+import {
+  clearTrafficReports,
+  computeTrafficReport,
+  computeTrafficReportAsync,
+  countryFromHeaders,
+  NOT_PROVIDED,
+  referrerName,
+  sharedTrafficReport,
+  TRAFFIC_REPORT_TTL_MS,
+  withGeo,
+} from "@/lib/traffic";
 
 let n = 0;
 const ev = (distinct_id: string, event: string, properties: Record<string, unknown>): AnalyticsEvent => ({
@@ -49,6 +59,66 @@ describe("traffic report", () => {
     const r = computeTrafficReport([...events, ext], { site: "other" });
     expect(r.totals.visitors).toBe(1);
     expect(r.sites).toEqual(["other", "pace-store"]);
+  });
+});
+
+describe("traffic report: shared and memoised", () => {
+  const events = [
+    view("a", "https://shop.test/store", "https://www.google.com/"),
+    ev("a", "order_completed", { visitor_kind: "human", revenue: 11500 }),
+    view("b", "https://shop.test/store/products/x", "https://chatgpt.com/", { synthetic: true }),
+    ev("c", "agent_request", { visitor_kind: "agent", tool: "search_products" }),
+    view("d", "https://other.test/", undefined, { darwin_site: "other" }),
+  ];
+  /** The events, counting how many reports were built from them (each build snapshots once). */
+  const counted = () => {
+    const arr = [...events] as AnalyticsEvent[] & { builds: number };
+    arr.builds = 0;
+    arr.slice = function (this: AnalyticsEvent[], ...args: [number?, number?]) {
+      arr.builds++;
+      return Array.prototype.slice.apply(this, args);
+    };
+    return arr;
+  };
+  afterEach(() => {
+    clearTrafficReports();
+    vi.restoreAllMocks();
+  });
+
+  it("builds the same report as the synchronous pass, in chunks", async () => {
+    const now = new Date(1_700_000_000_000);
+    expect(await computeTrafficReportAsync(events, { now }, 2)).toEqual(computeTrafficReport(events, { now }));
+    expect(await computeTrafficReportAsync(events, { site: "other", now }, 1)).toEqual(computeTrafficReport(events, { site: "other", now }));
+  });
+
+  it("computes once for concurrent callers and reuses the result for a few seconds", async () => {
+    const store = counted();
+    const [a, b] = await Promise.all([sharedTrafficReport(store, { site: "all" }), sharedTrafficReport(store, {})]);
+    expect(store.builds).toBe(1);
+    expect(a).toBe(b);
+    expect(a.totals.visitors).toBe(4);
+
+    // Within the TTL: same report, no new pass.
+    expect(await sharedTrafficReport(store)).toBe(a);
+    expect(store.builds).toBe(1);
+
+    // A different query is its own report.
+    expect((await sharedTrafficReport(store, { includeSynthetic: false })).totals.visitors).toBe(3);
+    expect(store.builds).toBe(2);
+
+    // After the TTL: rebuilt.
+    const later = Date.now() + TRAFFIC_REPORT_TTL_MS + 1;
+    vi.spyOn(Date, "now").mockReturnValue(later);
+    expect(await sharedTrafficReport(store)).not.toBe(a);
+    expect(store.builds).toBe(3);
+  });
+
+  it("rebuilds when the store was reset (a new events array)", async () => {
+    const first = counted();
+    await sharedTrafficReport(first);
+    const second = counted();
+    const r = await sharedTrafficReport(second.slice(0, 2));
+    expect(r.totals.visitors).toBe(1);
   });
 });
 

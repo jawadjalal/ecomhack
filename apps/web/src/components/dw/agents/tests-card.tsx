@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check, Cpu, LoaderCircle, Users, X } from "lucide-react";
 import type { AgentTestResult, AgentTestState, Lever } from "@/lib/store-agent";
 import { cn } from "@/components/ui/cn";
-import { Card, CardTitle, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
+import { Card, CardTitle, DEPTH, LiveDot, PillButton, Tag, Typing } from "@/components/dw/ui";
 import { Mascot } from "@/components/dw/mascot";
 import { Pill } from "@/components/dw/dashboards/charts";
 import { SwitchRow } from "./switch";
@@ -26,15 +26,20 @@ const LEVERS_IN_ORDER: Lever[] = ["facts", "one-pick", "structured", "upsell"];
 /** AGENT_TEST_RULES in lib/store-agent (checked after every batch, so the bars are high). */
 const SHIP_AT = 0.97;
 const RULES = [
-  { value: "100+", label: "conversations per arm" },
+  { value: "100+", label: "chats per version" },
   { value: "30+", label: "payments before any call" },
-  { value: "97%", label: "chance better to ship" },
-  { value: "3%", label: "to stop it" },
+  { value: "97%", label: "chance it's better, to keep it" },
+  { value: "3%", label: "or lower, to stop it" },
 ];
 
 const pctOf = (x?: number) => (x === undefined || !Number.isFinite(x) ? "–" : `${Math.round(x * 100)}%`);
 const signedPct = (x?: number) => (x === undefined || !Number.isFinite(x) ? "–" : `${x >= 0 ? "+" : "−"}${Math.abs(Math.round(x * 100))}%`);
-const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const clock = (iso: string) =>
+  new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
 /** "A/B tests on your agent": autopilot, simulated buyers, the four pitch levers, the live test and the log. */
 export function TestsCard({
@@ -56,45 +61,49 @@ export function TestsCard({
   const pitch = s?.levers.length ? s.levers.map((l) => LEVER_LABEL[l]).join(" + ") : "a plain list of offers";
 
   return (
-    <Card tone="pink" shape="experimenter" corner="br" className="min-w-0">
-      <CardTitle
-        right={
-          running ? (
-            <span className="flex items-center gap-1.5 font-medium text-dw-ink">
-              <LiveDot /> Testing now
-            </span>
-          ) : s?.autopilot ? (
-            <span className="font-medium text-dw-ink">Autopilot is choosing the next test</span>
-          ) : undefined
-        }
-      >
-        A/B tests on your agent
-      </CardTitle>
-      <p className="mt-1.5 max-w-[46rem] text-[14px] leading-snug text-dw-ink/75">
-        Darwin changes one thing about how the agent pitches at a time and keeps it only if more conversations end in a payment. The pitch today:{" "}
-        <b className="font-semibold text-dw-ink">{pitch}</b>.
-      </p>
-
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <SwitchRow
-          on={!!s?.autopilot}
-          onChange={onAutopilot}
-          label="Autopilot"
-          hint="Test one lever at a time; keep winners, stop losers"
-          icon={<Cpu />}
-          title="Test one pitch lever at a time; keep winners, stop losers"
-        />
-        <SwitchRow
-          on={simOn}
-          onChange={onSim}
-          label="Simulated buyers"
-          hint="80 simulated buyer agents every 3 s, labelled"
-          icon={<Users />}
-          title="80 simulated buyer agents every 3 s (labelled)"
-        />
+    <Card tone="pink" shape="experimenter" corner="br" className={`min-w-0 tabular-nums ${DEPTH}`}>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0 flex-1 basis-[22rem]">
+          <CardTitle
+            className="[&>h2]:text-[20px]"
+            right={
+              running ? (
+                <span className="flex items-center gap-1.5 font-medium text-dw-ink">
+                  <LiveDot /> Testing now
+                </span>
+              ) : s?.autopilot ? (
+                <span className="font-medium text-dw-ink">Choosing the next test</span>
+              ) : undefined
+            }
+          >
+            Tests on Mika&apos;s pitch
+          </CardTitle>
+          <p className="mt-1.5 max-w-[46rem] text-[14px] leading-snug text-dw-ink/75">
+            Fizz changes one thing about how Mika pitches at a time, and keeps it only if more chats end in a payment. The pitch today:{" "}
+            <b className="font-semibold text-dw-ink">{pitch}</b>.
+          </p>
+        </div>
+        <div className="grid w-full gap-2 sm:grid-cols-2 xl:w-[42rem]">
+          <SwitchRow
+            on={!!s?.autopilot}
+            onChange={onAutopilot}
+            label="Autopilot"
+            hint="Test one lever at a time; keep winners, stop losers"
+            icon={<Cpu />}
+            title="Test one pitch lever at a time; keep winners, stop losers"
+          />
+          <SwitchRow
+            on={simOn}
+            onChange={onSim}
+            label="Simulated buyers"
+            hint="80 simulated buyer agents every 3 s, labelled"
+            icon={<Users />}
+            title="80 simulated buyer agents every 3 s (labelled)"
+          />
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col">
           <ul className="flex flex-col gap-1.5">
             {LEVERS_IN_ORDER.map((l) => {
@@ -105,10 +114,7 @@ export function TestsCard({
                 <li
                   key={l}
                   title={t?.reason}
-                  className={cn(
-                    "dw-row flex min-h-[60px] items-center gap-3 rounded-[18px] px-3.5 py-2.5",
-                    status === "running" ? "bg-white shadow-[0_0_0_1.5px_#141413]" : "bg-white/55",
-                  )}
+                  className={cn("dw-row flex min-h-[60px] items-center gap-3 rounded-[18px] px-3.5 py-2.5", status === "running" ? "bg-white shadow-[0_0_0_1.5px_#141413]" : "bg-white/55")}
                 >
                   <LeverIcon status={status} />
                   <div className="min-w-0 flex-1">
@@ -130,26 +136,17 @@ export function TestsCard({
               );
             })}
           </ul>
-          <div className="mt-3 rounded-[22px] bg-white/45 p-4">
-            <div className="text-[14px] font-semibold">How Darwin calls a test</div>
-            <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
-              {RULES.map((r) => (
-                <div key={r.label}>
-                  <dt className="sr-only">{r.label}</dt>
-                  <dd className="num text-[18px] leading-tight font-semibold">{r.value}</dd>
-                  <dd className="text-[12px] text-dw-ink/65">{r.label}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col">
           <LiveTest label={running ? LEVER_LABEL[running.lever] : undefined} result={result} autopilot={!!s?.autopilot} />
+        </div>
+
+        <div className="grid min-w-0 content-start gap-3 lg:col-span-2 lg:grid-cols-2 xl:col-span-1 xl:grid-cols-1">
           {!!s?.log.length && (
             <div className="rounded-[22px] bg-white/55 p-4">
               <div className="mb-2 flex items-baseline justify-between">
-                <span className="text-[14px] font-semibold">What Darwin decided</span>
+                <span className="text-[14px] font-semibold">What Fizz decided</span>
                 <span className="font-dwmono text-[12px] text-dw-ink/55">{s.log.length} notes</span>
               </div>
               <ol className="flex max-h-40 flex-col gap-0.5 overflow-y-auto pr-1">
@@ -174,6 +171,18 @@ export function TestsCard({
               </ol>
             </div>
           )}
+          <div className="rounded-[22px] bg-white/45 p-4">
+            <div className="text-[14px] font-semibold">How Fizz calls a test</div>
+            <dl className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-3">
+              {RULES.map((r) => (
+                <div key={r.label}>
+                  <dt className="sr-only">{r.label}</dt>
+                  <dd className="num text-[18px] leading-tight font-semibold">{r.value}</dd>
+                  <dd className="text-[12px] text-dw-ink/65">{r.label}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         </div>
       </div>
     </Card>
@@ -207,9 +216,9 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
   if (!label) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-[22px] bg-white/55 px-5 py-8 text-center">
-        <Mascot kind="experimenter" size={52} frame state={autopilot ? "working" : "sleeping"} />
+        <Mascot kind="experimenter" size={52} frame active={autopilot} title="Fizz, the tester" />
         <p className="max-w-[22rem] text-[14px] text-dw-ink/70">
-          {autopilot ? "Autopilot starts the next test as soon as buyer agents arrive." : "No test running. Turn on Autopilot, or press Test it on a lever to start one."}
+          {autopilot ? "Fizz starts the next test as soon as buyer agents arrive." : "No test running. Turn on Autopilot, or press Test it on a lever to start one."}
         </p>
       </div>
     );
@@ -229,31 +238,31 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
     <div className="rounded-[22px] bg-white/70 p-4">
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 truncate text-[14px] font-semibold">Testing “{label}”</span>
-        <span className="shrink-0 font-dwmono text-[12px] text-dw-ink/55">{n.toLocaleString("en-GB")} conversations</span>
+        <span className="shrink-0 font-dwmono text-[12px] text-dw-ink/55">{n.toLocaleString("en-GB")} chats</span>
       </div>
       <div className="mt-3 flex items-end gap-5">
         <div className="flex items-end gap-3">
           <div className="flex flex-col items-center">
             <Pill value={result.control.rate} max={max} height={110} width={30} dashed label={pctOf(result.control.rate)} tip={`${result.control.paid} of ${result.control.conversations} paid`} />
-            <span className="mt-1.5 text-[12px] text-dw-ink/60">A</span>
+            <span className="mt-1.5 text-[12px] text-dw-ink/60">Today</span>
           </div>
           <div className="flex flex-col items-center">
             <Pill value={result.treatment.rate} max={max} height={110} width={30} label={pctOf(result.treatment.rate)} tip={`${result.treatment.paid} of ${result.treatment.conversations} paid`} />
-            <span className="mt-1.5 text-[12px] text-dw-ink/60">B</span>
+            <span className="mt-1.5 text-[12px] text-dw-ink/60">New</span>
           </div>
         </div>
         <div className="min-w-0 flex-1 pb-6">
           <div className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{signedPct(result.lift)}</div>
-          <div className="mt-1 text-[13px] text-dw-ink/70">paid conversations with the change (B) vs today&apos;s pitch (A)</div>
+          <div className="mt-1 text-[13px] text-dw-ink/70">paid chats with the new pitch, compared with today&apos;s</div>
         </div>
       </div>
       {p !== undefined && (
         <div className="mt-2">
           <div className="flex justify-between text-[12.5px] text-dw-ink/70">
             <span>
-              <b className="num font-semibold text-dw-ink">{pctOf(p)}</b> chance B is better
+              <b className="num font-semibold text-dw-ink">{pctOf(p)}</b> chance the new pitch is better
             </span>
-            <span>ships at {Math.round(SHIP_AT * 100)}%</span>
+            <span>kept at {Math.round(SHIP_AT * 100)}%</span>
           </div>
           <div className="relative mt-1.5 h-2 rounded-full bg-dw-ink/10">
             <div className="h-full rounded-full bg-dw-ink transition-[width] duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ width: `${Math.max(2, Math.min(100, p * 100))}%` }} />
@@ -261,7 +270,7 @@ function LiveTest({ label, result, autopilot }: { label?: string; result?: Agent
           </div>
           {result.liftInterval && (
             <div className="mt-1.5 text-[12px] text-dw-ink/55">
-              95% range: {signedPct(result.liftInterval[0])} to {signedPct(result.liftInterval[1])}
+              Likely between {signedPct(result.liftInterval[0])} to {signedPct(result.liftInterval[1])}
             </div>
           )}
         </div>

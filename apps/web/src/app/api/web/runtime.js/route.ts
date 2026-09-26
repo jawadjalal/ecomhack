@@ -1,4 +1,4 @@
-import { buildRuntime, listRules, SiteSchema } from "@/lib/web";
+import { buildRuntime, listRules, retractUnbackedCopy, SiteSchema } from "@/lib/web";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,8 @@ export function GET(req: Request) {
     return new Response("/* Darwin: ?site= must be the data-darwin-site of your darwin.js tag */\n", { status: 400, headers: JS_HEADERS });
   }
   const preview = params.get("darwin_preview") ?? undefined;
+  // Never serve live copy the site's page (as Darwin last read it) doesn't back up: pause it first, and log why.
+  retractUnbackedCopy(parsed.data);
   return new Response(buildRuntime(parsed.data, listRules(parsed.data), preview), {
     headers: { ...JS_HEADERS, "Cache-Control": preview ? "no-store" : "public, max-age=15, stale-while-revalidate=60" },
   });
