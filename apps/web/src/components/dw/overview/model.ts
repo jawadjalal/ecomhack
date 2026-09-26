@@ -448,6 +448,17 @@ function personName(e: AnalyticsEvent): string {
   return `${p.$device_type === "Mobile" ? "mobile" : "desktop"}-visitor-${id}`;
 }
 
+/** "/store/products/ridge-trail-pro" → "Opened Ridge Trail Pro". */
+function landedText(path: unknown): string {
+  const p = typeof path === "string" ? path.replace(/\/+$/, "") : "";
+  const product = /\/products\/([^/?#]+)/.exec(p)?.[1];
+  if (product) return `Opened ${productName(product) ?? capitalise(product.replace(/-/g, " "))}`;
+  if (/\/(cart|bag)$/.test(p)) return "Opened the bag";
+  if (/\/checkout/.test(p)) return "Reached checkout";
+  if (/\/store$/.test(p) || !p) return "Landed on the home page";
+  return `Landed on ${p}`;
+}
+
 /** One person's events (oldest first) → shopper. */
 export function personShopper(id: string, events: AnalyticsEvent[], now: number): Shopper {
   const first = events[0];
@@ -480,14 +491,15 @@ export function personShopper(id: string, events: AnalyticsEvent[], now: number)
     const row = describeEvent(e);
     return {
       t: clock(first.timestamp, e.timestamp),
-      text: capitalise(row.text),
+      text: e.event === "$pageview" ? landedText(e.properties.$pathname) : capitalise(row.text),
       tool: e.event,
       tone: row.tone === "bad" ? "fail" : row.tone === "warn" ? "warn" : status === "live" && i === shown.length - 1 ? "live" : "ok",
     };
   });
 
   const rows: MockRow[] = [];
-  if (product) rows.push({ k: product, v: price ? money(price) : "viewed" });
+  // On a product page the product is the mock's title, so the row is its price.
+  if (product) rows.push({ k: reach <= 1 ? "Price" : product, v: price ? money(price) : "viewed" });
   if (shock) rows.push({ k: "Delivery", v: shipping ? `+${money(shipping)}` : "added late", tone: "bad" });
   else if (reach >= 2) rows.push({ k: "Delivery", v: "shown in the bag", tone: "good" });
   if (abandoned) rows.push({ k: "Checkout", v: typeof abandoned.properties.reason === "string" ? String(abandoned.properties.reason) : "left", tone: "bad" });
@@ -510,7 +522,8 @@ export function personShopper(id: string, events: AnalyticsEvent[], now: number)
     kind: "human",
     name: personName(first),
     brand: agentBrand(undefined, "human"),
-    mascot: bought ? "shipper" : status === "live" ? "experimenter" : "observer",
+    // People are the pink drop (agents use their brand's crew member), buyers the green diamond.
+    mascot: bought ? "shipper" : "experimenter",
     arm: armOf(typeof last.properties.variant === "string" ? last.properties.variant : undefined),
     experimentId: typeof last.properties.experiment_id === "string" ? last.properties.experiment_id : undefined,
     synthetic: Boolean(p0.synthetic),
@@ -529,7 +542,7 @@ export function personShopper(id: string, events: AnalyticsEvent[], now: number)
   };
 }
 
-export function peopleFromEvents(events: AnalyticsEvent[] | undefined, now: number, max = 24): Shopper[] {
+export function peopleFromEvents(events: AnalyticsEvent[] | undefined, now: number, max = 60): Shopper[] {
   const by = new Map<string, AnalyticsEvent[]>();
   for (const e of events ?? []) {
     if ((e.properties.visitor_kind ?? "human") !== "human" || !isStoreEvent(e)) continue;

@@ -74,8 +74,10 @@ export function LiveShoppers({
   if (!picked && rows[0]) setPicked(rows[0].id);
   const selIdx = Math.max(0, rows.findIndex((s) => s.id === picked));
   const sel = rows[selIdx];
-  const liveCount = [...agents, ...people].filter((s) => s.status === "live").length;
-  const simulated = [...agents, ...people].some((s) => s.synthetic);
+  const everyone = [...agents, ...people];
+  const liveCount = everyone.filter((s) => s.status === "live").length;
+  const lastMinute = now ? everyone.filter((s) => now - Date.parse(s.lastAt) < 60_000).length : 0;
+  const simulated = everyone.some((s) => s.synthetic);
 
   return (
     <div className="grid grid-cols-1 gap-[18px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
@@ -84,9 +86,9 @@ export function LiveShoppers({
           <div className="flex min-w-0 items-baseline gap-3">
             <h2 className="shrink-0 text-[22px] font-semibold tracking-[-0.02em]">Live shoppers</h2>
             <span className="flex min-w-0 items-center gap-[7px] text-[13px] whitespace-nowrap text-[#6B655A]">
-              <span className={cn("size-[7px] shrink-0 rounded-full", liveCount ? "dw-live-dot bg-dw-live" : "bg-dw-ink/25")} />
+              <span className={cn("size-[7px] shrink-0 rounded-full", liveCount || lastMinute ? "dw-live-dot bg-dw-live" : "bg-dw-ink/25")} />
               <span className="truncate">
-                {liveCount ? `${liveCount} on the store` : "Quiet right now"}
+                {liveCount ? `${liveCount} on the store` : lastMinute ? `${lastMinute} in the last minute` : "Quiet right now"}
                 {simulated && <span className="text-[#8A8478]"> · simulated</span>}
               </span>
             </span>
