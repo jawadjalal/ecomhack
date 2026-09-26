@@ -60,7 +60,7 @@ import { AskChat, answerChips, composePrompt, type Answers } from "@/components/
 import { PrCard } from "@/components/dw/onboarding/pr-card";
 import { RepoPicker } from "@/components/dw/onboarding/repo-picker";
 import { clearProgress, loadProgress, saveProgress, stageIndex, type SavedAccount, type SavedProgress, type SavedStage } from "@/components/dw/onboarding/persist";
-import { recallPlan, rememberPlan } from "@/lib/tracking/remember";
+import { recallPlan, rememberPlan, rememberSimulated, rememberSite } from "@/lib/tracking/remember";
 
 /* ------------------------------------------------------------------ data */
 
@@ -219,9 +219,12 @@ export function OnboardingApp() {
       .finally(() => setRestoring(false));
   }
 
-  // Keep the browser's copy of the plan (lib/tracking/remember): revisits and the console restore from it.
+  // Keep the browser's copy of the plan and the store (lib/tracking/remember): revisits and the console
+  // (/console/dashboards on another server instance) restore from it.
   useEffect(() => {
-    if (plan) rememberPlan(plan);
+    if (!plan) return;
+    rememberPlan(plan);
+    rememberSite(plan.site, plan.siteUrl ?? undefined);
   }, [plan]);
 
   // Track the furthest stage as the stage moves (adjusting state during render, not in an effect).
@@ -860,6 +863,9 @@ export function OnboardingApp() {
                                 disabled={busy}
                                 className="max-sm:flex-1"
                                 onClick={() => {
+                                  // Approved: the console gets exactly this plan, even on a fresh server instance.
+                                  rememberPlan(plan);
+                                  rememberSite(plan.site, plan.siteUrl ?? undefined);
                                   setStage("install");
                                   track("plan_confirmed", {
                                     events: plan.events.filter((e) => e.enabled).length,
@@ -1750,6 +1756,8 @@ function Live({ plan, account, onOpen }: { plan: TrackingPlan; account: SavedAcc
         events: goals.slice(0, 12),
       });
       setSent((n) => n + res.visitors);
+      // So the console can re-send them to a server instance that never saw them.
+      rememberSimulated(plan.site, res.visitors);
       await load();
     } finally {
       setSending(false);
