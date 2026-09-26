@@ -49,9 +49,23 @@ export function saveCommerceState(sessionId: string, state: SessionCommerceState
   kvSet(AGENT_KV_KEYS.carts, store);
 }
 
-/** Recent agent sessions, newest first. */
-export function listAgentSessions(limit = 20): AgentSessionSummary[] {
-  return kvGet(AGENT_KV_KEYS.sessions, emptySessions).slice(0, Math.max(0, limit));
+/** How long a real (non-simulated) agent session stays at the front of the list after its last tool call. */
+export const REAL_SESSION_PIN_MS = 3 * 60_000;
+const MAX_PINNED_REAL = 3;
+
+function lastActivity(s: AgentSessionSummary): number {
+  return Date.parse(s.toolCalls.at(-1)?.at ?? s.startedAt);
+}
+
+/**
+ * Recent agent sessions, newest first. Real agents (Cursor, Claude, … over MCP) active in the last
+ * few minutes come first, so they aren't buried under simulated traffic.
+ */
+export function listAgentSessions(limit = 20, now = Date.now()): AgentSessionSummary[] {
+  const list = kvGet(AGENT_KV_KEYS.sessions, emptySessions);
+  const live = list.filter((s) => !s.synthetic && now - lastActivity(s) < REAL_SESSION_PIN_MS).slice(0, MAX_PINNED_REAL);
+  const ordered = live.length ? [...live, ...list.filter((s) => !live.includes(s))] : list;
+  return ordered.slice(0, Math.max(0, limit));
 }
 
 export function getAgentSession(sessionId: string): AgentSessionSummary | undefined {
@@ -72,7 +86,11 @@ export function upsertAgentSession(
   if (!session) {
     session = init();
     list.unshift(session);
-    if (list.length > MAX_SESSIONS) list.length = MAX_SESSIONS;
+    if (list.length > MAX_SESSIONS) {
+      // Drop the oldest simulated session first so a real agent's session survives heavy synthetic traffic.
+      const oldestSim = list.findLastIndex((s) => s.synthetic);
+      list.splice(oldestSim > 0 ? oldestSim : list.length - 1, 1);
+    }
   }
   update(session);
   if (session.toolCalls.length > MAX_TOOL_CALLS) session.toolCalls.splice(0, session.toolCalls.length - MAX_TOOL_CALLS);

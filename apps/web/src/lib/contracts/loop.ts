@@ -143,4 +143,6 @@ export interface LoopState {
   history: GenerationRecord[];
   log: LoopLogEntry[];
   updatedAt: string;
+  /** Who writes insights and proposals right now: "llm:<model>" or "heuristic" (same format as ChangeProposal.source). */
+  designer?: string;
 }

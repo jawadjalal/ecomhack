@@ -13,7 +13,13 @@ import { cn } from "@/components/ui/cn";
 
 function pickDefault(sessions: AgentSessionSummary[]): AgentSessionSummary | undefined {
   const recent = sessions.slice(0, 6);
-  return recent.find((s) => s.negotiation?.length && s.outcome === "purchased") ?? recent.find((s) => s.negotiation?.length) ?? sessions[0];
+  // A real agent (the server lists recent ones first) beats any simulated one.
+  return (
+    recent.find((s) => !s.synthetic) ??
+    recent.find((s) => s.negotiation?.length && s.outcome === "purchased") ??
+    recent.find((s) => s.negotiation?.length) ??
+    sessions[0]
+  );
 }
 
 function Outcome({ s }: { s: AgentSessionSummary }) {
@@ -59,7 +65,13 @@ function Detail({ s }: { s: AgentSessionSummary }) {
         <span className="truncate text-[0.95rem] font-semibold text-white">{s.agentName}</span>
         <Outcome s={s} />
         <div className="flex-1" />
-        {s.synthetic && <Tag>Synthetic</Tag>}
+        {s.synthetic ? (
+          <Tag>Synthetic</Tag>
+        ) : (
+          <Tag className="border-good/40 bg-good/10 text-[#8ff0b2]" title="A real AI agent connected over MCP/REST, not simulated">
+            Real
+          </Tag>
+        )}
         <span className="text-[0.7rem] text-white/30 tabular">{now ? timeAgo(s.startedAt, now) : ""}</span>
       </div>
       {s.goal?.brief && (
@@ -293,6 +305,7 @@ export function AgentPanel({ sessions }: { sessions?: AgentSessionSummary[] }) {
                   className={cn(
                     "relative flex h-8 min-w-0 shrink-0 items-center gap-1.5 rounded-lg border px-2 text-[0.72rem] transition-colors",
                     active ? "border-white/25 bg-white/[0.08] text-white" : "border-white/[0.07] bg-white/[0.02] text-white/50 hover:text-white/80",
+                    !s.synthetic && "border-good/40 text-[#8ff0b2]",
                   )}
                 >
                   <span

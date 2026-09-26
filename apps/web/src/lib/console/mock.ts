@@ -978,6 +978,7 @@ export class MockEngine {
       history: this.history,
       log: this.log,
       updatedAt: this.updatedAt,
+      designer: "heuristic",
     });
   }
 

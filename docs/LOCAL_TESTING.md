@@ -13,6 +13,9 @@ ever called. The LLM code paths are covered by tests with a **mocked model** (`s
 - **Storefront:** every page and every PageSpec knob (screenshots in `apps/web/docs/screenshots/`).
 - **Agent surface:** REST tools, MCP JSON-RPC, `/llms.txt`, agent card, buyer agents, negotiation,
   and `scripts/grok-shopper.ts` over MCP (scripted fallback).
+- **Real MCP clients:** the official MCP SDK client (`@modelcontextprotocol/sdk` 1.30.1, Streamable HTTP) connects,
+  lists the 8 tools and completes search → get_product → add_to_cart → checkout. The session appears in the console
+  as a REAL agent (not synthetic), pinned at the top of the agent panel.
 - **Simulator:** calibration of human and agent conversion.
 - **GitHub PRs in dry-run mode:** title, body and diff are generated and nothing is sent. They also fall back to a
   preview when GitHub rejects the token.
@@ -49,6 +52,7 @@ Swap to Grok for the demo: `LLM_PROVIDER=xai`, `XAI_API_KEY=...`, `XAI_MODEL=<cu
 | 10 | Analytics install PR | Console → Connect repo → paste a test repo URL | Real PR adding the `darwin.js` snippet |
 | 11 | Cost sanity | Check OpenRouter usage page after a full autopilot run | A few cents at most |
 | 12 | Real human traffic | Open `/store` in a normal browser (or a phone on the same network), buy something | It shows in the console's live feed as 🧑 **without** the SYNTHETIC tag (posthog-js → `/ingest`) |
+| 13 | A real AI agent shops (Cursor / Claude Code) | Add the store as an MCP server (see [DEMO.md](DEMO.md#optional-a-real-ai-agent-buys)), ask the agent to buy trail shoes | Agent uses `search_products` → … → `checkout`; console agent panel shows it first with a green REAL tag and its tool calls |
 
 > Use a **throwaway test repo** for 9–10, not `jawadjalal/ecomhack` main, unless you mean it.
 

@@ -38,6 +38,30 @@ Keys: `space` step · `a` autopilot · `t` traffic · `s` send a shopper · `r` 
 When a judge buys something, it lands in the live feed pinned under **"Real visitors · just now"** with a green
 REAL tag, next to the synthetic traffic, and goes into the same analytics and experiments.
 
+### Optional: a real AI agent buys
+
+The store is a standard MCP server, so a real agent can shop it live. Connect one before going on stage:
+
+```bash
+# Cursor: Settings → MCP → Add new server (or ~/.cursor/mcp.json)
+{ "mcpServers": { "pace-store": { "url": "http://localhost:3000/api/mcp" } } }
+
+# Claude Code
+claude mcp add --transport http pace-store http://localhost:3000/api/mcp
+
+# Claude Desktop (bridges stdio → HTTP)
+{ "mcpServers": { "pace-store": { "command": "npx", "args": ["-y", "mcp-remote", "http://localhost:3000/api/mcp"] } } }
+```
+
+Prompt: *"Use the pace-store tools to buy me waterproof trail shoes, UK 10, under £150 delivered. I need them within
+4 days, so check stock and delivery time first."*
+
+- **On stage:** the agent's session jumps to the front of the **Agent-to-agent** panel with a green REAL tag, and each
+  tool call appears live. On Gen 0 the store hides stock and delivery time: `check_availability` answers "not exposed"
+  (red chip) and fields the agent asks for via `want` come back under `missing` (amber chip).
+- **Line to say:** "That's Cursor shopping our store. At Gen 0 it can't see stock or delivery time. Watch what happens
+  after Darwin ships the agent-surface fix." Run it again after Gen 1: the same prompt gets real answers.
+
 **Closing line:** "Darwin is CRO for the agentic web: it experiments on humans and AI shoppers, and ships the winners as code."
 
 ## What typically happens (heuristic mode)

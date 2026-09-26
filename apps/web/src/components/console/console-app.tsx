@@ -222,7 +222,7 @@ function Console({ mock }: { mock: boolean }) {
       <div className="relative flex h-full flex-col gap-4 p-4">
         <TopBar
           github={github}
-          source={sourceBadge(curSource ?? lastSource)}
+          source={sourceBadge(curSource ?? lastSource ?? loop?.designer)}
           mockedGroups={mocked}
           forcedMock={mock}
           synthetic={feed.synthetic}

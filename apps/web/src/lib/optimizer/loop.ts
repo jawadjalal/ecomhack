@@ -42,7 +42,7 @@ import { getAnalyticsSummary } from "@/lib/analytics/summary";
 import { simulateTraffic, type SimulationOptions, type SimulationResult } from "@/lib/simulator";
 import { openSpecPR, type PullRequestResult, type RepoRef } from "@/lib/github";
 import { AGENT_KV_KEYS } from "@/lib/agent-commerce";
-import { llmAvailable } from "@/lib/llm/client";
+import { llmAvailable, llmLabel } from "@/lib/llm/client";
 import { id } from "@/lib/ids";
 import { diagnose, refineInsightsWithLlm } from "./insights";
 import { ideaForProposal, propose, proposeWithLlm } from "./proposals";
@@ -789,7 +789,7 @@ async function ship(ctx: Persisted, deps: LoopDeps, exp: Experiment, result: Exp
 
 export function getLoopState(): LoopState {
   const p = readPersisted();
-  return { ...p.state, autopilot: autopilotOn(), liveSpec: getLiveSpec() };
+  return { ...p.state, autopilot: autopilotOn(), liveSpec: getLiveSpec(), designer: llmLabel() };
 }
 
 /**
