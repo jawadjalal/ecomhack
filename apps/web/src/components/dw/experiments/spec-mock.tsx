@@ -50,15 +50,20 @@ function Mark({ on, arm, children, className, pad = true }: { on: boolean; arm: 
   );
 }
 
-function Chrome({ spec, bagCount, children }: { spec: PageSpec; bagCount?: number; children: ReactNode }) {
+/**
+ * Store chrome. The announcement bar is only drawn when it's part of the change (or on the
+ * homepage, where it lives), so cropped views spend their height on what the test touches.
+ */
+function Chrome({ spec, other, bagCount, children, showBar }: { spec: PageSpec; other?: PageSpec; bagCount?: number; children: ReactNode; showBar?: boolean }) {
+  const barChanged = other ? JSON.stringify(spec.announcement) !== JSON.stringify(other.announcement) : true;
   return (
-    <div className="flex h-full min-h-[292px] flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_0_0_1px_#EFE8DA]">
-      {spec.announcement.enabled && spec.announcement.text && (
+    <div className="flex h-full flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_0_0_1px_#EFE8DA]">
+      {(showBar || barChanged) && spec.announcement.enabled && spec.announcement.text && (
         <div className="flex h-[26px] shrink-0 items-center justify-center px-3 text-center text-[12px] font-semibold text-white" style={{ background: "#E8590C" }}>
           <span className="truncate">{spec.announcement.text}</span>
         </div>
       )}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-[#F2ECDF] px-4 text-[12px] text-[#7A7468]">
+      <div className="flex h-7 shrink-0 items-center justify-between border-b border-[#F2ECDF] px-4 text-[11.5px] text-[#7A7468]">
         <span className="max-sm:hidden">Road · Trail · Racing</span>
         <span className="font-bold tracking-[0.04em] text-dw-ink">{"// PACE"}</span>
         <span>Bag{bagCount ? ` (${bagCount})` : ""}</span>
@@ -87,10 +92,10 @@ function CartMock({ spec, other, arm }: MockProps) {
   const upfront = spec.cart.showShippingUpfront;
   const vest = getProduct("p_vest");
   return (
-    <Chrome spec={spec} bagCount={t.itemCount}>
-      <div className="grid h-full gap-4 p-4 sm:grid-cols-[1.3fr_1fr]">
-        <div className="flex min-w-0 flex-col gap-2.5">
-          <span className="text-[22px] font-semibold tracking-[-0.02em]">Your bag</span>
+    <Chrome spec={spec} other={other} bagCount={t.itemCount}>
+      <div className="grid h-full gap-3.5 p-3.5 sm:grid-cols-[1.3fr_1fr]">
+        <div className="flex min-w-0 flex-col gap-2">
+          <span className="px-2 text-[18px] font-semibold tracking-[-0.02em]">Your bag</span>
           {(spec.cart.freeShippingThreshold !== null || changed("cart.freeShippingThreshold")) && (
             <Mark on={changed("cart.freeShippingThreshold")} arm={arm} className="text-[12.5px]">
               <span className="flex items-center gap-1.5 py-0.5">
@@ -121,7 +126,7 @@ function CartMock({ spec, other, arm }: MockProps) {
             </Mark>
           )}
         </div>
-        <div className="flex flex-col gap-2.5 rounded-[12px] bg-[#F7F4EE] p-3.5 text-[13.5px]">
+        <div className="flex flex-col gap-2 rounded-[12px] bg-[#F7F4EE] p-3 text-[13.5px]">
           <div className="flex justify-between px-2">
             <span>Subtotal</span>
             <span className="num">{formatGBP(t.subtotal)}</span>
@@ -151,6 +156,11 @@ function CartMock({ spec, other, arm }: MockProps) {
   );
 }
 
+/**
+ * Product page, cropped to what the test touches: the rows that differ are shown (marked), the
+ * features both arms share collapse into one "also on the page" line, and the description only
+ * appears when the button's position is what changes.
+ */
 function ProductMock({ spec, other, arm }: MockProps) {
   const changed = useDiff(spec, other);
   const p = getProduct("p_aurora")!;
@@ -167,90 +177,114 @@ function ProductMock({ spec, other, arm }: MockProps) {
       </Button>
     </Mark>
   );
-  const row = (path: string, show: boolean, node: ReactNode, empty: string) =>
-    (show || changed(path)) && (
-      <Mark on={changed(path)} arm={arm} className="text-[12.5px]">
-        {show ? node : <span className="block py-0.5 opacity-55">{empty}</span>}
-      </Mark>
-    );
+  const features: { path: string; show: boolean; node: ReactNode; short: string; empty: string }[] = [
+    {
+      path: "productPage.showReviews",
+      show: pp.showReviews,
+      short: `★ ${p.rating} reviews`,
+      empty: "No reviews",
+      node: (
+        <span className="flex items-center gap-1 py-0.5">
+          <Star className="size-3.5 fill-current" aria-hidden /> {p.rating} · {p.reviewCount.toLocaleString("en-GB")} reviews
+        </span>
+      ),
+    },
+    {
+      path: "productPage.urgency",
+      show: pp.urgency === "low-stock" && Boolean(low),
+      short: "low-stock note",
+      empty: "No stock message",
+      node: <span className="mk-tint block py-0.5 font-semibold text-[#c2410c]">{low ? `Only ${low[1]} left in UK ${low[0]}` : ""}</span>,
+    },
+    {
+      path: "productPage.showSizeGuide",
+      show: pp.showSizeGuide,
+      short: "size guide",
+      empty: "No size guide",
+      node: (
+        <span className="flex items-center gap-1 py-0.5 underline underline-offset-2">
+          <Ruler className="size-3.5" aria-hidden /> Size guide
+        </span>
+      ),
+    },
+    {
+      path: "productPage.showDeliveryEstimate",
+      show: pp.showDeliveryEstimate,
+      short: `arrives in ${p.deliveryDays} days`,
+      empty: "No delivery date",
+      node: (
+        <span className="flex items-center gap-1 py-0.5">
+          <Truck className="size-3.5" aria-hidden /> Arrives in {p.deliveryDays} days
+        </span>
+      ),
+    },
+    {
+      path: "productPage.showReturnsPolicy",
+      show: pp.showReturnsPolicy,
+      short: "free returns",
+      empty: "No returns info",
+      node: (
+        <span className="flex items-center gap-1 py-0.5">
+          <RotateCcw className="size-3.5" aria-hidden /> Free {p.returnDays}-day returns
+        </span>
+      ),
+    },
+    {
+      path: "productPage.trustBadges",
+      show: pp.trustBadges,
+      short: "trust badges",
+      empty: "No trust badges",
+      node: (
+        <span className="flex items-center gap-1 py-0.5">
+          <ShieldCheck className="size-3.5" aria-hidden /> Secure checkout · 2-year warranty
+        </span>
+      ),
+    },
+  ];
+  const changedRows = features.filter((f) => changed(f.path));
+  const shared = features.filter((f) => !changed(f.path) && f.show);
+  const positionChanged = changed("productPage.ctaPosition");
   return (
-    <Chrome spec={spec}>
-      <div className="relative grid h-full gap-4 p-4 sm:grid-cols-[0.85fr_1.15fr]">
-        <div className="grid place-items-center rounded-[12px] bg-[#F4F1EA] max-sm:h-28">
-          {/* eslint-disable-next-line @next/next/no-img-element -- static product art */}
-          <img src={p.image} alt="" className="h-full max-h-40 w-full object-contain p-3" />
-        </div>
-        <div className="flex min-w-0 flex-col gap-2 pb-10">
-          <div className="px-2">
-            <div className="text-[17px] leading-tight font-semibold">{p.name}</div>
-            <div className="num mt-0.5 text-[13.5px]">
+    <Chrome spec={spec} other={other}>
+      <div className="relative flex h-full flex-col gap-2 p-3.5">
+        <div className="flex items-center gap-3 px-2">
+          <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[#F4F1EA]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static product art */}
+            <img src={p.image} alt="" className="size-12 object-contain" />
+          </span>
+          <div className="min-w-0">
+            <div className="truncate text-[16px] leading-tight font-semibold">{p.name}</div>
+            <div className="num mt-0.5 text-[13px]">
               {formatGBP(p.price)} {p.compareAtPrice && <span className="text-[#9A9488] line-through">{formatGBP(p.compareAtPrice)}</span>}
             </div>
           </div>
-          {row(
-            "productPage.showReviews",
-            pp.showReviews,
-            <span className="flex items-center gap-1 py-0.5">
-              <Star className="size-3.5 fill-current" aria-hidden /> {p.rating} · {p.reviewCount.toLocaleString("en-GB")} reviews
-            </span>,
-            "No reviews",
-          )}
-          {pp.ctaPosition === "above-fold" && cta}
-          <div className="flex flex-wrap items-center gap-1 px-2">
-            {["7", "8", "9", "10", "11"].map((s) => (
-              <span key={s} className={cn("rounded-[6px] border px-1.5 py-0.5 text-[11px]", s === "9" ? "border-dw-ink bg-dw-ink text-white" : "border-[#E6E0D3]")}>
-                {s}
+          <div className="ml-auto flex shrink-0 gap-1 max-sm:hidden" aria-hidden>
+            {["8", "9", "10"].map((sz) => (
+              <span key={sz} className={cn("rounded-[6px] border px-1.5 py-0.5 text-[11px]", sz === "9" ? "border-dw-ink bg-dw-ink text-white" : "border-[#E6E0D3]")}>
+                {sz}
               </span>
             ))}
           </div>
-          {row(
-            "productPage.urgency",
-            pp.urgency === "low-stock" && Boolean(low),
-            <span className="mk-tint block py-0.5 font-semibold text-[#c2410c]">{low ? `Only ${low[1]} left in UK ${low[0]}` : ""}</span>,
-            "No stock message",
-          )}
-          {row(
-            "productPage.showSizeGuide",
-            pp.showSizeGuide,
-            <span className="flex items-center gap-1 py-0.5 underline underline-offset-2">
-              <Ruler className="size-3.5" aria-hidden /> Size guide
-            </span>,
-            "No size guide",
-          )}
-          {pp.ctaPosition !== "above-fold" && (
-            <div className="space-y-1 px-2" aria-hidden>
-              <div className="h-1.5 w-full rounded-full bg-[#EFEAE0]" />
-              <div className="h-1.5 w-11/12 rounded-full bg-[#EFEAE0]" />
-              <div className="h-1.5 w-3/4 rounded-full bg-[#EFEAE0]" />
-            </div>
-          )}
-          {pp.ctaPosition === "below-description" && cta}
-          {row(
-            "productPage.showDeliveryEstimate",
-            pp.showDeliveryEstimate,
-            <span className="flex items-center gap-1 py-0.5">
-              <Truck className="size-3.5" aria-hidden /> Arrives in {p.deliveryDays} days
-            </span>,
-            "No delivery date",
-          )}
-          {row(
-            "productPage.showReturnsPolicy",
-            pp.showReturnsPolicy,
-            <span className="flex items-center gap-1 py-0.5">
-              <RotateCcw className="size-3.5" aria-hidden /> Free {p.returnDays}-day returns
-            </span>,
-            "No returns info",
-          )}
-          {row(
-            "productPage.trustBadges",
-            pp.trustBadges,
-            <span className="flex items-center gap-1 py-0.5">
-              <ShieldCheck className="size-3.5" aria-hidden /> Secure checkout · 2-year warranty
-            </span>,
-            "No trust badges",
-          )}
         </div>
-        {pp.ctaPosition === "sticky" && <div className="absolute inset-x-3 bottom-3 rounded-[10px] bg-white/90 p-1 backdrop-blur">{cta}</div>}
+        {ctaChanged && pp.ctaPosition === "above-fold" && cta}
+        {changedRows.map((f) => (
+          <Mark key={f.path} on arm={arm} className="text-[12.5px]">
+            {f.show ? f.node : <span className="block py-0.5 opacity-60">{f.empty}</span>}
+          </Mark>
+        ))}
+        {positionChanged && pp.ctaPosition !== "above-fold" && (
+          <div className="space-y-1 px-2 py-0.5" aria-hidden>
+            <div className="h-1.5 w-full rounded-full bg-[#EFEAE0]" />
+            <div className="h-1.5 w-3/4 rounded-full bg-[#EFEAE0]" />
+          </div>
+        )}
+        {ctaChanged && pp.ctaPosition === "below-description" && cta}
+        {(shared.length > 0 || !ctaChanged) && (
+          <p className="truncate px-2 text-[12px] text-[#8A8478]">
+            Also on the page: {[...shared.map((f) => f.short), ...(ctaChanged ? [] : [`“${pp.ctaText}” button`])].join(" · ")}
+          </p>
+        )}
+        {ctaChanged && pp.ctaPosition === "sticky" && <div className="mt-auto rounded-[10px] bg-white/90 p-1 shadow-[0_-6px_14px_-10px_rgba(20,20,19,0.4)]">{cta}</div>}
       </div>
     </Chrome>
   );
@@ -261,10 +295,10 @@ function CheckoutMock({ spec, other, arm }: MockProps) {
   const t = priceCart(BASKET, spec);
   const c = spec.checkout;
   return (
-    <Chrome spec={spec}>
-      <div className="grid h-full gap-4 p-4 sm:grid-cols-[1.3fr_1fr]">
-        <div className="flex min-w-0 flex-col gap-2.5 text-[13px]">
-          <span className="px-2 text-[20px] font-semibold tracking-[-0.02em]">Checkout</span>
+    <Chrome spec={spec} other={other}>
+      <div className="grid h-full gap-3.5 p-3.5 sm:grid-cols-[1.3fr_1fr]">
+        <div className="flex min-w-0 flex-col gap-2 text-[13px]">
+          <span className="px-2 text-[18px] font-semibold tracking-[-0.02em]">Checkout</span>
           <Mark on={changed("checkout.steps")} arm={arm}>
             {c.steps === 1 ? (
               <span className="block py-0.5">Everything on one page</span>
@@ -323,11 +357,11 @@ function HomeMock({ spec, other, arm }: MockProps) {
   const g = spec.productGrid;
   const tiles = ["p_aurora", "p_ridge", "p_velocity", "p_tempo"].slice(0, g.columns).map((id) => getProduct(id)!);
   return (
-    <Chrome spec={spec}>
-      <div className="flex h-full flex-col gap-3 p-4">
+    <Chrome spec={spec} other={other} showBar>
+      <div className="flex h-full flex-col gap-2.5 p-3.5">
         <div className={cn("flex flex-col gap-1.5", h.layout === "centered" ? "items-center text-center" : "items-start")}>
           <Mark on={changed("hero.headline", "hero.layout")} arm={arm}>
-            <span className="block text-[19px] leading-tight font-semibold tracking-[-0.02em]">{h.headline}</span>
+            <span className="block text-[17px] leading-tight font-semibold tracking-[-0.02em]">{h.headline}</span>
           </Mark>
           <Mark on={changed("hero.subheadline")} arm={arm} className="text-[12.5px]">
             <span className={arm === "B" && changed("hero.subheadline") ? "" : "text-[#7A7468]"}>{h.subheadline || " "}</span>
@@ -391,7 +425,7 @@ function AgentMock({ spec, other, arm }: MockProps) {
   ];
   const visible = fields.filter((f) => f.show || changed(f.path));
   return (
-    <div className="flex h-full min-h-[292px] flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_0_0_1px_#EFE8DA]">
+    <div className="flex h-full flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_0_0_1px_#EFE8DA]">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-[#F2ECDF] px-4 font-dwmono text-[11.5px] text-[#7A7468]">
         <span className="rounded-full bg-dw-ink px-1.5 py-px text-[10px] font-medium text-white">GET</span>
         <span className="truncate">/api/agent/products/{p.id}</span>

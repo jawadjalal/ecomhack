@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractJson, generateText, llmLabel, llmProvider, resolveProvider } from "./client";
+import { extractJson, generateText, llmLabel, llmProvider, resetLlmCooldowns, resolveProvider } from "./client";
 
 describe("extractJson", () => {
   it("reads bare, fenced and prose-wrapped JSON", () => {
@@ -149,5 +149,37 @@ describe("Apinex", () => {
     expect(calls[0]).toMatchObject({ url: "https://api.apinex.bond/v1/chat/completions", auth: "Bearer apx-test", model: "free/gpt-6-luna" });
     expect(calls[1].url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect(String(info.mock.calls[0][0])).toMatch(/\(fallback after apinex failed\)$/);
+  });
+});
+
+describe("rate limits", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    resetLlmCooldowns();
+  });
+
+  it("doesn't wait out a 429: falls back at once, then skips the provider until Retry-After passes", async () => {
+    for (const k of ["LLM_PROVIDER", "XAI_API_KEY", "APINEX_MODEL", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_REASONING"]) vi.stubEnv(k, "");
+    vi.stubEnv("APINEX_API_KEY", "apx-test");
+    vi.stubEnv("OPENROUTER_API_KEY", "or-test");
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", async (input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input);
+      urls.push(url);
+      if (url.startsWith("https://api.apinex.bond/"))
+        return Response.json({ error: { message: "Rate limit exceeded. Max 5 requests per minute for this API key. Retry in 60s." } }, { status: 429, headers: { "retry-after": "60" } });
+      return Response.json({ id: "c1", object: "chat.completion", created: 1, model: "deepseek/deepseek-chat", choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "ok" } }] });
+    });
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const t = Date.now();
+    expect(await generateText({ system: "s", prompt: "p" })).toBe("ok");
+    expect(await generateText({ system: "s", prompt: "p" })).toBe("ok");
+    expect(Date.now() - t).toBeLessThan(2_000);
+    expect(urls.filter((u) => u.startsWith("https://api.apinex.bond/"))).toHaveLength(1);
+    expect(urls.filter((u) => u.startsWith("https://openrouter.ai/"))).toHaveLength(2);
   });
 });

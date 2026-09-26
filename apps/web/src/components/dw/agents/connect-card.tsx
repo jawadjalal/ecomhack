@@ -32,7 +32,7 @@ export function ConnectCard({ endpoint }: { endpoint: string }) {
     <Card tone="blue" shape="observer" corner="tr" className="min-w-0">
       <CardTitle>Connect any AI agent</CardTitle>
       <p className="mt-1.5 text-[14px] leading-snug text-dw-ink/75">
-        Shoppers&apos; agents talk to your store here, get real offers, and buy through a checkout link that credits them.
+        Shoppers&apos; AI agents chat with Mika here. They get real offers and buy through a checkout link that credits them.
       </p>
       <div className="mt-3 flex items-center gap-1.5" aria-label="Works with ChatGPT, Claude, Perplexity, Gemini, Grok, Copilot and your own agent">
         {WORKS_WITH.map((k) => (
@@ -60,7 +60,7 @@ export function ConnectCard({ endpoint }: { endpoint: string }) {
         rel="noreferrer"
         className="mt-2.5 inline-flex items-center gap-1 text-[13px] text-dw-ink/75 underline-offset-2 hover:text-dw-ink hover:underline"
       >
-        Agent card (A2A v1.0 and v0.3) <ExternalLink className="size-3.5" />
+        Agent card for agent chat <span className="text-dw-ink/45">(A2A v1.0 and v0.3)</span> <ExternalLink className="size-3.5" />
       </a>
 
       <div className="mt-4 flex items-center justify-between gap-3">

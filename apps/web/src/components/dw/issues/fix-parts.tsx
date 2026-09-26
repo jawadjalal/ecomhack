@@ -2,20 +2,23 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { BookOpen, Check, CircleDashed, FlaskConical, Minus, PencilLine, Square, X } from "lucide-react";
+import { Check, CircleDashed, FlaskConical, Minus, PencilLine, Square, X } from "lucide-react";
 import type { Insight } from "@/lib/contracts";
 import { humanizePath, parseDiffLine, signedPct, sourceBadge } from "@/lib/console/format";
 import { cn } from "@/components/ui/cn";
-import { BrandGlyph, type BrandKey } from "../brand-logos";
+import { Mascot } from "../mascot";
 import { FIX_STATUS_LABEL, fixLift, listJoin, type FixRow, type FixStatus, type IssueRow } from "./model";
+
+/** The loop ships a winner once the chance the new version is better reaches this (optimizer default config). */
+export const SHIP_AT = 0.975;
 
 /* ------------------------------------------------------------------ status mark */
 
 const MARK: Record<FixStatus, { Icon: typeof Check; bg: string; fg: string }> = {
   test: { Icon: FlaskConical, bg: "#F3B5D5", fg: "#141413" },
-  drafted: { Icon: PencilLine, bg: "#F6D76B", fg: "#141413" },
+  drafted: { Icon: PencilLine, bg: "#D5CCF5", fg: "#141413" },
   shipped: { Icon: Check, bg: "#DDF3E8", fg: "#137A52" },
-  rejected: { Icon: X, bg: "#DCE3B8", fg: "#141413" },
+  rejected: { Icon: X, bg: "#F4DCD7", fg: "#8E1D14" },
   shelved: { Icon: Minus, bg: "#EDE6D6", fg: "#6B655A" },
   stopped: { Icon: Square, bg: "#EDE6D6", fg: "#6B655A" },
   untested: { Icon: CircleDashed, bg: "#F2ECDF", fg: "#6B655A" },
@@ -46,15 +49,15 @@ export function fixSub(f: FixRow, rows: IssueRow[]): string {
   const refs = issueRefs(f, rows).text;
   switch (f.status) {
     case "test":
-      return ["In test B", refs].filter(Boolean).join(" · ");
+      return ["Being tested", refs].filter(Boolean).join(" · ");
     case "drafted":
       return ["Drafted", refs].filter(Boolean).join(" · ");
     case "shipped":
-      return f.generation !== undefined ? `Shipped in Gen ${f.generation}` : "Shipped";
+      return f.generation !== undefined ? `Shipped in version ${f.generation}` : "Shipped";
     case "rejected":
-      return "Rejected · lost its test";
+      return "Lost its test";
     case "shelved":
-      return "Shelved · no clear signal";
+      return "Set aside · no clear difference";
     case "stopped":
       return "Stopped before a result";
     default:
@@ -74,28 +77,15 @@ export function liftText(f: FixRow, long = false): string {
 
 /* ------------------------------------------------------------------ source chip */
 
-function glyphFor(source: string | undefined): BrandKey | undefined {
-  const b = sourceBadge(source);
-  if (!b) return undefined;
-  if (b.label === "Grok") return "grok";
-  if (b.label === "Claude") return "claude";
-  if (b.label === "OpenRouter") return b.model && /deepseek/i.test(b.model) ? "deepseek" : "openrouter";
-  return undefined;
-}
-
-/** Who wrote the fix: an LLM (named, with its model) or Darwin's built-in playbook. Honest either way. */
+/** How Theo wrote the fix: with AI, or from Darwin's built-in rules. Honest either way, no model names. */
 export function SourceChip({ source }: { source?: string }) {
   const b = sourceBadge(source);
   if (!b) return null;
-  const glyph = glyphFor(source);
-  const heuristic = b.label === "Heuristic";
+  const rules = b.label === "Heuristic";
   return (
-    <span
-      title={source}
-      className="inline-flex h-7 max-w-full items-center gap-1.5 self-start rounded-full bg-white/80 px-2.5 text-[12px] font-medium text-dw-ink/80 shadow-[inset_0_0_0_1px_rgba(20,20,19,0.06)]"
-    >
-      {heuristic ? <BookOpen className="size-3.5" aria-hidden /> : glyph ? <BrandGlyph brand={glyph} size={13} /> : null}
-      <span className="truncate">{heuristic ? "Written from Darwin's playbook, no LLM" : `Written by ${b.model ?? b.label}`}</span>
+    <span className="inline-flex h-7 max-w-full items-center gap-1.5 self-start rounded-full bg-dw-surface/85 pr-2.5 pl-1 text-[12px] font-medium text-dw-ink/80 shadow-[inset_0_0_0_1px_rgba(20,20,19,0.06)]">
+      <Mascot kind="designer" size={20} active={false} />
+      <span className="truncate">{rules ? "Theo used Darwin's rules" : "Theo wrote it with AI"}</span>
     </span>
   );
 }
@@ -106,12 +96,14 @@ function prettyValue(v?: string): string {
   if (v === undefined) return "";
   const t = v.trim();
   if (/^\d{3,}$/.test(t)) return `£${(Number(t) / 100).toFixed(Number(t) % 100 ? 2 : 0)}`;
+  if (t === "true") return "on";
+  if (t === "false") return "off";
   return t.replace(/^"(.*)"$/, "$1");
 }
 
-/** The config diff as friendly setting rows: what the setting is, then A → B. */
-export function SettingRows({ lines }: { lines: string[] }) {
-  if (!lines.length) return <p className="text-[14px] text-dw-ink/60">The exact settings for this fix have aged out of Darwin&apos;s log.</p>;
+/** What changed, as friendly setting rows: what the setting is, then now → new. */
+export function SettingRows({ lines, compact }: { lines: string[]; compact?: boolean }) {
+  if (!lines.length) return <p className="text-[14px] text-dw-ink/60">The exact page settings for this fix are no longer in Darwin&apos;s log.</p>;
   return (
     <ul className="flex flex-col divide-y divide-dw-hairline">
       {lines.map((raw, i) => {
@@ -122,24 +114,27 @@ export function SettingRows({ lines }: { lines: string[] }) {
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.08 + i * 0.06, ease: [0.2, 0.8, 0.2, 1] }}
-            className="group grid gap-x-4 gap-y-1.5 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+            className={cn(
+              "group grid gap-x-4 gap-y-1.5 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
+              compact ? "py-2" : "py-2.5",
+            )}
           >
-            <div className="min-w-0">
+            <div className="min-w-0" title={d.path}>
               <div className="truncate text-[14px] font-medium">{humanizePath(d.path)}</div>
-              <div className="truncate font-dwmono text-[11.5px] text-dw-ink/45">{d.path}</div>
+              <div className={cn("truncate font-dwmono text-[11.5px] text-dw-ink/45", compact && "hidden")}>{d.path}</div>
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-dwmono text-[12.5px]">
               {d.before !== undefined && (
-                <span className="inline-flex max-w-[12rem] items-center gap-1 truncate rounded-lg bg-[#FBE7E4] px-2 py-1 text-[#8E1D14]" title={d.before}>
-                  <span className="font-dw text-[10px] font-semibold opacity-70">A</span>
+                <span className={cn("inline-flex items-center gap-1 truncate rounded-lg bg-[#FBE7E4] px-2 py-1 text-[#8E1D14]", compact ? "max-w-[8.5rem]" : "max-w-[12rem]")} title={d.before}>
+                  <span className="font-dw text-[10px] font-semibold opacity-70">now</span>
                   <span className="truncate line-through decoration-[#8E1D14]/40">{prettyValue(d.before)}</span>
                 </span>
               )}
               <span className="text-dw-ink/35 transition-transform group-hover:translate-x-0.5" aria-hidden>
                 →
               </span>
-              <span className="inline-flex max-w-[14rem] items-center gap-1 truncate rounded-lg bg-[#E3F6EA] px-2 py-1 font-medium text-[#1B5E33]" title={d.after}>
-                <span className="font-dw text-[10px] font-semibold opacity-70">B</span>
+              <span className={cn("inline-flex items-center gap-1 truncate rounded-lg bg-[#E3F6EA] px-2 py-1 font-medium text-[#1B5E33]", compact ? "max-w-[10rem]" : "max-w-[14rem]")} title={d.after}>
+                <span className="font-dw text-[10px] font-semibold opacity-70">new</span>
                 <span className="truncate">{prettyValue(d.after)}</span>
               </span>
             </div>
@@ -183,12 +178,12 @@ export function IssueChips({ ids, rows, archive }: { ids: string[]; rows: IssueR
         const title = row?.insight.title ?? archive.get(id)?.title ?? id.replace(/^ins_/, "").replace(/_/g, " ");
         if (!row) {
           return (
-            <li key={id} className="inline-flex max-w-full items-center gap-2 rounded-full bg-white/50 py-1 pr-3 pl-1 text-[13px] text-dw-ink/65" title={title}>
+            <li key={id} className="inline-flex max-w-full items-center gap-2 rounded-full bg-dw-surface/60 py-1 pr-3 pl-1 text-[13px] text-dw-ink/65" title={title}>
               <span className="grid size-6 place-items-center rounded-full bg-dw-win-bg text-dw-win">
                 <Check className="size-3.5" strokeWidth={2.6} aria-hidden />
               </span>
               <span className="truncate">{title}</span>
-              <span className="shrink-0 text-[12px]">· no longer detected</span>
+              <span className="shrink-0 text-[12px]">· no longer seen</span>
             </li>
           );
         }
@@ -196,10 +191,10 @@ export function IssueChips({ ids, rows, archive }: { ids: string[]; rows: IssueR
           <li key={id} className="max-w-full">
             <Link
               href={`/console/issues?id=${encodeURIComponent(id)}`}
-              className="group inline-flex max-w-full items-center gap-2 rounded-full bg-white py-1 pr-3 pl-1 text-[13px] transition-[transform,box-shadow] outline-none hover:-translate-y-px hover:shadow-[0_6px_14px_rgba(20,20,19,0.1)] focus-visible:ring-2 focus-visible:ring-dw-ink"
+              className="group inline-flex max-w-full items-center gap-2 rounded-full bg-dw-surface py-1 pr-3 pl-1 text-[13px] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(20,20,19,0.08),0_6px_14px_-10px_rgba(20,20,19,0.3)] transition-[transform,box-shadow] outline-none hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-dw-ink"
               title={title}
             >
-              <span className="grid size-6 shrink-0 place-items-center rounded-full text-[12px] font-semibold" style={{ background: row.who === "Agents" ? "#F3B5D5" : row.who === "People" ? "#B8CAEE" : "#D5CCF5" }}>
+              <span className="grid size-6 shrink-0 place-items-center rounded-full text-[12px] font-semibold" style={{ background: row.who === "Agents" ? "#B8CAEE" : row.who === "People" ? "#D5CCF5" : "#E3DAC6" }}>
                 {row.n}
               </span>
               <span className="truncate">{title}</span>

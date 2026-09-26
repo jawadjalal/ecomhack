@@ -190,18 +190,37 @@ const IdeasSchema = z.object({
  * The plan for a store: the heuristic plan, plus (when an LLM is configured and the merchant said
  * something) up to 4 events specific to their store that the keyword list can't know about.
  */
+/** The AI only adds ideas on top of the rules plan, so a slow provider never holds onboarding up. */
+const PLAN_AI_MS = Number(process.env.PLAN_AI_TIMEOUT_MS) || 12_000;
+
+function within<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 export async function buildPlan(input: PlanInput): Promise<TrackingPlan> {
   const plan = heuristicPlan(input);
   if (!llmAvailable() || !input.prompt?.trim()) return plan;
   try {
-    const out = await generateJson({
+    const out = await within(generateJson({
       system:
         "You plan ecommerce analytics. Given a store description and the events already planned, suggest up to 4 MORE custom events that matter for this particular store and the merchant's stated worry. " +
         'Return JSON {"events":[{"name":"snake_case","label":"Short label","why":"one sentence tied to what they said","properties":["prop"]}]}. Return an empty list if nothing important is missing.',
       prompt: `Store: ${JSON.stringify(input.prompt)}\nFramework: ${input.framework ?? "unknown"}\nAlready planned: ${plan.events.map((e) => e.name).join(", ")}`,
       schema: IdeasSchema,
       maxTokens: 700,
-    });
+    }), PLAN_AI_MS);
     const extra = out.events
       .filter((e) => !plan.events.some((p) => p.name === e.name))
       .map((e) => enable({ ...e, category: "goal", automatic: false }, true));

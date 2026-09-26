@@ -2,11 +2,11 @@
  * The Darwin crew (from the design handoff's Mascot.dc.html): five SVG characters with a 3D look
  * (radial-gradient body, bottom shade, specular highlight).
  *
- *   observer      blue clover with antenna   (watches shoppers)
- *   analyst       purple side-eye disc       (finds issues; also the Darwin logo)
- *   designer      orange cog                 (proposes fixes)
- *   experimenter  pink drop                  (runs A/B tests)
- *   shipper       green rounded diamond      (ships pull requests)
+ *   observer      Iris, blue clover with antenna   (Watcher: finds where shoppers get stuck)
+ *   analyst       Darwin, purple side-eye disc     (Lead: talks to you; also the Darwin logo)
+ *   designer      Theo, orange cog                 (Designer: drafts page changes)
+ *   experimenter  Ada, pink drop                   (Tester: runs A vs B tests)
+ *   shipper       Max, green rounded diamond       (Shipper: ships winners as code changes)
  *
  * `frame` draws a liquid-glass squircle around it; `active` makes it bob and blink.
  */
@@ -14,7 +14,10 @@ import { useId } from "react";
 
 export type MascotKind = "observer" | "analyst" | "designer" | "experimenter" | "shipper";
 
-const NAMES: Record<MascotKind, string> = { observer: "Observer", analyst: "Darwin", designer: "Designer", experimenter: "Experimenter", shipper: "Shipper" };
+/** Crew names (see the style brief): Darwin leads; the others have their own names and roles. */
+export const CREW_NAMES: Record<MascotKind, string> = { observer: "Iris", analyst: "Darwin", designer: "Theo", experimenter: "Ada", shipper: "Max" };
+export const CREW_ROLES: Record<MascotKind, string> = { observer: "Watcher", analyst: "Lead", designer: "Designer", experimenter: "Tester", shipper: "Shipper" };
+const NAMES = CREW_NAMES;
 
 export const MASCOT_SHADE: Record<MascotKind, [string, string, string]> = {
   observer: ["#4aa2ff", "#2f86ff", "#1c66e0"],

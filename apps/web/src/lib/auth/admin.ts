@@ -34,6 +34,8 @@ export const PROTECTED_PREFIXES = [
   "/api/store-agent/tests",
   "/api/briefing",
   "/api/ask",
+  "/api/command",
+  "/api/darwin",
   "/api/demo",
 ] as const;
 

@@ -136,11 +136,27 @@ export function paidOrderFor(ref: string): AnalyticsEvent | undefined {
   return undefined;
 }
 
+/** The checkout the store agent opened for this reference and offer (chat, MCP or ACP), newest first. */
+export function checkoutFor(ref: string, offerId: string): AnalyticsEvent | undefined {
+  if (!ref || !offerId) return undefined;
+  const events = eventStore().all();
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.event !== "checkout_started" || e.properties?.darwin_site !== STORE_SITE || e.properties.darwin_ref !== ref) continue;
+    // ACP / MCP sessions list their plans comma-separated.
+    if (String(e.properties.product_id ?? "").split(",").includes(offerId)) return e;
+  }
+  return undefined;
+}
+
 /** Refs being paid right now, with the units recorded so far (ACP completes an order line by line, synchronously). */
 const paying = new Map<string, number>();
 
 /**
  * The demo checkout's "Pay" button: a labelled, simulated payment credited to the conversation.
+ * Only a checkout the store agent opened can be paid: the ref must have a `checkout_started` for this offer (or
+ * the caller holds the checkout record itself, `opts.checkout`: an ACP session), else nothing is recorded and
+ * `error` is "no_checkout". The payment carries that conversation's agent and channel, so it's credited to it.
  * One paid order per checkout reference: paying a ref that already has an order (demo or Whop) records nothing
  * and answers `alreadyPaid`. Calls in the same synchronous turn are units of the same payment (an ACP order with
  * quantity 2), unless `exclusive` (one request = one payment attempt, e.g. the checkout page's Pay button).
@@ -149,10 +165,14 @@ export function recordDemoPayment(
   offerId: string,
   ref: string,
   simulatedBuyer = false,
-  opts: { exclusive?: boolean } = {},
-): { ok: boolean; title?: string; alreadyPaid?: boolean } {
+  opts: { exclusive?: boolean; checkout?: { agentName: string; channel: string } } = {},
+): { ok: boolean; title?: string; alreadyPaid?: boolean; error?: "unknown_offer" | "no_checkout" } {
   const offer = DEMO_OFFERS().find((o) => o.id === offerId);
-  if (!offer || !/^[\w-]{4,80}$/.test(ref)) return { ok: false };
+  if (!offer || !/^[\w-]{4,80}$/.test(ref)) return { ok: false, error: "unknown_offer" };
+  const started = opts.checkout ? undefined : checkoutFor(ref, offerId);
+  if (!opts.checkout && !started) return { ok: false, error: "no_checkout" };
+  const agentName = opts.checkout?.agentName ?? (typeof started?.properties.agent_name === "string" ? started.properties.agent_name : undefined);
+  const channel = opts.checkout?.channel ?? (typeof started?.properties.channel === "string" ? started.properties.channel : "a2a");
   let unit = opts.exclusive ? undefined : paying.get(ref);
   if (unit === undefined) {
     if (paying.has(ref) || paidOrderFor(ref)) return { ok: true, alreadyPaid: true, title: offer.title };
@@ -169,13 +189,13 @@ export function recordDemoPayment(
       darwin_site: STORE_SITE,
       visitor_kind: "agent",
       darwin_ref: ref,
-      channel: "a2a",
+      channel,
       product_id: offer.id,
       revenue: offer.price,
       currency: offer.currency,
       synthetic: true,
       demo_checkout: true,
-      ...(simulatedBuyer ? { agent_name: "darwin-buyer (simulated)" } : {}),
+      ...(agentName ? { agent_name: agentName } : simulatedBuyer ? { agent_name: "darwin-buyer (simulated)" } : {}),
     },
   });
   return { ok: true, title: offer.title };
@@ -186,15 +206,19 @@ const DEMO_OFFERS = () => DEMO_CATALOG.offers;
 /* ------------------------------------------------------------------ simulated buyer agents */
 
 /**
- * Buyer-agent personas and how each pitch lever moves their chance to buy (a toy model: it's how the
- * demo shows the loop working, and every conversation it creates is labelled simulated).
+ * Buyer-agent personas and how each pitch lever moves their chance to ask for a checkout link (a toy model: it's
+ * how the demo shows the loop working, and every conversation it creates is labelled simulated). `base` is the
+ * chance to ask for the link; then only SIM_CHECKOUT_PAID of links get paid, like a real checkout's drop-off.
  */
 export const BUYER_PERSONAS: { id: string; share: number; base: number; briefs: string[]; effect: Partial<Record<Lever, number>> }[] = [
-  { id: "decisive", share: 0.3, base: 0.3, briefs: ["Trail running coaching under £40 a month", "Best marathon plan"], effect: { "one-pick": 1.5, facts: 1.05, upsell: 0.85 } },
-  { id: "cautious", share: 0.3, base: 0.18, briefs: ["Coaching membership under £40 I can cancel any time", "Something one-off under £20"], effect: { facts: 1.9, "one-pick": 1.1, upsell: 0.7 } },
-  { id: "api", share: 0.25, base: 0.26, briefs: ["trail running coaching", "gear guide"], effect: { structured: 1.6, facts: 1.1, upsell: 0.9 } },
-  { id: "price", share: 0.15, base: 0.22, briefs: ["Cheapest trail running plan", "Something under £10"], effect: { upsell: 0.6, facts: 1.1 } },
+  { id: "decisive", share: 0.3, base: 0.46, briefs: ["Trail running coaching under £40 a month", "Best marathon plan"], effect: { "one-pick": 1.5, facts: 1.05, upsell: 0.85 } },
+  { id: "cautious", share: 0.3, base: 0.28, briefs: ["Coaching membership under £40 I can cancel any time", "Something one-off under £20"], effect: { facts: 1.9, "one-pick": 1.1, upsell: 0.7 } },
+  { id: "api", share: 0.25, base: 0.4, briefs: ["trail running coaching", "gear guide"], effect: { structured: 1.6, facts: 1.1, upsell: 0.9 } },
+  { id: "price", share: 0.15, base: 0.34, briefs: ["Cheapest trail running plan", "Something under £10"], effect: { upsell: 0.6, facts: 1.1 } },
 ];
+
+/** Share of simulated checkout links that get paid (~65%): the rest abandon at checkout. Seeded like the rest. */
+export const SIM_CHECKOUT_PAID = 0.65;
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -224,7 +248,7 @@ export async function runSimulatedBuyers(n: number, origin: string, seed = Date.
     if (!first.data.offers?.length || rand() >= p) continue;
     const buy = await replyTo(first.data.buy?.reply ?? "buy the first one", { contextId: first.contextId, agentName, origin, synthetic: true });
     const checkout = buy.data.checkout;
-    if (!checkout) continue;
+    if (!checkout || rand() >= SIM_CHECKOUT_PAID) continue;
     const catalog = await getCatalog();
     const offer = catalog.offers.find((o) => o.id === checkout.offerId);
     track({
