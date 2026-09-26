@@ -12,7 +12,8 @@ function isObj(v: unknown): v is Json {
 /** Every JSON-LD node on the page, with @graph and arrays flattened. Invalid blocks are skipped. */
 export function jsonLdNodes(html: string): Json[] {
   const out: Json[] = [];
-  const re = /<script[^>]*type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi;
+  const re =
+    /<script[^>]*type=["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi;
   const visit = (v: unknown) => {
     if (Array.isArray(v)) return v.forEach(visit);
     if (!isObj(v)) return;
@@ -43,7 +44,11 @@ export function findNode(nodes: Json[], ...types: string[]): Json | undefined {
 export function offersOf(product: Json): Json[] {
   const raw = product.offers;
   const list = (Array.isArray(raw) ? raw : raw ? [raw] : []).filter(isObj);
-  return list.flatMap((o) => (hasType(o, "AggregateOffer") && Array.isArray(o.offers) ? (o.offers as unknown[]).filter(isObj) : [o]));
+  return list.flatMap((o) =>
+    hasType(o, "AggregateOffer") && Array.isArray(o.offers)
+      ? (o.offers as unknown[]).filter(isObj)
+      : [o],
+  );
 }
 
 /** Absolute same-origin links on the page. */
@@ -66,7 +71,10 @@ export function links(html: string, base: string): string[] {
 /** Heuristic product-page URL: /products/…, /product/…, /p/…, /shop/… with a slug. */
 export function looksLikeProductUrl(href: string): boolean {
   const path = new URL(href).pathname;
-  return /\/(products?|p|item|shop)\/[^/]+\/?$/i.test(path) && !/\/(collections?|categor(y|ies))\/?$/i.test(path);
+  return (
+    /\/(products?|p|item|shop)\/[^/]+\/?$/i.test(path) &&
+    !/\/(collections?|categor(y|ies))\/?$/i.test(path)
+  );
 }
 
 export function title(html: string): string | undefined {
@@ -74,7 +82,11 @@ export function title(html: string): string | undefined {
 }
 
 export function metaDescription(html: string): string | undefined {
-  return html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{1,400})["']/i)?.[1]?.trim();
+  return html
+    .match(
+      /<meta[^>]+name=["']description["'][^>]+content=["']([^"']{1,400})["']/i,
+    )?.[1]
+    ?.trim();
 }
 
 /** Visible text length after dropping scripts, styles and tags: a rough "did the server render content?" signal. */
@@ -88,7 +100,17 @@ export function visibleTextLength(html: string): number {
     .trim().length;
 }
 
-const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", pound: "£", euro: "€", dollar: "$" };
+const ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  pound: "£",
+  euro: "€",
+  dollar: "$",
+};
 
 /** The server-rendered text an agent sees without JavaScript (scripts, styles, tags dropped), capped at `max` chars. */
 export function visibleText(html: string, max = 6000): string {
@@ -97,8 +119,13 @@ export function visibleText(html: string, max = 6000): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
       if (e[0] === "#") {
-        const code = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : Number(e.slice(1));
-        return Number.isFinite(code) && code > 0 && code < 0x110000 ? String.fromCodePoint(code) : " ";
+        const code =
+          e[1] === "x" || e[1] === "X"
+            ? parseInt(e.slice(2), 16)
+            : Number(e.slice(1));
+        return Number.isFinite(code) && code > 0 && code < 0x110000
+          ? String.fromCodePoint(code)
+          : " ";
       }
       return ENTITIES[e.toLowerCase()] ?? m;
     })
@@ -109,23 +136,43 @@ export function visibleText(html: string, max = 6000): string {
 
 /** A price-looking string in the server-rendered text (£12.00, $9.99, 12,00 €). */
 export function hasVisiblePrice(html: string): boolean {
-  const text = html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ");
-  return /[£$€]\s?\d{1,5}([.,]\d{2})?|\d{1,5}[.,]\d{2}\s?(€|EUR|GBP|USD)/.test(text);
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  return /[£$€]\s?\d{1,5}([.,]\d{2})?|\d{1,5}[.,]\d{2}\s?(€|EUR|GBP|USD)/.test(
+    text,
+  );
 }
 
-export function detectPlatform(html: string, headers: Record<string, string>): StorePlatform {
+export function detectPlatform(
+  html: string,
+  headers: Record<string, string>,
+): StorePlatform {
   const h = (k: string) => headers[k.toLowerCase()] ?? "";
-  if (h("x-shopid") || h("x-shopify-stage") || /cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)) return "shopify";
-  if (/wp-content\/plugins\/woocommerce|woocommerce/i.test(html)) return "woocommerce";
+  if (
+    h("x-shopid") ||
+    h("x-shopify-stage") ||
+    /cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)
+  )
+    return "shopify";
+  if (/wp-content\/plugins\/woocommerce|woocommerce/i.test(html))
+    return "woocommerce";
   if (/cdn\d*\.bigcommerce\.com/i.test(html)) return "bigcommerce";
-  if (/Magento_|mage\/cookies|x-magento/i.test(html) || h("x-magento-cache-debug")) return "magento";
+  if (
+    /Magento_|mage\/cookies|x-magento/i.test(html) ||
+    h("x-magento-cache-debug")
+  )
+    return "magento";
   if (/static\.wixstatic\.com|wix\.com/i.test(html)) return "wix";
   if (/squarespace(-cdn)?\.com/i.test(html)) return "squarespace";
-  if (/\/_next\/static\//.test(html) || h("x-powered-by").includes("Next.js")) return "nextjs";
+  if (/\/_next\/static\//.test(html) || h("x-powered-by").includes("Next.js"))
+    return "nextjs";
   return "unknown";
 }
 
 /** Links to returns / shipping / refund policies. */
 export function policyLinks(allLinks: string[]): string[] {
-  return allLinks.filter((l) => /(return|refund|shipping|delivery)/i.test(new URL(l).pathname));
+  return allLinks.filter((l) =>
+    /(return|refund|shipping|delivery)/i.test(new URL(l).pathname),
+  );
 }

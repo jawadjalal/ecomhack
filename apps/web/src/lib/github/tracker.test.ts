@@ -205,6 +205,15 @@ describe("darwin.js tracker", () => {
     expect(t.events()[2].properties).toMatchObject({ revenue: 8999, $webdriver: true });
   });
 
+  it("sends nothing from the console's preview pages", () => {
+    for (const search of ["?darwin_preview=wr_abc123", "?darwin_variant=control", "?darwin_source=social&darwin_variant=treatment"]) {
+      const t = boot({ search });
+      t.darwin.capture("order_completed");
+      t.darwin.flush();
+      expect(t.posts).toHaveLength(0);
+    }
+  });
+
   it("honours Global Privacy Control", () => {
     const t = boot({ gpc: true });
     t.darwin.capture("order_completed");

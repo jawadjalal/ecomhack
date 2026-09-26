@@ -6,6 +6,8 @@
  *   connectRepository       parse a repo URL, open the install PR, remember the connection
  *   shipWinningSpec         pick the experiment + spec to ship, then openSpecPR
  *   getGithubStatus         what the console shows (mode, repo, framework, recent PRs)
+ *   listRepoFiles / readRepoFile / commitFileChanges / openPullRequest / mergePullRequest / pullRequestStatus
+ *                           repo editing for the agent team (edit.ts). Writes need the merchant's confirmation.
  *
  * Modes (see githubMode()):
  *   offline  — no GITHUB_TOKEN, or GitHub rejected it (401): no network; returns the would-be PR (files + body).
@@ -37,6 +39,7 @@ import {
   detectFramework,
   manualDocPath,
   planInstall,
+  scriptTag,
   type FrameworkDetection,
 } from "./install";
 import {
@@ -65,6 +68,26 @@ export { verifyGithubToken, lastTokenCheck, resetTokenChecks, TOKEN_CHECK_TTL_MS
 export { detectAnalytics, detectFramework, planInstall, scriptTag, type Framework, type FrameworkDetection } from "./install";
 export type { TrafficMix } from "./spec-pr";
 export type { GithubConnection, GithubMode, PullRequestRecord } from "./store";
+export {
+  listRepoFiles,
+  readRepoFile,
+  commitFileChanges,
+  openPullRequest,
+  mergePullRequest,
+  pullRequestStatus,
+  listEditPullRequests,
+  invalidEditPath,
+  resolveRepo,
+  editBranchName,
+  MAX_EDIT_FILES,
+  MAX_EDIT_BYTES,
+  type RepoFileList,
+  type RepoFile,
+  type FileEditResult,
+  type MergeResult,
+  type PrStatus,
+  type EditPrRecord,
+} from "./edit";
 
 export interface RepoRef {
   owner: string;
@@ -177,6 +200,32 @@ export function publicOrigin(req: Request): string {
   const configured = process.env.DARWIN_PUBLIC_URL?.trim();
   if (configured) return normalizeHost(configured);
   return requestOrigin(req);
+}
+
+/** The one darwin.js install tag every surface shows (onboarding, Personalize, llms.txt, the install PR). */
+export interface InstallSnippet {
+  /** Darwin's public origin: DARWIN_PUBLIC_URL, else the request's origin. */
+  origin: string;
+  /** Absolute darwin.js URL. darwin.js loads the personalization runtime itself, so this is the only tag. */
+  src: string;
+  siteId: string;
+  /** `<script src=… data-darwin-site=… defer></script>` */
+  tag: string;
+}
+
+/** The darwin.js path on Darwin's origin (no version parameter: the script is served no-cache). */
+export const DARWIN_SCRIPT_PATH = "/darwin.js";
+
+/** Pure: the install tag for a site on a given Darwin origin. */
+export function installSnippetFor(origin: string, siteId: string): InstallSnippet {
+  const o = normalizeHost(origin);
+  const src = `${o}${DARWIN_SCRIPT_PATH}`;
+  return { origin: o, src, siteId, tag: scriptTag({ src, siteId }) };
+}
+
+/** The canonical install tag for this request: every snippet Darwin shows comes from here. */
+export function installSnippet(req: Request, siteId: string): InstallSnippet {
+  return installSnippetFor(publicOrigin(req), siteId);
 }
 
 /**
@@ -299,7 +348,7 @@ The full plan, with the one line per event your store sends, is in \`${path}\`.`
 
 async function installPR(repo: RepoRef, opts: InstallOptions, mode: GithubMode): Promise<PullRequestResult> {
   const fullName = `${repo.owner}/${repo.repo}`;
-  const snippet = { src: `${normalizeHost(opts.host)}/darwin.js`, siteId: opts.siteId ?? siteIdFor(repo) };
+  const snippet = installSnippetFor(opts.host, opts.siteId ?? siteIdFor(repo));
   const commitMessage = `Install Darwin analytics\n\nLoads darwin.js (site id "${snippet.siteId}") to measure how human shoppers and AI shopping agents use the store.`;
 
   if (mode === "offline") {

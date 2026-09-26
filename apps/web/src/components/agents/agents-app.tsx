@@ -12,6 +12,7 @@ import { ChatCard, type ChatLine, type ChatOffer } from "@/components/dw/agents/
 import { ConnectCard, OffersCard } from "@/components/dw/agents/connect-card";
 import { SalesCard } from "@/components/dw/agents/sales-card";
 import { TestsCard } from "@/components/dw/agents/tests-card";
+import { useLiveInterval } from "@/lib/console/live";
 
 const SIM_BUYER = "darwin-buyer (simulated)";
 
@@ -40,14 +41,16 @@ export function AgentsApp({ origin }: { origin: string }) {
     if (res.ok) setStats(await res.json());
     if (t.ok) setTests(await t.json());
   }, []);
+  const every = useLiveInterval(3000);
   useEffect(() => {
     const first = setTimeout(() => load(), 0);
-    const t = setInterval(() => load(), 3000);
+    // Static unless the Live switch is on: on a multi-server host each poll can land on a server with other numbers.
+    const t = every ? setInterval(() => load(), every) : undefined;
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      if (t) clearInterval(t);
     };
-  }, [load]);
+  }, [load, every]);
 
   /** Talk to the store agent over the real A2A endpoint, exactly as an outside agent would. */
   const send = async (message: string) => {
@@ -134,14 +137,14 @@ export function AgentsApp({ origin }: { origin: string }) {
   const f = stats?.funnel;
   const cat = stats?.catalog;
   const lede = f?.conversations
-    ? `${f.conversations.toLocaleString("en-GB")} buyer-agent conversation${f.conversations === 1 ? "" : "s"} so far${f.simulated ? ` (${f.simulated.toLocaleString("en-GB")} simulated)` : ""}, and ${Math.round(f.conversion * 100)}% ended in a payment.`
-    : "AI shoppers ask it what you sell, and buy through a checkout link that credits them.";
+    ? `Mika has had ${f.conversations.toLocaleString("en-GB")} chat${f.conversations === 1 ? "" : "s"} with AI shoppers so far${f.simulated ? ` (${f.simulated.toLocaleString("en-GB")} simulated)` : ""}. ${Math.round(f.conversion * 100)}% ended in a payment.`
+    : "Mika sells to AI shoppers. They ask what you sell and buy through a checkout link that credits them.";
 
   return (
     <>
       <PageHead
         mascot={<StoreAvatar size={52} />}
-        title="Your store agent"
+        title="Mika, your store agent"
         lede={lede}
         right={
           <>
@@ -158,40 +161,39 @@ export function AgentsApp({ origin }: { origin: string }) {
       />
 
       {cat?.source === "demo" && (
-        <div role="note" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[22px] bg-dw-warn-bg px-5 py-3.5 text-[14px] text-dw-warn">
+        <div role="note" title={cat.note} className="-mt-1 flex min-h-10 flex-wrap items-center gap-x-2.5 gap-y-2 rounded-[20px] bg-dw-warn-bg py-2 pr-2 pl-4 text-[13.5px] text-dw-warn sm:flex-nowrap sm:rounded-full sm:py-1.5 sm:pr-1.5">
           <Store className="size-4 shrink-0" />
-          <p className="min-w-0 flex-1 basis-[15rem]">
-            <b className="font-semibold">Demo catalog.</b> {cat.note ?? "These are demo offers, and payments are simulated."}
+          <p className="min-w-0 flex-1 basis-[14rem] leading-snug sm:basis-auto sm:truncate">
+            <b className="font-semibold">Demo catalog.</b> No Whop business connected yet. These are demo offers, and demo checkout payments are simulated and labelled.
           </p>
           <Link
             href="/onboarding"
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white/70 px-3.5 text-[13px] font-medium text-dw-ink transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-white/75 px-3 text-[12.5px] font-medium text-dw-ink transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
           >
-            <WhopLogo size={14} /> Connect Whop <ArrowRight className="size-3.5" />
+            <WhopLogo size={13} /> Connect Whop <ArrowRight className="size-3.5" />
           </Link>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-        <TestsCard
-          tests={tests}
-          simOn={simOn}
-          onSim={setSimOn}
-          onAutopilot={(on) => {
-            testsPost({ autopilot: on });
-            if (on && !f?.conversations) setSimOn(true);
-          }}
-          onStart={(lever: Lever) => testsPost({ start: lever })}
-        />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <ChatCard lines={lines} text={text} onText={setText} onSend={send} busy={busy} running={running} onRunBuyer={runBuyer} demo={cat?.source !== "whop"} />
         <SalesCard funnel={f} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <ConnectCard endpoint={endpoint} />
-          <OffersCard catalog={cat} />
-        </div>
-        <ChatCard lines={lines} text={text} onText={setText} onSend={send} busy={busy} running={running} onRunBuyer={runBuyer} demo={cat?.source !== "whop"} />
+      <TestsCard
+        tests={tests}
+        simOn={simOn}
+        onSim={setSimOn}
+        onAutopilot={(on) => {
+          testsPost({ autopilot: on });
+          if (on && !f?.conversations) setSimOn(true);
+        }}
+        onStart={(lever: Lever) => testsPost({ start: lever })}
+      />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]">
+        <OffersCard catalog={cat} />
+        <ConnectCard endpoint={endpoint} />
       </div>
     </>
   );

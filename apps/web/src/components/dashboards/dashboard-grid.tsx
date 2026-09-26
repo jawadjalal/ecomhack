@@ -6,7 +6,9 @@ import type { DashboardData, DashboardKind } from "@/lib/contracts";
 import { cn } from "@/components/ui/cn";
 import { Card, CardTitle, HBar, LegendKey, LiveDot, Tag, TONE, type Tone } from "@/components/dw/ui";
 import { Mascot, type MascotKind } from "@/components/dw/mascot";
-import { Pill, SmoothLine, Tip, TrackPill } from "@/components/dw/dashboards/charts";
+import { Pill, SmoothLine, Tip } from "@/components/dw/dashboards/charts";
+import { InsightBody } from "@/components/dashboards/cards/insight-cards";
+import { FunnelSteps } from "@/components/dashboards/funnel-drill";
 
 const pct = (x: number | undefined, d = 1) => (x === undefined || !Number.isFinite(x) ? "–" : `${(x * 100).toFixed(d)}%`);
 const gbp = (pence: number) => `£${(pence / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`;
@@ -23,18 +25,26 @@ const LOOK: Record<DashboardKind, { tone: Tone; shape: MascotKind; corner: "tr" 
   revenue: { tone: "yellow", shape: "shipper", corner: "br" },
   events: { tone: "white", shape: "observer", corner: "br" },
   devices: { tone: "blue", shape: "observer", corner: "br" },
+  trend: { tone: "white", shape: "analyst", corner: "br" },
+  number: { tone: "yellow", shape: "analyst", corner: "tr" },
+  retention: { tone: "olive", shape: "observer", corner: "br" },
+  paths: { tone: "blue", shape: "designer", corner: "tr" },
+  lifecycle: { tone: "lilac", shape: "observer", corner: "br" },
+  breakdown: { tone: "pink", shape: "analyst", corner: "tr" },
+  time_to_convert: { tone: "sand", shape: "shipper", corner: "br" },
+  hourly: { tone: "lilac", shape: "designer", corner: "tr" },
 };
 /** When two neighbours would share a colour, the second takes this one. */
 const ALT: Record<Tone, Tone> = { yellow: "white", pink: "lilac", olive: "sand", blue: "lilac", lilac: "blue", white: "sand", sand: "white" };
 /** How much a kind benefits from the wide (1.7fr) slot of a row. */
-const WEIGHT: Record<DashboardKind, number> = { kpis: 9, funnel: 3, revenue: 3, events: 3, heatmap: 2, sources: 2, experiments: 2, devices: 1, "humans-agents": 1 };
+const WEIGHT: Record<DashboardKind, number> = { kpis: 9, funnel: 3, revenue: 3, events: 3, heatmap: 2, sources: 2, experiments: 2, devices: 1, "humans-agents": 1, trend: 3, number: 1, retention: 3, paths: 2, lifecycle: 3, breakdown: 2, time_to_convert: 2, hourly: 3 };
 
 /**
  * Every dashboard in a plan. KPIs span the row; the rest pair up in rows that alternate 1.7fr/1fr and
  * 1fr/1.7fr (never equal boxes), the heavier chart taking the wide slot. Sized by its own width
  * (container queries), so it works full-page and embedded. `compact` for the onboarding preview.
  */
-export function DashboardGrid({ dashboards, compact = false, onRemove }: { dashboards: DashboardData[]; compact?: boolean; onRemove?: (id: string) => void }) {
+export function DashboardGrid({ dashboards, compact = false, onRemove, site }: { dashboards: DashboardData[]; compact?: boolean; onRemove?: (id: string) => void; site?: string }) {
   const wide = dashboards.filter((d) => d.kind === "kpis");
   const rest = dashboards.filter((d) => d.kind !== "kpis");
   const rows: DashboardData[][] = [];
@@ -43,10 +53,10 @@ export function DashboardGrid({ dashboards, compact = false, onRemove }: { dashb
     <div className="@container min-w-0">
       <div className="flex flex-col gap-4">
         {wide.map((d) => (
-          <DashboardCard key={d.id} d={d} compact={compact} onRemove={d.custom ? onRemove : undefined} />
+          <DashboardCard key={d.id} d={d} compact={compact} site={site} onRemove={d.custom ? onRemove : undefined} />
         ))}
         {rows.map((pair, i) => {
-          if (pair.length === 1) return <DashboardCard key={pair[0].id} d={pair[0]} compact={compact} onRemove={pair[0].custom ? onRemove : undefined} />;
+          if (pair.length === 1) return <DashboardCard key={pair[0].id} d={pair[0]} compact={compact} site={site} onRemove={pair[0].custom ? onRemove : undefined} />;
           const wideFirst = i % 2 === 0;
           const [a, b] = pair;
           // The heavier chart takes the wide slot.
@@ -55,8 +65,8 @@ export function DashboardGrid({ dashboards, compact = false, onRemove }: { dashb
           const toneB = LOOK[ordered[1].kind].tone === toneA ? ALT[toneA] : undefined;
           return (
             <div key={`${a.id}-${b.id}`} className={cn("grid grid-cols-1 gap-4", wideFirst ? "@3xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]" : "@3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]")}>
-              <DashboardCard d={ordered[0]} compact={compact} onRemove={ordered[0].custom ? onRemove : undefined} />
-              <DashboardCard d={ordered[1]} compact={compact} onRemove={ordered[1].custom ? onRemove : undefined} tone={toneB} />
+              <DashboardCard key={ordered[0].id} d={ordered[0]} compact={compact} site={site} onRemove={ordered[0].custom ? onRemove : undefined} />
+              <DashboardCard key={ordered[1].id} d={ordered[1]} compact={compact} site={site} onRemove={ordered[1].custom ? onRemove : undefined} tone={toneB} />
             </div>
           );
         })}
@@ -65,9 +75,25 @@ export function DashboardGrid({ dashboards, compact = false, onRemove }: { dashb
   );
 }
 
-export function DashboardCard({ d, compact, onRemove, tone }: { d: DashboardData; compact?: boolean; onRemove?: (id: string) => void; tone?: Tone }) {
+export function DashboardCard({ d, compact, onRemove, tone, site }: { d: DashboardData; compact?: boolean; onRemove?: (id: string) => void; tone?: Tone; site?: string }) {
   const look = LOOK[d.kind] ?? LOOK.events;
   const t = tone ?? look.tone;
+  /** The KPI strip is one slim band (title left, numbers right) so the charts start above the fold. */
+  const band = d.kind === "kpis" && !compact && !d.empty && !onRemove;
+  if (band)
+    return (
+      <Card tone={t} shape={look.shape} corner={look.corner} className="@container min-w-0 py-5" data-dashboard={d.id}>
+        <div className="flex flex-col gap-4 @4xl:flex-row @4xl:items-center @4xl:gap-10">
+          <div className="shrink-0 @4xl:w-60">
+            <CardTitle>{d.title}</CardTitle>
+            <p className="mt-1 text-[13.5px] leading-snug text-dw-ink/70">{d.why}</p>
+          </div>
+          <div className="min-w-0 flex-1">
+            <Body d={d} ring={TONE[t].bg} />
+          </div>
+        </div>
+      </Card>
+    );
   return (
     <Card
       tone={t}
@@ -100,19 +126,19 @@ export function DashboardCard({ d, compact, onRemove, tone }: { d: DashboardData
         <span className={cn(compact && "text-[19px]")}>{d.title}</span>
       </CardTitle>
       {!compact && <p className="mt-1 max-w-[40rem] text-[14px] leading-snug text-dw-ink/70">{d.why}</p>}
-      <div className={cn("flex flex-1 flex-col", compact ? "mt-3" : "mt-5")}>{d.empty ? <Waiting kind={d.kind} /> : <Body d={d} compact={compact} ring={TONE[t].bg} />}</div>
+      <div className={cn("flex flex-1 flex-col", compact ? "mt-3" : "mt-4")}>{d.empty ? <Waiting kind={d.kind} note={d.note} /> : <Body d={d} compact={compact} ring={TONE[t].bg} site={site} />}</div>
     </Card>
   );
 }
 
-function Waiting({ kind }: { kind: DashboardKind }) {
+function Waiting({ kind, note }: { kind: DashboardKind; note?: string }) {
   const look = LOOK[kind] ?? LOOK.events;
   return (
     <div className="flex flex-1 items-center gap-4 rounded-[20px] border-[1.5px] border-dashed border-dw-ink/20 bg-white/30 px-4 py-4">
       <Mascot kind={look.shape} size={44} frame active />
       <p className="flex items-center gap-2 text-[14px] text-dw-ink/70">
         <LiveDot />
-        {kind === "experiments" ? "No tests yet. Darwin starts them once visitors arrive." : "Listening for the first events…"}
+        {note ?? (kind === "experiments" ? "No tests yet. Fizz starts them once visitors arrive." : "Listening for the first events…")}
       </p>
     </div>
   );
@@ -133,54 +159,31 @@ function RowIcon({ children }: { children: ReactNode }) {
   return <span className="dw-tilt grid size-7 shrink-0 place-items-center rounded-[9px] bg-white/75 shadow-[inset_0_1px_0_#fff,0_0_0_1px_rgba(20,20,19,0.06)] [&_svg]:size-3.5">{children}</span>;
 }
 
-function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring: string }) {
+function Body({ d, compact, ring, site }: { d: DashboardData; compact?: boolean; ring: string; site?: string }) {
   switch (d.kind) {
+    case "trend":
+    case "number":
+    case "retention":
+    case "paths":
+    case "lifecycle":
+    case "breakdown":
+    case "time_to_convert":
+    case "hourly":
+      return <InsightBody d={d} compact={compact} />;
     case "kpis":
       return (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-5 @xl:flex @xl:flex-wrap @xl:gap-x-10">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-5 @xl:flex @xl:flex-wrap @xl:gap-x-10 @4xl:justify-between">
           {d.kpis?.map((k, i) => (
             <div key={k.label} className="min-w-0 @xl:min-w-[6.5rem]">
-              <div className={cn("num leading-none font-semibold tracking-[-0.03em]", compact ? "text-[28px]" : "text-[38px]")}>{k.value}</div>
+              <div className={cn("num leading-none font-semibold tracking-[-0.03em]", compact ? "text-[28px]" : "text-[34px]")}>{k.value}</div>
               <div className={cn("mt-1.5 text-[12px] tracking-[0.02em] text-dw-ink/70 uppercase", i === 0 && "w-fit border-b-2 border-dw-ink pb-1 text-dw-ink")}>{k.label}</div>
               {k.hint && <div className="mt-1 text-[12.5px] text-dw-ink/60">{k.hint}</div>}
             </div>
           ))}
         </div>
       );
-    case "funnel": {
-      const steps = d.steps ?? [];
-      const first = steps[0]?.visitors ?? 0;
-      return (
-        <div className="grid items-start gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(1, steps.length)}, minmax(0, 1fr))` }}>
-          {steps.map((s, i) => {
-            const prev = i ? steps[i - 1].visitors : s.visitors;
-            const drop = i && prev ? 1 - s.visitors / prev : 0;
-            const last = i === steps.length - 1;
-            return (
-              <div key={s.event} className="flex min-w-0 flex-col items-center text-center">
-                <TrackPill
-                  value={s.visitors}
-                  max={first}
-                  height={compact ? 88 : 116}
-                  width={compact ? 24 : 28}
-                  label={pct(s.rate, 0)}
-                  tip={`${int(s.visitors)} of ${int(first)} visitors`}
-                />
-                <span className={cn("mt-2 line-clamp-2 text-[12.5px] leading-tight", last ? "font-semibold" : "text-dw-ink/80")} title={s.event}>
-                  {s.label}
-                </span>
-                <span className="num mt-0.5 font-dwmono text-[11.5px] text-dw-ink/60">{int(s.visitors)}</span>
-                {i > 0 && drop > 0.5 && (
-                  <span className="mt-1 rounded-full bg-dw-warn-bg px-1.5 text-[11px] font-medium text-dw-warn" title={`${pct(drop, 0)} drop from the step before`}>
-                    −{pct(drop, 0)}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
+    case "funnel":
+      return <FunnelSteps d={d} compact={compact} site={site} />;
     case "humans-agents": {
       const rows = d.rows ?? [];
       const max = Math.max(0.001, ...rows.map((r) => r.rate));
@@ -205,7 +208,7 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
             {ratio !== undefined ? (
               <>
                 <div className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{ratio >= 1 ? `${ratio.toFixed(1)}×` : `${(1 / ratio).toFixed(1)}×`}</div>
-                <p className="mt-1.5 text-[13px] leading-snug text-dw-ink/75">{ratio >= 1 ? "AI agents convert this many times as often as people." : "People convert this many times as often as AI agents."}</p>
+                <p className="mt-1.5 text-[13px] leading-snug text-dw-ink/75">{ratio >= 1 ? "AI agents buy this many times as often as people." : "People buy this many times as often as AI agents."}</p>
               </>
             ) : (
               <p className="text-[13px] text-dw-ink/70">Needs a purchase from both people and agents to compare.</p>
@@ -230,7 +233,7 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
             <span />
             <span>Visitors</span>
             <span />
-            <span className="text-right">Converts</span>
+            <span className="text-right">% who buy</span>
           </div>
           <ul className="flex flex-col gap-1">
             {rows.map((r) => {
@@ -243,7 +246,7 @@ function Body({ d, compact, ring }: { d: DashboardData; compact?: boolean; ring:
                   </span>
                   <HBar value={r.visitors / max} className="h-2.5" />
                   <span className="num text-right font-dwmono text-[12.5px] text-dw-ink/70">{int(r.visitors)}</span>
-                  <span className={cn("num text-right font-dwmono text-[12.5px]", low ? "font-semibold text-dw-warn" : "text-dw-ink")} title={low ? "Converts well below the site average" : undefined}>
+                  <span className={cn("num text-right font-dwmono text-[12.5px]", low ? "font-semibold text-dw-warn" : "text-dw-ink")} title={low ? "Buys well below the site average" : undefined}>
                     {pct(r.rate)}
                   </span>
                   <Tip>
@@ -347,7 +350,7 @@ function DeviceGap({ rows }: { rows: NonNullable<DashboardData["rows"]> }) {
     <div className="mt-auto flex items-end gap-3 pt-5">
       <span className="num text-[40px] leading-none font-semibold tracking-[-0.03em]">{same ? "≈" : `${rel > 0 ? "+" : "−"}${Math.abs(Math.round(rel * 100))}%`}</span>
       <span className="pb-1 text-[13px] leading-snug text-dw-ink/75">
-        {same ? "Mobile converts about as well as desktop." : `Mobile converts ${Math.abs(Math.round(rel * 100))}% ${rel > 0 ? "more" : "less"} often than desktop.`}
+        {same ? "Mobile shoppers buy about as often as desktop shoppers." : `Mobile shoppers buy ${Math.abs(Math.round(rel * 100))}% ${rel > 0 ? "more" : "less"} often than desktop shoppers.`}
       </span>
     </div>
   );

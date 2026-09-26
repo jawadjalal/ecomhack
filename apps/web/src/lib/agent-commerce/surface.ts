@@ -114,12 +114,19 @@ export function findProduct(ref: string): Product | undefined {
   );
 }
 
+/** Most expensive catalog item, in pounds: the ceiling for "that number was probably pounds". */
+const MAX_PRICE_POUNDS = Math.max(...PRODUCTS.map((p) => p.price)) / 100;
+
 /**
- * Money arguments are pence. Agents (LLMs especially) sometimes send pounds; nothing in the
- * catalog costs under £10, so values below 1000 are read as pounds.
+ * Money arguments are pence. Agents (LLMs especially) sometimes send pounds, so a value is read as
+ * pounds only when it looks like one: it has decimals (89.99), or it's a whole number no bigger than
+ * 1.5× our dearest item in pounds (119 → £119). Anything else stays pence, so a £5 lowball
+ * (`offer: 500`) or a £9 budget (`maxTotal: 900`) keeps its meaning instead of becoming £500 / £900.
  */
 export function normaliseMoney(value: number): number {
-  return Math.round(value < 1000 ? value * 100 : value);
+  if (!Number.isFinite(value) || value < 0) return 0;
+  const looksLikePounds = !Number.isInteger(value) || value <= MAX_PRICE_POUNDS * 1.5;
+  return Math.round(looksLikePounds ? value * 100 : value);
 }
 
 /** Normalise a free-text size ("UK 10", "10", "uk10", "one size") to a catalog size key. */

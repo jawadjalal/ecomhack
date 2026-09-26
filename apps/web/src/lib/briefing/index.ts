@@ -13,8 +13,8 @@ import { eventStore } from "@/lib/analytics/store";
 import { getAnalyticsSummary } from "@/lib/analytics/summary";
 import { getExperiment, listExperiments } from "@/lib/experiments/store";
 import { getLoopState, loopConfigFromEnv, stepLoop } from "@/lib/optimizer";
-import { AUTOPILOT as WEB_RULES, endRule, getRule, judge, listRules, webState, WebRuleError } from "@/lib/web";
-import { AGENT_TEST_RULES, LEVERS, agentFunnel, agentTestsView, shipAgentTest, stopAgentTest } from "@/lib/store-agent";
+import { AUTOPILOT as WEB_RULES, assertPublishable, endRule, getRule, judge, listRules, retractUnbackedCopy, trafficLabel, webState, WebRuleError } from "@/lib/web";
+import { AGENT_TEST_RULES, LEVERS, agentFunnel, agentTestsView, shipAgentTest, stopAgentTest, type AgentTestResult } from "@/lib/store-agent";
 
 /* ------------------------------------------------------------------ types */
 
@@ -29,12 +29,15 @@ export interface BriefingItem {
   /** loop = the Darwin storefront's page test, web = a darwin.js site's A/B test, agent = the store agent's pitch test. */
   kind: "loop" | "web" | "agent";
   title: string;
-  /** winning: P(beat) ≥ 80%, losing: ≤ 20%, ready: past the owner's bar to ship (with enough data). */
+  /**
+   * winning: P(beat) ≥ 80%, losing: ≤ 20%, ready: past the owner's bar to ship (with enough data). Only a ready
+   * item offers "ship": Darwin never asks to ship a test that hasn't cleared its own bar.
+   */
   status: BriefingStatus;
   probabilityToBeat?: number;
   /** Relative lift of the change over the original (0.12 = +12%). */
   lift?: number;
-  /** Visitors (or buyer-agent conversations) counted, both arms. */
+  /** Visitors (or buyer-agent conversations) counted, both arms. Missing when an ended test's numbers are gone. */
   sample?: number;
   traffic: BriefingTraffic;
   /** One plain-English line. Says "(simulated traffic)" when the numbers are simulated. */
@@ -105,6 +108,16 @@ function toItem({ detail, tail, ...item }: Draft): BriefingItem {
 
 /* ------------------------------------------------------------------ store agent pitch tests */
 
+/** Past the store agent's own bar to ship: enough conversations and payments, and P(beat) ≥ AGENT_TEST_RULES.ship. */
+function agentReady(r: AgentTestResult | undefined): boolean {
+  if (!r || r.probabilityToBeat === undefined) return false;
+  const enough = Math.min(r.control.conversations, r.treatment.conversations) >= AGENT_TEST_RULES.minPerArm && r.control.paid + r.treatment.paid >= AGENT_TEST_RULES.minPaid;
+  return enough && r.probabilityToBeat >= AGENT_TEST_RULES.ship;
+}
+
+/** "3 conversations" / "4 visitors" in a reason written when a test was decided: it had data then. */
+const HAD_DATA = /\b[1-9][\d,]* (?:conversations|visitors)\b/;
+
 /** Buyer-agent conversations per test, and how many were real (not simulated buyers). */
 function agentTestTraffic(events: readonly AnalyticsEvent[]): Map<string, { total: number; real: number }> {
   const out = new Map<string, { total: number; real: number }>();
@@ -142,19 +155,15 @@ function agentItems(events: readonly AnalyticsEvent[], origin: string, now: numb
     };
     if (t.status === "running") {
       const p = r?.probabilityToBeat;
-      const enough =
-        !!r &&
-        Math.min(r.control.conversations, r.treatment.conversations) >= AGENT_TEST_RULES.minPerArm &&
-        r.control.paid + r.treatment.paid >= AGENT_TEST_RULES.minPaid;
-      const ready = enough && p !== undefined && p >= AGENT_TEST_RULES.ship;
+      const ready = agentReady(r);
       if (!r || p === undefined) {
-        out.push({ ...base, status: "running", actions: ["ship", "stop"], detail: `Your store agent is testing “${label}”: ${plural(n, "buyer-agent conversation")} so far, too early to tell` });
+        out.push({ ...base, status: "running", actions: ["stop"], detail: `Your store agent is testing “${label}”: ${plural(n, "buyer-agent conversation")} so far, too early to tell` });
         continue;
       }
       out.push({
         ...base,
         status: statusFor(p, ready),
-        actions: ["ship", "stop"],
+        actions: ready ? ["ship", "stop"] : ["stop"],
         detail:
           `On your store agent, ${rate(r.treatment.rate)} of buyer-agent conversations paid with “${label}” vs ${rate(r.control.rate)} without: ` +
           `${chance(p)} chance it's better after ${plural(n, "conversation")}`,
@@ -164,8 +173,22 @@ function agentItems(events: readonly AnalyticsEvent[], origin: string, now: numb
       ended++;
       const who = t.reason?.startsWith("Approved by the merchant") || t.reason?.startsWith("Stopped by the merchant") ? "on your say-so" : "by Darwin";
       const what = t.status === "shipped" ? `was shipped into your store agent's pitch ${who}` : `was stopped on your store agent ${who}`;
-      const numbers = r && r.probabilityToBeat !== undefined ? `: ${rate(r.control.rate)} → ${rate(r.treatment.rate)} of conversations paid, ${chance(r.probabilityToBeat)} chance it was better` : "";
-      out.push({ ...base, status: t.status, actions: [], endedAt: t.endedAt, detail: `“${label}” ${what}${numbers}` });
+      // What it was decided on, as stamped then. A test decided before that was stamped whose numbers are gone
+      // was decided on simulated conversations: only those aren't kept on disk.
+      const decided =
+        t.traffic !== undefined
+          ? { traffic: t.traffic, sample: t.sample, probabilityToBeat: t.probabilityToBeat, lift: t.lift }
+          : n === 0 && HAD_DATA.test(t.reason ?? "")
+            ? { traffic: "simulated" as const, sample: undefined }
+            : {};
+      const p = n > 0 ? r?.probabilityToBeat : (decided.probabilityToBeat ?? r?.probabilityToBeat);
+      const numbers =
+        n > 0 && r && r.probabilityToBeat !== undefined
+          ? `: ${rate(r.control.rate)} → ${rate(r.treatment.rate)} of conversations paid, ${chance(r.probabilityToBeat)} chance it was better`
+          : p !== undefined
+            ? `: ${chance(p)} chance it was better`
+            : "";
+      out.push({ ...base, ...decided, status: t.status, actions: [], endedAt: t.endedAt, detail: `“${label}” ${what}${numbers}` });
     }
   }
   return out;
@@ -186,6 +209,17 @@ const FROM: Record<TrafficSource, string> = {
 const whoOf = (rule: WebRule) => (rule.audience.sources?.length ? rule.audience.sources.map((s) => FROM[s]).join(" and ") : "all visitors");
 const didOf = (rule: WebRule) => (rule.metric === "order_completed" ? "bought" : `did “${rule.metric}”`);
 
+/** The rule's copy passes lib/web's honesty gate (no placeholders, every claim on the site's page). */
+function publishable(rule: WebRule): boolean {
+  try {
+    assertPublishable(rule.site, rule.changes);
+    return true;
+  } catch (err) {
+    if (err instanceof WebRuleError) return false;
+    throw err;
+  }
+}
+
 function webNumbers(res: WebRuleResult | undefined): string | undefined {
   if (!res || res.probabilityToBeat === undefined) return undefined;
   const n = res.control.visitors + res.treatment.visitors;
@@ -196,6 +230,8 @@ function webItems(origin: string, now: number): { items: Draft[]; facts: Map<str
   const items: Draft[] = [];
   const facts = new Map<string, string>();
   const endedAt = (r: WebRule) => r.outcome?.at ?? r.shippedAt;
+  // Pause live copy a site's page doesn't back up before anything is offered (lib/web).
+  for (const site of new Set(listRules().filter((r) => r.status === "running" || r.status === "shipped").map((r) => r.site))) retractUnbackedCopy(site);
   const relevant = listRules()
     .filter((r) => r.mode === "test" && (r.status === "running" || ((r.status === "shipped" || r.status === "paused") && isRecent(endedAt(r), now))))
     .sort((a, b) => (endedAt(b) ?? "").localeCompare(endedAt(a) ?? ""));
@@ -209,30 +245,41 @@ function webItems(origin: string, now: number): { items: Draft[]; facts: Map<str
     for (const rule of relevant.filter((r) => r.site === site)) {
       const res = state.results.find((x) => x.ruleId === rule.id);
       const n = res ? res.control.visitors + res.treatment.visitors : 0;
-      const traffic: BriefingTraffic = res?.synthetic ? "simulated" : ov.syntheticVisitors > 0 && n > 0 ? "mixed" : "real";
+      const o = rule.outcome;
+      // An ended test says what it was decided on, as stamped then (store.ts endRule). One decided before that was
+      // stamped whose numbers are gone was decided on simulated visitors: only those aren't kept on disk.
+      const decided =
+        rule.status === "running" || !o
+          ? undefined
+          : o.traffic !== undefined
+            ? { traffic: o.traffic, sample: o.sample }
+            : n === 0 && (o.probabilityToBeat !== undefined || HAD_DATA.test(o.reason))
+              ? { traffic: "simulated" as const, sample: undefined }
+              : undefined;
+      const traffic: BriefingTraffic = decided?.traffic ?? trafficLabel(res, ov);
       const base = {
         id: `web:${site}:${rule.id}`,
         kind: "web" as const,
         title: rule.name,
         probabilityToBeat: res?.probabilityToBeat,
         lift: res?.lift,
-        sample: n,
+        sample: decided ? decided.sample : n,
         traffic,
         url: `${origin}/console/personalize?site=${encodeURIComponent(site)}`,
       };
       const who = whoOf(rule);
       if (rule.status === "running") {
         const p = res?.probabilityToBeat;
-        const ready = judge(res)?.decision === "shipped";
+        // Past the web tests' own bar (autopilot's judge), and copy Darwin may publish (claims backed by the page).
+        const ready = judge(res)?.decision === "shipped" && publishable(rule);
         const detail =
           !res || p === undefined
             ? `On ${site}, “${rule.name}” is being tested on ${who}: ${plural(n, "visitor")} so far, too early to tell`
             : `On ${site}, ${rate(res.treatment.conversionRate)} of ${who} ${didOf(rule)} with “${rule.name}” vs ${rate(res.control.conversionRate)} without: ` +
               `${chance(p)} chance it's better after ${plural(n, "visitor")}`;
-        items.push({ ...base, status: statusFor(p, ready), actions: ["ship", "stop"], detail, tail: ready ? `, past the ${bar(WEB_RULES.ship)} bar to ship` : undefined });
+        items.push({ ...base, status: statusFor(p, ready), actions: ready ? ["ship", "stop"] : ["stop"], detail, tail: ready ? `, past the ${bar(WEB_RULES.ship)} bar to ship` : undefined });
       } else if (ended < MAX_ENDED_PER_KIND) {
         ended++;
-        const o = rule.outcome;
         const shipped = rule.status === "shipped";
         const by = o ? (o.by === "manual" ? " on your say-so" : " by Darwin") : "";
         const numbers =
@@ -401,8 +448,8 @@ export async function getBriefing(opts: { origin: string }): Promise<Briefing> {
   const items = drafts.map(toItem);
   const unlabelled = new Map(items.map((item, i) => [item, `${drafts[i].detail}${drafts[i].tail ?? ""}.`]));
 
-  // What to ask: the most urgent item the merchant can act on.
-  const shipAsk = items.find((i) => (i.status === "ready" || i.status === "winning") && i.actions.includes("ship"));
+  // What to ask: the most urgent item the merchant can act on. "Ship it?" only once a test is past its own bar.
+  const shipAsk = items.find((i) => i.status === "ready" && i.actions.includes("ship"));
   // Store page tests that lost are shelved by Darwin on its next step anyway: no need to ask about those.
   const stopAsk = shipAsk ? undefined : items.find((i) => i.status === "losing" && i.actions.includes("stop") && i.kind !== "loop");
   const asked = shipAsk ?? stopAsk;
@@ -530,6 +577,13 @@ function actOnWeb(site: string, ruleId: string, action: BriefingAction): Briefin
   if (rule.status !== "running") return { ok: false, text: `“${rule.name}” isn't running (it's ${rule.status}).` };
   const res = webState(site).results.find((r) => r.ruleId === rule.id);
   const numbers = webNumbers(res);
+  if (action === "ship" && judge(res)?.decision !== "shipped") {
+    const at = res?.probabilityToBeat !== undefined ? `is at ${chance(res.probabilityToBeat)} after ${plural(res.control.visitors + res.treatment.visitors, "visitor")}` : "has no result yet";
+    return {
+      ok: false,
+      text: `Darwin only ships a web test once it clears the ${bar(WEB_RULES.ship)} bar with enough visitors, and “${rule.name}” ${at}. Darwin calls it by itself when the data is in; follow it in the console.`,
+    };
+  }
   const decision = action === "ship" ? "shipped" : "stopped";
   try {
     endRule(rule.id, {
@@ -557,6 +611,17 @@ export async function actOnBriefing(itemId: string, action: BriefingAction): Pro
   if (rest.some((part) => !part)) return UNKNOWN;
   if (kind === "agent" && rest.length === 1) {
     const events = eventStore().all();
+    const { state, results } = agentTestsView(events);
+    const test = state.tests.find((t) => t.id === rest[0]);
+    const result = results.find((x) => x.testId === rest[0]);
+    if (action === "ship" && test?.status === "running" && !agentReady(result)) {
+      const p = result?.probabilityToBeat;
+      const n = result ? result.control.conversations + result.treatment.conversations : 0;
+      return {
+        ok: false,
+        text: `Darwin only ships a store agent test once it clears the ${bar(AGENT_TEST_RULES.ship)} bar with enough conversations, and “${LEVERS[test.lever].label}” ${p !== undefined ? `is at ${chance(p)} after ${plural(n, "conversation")}` : "has no result yet"}. Darwin calls it by itself when the data is in; follow it in the console.`,
+      };
+    }
     const r = action === "ship" ? shipAgentTest(rest[0], events) : stopAgentTest(rest[0], events);
     if (!r.ok || !r.test) return { ok: r.ok, text: r.text };
     const label = LEVERS[r.test.lever].label;

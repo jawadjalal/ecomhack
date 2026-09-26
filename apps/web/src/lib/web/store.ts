@@ -5,9 +5,12 @@
  */
 import { z } from "zod";
 import { kvGet, kvSet } from "@/lib/db/json-store";
-import { TRAFFIC_SOURCES, type TrafficSource, type WebRule, type WebRuleDraft, type WebRuleOutcome, type WebRuleStatus } from "@/lib/contracts";
+import { TRAFFIC_SOURCES, type PageElement, type TrafficSource, type WebRule, type WebRuleDraft, type WebRuleOutcome, type WebRuleStatus } from "@/lib/contracts";
+import { eventStore } from "@/lib/analytics/store";
 import { id } from "@/lib/ids";
-import { needsMerchant } from "./claims";
+import { findClaims, needsMerchant, unbackedTexts } from "./claims";
+import { pageFor } from "./pages";
+import { computeSite, trafficLabel } from "./results";
 
 const KEY = "web-rules";
 export const MAX_RULES_PER_SITE = 50;
@@ -89,16 +92,42 @@ const all = () => kvGet<WebRule[]>(KEY, () => []);
 
 const isLive = (status: WebRuleStatus) => status === "running" || status === "shipped";
 
+/** Options for a change that can make a rule live: the site's page as just read (else the one Darwin last read). */
+export interface PublishOptions {
+  outline?: readonly PageElement[];
+}
+
+const quoted = (xs: readonly string[]) => xs.map((x) => `“${x}”`).join(", ");
+
 /**
- * A rule goes live only when every text is the merchant's to publish: no "[Your …]" left to fill in, no
- * "[Confirm: …]" claim Darwin couldn't find on the page (claims.ts). Drafts can hold them.
+ * A rule goes live only when every text is the merchant's to publish, whoever wrote it (a person, autopilot, the
+ * LLM, a suggestion): no "[Your …]" or "[Confirm: …]" left, and no claim (a rating, a customer count, an offer,
+ * a delivery promise…) that the site's page doesn't make word for word (claims.ts). Drafts can hold them.
  */
-function assertPublishable(changes: WebRule["changes"]) {
+export function assertPublishable(site: string, changes: WebRule["changes"], opts: PublishOptions = {}) {
   const pending = changes.find((c) => needsMerchant(c.value));
   if (pending) {
     throw new WebRuleError(
-      `“${pending.value}” needs you first: replace the [bracketed] text with your real details (or confirm the claim by removing the brackets). Darwin never publishes facts about your store that it can't find on your page.`,
+      `“${pending.value}” needs you first: replace the [bracketed] text with words your page already says. Darwin never publishes facts about your store that it can't find on your page.`,
       400,
+    );
+  }
+  const page = pageFor(site, opts.outline);
+  if (!page.length) {
+    const claims = [...new Set(changes.flatMap((c) => (c.action === "style" ? [] : findClaims(c.value))))];
+    if (claims.length) {
+      throw new WebRuleError(
+        `Darwin couldn't read your page to check ${quoted(claims)}, so it won't publish it yet. Open the site in the console so Darwin can read the page, then try again.`,
+        422,
+      );
+    }
+    return;
+  }
+  const unbacked = unbackedTexts(changes, page);
+  if (unbacked.length) {
+    throw new WebRuleError(
+      `It claims ${quoted([...new Set(unbacked.flatMap((u) => u.claims))])} and nothing on your page backs that up, so Darwin won't publish it. Use your page's own words, or put it on your page first.`,
+      422,
     );
   }
 }
@@ -111,10 +140,10 @@ export function getRule(ruleId: string): WebRule | undefined {
   return all().find((r) => r.id === ruleId);
 }
 
-export function createRule(draft: WebRuleDraft | unknown, status: WebRuleStatus = "draft"): WebRule {
+export function createRule(draft: WebRuleDraft | unknown, status: WebRuleStatus = "draft", opts: PublishOptions = {}): WebRule {
   const d = WebRuleDraftSchema.parse(draft);
   if (listRules(d.site).length >= MAX_RULES_PER_SITE) throw new WebRuleError(`A site can have at most ${MAX_RULES_PER_SITE} rules. Delete some first.`);
-  if (isLive(status)) assertPublishable(d.changes);
+  if (isLive(status)) assertPublishable(d.site, d.changes, opts);
   const now = new Date().toISOString();
   const rule: WebRule = {
     id: id("wr"),
@@ -133,7 +162,7 @@ export function createRule(draft: WebRuleDraft | unknown, status: WebRuleStatus 
  * Edit a rule. Content (changes, audience) is frozen once it has run in a test, since changing it
  * would mix two treatments in one result. Duplicate the rule instead.
  */
-export function updateRule(ruleId: string, patch: WebRulePatch | unknown): WebRule {
+export function updateRule(ruleId: string, patch: WebRulePatch | unknown, opts: PublishOptions = {}): WebRule {
   const p = WebRulePatchSchema.parse(patch);
   const current = getRule(ruleId);
   if (!current) throw new WebRuleError("Rule not found", 404);
@@ -145,7 +174,7 @@ export function updateRule(ruleId: string, patch: WebRulePatch | unknown): WebRu
   }
   const now = new Date().toISOString();
   const next: WebRule = { ...current, ...p, updatedAt: now };
-  if (isLive(next.status) && (p.status || p.changes)) assertPublishable(next.changes);
+  if (isLive(next.status) && (p.status || p.changes)) assertPublishable(next.site, next.changes, opts);
   if ((p.status === "running" || p.status === "shipped") && !current.startedAt) next.startedAt = now;
   if (p.status === "shipped" && !current.shippedAt) next.shippedAt = now;
   kvSet(
@@ -155,9 +184,19 @@ export function updateRule(ruleId: string, patch: WebRulePatch | unknown): WebRu
   return next;
 }
 
-/** End a test on its result (autopilot or a person): ship it to the audience or stop it, and say why. */
-export function endRule(ruleId: string, outcome: WebRuleOutcome): WebRule {
-  const rule = updateRule(ruleId, { status: outcome.decision === "shipped" ? "shipped" : "paused" });
+/**
+ * End a test on its result (autopilot or a person): ship it to the audience or stop it, and say why. The traffic
+ * behind the decision (simulated or real, and how many visitors) is stamped on it now: simulated visitors aren't
+ * kept on disk, so after a restart the live numbers can't say any more.
+ */
+export function endRule(ruleId: string, outcome: WebRuleOutcome, opts: PublishOptions = {}): WebRule {
+  const current = getRule(ruleId);
+  if (current && (outcome.traffic === undefined || outcome.sample === undefined)) {
+    const { overview, results } = computeSite(current.site, listRules(current.site), eventStore().all());
+    const res = results.find((r) => r.ruleId === ruleId);
+    outcome = { ...outcome, traffic: outcome.traffic ?? trafficLabel(res, overview), sample: outcome.sample ?? (res ? res.control.visitors + res.treatment.visitors : 0) };
+  }
+  const rule = updateRule(ruleId, { status: outcome.decision === "shipped" ? "shipped" : "paused" }, opts);
   const next = { ...rule, outcome };
   kvSet(
     KEY,

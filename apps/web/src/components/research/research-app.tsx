@@ -374,7 +374,7 @@ function ReportHeader({ report }: { report: ResearchReport }) {
     <Card>
       <div className="flex flex-wrap items-center gap-2">
         {report.demo ? <Pill tone="warn">Sample data, not real research</Pill> : <Pill tone="win">Live web research</Pill>}
-        <Pill>{report.summarizer === "heuristic" ? "Heuristic summary" : report.summarizer === "sample" ? "Sample" : report.summarizer.replace(/^llm:/, "")}</Pill>
+        <Pill>{report.summarizer === "heuristic" ? "Heuristic summary" : report.summarizer === "sample" ? "Sample" : "AI summary"}</Pill>
         <span className="font-mono text-[12px] text-black/50">{new Date(report.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
       </div>
       {report.notice && <p className="mt-3 text-[13px] font-medium" style={{ color: T.warn }}>{report.notice}</p>}

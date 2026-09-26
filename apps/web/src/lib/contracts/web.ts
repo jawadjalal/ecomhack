@@ -79,6 +79,10 @@ export interface WebRuleOutcome {
   lift?: number;
   at: string;
   by: "autopilot" | "manual";
+  /** Where the numbers behind the decision came from, stamped when it was made (simulated visitors aren't kept on disk). */
+  traffic?: "simulated" | "mixed" | "real";
+  /** Visitors counted in the test (both arms) when it was decided. */
+  sample?: number;
 }
 
 /** One thing autopilot did, for the console's decision log. */
@@ -163,6 +167,15 @@ export interface WebRulesResponse {
   overview: WebSiteOverview;
   sites: WebSiteSummary[];
   autopilot: WebAutopilotState;
+  /** The darwin.js install tag for this site, built server-side (DARWIN_PUBLIC_URL, else the request origin). */
+  install?: {
+    origin: string;
+    src: string;
+    siteId: string;
+    tag: string;
+    /** The store address to check the install on (GET /api/onboarding/verify): the tracking plan's, else the latest page seen. */
+    storeUrl?: string;
+  };
 }
 
 export interface WebDraftResponse {

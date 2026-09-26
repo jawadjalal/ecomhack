@@ -6,8 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/components/ui/cn";
 import { useExperiments } from "@/lib/console/hooks";
 import { useDemoStatus } from "@/components/demo/demo-badge";
-import { Mascot } from "./mascot";
+import { AvatarFace, useAccount } from "./account-avatar";
+import { CommandPill } from "./command/pill";
+import { LiveSwitch } from "./live-switch";
+import { Mascot, type MascotKind } from "./mascot";
 import { useDarwin } from "./provider";
+import { StoreChip } from "./store-context";
 
 /** The roadmap: Overview, then the loop's four steps in order. */
 export const NAV = [
@@ -18,15 +22,26 @@ export const NAV = [
   { key: "changes", label: "Changes", href: "/console/changes" },
 ] as const;
 
+/** Each section is run by one agent of the crew; its mascot stands in for a step number. */
+const NAV_AGENT: Record<(typeof NAV)[number]["key"], MascotKind> = {
+  overview: "leader",
+  issues: "observer",
+  fixes: "designer",
+  experiments: "experimenter",
+  changes: "shipper",
+};
+
+/** Everything that isn't the five-step loop lives in the account menu, so the bar stays one quiet row (#65). */
 const MORE = [
   { label: "Demo store", hint: "The shop Darwin is watching", href: "/store" },
-  { label: "Store agent", hint: "AI shoppers buy over A2A", href: "/console/agents" },
+  { label: "Inbox", hint: "What Darwin noticed, and the tap to do it", href: "/console/inbox" },
+  { label: "Store agent", hint: "Mika sells to AI shoppers", href: "/console/agents" },
   { label: "Dashboards", hint: "What you asked Darwin to track", href: "/console/dashboards" },
-  { label: "Personalize", hint: "Any store, per traffic source", href: "/console/personalize" },
+  { label: "Personalize", hint: "Change pages for each traffic source", href: "/console/personalize" },
   { label: "Traffic", hint: "Where visitors come from", href: "/console/traffic" },
   { label: "Set up a store", hint: "GitHub, a script tag, or Whop", href: "/onboarding" },
   { label: "Agent readiness", hint: "Score any store for AI shoppers", href: "/readiness" },
-  { label: "Classic mission control", hint: "The original loop view", href: "/console/classic" },
+  { label: "Classic view", hint: "The first version of this app", href: "/console/classic" },
   { label: "Settings", hint: "Autopilot, your store, demo mode", href: "/console/settings" },
 ];
 
@@ -44,6 +59,7 @@ export function TopNav() {
     issues: loop?.insights.length ?? 0,
     fixes: loop?.proposal ? 1 : 0,
     experiments: experiments?.filter((e) => e.status === "running").length ?? 0,
+    // Shipped changes (generations after Gen 0), whether or not a pull request was opened for them.
     changes: Math.max(0, (loop?.history.length ?? 1) - 1),
   };
   const active = NAV.slice()
@@ -51,45 +67,66 @@ export function TopNav() {
     .find((n) => (n.href === "/console" ? path === "/console" : path?.startsWith(n.href)))?.key;
 
   return (
-    <header className="flex h-16 items-center gap-4 sm:gap-8">
-      <Link href={hrefFor("/console", mock)} className="flex shrink-0 items-center gap-2.5 text-dw-ink" aria-label="Darwin overview">
-        <Mascot kind="analyst" size={32} active />
-        <span className="text-[22px] font-semibold tracking-[-0.03em]">darwin</span>
+    <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 max-2xl:gap-2.5 max-xl:grid-cols-[auto_1fr] max-xl:gap-y-3 max-sm:min-h-12 max-sm:gap-2">
+      <Link href="/console" className="flex items-center gap-2.5 justify-self-start text-dw-ink" aria-label="Darwin overview">
+        <Mascot kind="leader" size={34} active title="Darwin" />
+        <span className="text-[23px] font-semibold tracking-[-0.02em]">darwin</span>
       </Link>
 
-      <nav aria-label="Main" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <nav
+        aria-label="Main"
+        className="flex h-[54px] max-w-full min-w-0 items-center gap-0.5 overflow-x-auto rounded-full bg-dw-ink max-sm:hidden p-[5px] [scrollbar-width:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_28px_rgba(20,20,19,0.16)] max-xl:order-last max-xl:col-span-2 max-xl:justify-self-center"
+      >
         {NAV.map((n) => {
           const on = n.key === active;
           const count = counts[n.key];
           return (
-            <Link
-              key={n.key}
-              href={hrefFor(n.href, mock)}
-              aria-current={on ? "page" : undefined}
-              className={cn(
-                "flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[15px] whitespace-nowrap transition-colors",
-                on ? "font-semibold text-dw-ink" : "font-medium text-dw-ink/45 hover:text-dw-ink",
-              )}
-            >
-              <span className={cn(on && "underline decoration-dw-yellow decoration-2 underline-offset-[6px]")}>{n.label}</span>
-              {!!count && <span className="text-[12px] text-dw-ink/40 tabular-nums">{count}</span>}
-            </Link>
+            <div key={n.key} className="flex items-center">
+              <Link
+                href={hrefFor(n.href, mock)}
+                aria-current={on ? "page" : undefined}
+                className={cn(
+                  "flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition-colors max-2xl:gap-1.5 max-2xl:px-2.5",
+                  on ? "bg-dw-bg font-semibold text-dw-ink" : "font-medium text-[#CFCAC0] hover:text-white",
+                )}
+              >
+                <span className={cn("grid size-[22px] shrink-0 place-items-center rounded-full", on ? "bg-dw-sand" : "bg-white/[0.10]")} aria-hidden>
+                  <Mascot kind={NAV_AGENT[n.key]} size={18} active={on} />
+                </span>
+                {n.label}
+                {!!count && <span className="size-[7px] rounded-full bg-dw-pink" title={`${count} new`} aria-label={`${count} new`} />}
+              </Link>
+
+            </div>
           );
         })}
       </nav>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex items-center gap-2.5 justify-self-end max-2xl:gap-1.5">
+        <StoreChip />
         <button
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
-          title={autopilot ? "Darwin is improving the store on its own. Click to pause." : "Paused. Click to let Darwin run the loop on its own."}
-          className="flex h-10 items-center gap-2 rounded-full px-3 text-[14px] font-medium whitespace-nowrap text-dw-ink transition-colors hover:bg-dw-sand"
+          title={autopilot ? "Darwin's crew is improving the store on its own. Click to pause." : "Paused. Click to let Darwin's crew improve the store on its own."}
+          className="flex h-11 items-center gap-2 rounded-full bg-dw-yellow px-4 text-[15px] whitespace-nowrap text-dw-ink transition-colors hover:bg-dw-yellow-shape max-2xl:px-3.5 max-sm:h-9 max-sm:px-3"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
-          <span>{autopilot ? "Running" : "Paused"}</span>
+          <span className="max-sm:text-[13.5px] max-sm:font-medium">
+            {autopilot ? (
+              <>
+                <span className="max-2xl:hidden">Darwin running</span>
+                <span className="2xl:hidden">Running</span>
+              </>
+            ) : (
+              "Paused"
+            )}
+          </span>
         </button>
+        <LiveSwitch />
+        <CommandPill />
         <AccountMenu mock={mock} path={path || "/console"} />
       </div>
+      <StoreChip variant="bar" />
     </header>
   );
 }
@@ -97,6 +134,7 @@ export function TopNav() {
 function AccountMenu({ mock, path }: { mock: boolean; path: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const account = useAccount();
   const demo = useDemoStatus();
   useEffect(() => {
     if (!open) return;
@@ -118,15 +156,17 @@ function AccountMenu({ mock, path }: { mock: boolean; path: string }) {
         type="button"
         aria-label="Account and more"
         aria-expanded={open}
+        title={account?.email ? `Signed in as ${account.email}` : "Account and more"}
         onClick={() => setOpen((o) => !o)}
-        className="grid size-10 place-items-center rounded-full bg-dw-ink text-[13px] font-semibold text-white transition-transform hover:scale-[1.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink"
+        className="grid size-11 place-items-center rounded-full bg-dw-ink text-[14px] font-semibold text-white transition-transform hover:scale-[1.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dw-ink max-sm:size-9 max-sm:text-[12.5px]"
       >
-        JJ
+        <AvatarFace account={account} />
       </button>
       {open && (
-        <div className="absolute top-12 right-0 z-50 w-72 rounded-[22px] border border-dw-hairline bg-dw-surface p-2 shadow-[0_24px_60px_-20px_rgba(20,20,19,0.35)]">
-          {(mock || note) && (
+        <div className="absolute top-[52px] right-0 z-50 max-h-[calc(100svh-80px)] w-72 overflow-y-auto rounded-[22px] border border-dw-hairline bg-dw-surface p-2 shadow-[0_24px_60px_-20px_rgba(20,20,19,0.35)]">
+          {(account?.email || mock || note) && (
             <div className="px-3.5 pt-2 pb-1 text-[12.5px] leading-snug text-dw-ink/55">
+              {account?.email && <p className="truncate font-medium text-dw-ink/75">{account.email}</p>}
               {mock && <p>In-browser demo data</p>}
               {note && (
                 <p>
@@ -135,11 +175,7 @@ function AccountMenu({ mock, path }: { mock: boolean; path: string }) {
               )}
             </div>
           )}
-          <Link
-            href={mock ? path : `${path}?mock=1`}
-            onClick={() => setOpen(false)}
-            className="flex flex-col rounded-2xl px-3.5 py-2.5 hover:bg-dw-sand"
-          >
+          <Link href={mock ? path : `${path}?mock=1`} onClick={() => setOpen(false)} className="flex flex-col rounded-2xl px-3.5 py-2.5 hover:bg-dw-sand">
             <span className="text-[15px] font-medium">{mock ? "Use live data" : "Open in-browser demo"}</span>
             <span className="text-[12.5px] text-dw-ink/60">{mock ? "Leave ?mock=1 on this page" : "Run the loop in this browser"}</span>
           </Link>

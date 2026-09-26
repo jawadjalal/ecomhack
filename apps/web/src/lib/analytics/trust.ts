@@ -12,6 +12,10 @@ import { attributionProps, resolveSpecForVisitor } from "@/lib/spec/resolve";
 
 const CLAIMS = ["synthetic", "experiment_id", "variant", "spec_version"] as const;
 
+/** Money a browser may report per event, in pence (£10,000). Anything else is dropped, not trusted. */
+export const MAX_CLIENT_MONEY = 1_000_000;
+const MONEY = ["revenue", "price"] as const;
+
 export type IngestSource = "storefront" | "external";
 
 export function sanitizeClientEvents(events: AnalyticsEventInput[], source: IngestSource): AnalyticsEventInput[] {
@@ -19,6 +23,11 @@ export function sanitizeClientEvents(events: AnalyticsEventInput[], source: Inge
   return events.map((e) => {
     const props = { ...(e.properties ?? {}) } as Record<string, unknown>;
     for (const k of CLAIMS) delete props[k];
+    // A client can't post revenue: 1e15, -500 or "lots" into the KPIs and traffic reports.
+    for (const k of MONEY) {
+      const v = props[k];
+      if (v !== undefined && !(typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_CLIENT_MONEY)) delete props[k];
+    }
     if (source === "storefront" && e.distinct_id) {
       let attr = attribution.get(e.distinct_id);
       if (!attr) {

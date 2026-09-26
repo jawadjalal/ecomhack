@@ -276,6 +276,10 @@ async function loadWhopShowcase(key: string): Promise<WhopShowcase | null> {
     const title = str(product.title) ?? str(product.name);
     const visibility = str(product.visibility);
     if (!id || !title || visibility === "hidden" || visibility === "archived") continue;
+    // Whop ignores company_id/account_id for some keys and returns other businesses' marketplace
+    // products (seen live: "Forex Trading Cheat Code" on the running-shoe store). Only show ours.
+    const owner = str(asRecord(product.account)?.id) ?? str(asRecord(product.company)?.id);
+    if (owner && owner !== pinnedId) continue;
     const company = asRecord(product.company);
     companyTitle = companyTitle ?? str(company?.title);
     companyRoute = companyRoute ?? str(company?.route);
