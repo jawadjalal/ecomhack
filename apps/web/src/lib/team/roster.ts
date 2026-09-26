@@ -83,7 +83,7 @@ export const TEAM: TeamAgent[] = [
     tools: [
       { name: "list_experiments", label: "Read running and finished A/B tests" },
       { name: "step_loop", label: "Propose and launch the next test" },
-      { name: "run_simulation", label: "Send simulated humans and AI shoppers" },
+      { name: "run_simulation", label: "Send simulated humans and AI shoppers", confirm: true },
       { name: "send_test_shopper", label: "Send one AI test shopper to the store" },
       { name: "agent_tests", label: "Run A/B tests on the store agent's pitch" },
       { name: "set_autopilot", label: "Turn autopilot on or off", confirm: true },

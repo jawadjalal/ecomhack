@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AssistantResponse } from "@/lib/contracts";
 import { runAssistant } from "@/lib/assistant/agent";
 import { publicOrigin } from "@/lib/github";
+import { CREW_IDS, type CrewId } from "@/lib/crew";
 
 /** A turn can step the loop (simulated traffic) or audit a store: allow a little time. */
 export const maxDuration = 60;
@@ -24,10 +25,12 @@ const Body = z.object({
       site: z.string().regex(/^[\w.-]{1,64}$/).optional(),
     })
     .optional(),
+  /** Talk to one crew member directly (lib/crew). Omitted or "darwin": the lead answers and may consult the others. */
+  agent: z.enum(CREW_IDS as [CrewId, ...CrewId[]]).optional(),
 });
 
 /**
- * POST /api/assistant { messages, confirm?, context? } → AssistantResponse (admin: see lib/auth/admin.ts).
+ * POST /api/assistant { messages, confirm?, context?, agent? } → AssistantResponse (admin: see lib/auth/admin.ts).
  * Darwin, the merchant's managing assistant. Side-effecting tools come back as `pendingConfirm` and only
  * run when the merchant sends `confirm: { tool, args, approved: true }`.
  */

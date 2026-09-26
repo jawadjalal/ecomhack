@@ -115,6 +115,9 @@ export const config = {
     "/api/command",
     // The Darwin control MCP server (headless commands for agents and the CLI).
     "/api/darwin/:path*",
+    // "Ask Darwin" voice: speech-to-text, read-aloud and status (they spend the ElevenLabs key).
+    "/api/voice/:path*",
     "/api/demo",
+    "/api/llm/:path*",
   ],
 };

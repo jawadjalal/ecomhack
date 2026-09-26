@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TeamEvent } from "@/lib/contracts/team";
-import type { ToolLoopOptions, ToolLoopResult } from "@/lib/llm/client";
+import type { ToolLoopOptions, ToolLoopResult } from "@/lib/llm/team";
 
 type Script = (opts: ToolLoopOptions) => Promise<Partial<ToolLoopResult> | string>;
 
@@ -17,9 +17,13 @@ const llm = vi.hoisted(() => ({
 
 vi.mock("@/lib/llm/client", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/llm/client")>();
+  return { ...real, llmAvailable: () => llm.available };
+});
+
+vi.mock("@/lib/llm/team", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/llm/team")>();
   return {
     ...real,
-    llmAvailable: () => llm.available,
     routeLabel: () => (llm.available ? "llm:test-model" : "heuristic"),
     runToolLoop: async (opts: ToolLoopOptions): Promise<ToolLoopResult> => {
       llm.loops.push({ system: opts.system, tools: opts.tools.map((t) => t.name), route: opts.route });
@@ -32,7 +36,7 @@ vi.mock("@/lib/llm/client", async (importOriginal) => {
   };
 });
 
-const real = await vi.importActual<typeof import("@/lib/llm/client")>("@/lib/llm/client");
+const real = await vi.importActual<typeof import("@/lib/llm/team")>("@/lib/llm/team");
 const { runTeamTurn, teamState, chatView, createUserChat, resetTeam, TEAM, MAX_PARALLEL } = await import("./index");
 const { TEAM_TOOLS, META_TOOLS, safeHref } = await import("./tools");
 const { splitAsk, routePart } = await import("./router");
@@ -314,14 +318,14 @@ describe("provider routing (real client)", () => {
     expect(real.routeProviders()).toEqual([]);
     vi.stubEnv("OPENROUTER_API_KEY", "or");
     expect(real.routeProviders()).toEqual(["openrouter"]);
-    expect(real.routeLabel()).toBe("llm:deepseek/deepseek-v4.1-flash");
+    expect(real.routeLabel()).toBe("llm:deepseek/deepseek-v4-flash");
     vi.stubEnv("APINEX_API_KEY", "ax");
     expect(real.routeProviders()).toEqual(["openrouter", "apinex"]);
     expect(real.routeProviders({ role: "editor" })).toEqual(["apinex", "openrouter"]);
     expect(real.routeProviders({ hard: true })[0]).toBe("apinex");
     vi.stubEnv("APINEX_EDITOR_MODEL", "anthropic/opus-test");
     expect(real.routeLabel({ role: "editor" })).toBe("llm:anthropic/opus-test");
-    expect(real.routeLabel()).toBe("llm:deepseek/deepseek-v4.1-flash");
+    expect(real.routeLabel()).toBe("llm:deepseek/deepseek-v4-flash");
     // Overflow: OpenRouter at its concurrency limit → APINex first.
     vi.stubEnv("OPENROUTER_MAX_CONCURRENT", "2");
     const inflight = (globalThis as unknown as { __darwinLlmInFlight: Record<string, number> }).__darwinLlmInFlight;

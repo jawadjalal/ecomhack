@@ -121,7 +121,7 @@ export function ExperimentsScreen() {
                   <LiveDot /> Iris is looking for the first problem to fix <Typing />
                 </span>
               ) : (
-                <StartDemo />
+                <StartDemo agent="fizz" />
               )
             }
           >

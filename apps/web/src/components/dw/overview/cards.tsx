@@ -151,7 +151,7 @@ export function ConversionCard({
         )}
       </div>
       {!last || !chart ? (
-        <CardEmpty kind="designer" action={onRun && <PillButton onClick={onRun}>Let Darwin run</PillButton>}>
+        <CardEmpty kind="designer" action={onRun && <PillButton tone="yellow" onClick={onRun}>Let Darwin run</PillButton>}>
           Darwin hasn’t measured your store yet. Let it run and conversion shows up here after the first round.
         </CardEmpty>
       ) : (
@@ -276,7 +276,7 @@ export function AbCard({ test, onRun, autopilot }: { test?: TestView; onRun?: ()
         }
       />
       {!test || !hasResult ? (
-        <CardEmpty kind="experimenter" action={!autopilot && onRun ? <PillButton onClick={onRun}>Let Darwin run</PillButton> : undefined}>
+        <CardEmpty kind="experimenter" action={!autopilot && onRun ? <PillButton tone="yellow" onClick={onRun}>Let Darwin run</PillButton> : undefined}>
           {test ? "The test just started. The first shoppers are on their way." : "No test yet. Darwin starts one as soon as it has a fix worth trying."}
         </CardEmpty>
       ) : (

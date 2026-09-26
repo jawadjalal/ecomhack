@@ -60,7 +60,7 @@ function Fixes() {
         lede="Pixel drafts a fix as soon as Iris finds what stops shoppers buying. Each one is a small change to your page settings, and Dash can undo it."
         line={loop.insights.length ? `Iris has found ${loop.insights.length} issue${loop.insights.length === 1 ? "" : "s"} for Pixel to work on.` : undefined}
         action={
-          canDraft ? draftButton : <StartDemo />
+          canDraft ? draftButton : <StartDemo agent="pixel" />
         }
       />
     );

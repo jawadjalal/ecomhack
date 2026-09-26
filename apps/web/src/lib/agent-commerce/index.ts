@@ -74,7 +74,7 @@ export async function callAgentTool(
 /**
  * Run one buyer agent end-to-end against the store via `callAgentTool` (in-process).
  * Used by the simulator for agent traffic and by the console's "send a shopper" button.
- * `useLlm` lets Grok/Claude pick actions (≤ 8 steps); otherwise, or on any LLM error,
+ * `useLlm` lets the LLM (OpenRouter / Grok / Claude) pick actions (≤ 8 steps); otherwise, or on any LLM error,
  * the fast scripted policy is used.
  */
 export async function runBuyerAgent(

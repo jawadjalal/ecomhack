@@ -16,7 +16,8 @@ import type { AgentId, Chat, ChatMessage, TeamChatRequest, TeamEvent, TeamPendin
 import { AGENT_IDS } from "@/lib/contracts/team";
 import { nextStepHint } from "@/lib/assistant/agent";
 import { stateSnapshot, type ToolContext } from "@/lib/assistant/tools";
-import { llmAvailable, routeLabel, runToolLoop, type LlmRoute, type LoopMessage, type LoopToolDef } from "@/lib/llm/client";
+import { llmAvailable } from "@/lib/llm/client";
+import { routeLabel, runToolLoop, type LlmRoute, type LoopMessage, type LoopToolDef } from "@/lib/llm/team";
 import { id } from "@/lib/ids";
 import { SPECIALISTS, TEAM, TEAM_BY_ID } from "./roster";
 import { isGreeting, isIntroAsk, ownerFor, routePart, splitAsk, type RoutedCall } from "./router";

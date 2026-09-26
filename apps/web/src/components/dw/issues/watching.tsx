@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { PHASE_META } from "@/lib/console/format";
 import { useDarwin } from "../provider";
-import { StartDemo, loopIsFresh } from "../first-run";
+import { StartDemo, loopIsFresh, pageAgentFor } from "../first-run";
 import { Mascot, type MascotKind } from "../mascot";
 import { PageHead, Typing } from "../ui";
 import { Panel } from "./panel";
@@ -59,7 +59,7 @@ export function WatchingEmpty({
   title?: string;
   lede?: string;
   line?: string;
-  /** Replaces the default "Let Darwin run" action. */
+  /** Replaces the default start action ("Let Iris watch": the page agent's, from `mascot`). */
   action?: React.ReactNode;
 }) {
   const { loop, autopilot } = useDarwin();
@@ -96,7 +96,7 @@ export function WatchingEmpty({
               <Typing /> {PHASE_META[loop?.phase ?? "observe"].verb}
             </span>
           ) : (
-            (action ?? <StartDemo />)
+            (action ?? <StartDemo agent={pageAgentFor(mascot)} />)
           )}
         </motion.div>
       </Panel>

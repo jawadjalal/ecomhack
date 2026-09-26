@@ -30,7 +30,7 @@ import {
 } from "@/lib/github";
 import { TEAM_BY_ID } from "./roster";
 
-export interface TeamToolOutcome extends ToolOutcome {
+export interface TeamToolOutcome extends Omit<ToolOutcome, "navigate"> {
   /** Ask the chat panel to open this in-app path. */
   navigate?: string;
 }
@@ -63,7 +63,11 @@ function fromAssistant(name: string): TeamTool {
     confirm: t.requiresConfirm,
     confirmPrompt: t.confirmPrompt,
     precheck: t.precheck,
-    run: (args, ctx) => t.run(args, ctx),
+    run: async (args, ctx) => {
+      // The assistant flags `navigate: true` next to a link; the team carries the path itself.
+      const { navigate, ...rest } = await t.run(args, ctx);
+      return { ...rest, ...(navigate && rest.link ? { navigate: rest.link.href } : {}) };
+    },
   };
 }
 

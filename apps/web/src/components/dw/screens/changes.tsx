@@ -103,7 +103,7 @@ export function ChangesScreen() {
                   <LiveDot /> Fizz is testing fixes <Typing />
                 </span>
               ) : (
-                <StartDemo />
+                <StartDemo agent="dash" />
               )
             }
           >

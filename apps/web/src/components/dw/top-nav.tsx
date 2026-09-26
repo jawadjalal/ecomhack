@@ -96,7 +96,7 @@ export function TopNav() {
           type="button"
           onClick={() => void setAutopilot(!autopilot)}
           title={autopilot ? "Darwin's crew is improving the store on its own. Click to pause." : "Paused. Click to let Darwin's crew improve the store on its own."}
-          className="flex h-11 items-center gap-2 rounded-full bg-dw-sand px-4 text-[15px] whitespace-nowrap transition-colors hover:bg-[#e4dccb] max-sm:h-9 max-sm:px-3"
+          className="flex h-11 items-center gap-2 rounded-full bg-dw-yellow px-4 text-[15px] whitespace-nowrap text-dw-ink transition-colors hover:bg-dw-yellow-shape max-sm:h-9 max-sm:px-3"
         >
           <span className={cn("size-2 rounded-full", autopilot ? "dw-live-dot bg-dw-live" : "bg-dw-ink/30")} />
           <span className="max-sm:text-[13.5px] max-sm:font-medium">
