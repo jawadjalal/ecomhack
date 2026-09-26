@@ -486,7 +486,13 @@ describe("badge", () => {
     expect(svg).not.toContain("<script>");
     expect(svg).toContain("&lt;script&gt;");
     expect(svg).toContain("Gold · 91/100");
-    expect(svg).toContain("agent-ready · deepseek-v4-flash");
+    expect(svg).toContain("agent-ready · AI-tested"); // no model names on the badge
+    expect(
+      badgeSvg(
+        cert({ model: "llm:x-ai/grok-4-fast" }),
+        Date.parse("2026-02-01"),
+      ),
+    ).toContain("agent-ready · tried by Grok");
     expect(svg).not.toMatch(/Grok/);
   });
 

@@ -1079,7 +1079,7 @@ export function badgeSvg(
       : cert.level;
   const left =
     cert && !cert.heuristic
-      ? `agent-ready · ${modelName(cert.model)}`
+      ? `agent-ready · ${/grok|x-ai\//i.test(cert.model) ? "tried by Grok" : "AI-tested"}`
       : "agent-ready";
   const right =
     state === "unknown"
