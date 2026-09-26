@@ -269,10 +269,12 @@ function readiness(items: StoredItem[]): AcpStatus {
 /** A Whop payment (webhook) or demo payment for this session, after it was created. */
 function paymentArrived(s: StoredSession): boolean {
   const ids = new Set(s.items.map((it) => it.id));
+  // A ref shared with a conversation (MCP) may have paid for earlier checkouts: only count payments since this one.
+  const since = s.ref === s.id ? -Infinity : Date.parse(s.createdAt);
   return eventStore()
     .all()
     .some((e) => {
-      if (e.event !== "order_completed" || e.timestamp < s.createdAt) return false;
+      if (e.event !== "order_completed" || Date.parse(e.timestamp) < since) return false;
       const p = e.properties ?? {};
       const meta = (isRecord(p.whop_metadata) ? p.whop_metadata : {}) as Record<string, unknown>;
       const ref = typeof p.darwin_ref === "string" ? p.darwin_ref : meta.darwin_ref;

@@ -57,7 +57,6 @@ export function ChanceCard({
   const line = smooth(pts);
   const area = pts.length > 1 ? `${line} L${n2(xs.at(-1)!)},100 L0,100 Z` : "";
   const verdict = decided === "ship" ? "Shipped" : decided === "reject" ? "Dropped" : decided === "inconclusive" ? "No clear winner" : undefined;
-  const key = points.map((p) => p.p.toFixed(3)).join(",");
 
   return (
     <Card tone="pink" shape="experimenter" className={`h-full min-h-[262px] ${CARD_FILL}`} aria-label="Chance B wins">
@@ -92,11 +91,11 @@ export function ChanceCard({
           <line x1="0" x2="1000" y1={y(shipAt)} y2={y(shipAt)} stroke="#141413" strokeWidth="1.5" strokeDasharray="6 6" vectorEffect="non-scaling-stroke" />
           {lo < drop && <line x1="0" x2="1000" y1={y(drop)} y2={y(drop)} stroke="#141413" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="2 5" vectorEffect="non-scaling-stroke" />}
           {area && (
-            <motion.path key={`a-${key}`} d={area} fill="url(#dw-exp-fill)" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.5 }} />
+            <motion.path key="area" d={area} fill="url(#dw-exp-fill)" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.5 }} />
           )}
           {line && (
             <motion.path
-              key={`l-${points.length}`}
+              key="line"
               d={line}
               fill="none"
               stroke="#141413"
@@ -115,7 +114,7 @@ export function ChanceCard({
           const last = i === pts.length - 1;
           if (!last && points.length > 8) return null;
           return (
-            <span key={i} className="absolute z-10" style={{ left: `${x / 10}%`, top: `${py}%` }}>
+            <span key={last ? "now" : i} className="absolute z-10 transition-[left,top] duration-500" style={{ left: `${x / 10}%`, top: `${py}%` }}>
               <Tip tip={`${points[i].label} · ${chance(points[i].p)}`} align={i === 0 ? "start" : "center"} className="-translate-x-1/2 -translate-y-1/2">
                 <motion.span
                   tabIndex={0}
