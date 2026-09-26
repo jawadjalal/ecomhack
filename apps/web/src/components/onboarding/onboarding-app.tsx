@@ -20,6 +20,7 @@ import {
   ListChecks,
   LoaderCircle,
   Radio,
+  ShieldCheck,
   Smartphone,
   Sparkles,
   TrendingUp,
@@ -1578,6 +1579,13 @@ function InstallSnippet({ plan, snippet, saved, onDone }: { plan: TrackingPlan; 
           </div>
           <pre className="px-4 py-4 font-dwmono text-[13px] leading-relaxed break-all whitespace-pre-wrap text-[#9EE6B8]">{snippet}</pre>
         </div>
+        <p className="mt-3 flex items-start gap-2 text-[13px] leading-snug text-dw-ink/70">
+          <ShieldCheck className="mt-px size-4 shrink-0 text-dw-live" aria-hidden />
+          <span>
+            darwin.js records page views, clicks and the events in your plan, with a random first-party id. It never reads form fields, and it respects Do Not
+            Track. To remove it, delete the line: recording stops on the next page load.
+          </span>
+        </p>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <span className="min-w-0 flex-1 basis-64 text-[13px] leading-snug text-dw-ink/60">
             Shopify: Online Store → Themes → Edit code → theme.liquid · Webflow: Site settings → Custom code → Head · WordPress: a header-scripts plugin
