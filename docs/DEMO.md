@@ -29,7 +29,7 @@ Keys: `space` step · `a` autopilot · `t` traffic · `s` send a shopper · `r` 
 | 0:40–1:00 | "Traffic comes in: people in the browser, agents over MCP. Everything simulated is labelled." | Press `t`. Point at the live feed: 🧑 rows and 🤖 rows, e.g. *"grok-shopper abandoned: no delivery ETA exposed"*. Press `s` to send one shopper and show its tool calls. |
 | 1:00–1:20 | "Darwin's analyst finds the leaks, with numbers." | `space` → Observe, `space` → **Diagnose**: insight cards, e.g. *"92% of AI shoppers asked for stock levels: we don't expose it"*. |
 | 1:20–1:45 | "Its designer proposes a change as a safe, reviewable config diff. Here's the before and after, live." | `space` → **Propose**: config diff + the two live store previews side by side. |
-| 1:45–2:15 | "It proves it with an A/B test, on the audience that can actually see the change." | `space` → **Experiment**: A vs B bars, P(beat) gauge climbing past 95% → **Decide: SHIP**. |
+| 1:45–2:15 | "It proves it with an A/B test, on the audience that can actually see the change." | `space` → **Experiment**: A vs B bars, P(beat) gauge climbing past the 97.5% ship line → **Decide: SHIP**. |
 | 2:15–2:35 | "And it ships like an engineer would: a pull request, with the evidence." | `space` → **Ship**: PR card (title with lift and P). |
 | 2:35–3:00 | "Then it does it again. Autopilot. Humans get a better page, agents get a better API, and every change is a PR you review." | Press `a`. Point at the evolution chart: both lines climb, with one PR per generation, and rejected ideas are never retried. |
 
@@ -59,8 +59,8 @@ Keys: `space` step · `a` autopilot · `t` traffic · `s` send a shopper · `r` 
   for real traffic on stage. The simulator reacts *only* to the page each visitor is served, so a change has to actually
   help to win. `GET /api/simulate` returns the behaviour model. Real traffic flows through the same pipeline:
   posthog-js posts to our PostHog-compatible `/ingest`.
-- **"How do you avoid shipping noise?"** A Bayesian A/B test with a stricter bar for early stops (99% before the final
-  round, 95% at the end). Human-only changes are judged on humans and agent-only changes on agents. Losers are never
+- **"How do you avoid shipping noise?"** A Bayesian A/B test with a stricter bar for early stops (99.5% before the final
+  round, 97.5% at the end). Human-only changes are judged on humans and agent-only changes on agents. Losers are never
   retried.
 - **"Why a PageSpec instead of letting the AI edit code?"** Safety and reviewability. Every change is validated,
   diffable, reversible and A/B testable, and it still ships as a normal PR editing `storefront.config.json`.

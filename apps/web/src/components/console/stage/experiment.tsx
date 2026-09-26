@@ -8,7 +8,8 @@ import { AnimatedNumber } from "@/components/ui/animated-number";
 import { cn } from "@/components/ui/cn";
 import { ThinkingCards } from "./diagnose";
 
-const SHIP_THRESHOLD = 0.95;
+// Mirrors the optimizer: ship at P ≥ 97.5% on the final round (99.5% to stop early).
+const SHIP_THRESHOLD = 0.975;
 
 /* ------------------------------------------------------------------ gauge */
 
@@ -55,10 +56,10 @@ export function ProbabilityGauge({ p, size = "lg" }: { p: number; size?: "lg" | 
           animate={{ strokeDashoffset: half * (1 - p), stroke: color }}
           transition={{ type: "spring", stiffness: 50, damping: 16 }}
         />
-        {/* 95% threshold tick */}
+        {/* ship threshold tick */}
         <line x1={tx1} y1={ty1} x2={tx2} y2={ty2} stroke="white" strokeOpacity={0.7} strokeWidth={0.8} />
         <text x={tx2 + 1.5} y={ty2 - 1} className="fill-white/50" style={{ fontSize: 4 }}>
-          95%
+          97.5%
         </text>
       </svg>
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
@@ -233,7 +234,7 @@ export function ExperimentStage({ experiment, compact }: { experiment?: Experime
         </div>
         {!compact && (
           <div className="mt-auto text-[0.72rem] leading-relaxed text-white/30">
-            Bayesian Beta-Binomial on order_completed per visitor · sticky 50/50 assignment for humans and agents · ships at P ≥ 95%
+            Bayesian Beta-Binomial on order_completed per visitor · sticky 50/50 assignment for humans and agents · ships at P ≥ 97.5% (99.5% to stop early)
           </div>
         )}
       </div>

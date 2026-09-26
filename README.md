@@ -50,22 +50,25 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 
 | Gen | Change Darwin shipped | Audience | Result |
 |---|---|---|---|
-| 0 | Baseline | | humans 2.1%, agents 41% |
-| 1 | Expose per-size stock to AI shoppers | agents | +88% agent conversion |
-| 2 | One-page guest checkout with express pay | humans | +26% |
-| – | Low-stock urgency (wildcard) | humans | **rejected** (−9%) |
-| 3 | Delivery ETA + JSON-LD for agents | agents | +27% |
-| 4 | Sticky add-to-bag + reviews + delivery estimate | humans | +19% |
-| 5 | Stock levels + returns policy for agents | agents | +9% |
+| 0 | Baseline | | humans 2.1%, agents 35% |
+| 1 | Expose per-size stock to AI shoppers | agents | +65% |
+| 2 | One-page guest checkout with express pay | humans | +53% |
+| – | Low-stock urgency (wildcard) | humans | inconclusive, shelved |
+| 3 | Delivery ETA + JSON-LD for agents | agents | +20% |
+| 4 | Sticky add-to-bag + reviews + delivery estimate | humans | +27% |
+| 5 | **Let AI shoppers negotiate** (merchant agent, ≤10% off, never below floor) | agents | +6.5% |
+| 6 | Show delivery cost upfront + free delivery over £60 | humans | +29% |
+| 7 | Stock levels + returns policy for agents | agents | +5.4% |
+| 8 | Quote landed price to agents | agents | +6.7% |
 
-Humans end around 3.8% and agents around 85%. Every decision needs ≥95% posterior probability, and bad ideas are
+Overall conversion (at the Gen 0 traffic mix) goes 4.5% → 10.4%: humans about 2.1% → 4.4%, agents 35% → 87%. Shipping needs ≥97.5% posterior probability (99.5% to stop early), and bad ideas are
 rejected and never retried.
 
 ### Honest notes
 
 - **Simulated traffic in the demo:** the demo runs on simulated traffic, labelled everywhere. The simulator's behaviour model is
   documented in `src/lib/simulator/behavior-model.ts`, and `GET /api/simulate` returns it.
-- **Stricter bar for early stops:** experiments stop early only at 99% certainty; the final round uses 95%.
+- **Stricter bar for early stops:** experiments stop early only at 99.5% certainty; the final round uses 97.5%.
 - **Single process:** state lives in memory plus `apps/web/.data/`. Run one process for the demo.
 
 See [AGENTS.md](AGENTS.md) for module ownership and conventions, and

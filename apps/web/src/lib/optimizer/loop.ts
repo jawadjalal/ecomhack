@@ -102,9 +102,11 @@ export function loopConfigFromEnv(): LoopConfig {
     minVisitors: envNum("DARWIN_MIN_ARM_VISITORS", 2000),
     minSegmentVisitors: envNum("DARWIN_MIN_ARM_AGENTS", 100),
     maxRounds: Math.max(1, envNum("DARWIN_MAX_ROUNDS", 3)),
-    shipThreshold: 0.95,
+    // Many experiments per run, each looked at up to 3 times: keep the bar high so neutral (e.g.
+    // cosmetic) changes almost never ship on noise. Rejecting is cheaper to get wrong than shipping.
+    shipThreshold: 0.975,
     rejectThreshold: 0.1,
-    interimShipThreshold: 0.99,
+    interimShipThreshold: 0.995,
     interimRejectThreshold: 0.02,
     allocation: 0.5,
     exploreEvery: envNum("DARWIN_EXPLORE_EVERY", 3),
