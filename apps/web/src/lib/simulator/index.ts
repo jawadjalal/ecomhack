@@ -96,17 +96,21 @@ export async function runSimulation(opts: SimulationOptions, internals: Simulati
 
     if (!builtin) {
       const lastBefore = eventStore().all().at(-1)?.uuid;
-      const summary = await runBuyerAgent(
-        toShoppingGoal(goal),
-        { agentId, agentName: who.name, sessionId, synthetic: true, persona: `agent:${goal.kind}` },
-        { useLlm: useLlm && i < MAX_LLM_AGENTS },
-      );
-      if (summary.reason !== "not implemented") {
-        tally(summary.variant ?? resolved.variant ?? "live", summary.outcome === "purchased", summary.orderTotal ?? 0);
-        result.events += eventStore().since(lastBefore, Number.MAX_SAFE_INTEGER).length;
-        continue;
+      try {
+        const summary = await runBuyerAgent(
+          toShoppingGoal(goal),
+          { agentId, agentName: who.name, sessionId, synthetic: true, persona: `agent:${goal.kind}` },
+          { useLlm: useLlm && i < MAX_LLM_AGENTS },
+        );
+        if (summary.reason !== "not implemented") {
+          tally(summary.variant ?? resolved.variant ?? "live", summary.outcome === "purchased", summary.orderTotal ?? 0);
+          result.events += eventStore().since(lastBefore, Number.MAX_SAFE_INTEGER).length;
+          continue;
+        }
+      } catch (err) {
+        console.warn("[simulator] runBuyerAgent failed; using the built-in agent policy for this run", err);
       }
-      builtin = true; // agent-commerce not implemented yet: use the built-in policy from now on
+      builtin = true; // not implemented (or failing): use the built-in policy from now on
     }
 
     const baseProps: EventProperties = {

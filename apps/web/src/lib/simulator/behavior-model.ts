@@ -25,8 +25,11 @@
  * headlines) have a tiny, unpredictable effect: ±3–4% odds from a hash of the text.
  * Theme accent/radius are neutral.
  *
- * Calibration (see simulator tests): DEFAULT_SPEC humans convert ~2.0–2.6% (orders/visitors);
- * `bestKnownSpec()` ~4.5–5.5%.
+ * Calibration (bands asserted in simulator.test.ts): DEFAULT_SPEC humans convert ~2.0–2.6%
+ * (orders/visitors); `bestKnownSpec()` ~4.5–5.5%. Measured with calibrate.script.ts (40k humans,
+ * same seed on every spec): default 2.35% → best 5.17%. Single knobs vs default: shipping upfront +
+ * free over £75 +23%, guest checkout +21%, sticky CTA +10%, 1-step checkout +6%, express pay +6%,
+ * reviews +5%; 4-column grid −3.5%, low-stock urgency −3%, full-bleed hero / theme ≈ 0.
  */
 import type { PageSpec, SpecPatch } from "@/lib/contracts";
 import { PRODUCTS, SHIPPING_FEE, type Product } from "@/lib/catalog/products";
