@@ -106,7 +106,7 @@ export function CertificateView({ cert, expired }: { cert: ReadinessCertificate;
         {cert.trial && (
           <section className="flex flex-col gap-3">
             <h2 className="flex items-center gap-2 text-[0.78rem] font-semibold tracking-[0.14em] text-white/45 uppercase">
-              <Bot className="size-4" /> {cert.trial.mode === "mcp" ? "Grok's shopping trial over MCP" : "What Grok could read on the page"}
+              <Bot className="size-4" /> {cert.trial.mode === "mcp" ? "AI agent's shopping trial over MCP" : "What an AI agent could read on the page"}
               <span className={cn("rounded-md px-1.5 py-0.5 text-[0.66rem] tracking-normal normal-case", cert.trial.passed ? "bg-good/15 text-[#8ff0b2]" : "bg-bad/15 text-[#ff9b9b]")}>
                 {cert.trial.passed ? "passed" : "not passed"}
               </span>
@@ -145,7 +145,7 @@ export function CertificateView({ cert, expired }: { cert: ReadinessCertificate;
           </div>
           <div>
             <div className="text-[0.68rem] font-semibold tracking-[0.14em] text-white/35 uppercase">Judged by</div>
-            {cert.heuristic ? "Audit score only (heuristic)" : cert.model.replace(/^llm:/, "")}
+            {cert.heuristic ? "Audit score only (heuristic)" : `Certified by Darwin · ${cert.model.replace(/^llm:/, "").split("/").pop()}`}
           </div>
           <div className="font-mono text-[0.7rem] text-white/30 sm:col-span-3">
             {cert.id} · {cert.url}

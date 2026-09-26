@@ -313,7 +313,7 @@ function InsightsPanel({ site, synthetic, visitors }: { site: string; synthetic:
                 {total > 0 && ` · up to +${total} orders at today's traffic`}
               </span>
             )}
-            <Button size="sm" variant="primary" onClick={() => ask(true)} disabled={!!busy} title="Send this report to Darwin's AI model (Grok / Claude) for suggestions">
+            <Button size="sm" variant="primary" onClick={() => ask(true)} disabled={!!busy} title="Send this report to Darwin's AI model (DeepSeek via OpenRouter / Grok / Claude) for suggestions">
               {busy === "llm" ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
               Ask Darwin
             </Button>

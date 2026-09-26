@@ -194,7 +194,7 @@ function certifySteps(report: ReadinessReport): string[] {
   const mcp = report.checks.some((c) => c.id === "mcp" && c.status === "pass");
   return [
     "Re-running the audit",
-    mcp ? "Grok is shopping your store over MCP (no real checkout)" : "Grok is reading your storefront like an agent",
+    mcp ? "An AI agent is shopping your store over MCP (no real checkout)" : "An AI agent is reading your storefront",
     "Checking price, sizes, delivery and returns",
     "Issuing your certificate",
   ];
@@ -234,7 +234,7 @@ function CertifyPanel({ report }: { report: ReadinessReport }) {
           <CertificateSeal level={cert.level} score={cert.score} className="size-28" />
           <div className="flex min-w-0 flex-col gap-1.5">
             <div className="text-[0.75rem] font-semibold tracking-[0.14em] text-white/45 uppercase">
-              {cert.heuristic ? "Certificate (heuristic: no agent trial)" : `Certified by ${cert.model.replace(/^llm:/, "")}`}
+              {cert.heuristic ? "Certificate (heuristic: no agent trial)" : `Certified by Darwin · ${cert.model.replace(/^llm:/, "").split("/").pop()}`}
             </div>
             <div className="text-[1.4rem] font-semibold" style={{ color: s.color }}>
               {cert.level === "none" ? "Not certified yet" : `${s.label} agent-ready`}
@@ -261,10 +261,10 @@ function CertifyPanel({ report }: { report: ReadinessReport }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 font-semibold text-white/90">
-            <Award className="size-4 text-brand" /> Get certified by Grok
+            <Award className="size-4 text-brand" /> Get agent-certified
           </div>
           <div className="text-[0.84rem] text-white/50">
-            Grok tries to shop your store as an AI agent, then issues a Gold, Silver or Bronze certificate with a badge for your site. Takes up to a minute.
+            An AI shopping agent tries to shop your store, then issues a Gold, Silver or Bronze certificate with a badge for your site. Takes up to a minute.
           </div>
         </div>
         <button

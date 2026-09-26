@@ -57,7 +57,7 @@ export default async function CertificatePage(props: PageProps<"/readiness/certi
         </section>
 
         <p className="text-[0.84rem] leading-relaxed text-white/45">
-          Darwin audits whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. With an LLM key, Grok also shops the store
+          Darwin audits whether AI shopping agents can reach a store, read its products, prices, delivery and returns, and buy. With an LLM key, an AI agent also shops the store
           itself (never completing a real checkout). Gold needs a score of 85+ and a passing agent trial, Silver 70+, Bronze 55+. Certificates are valid for 90 days.{" "}
           <Link href="/readiness" className="inline-flex items-center gap-1 text-brand hover:underline">
             Check your store <ArrowRight className="size-3.5" />

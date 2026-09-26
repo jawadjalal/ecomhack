@@ -69,7 +69,7 @@ export interface GithubStatusResponse {
 /* readiness PR */
 // POST /api/readiness                    { url } → ReadinessReport   (429 rate limited, 400 bad/private URL)
 // POST /api/readiness/certify            { url } → ReadinessCertificate
-//      (audit + Grok agent trial; heuristic level from the score when no LLM key. Rate limited per IP
+//      (audit + AI agent trial; heuristic level from the score when no LLM key. Rate limited per IP
 //       and globally; a certificate for the same URL issued in the last 10 minutes is returned as is.)
 export type CertifyResponse = ReadinessCertificate;
 // GET  /api/readiness/certificate/:id    → ReadinessCertificate (404 { error } when unknown)

@@ -30,8 +30,8 @@ apps/web/                      Next.js 16 app (App Router, TS, Tailwind v4). Eve
   src/lib/research/            Market & competitor research (Tavily + LLM, sourced claims, A/B test ideas).
   src/lib/assistant/           "Ask Darwin": the merchant's managing assistant (tool registry over public APIs + LLM loop).
   src/lib/readiness/           Agent-readiness audit of any store URL (merchant tool): checks, SSRF-safe fetcher,
-                               Grok certificate (agent trial over MCP or page reading → Gold/Silver/Bronze + badge).
-  src/lib/llm/                 Grok (xAI) / Claude / heuristic fallback.
+                               AI-agent certificate (agent trial over MCP or page reading → Gold/Silver/Bronze + badge).
+  src/lib/llm/                 OpenRouter (default DeepSeek V4 Flash) / xAI Grok / Claude, native tool loop (runToolLoop), heuristic fallback.
   src/lib/db/json-store.ts     Tiny persisted KV (globalThis + .data/*.json).
   src/app/store/**             The demo storefront (what shoppers see).
   src/app/onboarding/**        First-run setup: prompt bar, connect Whop + GitHub, analytics PR, dashboards.
@@ -70,6 +70,8 @@ Cross-module calls go through the public API above, never deep imports into anot
   `experiment_id`, `variant`, `spec_version` (use `attributionProps()` from `lib/spec/resolve.ts`).
 - Simulated traffic sets `properties.synthetic = true`. The console must label it. No faking results.
 - LLM calls must have a heuristic fallback (`llmAvailable()`), so the demo runs with no API keys.
+- Provider: `OPENROUTER_API_KEY` (preferred, `OPENROUTER_MODEL` default `deepseek/deepseek-v4-flash`), then `XAI_API_KEY`,
+  then `ANTHROPIC_API_KEY`. Agentic features use `runToolLoop` (native tool calling, JSON fallback).
 - No new dependencies without a reason in the PR description (they're pre-installed in the scaffold).
 - Before pushing: `cd apps/web && npm run typecheck && npm run lint && npm test && npm run build`.
 

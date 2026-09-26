@@ -52,7 +52,7 @@ and [docs/DEMO.md](docs/DEMO.md) for the 3-minute demo script.
 | **Agent commerce** | `src/lib/agent-commerce/**` | MCP + REST tools for AI shoppers, an A2A merchant agent that chats and negotiates within margin limits, `llms.txt`, agent card. |
 | **Analytics** | `src/lib/analytics/**` | PostHog-compatible ingest (`/ingest`, used by posthog-js), human vs AI-agent classification, funnels, friction signals. |
 | **Simulator** | `src/lib/simulator/**` | Synthetic shoppers (5 personas) and AI agents whose behaviour depends only on the page they're served. Labelled `synthetic`. |
-| **Optimizer** | `src/lib/optimizer/**` | The loop: diagnose → propose → Bayesian A/B test → decide → ship. LLM (Grok/Claude/OpenRouter) or heuristic playbook. |
+| **Optimizer** | `src/lib/optimizer/**` | The loop: diagnose → propose → Bayesian A/B test → decide → ship. LLM (OpenRouter DeepSeek V4 Flash / Grok / Claude) or heuristic playbook. |
 | **GitHub** | `src/lib/github/**` | Connect a repo → PR installing `darwin.js`; each winner → PR editing `storefront.config.json`. |
 | **Web personalization** | `src/lib/web/**` | Rules that change any page running darwin.js (text, banner, badge, hide, style) per traffic source and search query. Drafted from plain English (LLM or heuristic), A/B tested with arms recomputed server-side. |
 | **Console** | `src/app/console/**` | Mission control for the demo. |

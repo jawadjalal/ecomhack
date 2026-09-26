@@ -2,7 +2,7 @@
  * "What to improve": SEO, conversion and AI-agent suggestions from the traffic report.
  *
  * - heuristicInsights: deterministic rules over the report (always available, no API keys).
- * - llmInsights: the same report + the rule-based findings go to the LLM (Grok / Claude), which
+ * - llmInsights: the same report + the rule-based findings go to the LLM (DeepSeek via OpenRouter / Grok / Claude), which
  *   may reword, merge and add suggestions, but only from the numbers it was given. Any failure
  *   falls back to the rules.
  * Every suggestion quotes its evidence and, where it can, sizes the prize (extra orders if the gap

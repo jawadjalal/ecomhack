@@ -4,27 +4,36 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const llm = vi.hoisted(() => ({
-  available: false,
-  responses: [] as unknown[],
-  calls: [] as { system: string; prompt: string }[],
-}));
-
-vi.mock("@/lib/llm/client", () => ({
-  llmAvailable: () => llm.available,
-  llmLabel: () => (llm.available ? "llm:grok-test" : "heuristic"),
-  llmProvider: () => (llm.available ? "xai" : "none"),
-  resolveProvider: () => (llm.available ? "xai" : "none"),
-  llmModel: () => "grok-test",
-  generateText: async () => "",
-  generateJson: async (req: { system: string; prompt: string; schema: { parse: (v: unknown) => unknown } }) => {
-    llm.calls.push({ system: req.system, prompt: req.prompt });
-    const next = llm.responses.shift();
-    if (next === undefined) throw new Error("no scripted LLM response");
-    if (next instanceof Error) throw next;
-    return req.schema.parse(next);
+/** The OpenAI SDK is mocked; the real LLM client (runToolLoop) drives it. `null` = throw. */
+const oa = vi.hoisted(() => ({ create: vi.fn() }));
+vi.mock("openai", () => ({
+  default: class {
+    chat = { completions: { create: oa.create } };
   },
 }));
+
+const calls = (...list: [string, Record<string, unknown>][]) => ({
+  choices: [
+    {
+      message: {
+        content: null,
+        tool_calls: list.map(([name, args], i) => ({
+          id: `c${i}`,
+          type: "function",
+          function: { name, arguments: JSON.stringify(args) },
+        })),
+      },
+    },
+  ],
+});
+const text = (content: string) => ({ choices: [{ message: { content } }] });
+const LLM_KEYS = [
+  "LLM_PROVIDER",
+  "XAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "OPENROUTER_API_KEY",
+  "OPENROUTER_MODEL",
+];
 
 const { routeIntent, runAssistant, MAX_STEPS } = await import("./agent");
 const { TOOLS, runTool, toolCatalog } = await import("./tools");
@@ -41,9 +50,8 @@ const user = (content: string) => [{ role: "user" as const, content }];
 const env = { ...process.env };
 
 beforeEach(async () => {
-  llm.available = false;
-  llm.responses = [];
-  llm.calls = [];
+  for (const k of LLM_KEYS) delete process.env[k];
+  oa.create.mockReset();
   await resetLoop();
 });
 
@@ -70,8 +78,11 @@ describe("tool registry", () => {
 
   it("describes every tool (with its args) for the model", () => {
     const catalog = toolCatalog();
-    for (const name of Object.keys(TOOLS)) expect(catalog).toContain(`- ${name}`);
-    expect(catalog).toMatch(/ship_winner \[asks the merchant to confirm first\]/);
+    for (const name of Object.keys(TOOLS))
+      expect(catalog).toContain(`- ${name}`);
+    expect(catalog).toMatch(
+      /ship_winner \[asks the merchant to confirm first\]/,
+    );
     expect(catalog).toMatch(/"humans"/);
   });
 });
@@ -103,9 +114,15 @@ describe("heuristic intent router", () => {
   it("pulls arguments out of the message", () => {
     expect(routeIntent("autopilot off").calls[0].args).toEqual({ on: false });
     expect(routeIntent("start autopilot").calls[0].args).toEqual({ on: true });
-    expect(routeIntent("simulate 300 shoppers and 10 agents").calls[0].args).toEqual({ humans: 300, agents: 10 });
-    expect(routeIntent("audit https://allbirds.com/, please").calls[0].args).toEqual({ url: "https://allbirds.com/" });
-    expect(routeIntent("send a shopper for trail shoes under £140").calls[0].args).toEqual({ brief: "trail shoes under £140" });
+    expect(
+      routeIntent("simulate 300 shoppers and 10 agents").calls[0].args,
+    ).toEqual({ humans: 300, agents: 10 });
+    expect(
+      routeIntent("audit https://allbirds.com/, please").calls[0].args,
+    ).toEqual({ url: "https://allbirds.com/" });
+    expect(
+      routeIntent("send a shopper for trail shoes under £140").calls[0].args,
+    ).toEqual({ brief: "trail shoes under £140" });
   });
 
   it("answers help without tools and asks for a URL when one is missing", () => {
@@ -132,9 +149,18 @@ describe("heuristic intent router", () => {
   });
 
   it("labels simulations it runs as synthetic", async () => {
-    const res = await runAssistant({ messages: user("simulate 25 shoppers and 0 agents") });
-    expect(res.actions[0]).toMatchObject({ tool: "run_simulation", ok: true, synthetic: true, args: { humans: 25, agents: 0 } });
-    expect(res.reply).toMatch(/Simulated 25 humans and 0 AI agents \(synthetic\)/);
+    const res = await runAssistant({
+      messages: user("simulate 25 shoppers and 0 agents"),
+    });
+    expect(res.actions[0]).toMatchObject({
+      tool: "run_simulation",
+      ok: true,
+      synthetic: true,
+      args: { humans: 25, agents: 0 },
+    });
+    expect(res.reply).toMatch(
+      /Simulated 25 humans and 0 AI agents \(synthetic\)/,
+    );
   });
 
   it("steps the loop", async () => {
@@ -149,11 +175,20 @@ describe("confirm flow", () => {
   it("asks before turning autopilot on, and only runs it once confirmed", async () => {
     const ask = await runAssistant({ messages: user("turn autopilot on") });
     expect(ask.actions).toEqual([]);
-    expect(ask.pendingConfirm).toEqual({ tool: "set_autopilot", args: { on: true }, prompt: expect.stringMatching(/Turn autopilot on\?/) });
+    expect(ask.pendingConfirm).toEqual({
+      tool: "set_autopilot",
+      args: { on: true },
+      prompt: expect.stringMatching(/Turn autopilot on\?/),
+    });
     expect(getLoopState().autopilot).toBe(false);
 
-    const done = await runAssistant({ messages: user("turn autopilot on"), confirm: { ...ask.pendingConfirm!, approved: true } });
-    expect(done.actions).toEqual([expect.objectContaining({ tool: "set_autopilot", ok: true })]);
+    const done = await runAssistant({
+      messages: user("turn autopilot on"),
+      confirm: { ...ask.pendingConfirm!, approved: true },
+    });
+    expect(done.actions).toEqual([
+      expect.objectContaining({ tool: "set_autopilot", ok: true }),
+    ]);
     expect(done.pendingConfirm).toBeUndefined();
     expect(getLoopState().autopilot).toBe(true);
   });
@@ -161,13 +196,19 @@ describe("confirm flow", () => {
   it("does nothing when cancelled", async () => {
     const ask = await runAssistant({ messages: user("reset everything") });
     expect(ask.pendingConfirm?.tool).toBe("reset_loop");
-    const res = await runAssistant({ messages: user("reset everything"), confirm: { tool: "reset_loop", approved: false } });
+    const res = await runAssistant({
+      messages: user("reset everything"),
+      confirm: { tool: "reset_loop", approved: false },
+    });
     expect(res.actions).toEqual([]);
     expect(res.reply).toMatch(/cancelled/i);
   });
 
   it("refuses to 'confirm' a tool that doesn't need confirmation", async () => {
-    const res = await runAssistant({ messages: [], confirm: { tool: "run_simulation", args: { humans: 5 }, approved: true } });
+    const res = await runAssistant({
+      messages: [],
+      confirm: { tool: "run_simulation", args: { humans: 5 }, approved: true },
+    });
     expect(res.actions).toEqual([]);
     expect(res.reply).toMatch(/nothing to confirm/);
   });
@@ -189,30 +230,57 @@ describe("confirm flow", () => {
     delete process.env.GITHUB_TOKEN;
     process.env.DARWIN_TARGET_REPO = "acme/storefront";
     // Run the real loop until an experiment is decided (synthetic traffic, heuristic designer).
-    for (let i = 0; i < 16 && !listExperiments().some((e) => e.status === "completed"); i++) await stepLoop();
+    for (
+      let i = 0;
+      i < 16 && !listExperiments().some((e) => e.status === "completed");
+      i++
+    )
+      await stepLoop();
     const done = listExperiments().find((e) => e.status === "completed");
     expect(done).toBeDefined();
 
     const before = listPullRequests().length;
     const ask = await runAssistant({ messages: user("ship it") });
-    expect(ask.pendingConfirm).toMatchObject({ tool: "ship_winner", prompt: expect.stringContaining(done!.name) });
+    expect(ask.pendingConfirm).toMatchObject({
+      tool: "ship_winner",
+      prompt: expect.stringContaining(done!.name),
+    });
     expect(ask.actions).toEqual([]);
     expect(listPullRequests().length).toBe(before);
 
-    const res = await runAssistant({ messages: user("ship it"), confirm: { tool: "ship_winner", args: {}, approved: true } });
+    const res = await runAssistant({
+      messages: user("ship it"),
+      confirm: { tool: "ship_winner", args: {}, approved: true },
+    });
     expect(res.actions[0]).toMatchObject({ tool: "ship_winner", ok: true });
     expect(res.actions[0].summary).toMatch(/Dry run|up to date|opened|updated/);
     expect(listPullRequests().length).toBeGreaterThanOrEqual(before);
   }, 60_000);
 });
 
-describe("LLM tool loop (model mocked)", () => {
+describe("LLM tool loop (OpenAI client mocked)", () => {
   beforeEach(() => {
-    llm.available = true;
+    process.env.OPENROUTER_API_KEY = "test";
   });
+  const sent = (i: number) =>
+    oa.create.mock.calls[i][0] as {
+      model: string;
+      messages: {
+        role: string;
+        content: string | null;
+        tool_call_id?: string;
+      }[];
+      tools: { function: { name: string; description: string } }[];
+    };
 
-  it("calls a tool, then replies, with history and a state snapshot in the prompt", async () => {
-    llm.responses.push({ thought: "need numbers", tool: "get_kpis", args: {} }, { reply: "No visitors yet. Want me to start the loop?", suggestions: ["Run the loop"] });
+  it("calls a tool natively, feeds the result back, then replies with the conversation and state in context", async () => {
+    oa.create
+      .mockResolvedValueOnce(calls(["get_kpis", {}]))
+      .mockResolvedValueOnce(
+        text(
+          "No visitors yet. Want me to start the loop?\nSuggestions: Run the loop | Simulate 200 shoppers",
+        ),
+      );
     const res = await runAssistant({
       messages: [
         { role: "user", content: "hi" },
@@ -221,43 +289,119 @@ describe("LLM tool loop (model mocked)", () => {
       ],
       context: { path: "/console" },
     });
-    expect(res.model).toBe("llm:grok-test");
+    expect(res.model).toBe("llm:deepseek/deepseek-v4-flash");
     expect(res.reply).toBe("No visitors yet. Want me to start the loop?");
-    expect(res.suggestions).toEqual(["Run the loop"]);
+    expect(res.suggestions).toEqual(["Run the loop", "Simulate 200 shoppers"]);
     expect(res.actions.map((a) => a.tool)).toEqual(["get_kpis"]);
-    expect(llm.calls).toHaveLength(2);
-    expect(llm.calls[0].system).toMatch(/Darwin, your store's managing assistant/);
-    expect(llm.calls[0].system).toMatch(/Never invent numbers/);
-    expect(llm.calls[0].prompt).toMatch(/STATE \(live/);
-    expect(llm.calls[0].prompt).toMatch(/"phase":"idle"/);
-    expect(llm.calls[0].prompt).toMatch(/Merchant: hi\nDarwin: Hello! How can I help\?\nMerchant: How are we doing\?/);
-    expect(llm.calls[1].prompt).toMatch(/1\. get_kpis\(\{\}\) → ok/);
+    expect(oa.create).toHaveBeenCalledTimes(2);
+    const first = sent(0);
+    expect(first.model).toBe("deepseek/deepseek-v4-flash");
+    expect(first.messages[0].content).toMatch(
+      /Darwin, your store's managing assistant/,
+    );
+    expect(first.messages[0].content).toMatch(/Never invent numbers/);
+    expect(first.messages[0].content).toMatch(/STATE \(live/);
+    expect(first.messages[0].content).toMatch(/"phase":"idle"/);
+    expect(first.messages[0].content).toMatch(/NEXT STEP/);
+    expect(first.messages.slice(1).map((m) => [m.role, m.content])).toEqual([
+      ["user", "hi"],
+      ["assistant", "Hello! How can I help?"],
+      ["user", "How are we doing?"],
+    ]);
+    expect(
+      first.tools.find((t) => t.function.name === "ship_winner")!.function
+        .description,
+    ).toMatch(/^\[CONFIRM\]/);
+    const tool = sent(1).messages.find((m) => m.role === "tool")!;
+    expect(tool.tool_call_id).toBe("c0");
+    expect(tool.content).toMatch(/"ok":true/);
   });
 
+  it("chains several tools in one turn (simulate → step loop → KPIs) with parallel calls", async () => {
+    oa.create
+      .mockResolvedValueOnce(
+        calls(["run_simulation", { humans: 20, agents: 2 }]),
+      )
+      .mockResolvedValueOnce(calls(["step_loop", {}], ["loop_status", {}]))
+      .mockResolvedValueOnce(calls(["get_kpis", {}]))
+      .mockResolvedValueOnce(
+        text(
+          "Simulated traffic is in and the loop moved on. Want me to keep stepping?",
+        ),
+      );
+    const res = await runAssistant({
+      messages: user(
+        "simulate some traffic, advance the loop and tell me the numbers",
+      ),
+    });
+    expect(res.actions.map((a) => a.tool)).toEqual([
+      "run_simulation",
+      "step_loop",
+      "loop_status",
+      "get_kpis",
+    ]);
+    expect(res.actions[0].synthetic).toBe(true);
+    expect(res.reply).toMatch(/Want me to keep stepping/);
+    expect(sent(2).messages.filter((m) => m.role === "tool")).toHaveLength(3);
+  }, 60_000);
+
   it("returns a pending confirmation instead of running a side-effecting tool", async () => {
-    llm.responses.push({ thought: "merchant asked", tool: "set_autopilot", args: { on: true } });
+    oa.create.mockResolvedValueOnce(
+      calls(["set_autopilot", { on: true }], ["get_kpis", {}]),
+    );
     const res = await runAssistant({ messages: user("put it on autopilot") });
-    expect(res.pendingConfirm).toMatchObject({ tool: "set_autopilot", args: { on: true } });
+    expect(res.pendingConfirm).toMatchObject({
+      tool: "set_autopilot",
+      args: { on: true },
+    });
     expect(res.actions).toEqual([]);
+    expect(oa.create).toHaveBeenCalledTimes(1);
     expect(getLoopState().autopilot).toBe(false);
 
-    llm.responses.push({ reply: "Autopilot is on." });
-    const done = await runAssistant({ messages: user("put it on autopilot"), confirm: { tool: "set_autopilot", args: { on: true }, approved: true } });
+    oa.create.mockResolvedValueOnce(text("Autopilot is on."));
+    const done = await runAssistant({
+      messages: user("put it on autopilot"),
+      confirm: { tool: "set_autopilot", args: { on: true }, approved: true },
+    });
     expect(getLoopState().autopilot).toBe(true);
     expect(done.reply).toBe("Autopilot is on.");
-    expect(done.actions).toEqual([expect.objectContaining({ tool: "set_autopilot", ok: true })]);
-    expect(llm.calls.at(-1)!.prompt).toMatch(/merchant confirmed set_autopilot/);
+    expect(done.actions).toEqual([
+      expect.objectContaining({ tool: "set_autopilot", ok: true }),
+    ]);
+    expect(sent(1).messages[0].content).toMatch(
+      /merchant confirmed set_autopilot/,
+    );
+  });
+
+  it("falls back to JSON tool calls when the model rejects native tools", async () => {
+    oa.create
+      .mockRejectedValueOnce(
+        Object.assign(new Error("No endpoints found that support tool use"), {
+          status: 404,
+        }),
+      )
+      .mockResolvedValueOnce(
+        text('{"tool_calls":[{"name":"loop_status","args":{}}]}'),
+      )
+      .mockResolvedValueOnce(
+        text('{"answer":"We are at Gen 0. Want me to run the loop?"}'),
+      );
+    const res = await runAssistant({ messages: user("status?") });
+    expect(res.actions.map((a) => a.tool)).toEqual(["loop_status"]);
+    expect(res.reply).toBe("We are at Gen 0. Want me to run the loop?");
   });
 
   it("falls back to the keyword router when the model fails before doing anything", async () => {
-    llm.responses.push(new Error("503 from xAI"));
+    oa.create.mockRejectedValueOnce(new Error("503 upstream"));
     const res = await runAssistant({ messages: user("How are we doing?") });
     expect(res.model).toBe("heuristic");
     expect(res.actions.map((a) => a.tool)).toEqual(["get_kpis"]);
   });
 
   it("summarises the tools that ran if the model fails mid-turn", async () => {
-    llm.responses.push({ tool: "loop_status", args: {} }, new Error("timeout"));
+    oa.create
+      .mockResolvedValueOnce(calls(["loop_status", {}]))
+      .mockRejectedValueOnce(new Error("timeout"));
     const res = await runAssistant({ messages: user("status?") });
     expect(res.actions.map((a) => a.tool)).toEqual(["loop_status"]);
     expect(res.reply).toMatch(/Gen 0, phase “idle”/);
@@ -265,11 +409,17 @@ describe("LLM tool loop (model mocked)", () => {
   });
 
   it("doesn't rerun a repeated call, reports unknown tools, and stops within MAX_STEPS", async () => {
-    for (let i = 0; i < MAX_STEPS + 2; i++) llm.responses.push(i === 1 ? { tool: "hack_the_planet", args: {} } : { tool: "loop_status", args: {} });
+    oa.create.mockImplementation(async () =>
+      oa.create.mock.calls.length === 2
+        ? calls(["hack_the_planet", {}])
+        : calls(["loop_status", {}]),
+    );
     const res = await runAssistant({ messages: user("status?") });
-    expect(llm.calls.length).toBeLessThanOrEqual(MAX_STEPS);
+    expect(oa.create.mock.calls.length).toBeLessThanOrEqual(MAX_STEPS);
     expect(res.actions.filter((a) => a.tool === "loop_status")).toHaveLength(1);
-    expect(res.actions.find((a) => a.tool === "hack_the_planet")).toMatchObject({ ok: false });
+    expect(res.actions.find((a) => a.tool === "hack_the_planet")).toMatchObject(
+      { ok: false },
+    );
     expect(res.reply.length).toBeGreaterThan(0);
   });
 });
@@ -280,15 +430,33 @@ describe("POST /api/assistant", () => {
     expect(proxyConfig.matcher).toContain("/api/assistant");
     process.env.DARWIN_ADMIN_TOKEN = "s3cret";
     const { NextRequest } = await import("next/server");
-    expect(proxy(new NextRequest("https://darwin.example/api/assistant", { method: "POST" })).status).toBe(401);
-    const ok = proxy(new NextRequest("https://darwin.example/api/assistant", { method: "POST", headers: { authorization: "Bearer s3cret" } }));
+    expect(
+      proxy(
+        new NextRequest("https://darwin.example/api/assistant", {
+          method: "POST",
+        }),
+      ).status,
+    ).toBe(401);
+    const ok = proxy(
+      new NextRequest("https://darwin.example/api/assistant", {
+        method: "POST",
+        headers: { authorization: "Bearer s3cret" },
+      }),
+    );
     expect(ok.status).toBe(200);
   });
 
   it("validates the body and answers a turn", async () => {
-    const bad = await POST(new Request("http://x/api/assistant", { method: "POST", body: "{}" }));
+    const bad = await POST(
+      new Request("http://x/api/assistant", { method: "POST", body: "{}" }),
+    );
     expect(bad.status).toBe(400);
-    const ok = await POST(new Request("http://x/api/assistant", { method: "POST", body: JSON.stringify({ messages: user("help") }) }));
+    const ok = await POST(
+      new Request("http://x/api/assistant", {
+        method: "POST",
+        body: JSON.stringify({ messages: user("help") }),
+      }),
+    );
     expect(ok.status).toBe(200);
     const body = await ok.json();
     expect(body).toMatchObject({ model: "heuristic", actions: [] });
