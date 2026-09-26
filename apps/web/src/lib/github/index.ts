@@ -669,7 +669,8 @@ export function getGithubStatus(): GithubStatus {
     mode,
     dryRun: mode !== "live",
     targetConfigPath: targetConfigPath(),
-    connection,
+    // A repo connected while the token worked: its PRs are previews now that GitHub rejects the token.
+    connection: connection && check?.rejected && connection.mode !== "offline" ? { ...connection, mode: "offline" } : connection,
     framework: connection?.frameworkLabel,
     recentPullRequests: listPullRequests(),
   };

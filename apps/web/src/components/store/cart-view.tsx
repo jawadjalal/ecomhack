@@ -98,7 +98,7 @@ export function CartView() {
         </p>
       </div>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
+      <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14">
         <div>
           <FreeShippingBar totals={totals} className="mb-6" />
           <ul className="divide-y divide-(--line) border-y border-(--line)">

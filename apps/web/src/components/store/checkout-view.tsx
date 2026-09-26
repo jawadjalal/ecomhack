@@ -305,7 +305,7 @@ export function CheckoutView({ deliveryDates }: { deliveryDates: Record<number, 
   );
 
   return (
-    <div className="grid flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
+    <div className="grid flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
       {/* Mobile summary toggle */}
       <div className="border-b border-(--line) bg-(--surface) lg:hidden">
         <button

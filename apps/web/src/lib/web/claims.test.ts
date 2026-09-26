@@ -18,6 +18,7 @@ import {
   PLAYBOOK,
   resetAutopilot,
   resetWebRules,
+  retractUnbackedCopy,
   setAutopilot,
   simulateWebTraffic,
   stepAutopilot,
@@ -179,6 +180,19 @@ describe("autopilot never publishes an invented claim", () => {
     expect(listRules(SITE).find((r) => r.id === old.id)?.outcome?.reason).toMatch(/★ 4\.8\/5/);
     expect(listRules(SITE).find((r) => r.id === honest.id)?.status).toBe("running");
     expect(actions.find((a) => a.ruleId === old.id)).toMatchObject({ kind: "stopped" });
+  });
+
+  it("takes it down when autopilot is switched off too (no step needed), but not when the page can't be read", () => {
+    const old = createRule(
+      { site: SITE, name: "Offer banner for ad clicks", audience: { sources: ["paid"] }, changes: [{ action: "banner", value: "Free delivery on your first order" }], mode: "test", author: "autopilot" },
+      "running",
+    );
+    setAutopilot(SITE, false);
+    expect(retractUnbackedCopy(SITE, []).log.some((e) => e.ruleId === old.id)).toBe(false);
+    expect(listRules(SITE)[0].status).toBe("running");
+    const state = retractUnbackedCopy(SITE, demo);
+    expect(state.log[0]).toMatchObject({ kind: "stopped", ruleId: old.id });
+    expect(listRules(SITE)[0].status).toBe("paused");
   });
 });
 

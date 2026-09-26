@@ -95,6 +95,36 @@ export function judge(res: WebRuleResult | undefined): { decision: "shipped" | "
   return undefined;
 }
 
+/** Pause live autopilot rules whose copy makes a claim the page doesn't (needs the page's outline). */
+function takeDown(site: string, outline: PageElement[]): WebAutopilotEntry[] {
+  if (!outline.length) return []; // page unreadable: can't tell, so don't guess
+  const page = pageTexts(outline);
+  const out: WebAutopilotEntry[] = [];
+  for (const rule of listRules(site).filter((r) => r.author === "autopilot" && (r.status === "running" || r.status === "shipped"))) {
+    const claims = [...new Set(rule.changes.flatMap((c) => (c.action === "style" ? [] : unverifiedClaims(c.value, page))))];
+    if (!claims.length) continue;
+    const list = claims.map((c) => `“${c}”`).join(", ");
+    endRule(rule.id, { decision: "stopped", reason: `its copy says ${list}, which isn't on your page`, at: new Date().toISOString(), by: "autopilot" });
+    out.push(
+      entry("stopped", `Took down “${rule.name}” for ${who(rule)}: its copy says ${list}, and Darwin can't find that on your page. It only publishes what your page already says.`, {
+        ruleId: rule.id,
+        source: rule.audience.sources?.[0],
+      }),
+    );
+  }
+  return out;
+}
+
+/**
+ * Take down live autopilot copy the page doesn't back up, and log it. Runs on every step, and when autopilot
+ * is switched on or off, so copy an older Darwin made up leaves the live page even while autopilot is off.
+ */
+export function retractUnbackedCopy(site: string, outline: PageElement[]): WebAutopilotState {
+  const taken = takeDown(site, outline);
+  const state = getAutopilot(site);
+  return taken.length ? save({ ...state, log: [...taken].reverse().concat(state.log) }) : state;
+}
+
 /** One autopilot step for a site. Runs even when autopilot is off (the console only calls it when on). */
 export function stepAutopilot(site: string, outline: PageElement[] = []): { state: WebAutopilotState; actions: WebAutopilotEntry[] } {
   const state = getAutopilot(site);
@@ -104,17 +134,8 @@ export function stepAutopilot(site: string, outline: PageElement[] = []): { stat
   const { overview, results } = computeSite(site, rules, eventStore().all());
 
   // 0. Take down live autopilot copy that states something the page doesn't (e.g. an old "★ 4.8/5" badge).
-  if (outline.length) {
-    const page = pageTexts(outline);
-    for (const rule of rules.filter((r) => r.author === "autopilot" && (r.status === "running" || r.status === "shipped"))) {
-      const claims = [...new Set(rule.changes.flatMap((c) => (c.action === "style" ? [] : unverifiedClaims(c.value, page))))];
-      if (!claims.length) continue;
-      const list = claims.map((c) => `“${c}”`).join(", ");
-      endRule(rule.id, { decision: "stopped", reason: `its copy says ${list}, which isn't on your page`, at: new Date().toISOString(), by: "autopilot" });
-      actions.push(entry("stopped", `Took down “${rule.name}” for ${who(rule)}: its copy says ${list}, and Darwin can't find that on your page. It only publishes what your page already says.`, { ruleId: rule.id, source: rule.audience.sources?.[0] }));
-    }
-    rules = listRules(site);
-  }
+  actions.push(...takeDown(site, outline));
+  rules = listRules(site);
 
   // 1. Decide running tests.
   for (const rule of rules.filter((r) => r.status === "running" && r.mode === "test")) {

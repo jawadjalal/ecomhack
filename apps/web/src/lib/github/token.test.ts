@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/github/status/route";
-import { checkGithubStatus, getGithubStatus, githubMode, inspectRepository, openAnalyticsInstallPR, resetTokenChecks, verifyGithubToken, TOKEN_CHECK_TTL_MS } from "./index";
-import { resetGithubState } from "./store";
+import { checkGithubStatus, connectRepository, getGithubStatus, githubMode, inspectRepository, openAnalyticsInstallPR, resetTokenChecks, verifyGithubToken, TOKEN_CHECK_TTL_MS } from "./index";
+import { resetGithubState, saveConnection } from "./store";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 /** GitHub that rejects every token: 401 Bad credentials. */
@@ -97,6 +97,16 @@ describe("the server's GitHub token is checked, not just present", () => {
     const calls = fetch.mock.calls.length;
     await openAnalyticsInstallPR({ owner: "acme", repo: "storefront" }, { host: "https://darwin.example.com" });
     expect(fetch.mock.calls.length).toBe(calls);
+  });
+
+  it("a repo connected while the token worked shows as previews once GitHub rejects it", async () => {
+    vi.stubEnv("GITHUB_TOKEN", "ghp_later_revoked");
+    vi.stubGlobal("fetch", vi.fn(async () => json(404, { message: "Not Found" })));
+    await connectRepository("acme/storefront", { host: "https://darwin.example.com" }).catch(() => undefined);
+    saveConnection({ ...getGithubStatus().connection!, mode: "live" });
+    expect(getGithubStatus().connection?.mode).toBe("live");
+    vi.stubGlobal("fetch", rejecting());
+    expect((await checkGithubStatus()).connection?.mode).toBe("offline");
   });
 
   it("GET /api/github/status reports the checked state", async () => {

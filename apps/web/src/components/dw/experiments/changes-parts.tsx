@@ -74,9 +74,13 @@ export function UpliftCards({ up, synthetic, shipped }: { up: Up; synthetic: boo
           <Pair label="AI agents" before={up.agent.before} now={up.agent.now} lift={up.agent.lift} delay={0.39} />
         </div>
         <p className="text-[12.5px] leading-snug text-dw-ink/60">
-          Share of shoppers who bought. Before: {count(n(up.base.humanVisitors, up.base.agentVisitors))} shoppers on Gen 0; now: {count(n(up.now.humanVisitors, up.now.agentVisitors))} on Gen{" "}
-          {up.now.generation}
-          {sim}. &ldquo;Everyone&rdquo; uses your usual mix of people and agents, so it only moves when the store does.
+          Share of shoppers who bought
+          {n(up.base.humanVisitors, up.base.agentVisitors) > 0 && n(up.now.humanVisitors, up.now.agentVisitors) > 0
+            ? `. Before: ${count(n(up.base.humanVisitors, up.base.agentVisitors))} shoppers on Gen 0; now: ${count(n(up.now.humanVisitors, up.now.agentVisitors))} on Gen ${up.now.generation}${sim}`
+            : synthetic
+              ? ", simulated shoppers"
+              : ""}
+          . &ldquo;Everyone&rdquo; uses your usual mix of people and agents, so it only moves when the store does.
         </p>
       </Card>
 
@@ -170,10 +174,10 @@ function Settings({ diff }: { diff: string[] }) {
     <div className="flex flex-wrap items-center gap-1.5">
       {lines.slice(0, 3).map((l) => (
         <span key={l.path} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-dw-bg px-2.5 py-1 text-[12.5px]">
-          <span className="truncate">{settingLabel(l.path)}</span>
-          <span className="shrink-0 font-dwmono text-[11.5px] text-[#8A8478] line-through">{valueLabel(l.path, l.before)}</span>
+          <span className="min-w-[3rem] truncate">{settingLabel(l.path)}</span>
+          <span className="max-w-[6rem] shrink-0 truncate font-dwmono text-[11.5px] text-[#8A8478] line-through">{valueLabel(l.path, l.before)}</span>
           <ArrowRight className="size-3 shrink-0" aria-label="becomes" />
-          <span className="max-w-[10rem] shrink-0 truncate font-dwmono text-[11.5px] font-medium">{valueLabel(l.path, l.after)}</span>
+          <span className="max-w-[8rem] min-w-0 truncate font-dwmono text-[11.5px] font-medium">{valueLabel(l.path, l.after)}</span>
         </span>
       ))}
       {lines.length > 3 && <span className="text-[12.5px] text-dw-ink/55">+{lines.length - 3} more</span>}
@@ -267,7 +271,7 @@ export function Timeline(props: TimelineProps) {
                       aria-pressed={on}
                       className="min-w-0 flex-1 text-left text-[16px] leading-snug font-semibold outline-none after:absolute after:inset-0 after:rounded-[18px] focus-visible:after:ring-2 focus-visible:after:ring-dw-ink"
                     >
-                      <span className="mr-2 font-normal text-dw-ink/55">Gen {e.generation}</span>
+                      <span className="mr-2 font-normal text-dw-ink/55">Gen {e.generation}</span>{" "}
                       {e.title}
                     </button>
                     <span className="num shrink-0 text-[12.5px] text-dw-ink/55">{e.kind === "baseline" ? "" : timeAgo(e.record.shippedAt, now) === "now" ? "just now" : `${timeAgo(e.record.shippedAt, now)} ago`}</span>
