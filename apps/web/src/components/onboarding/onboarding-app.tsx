@@ -861,7 +861,7 @@ export function OnboardingApp() {
                           )}
                         >
                           {urlError ? <TriangleAlert className="size-3.5 shrink-0" /> : <ArrowUp className="size-3.5 shrink-0 max-sm:rotate-180" />}
-                          {urlError ?? "To continue, paste your store's address or connect GitHub. Whop is optional."}
+                          {urlError ?? "Add your store's address or connect GitHub to continue."}
                         </p>
                       )}
 
@@ -883,7 +883,7 @@ export function OnboardingApp() {
                           short="Connect Whop"
                           title="Optional: brings your Whop sales and refunds in"
                           value={whop ? whop.title : undefined}
-                          hint={whop?.mode === "offline" ? "demo" : undefined}
+                          hint={whop ? (whop.mode === "offline" ? "demo" : undefined) : "optional"}
                           active={open === "whop"}
                           onClick={() => setOpen(open === "whop" ? null : "whop")}
                         />
@@ -1721,7 +1721,7 @@ function SaveAndRecord({ site, saved, onDone }: { site: string; saved: SavedAcco
       aria-label="Save your setup"
     >
       <label htmlFor="dwo-email" className="block text-[15px] font-semibold">
-        Save your setup
+        Save your setup <span className="font-normal text-dw-ink/50">(optional)</span>
       </label>
       <p className="mt-0.5 text-[13.5px] leading-snug text-dw-ink/60">Your email, and Darwin gives you a link to come back from any device.</p>
       <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center">

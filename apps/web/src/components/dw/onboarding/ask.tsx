@@ -204,7 +204,7 @@ export function AskChat({
               and <b className="font-semibold text-dw-ink">{whop}</b> on Whop
             </>
           ) : null}
-          . Two quick questions.
+          . Two quick questions <span className="text-dw-ink/50">(optional)</span>.
         </AgentBubble>
       </motion.div>
 

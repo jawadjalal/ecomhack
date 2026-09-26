@@ -47,7 +47,9 @@ export function YourTools({ value, onChange, className }: { value: string[]; onC
 
   return (
     <Card tone="white" hover={false} className={cn("p-5 max-sm:border-0 max-sm:bg-transparent! max-sm:px-0 sm:p-6", className)} aria-label="Your tools">
-      <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">How do you like to work?</h2>
+      <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.02em]">
+        How do you like to work? <span className="text-[14px] font-normal tracking-normal text-dw-ink/50">(optional)</span>
+      </h2>
       <p className="mt-1 text-[13.5px] text-dw-ink/60">Pick any. Darwin fits in around it.</p>
       <div className="mt-3.5 flex flex-wrap gap-2" role="group" aria-label="How you like to work">
         {TOOL_OPTIONS.map((o) => {
